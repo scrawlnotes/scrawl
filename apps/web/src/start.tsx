@@ -44,16 +44,16 @@ onTurn(applySize);
 keepTyping();
 
 // In the browser, a sign-in that went to Microsoft is finished first, or an old one renewed, in
-// which case the page leaves before anything is drawn.
+// which case the page leaves before anything is drawn. Then a new version that waits on the
+// device is gone over to, before the app draws and syncs anything (design/sync-gate.md 2).
 const connection = keptConnection();
-void prepareSignIn(connection && connection.account.email).then((stay) => {
-  if (!stay) return;
+void prepareSignIn(connection && connection.account.email).then(async (stay) => {
+  if (!stay || !(await startWebApp())) return;
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <App />
       <BootGoes />
     </StrictMode>,
   );
-  startWebApp();
   startDesktopUpdates();
 });

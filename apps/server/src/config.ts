@@ -18,6 +18,14 @@ export interface Config {
 
 export const VERSION = '0.2.22';
 
+/**
+ * The lowest sync level a device must tell in its Scrawl-Sync header to sync a space here
+ * (design/sync-gate.md 3.3): one below it, or without the header, is refused before it does
+ * anything. 0 refuses none. Raised only once the apps of that level are out: before, every device
+ * would stop syncing.
+ */
+export const MIN_SYNC_LEVEL = 0;
+
 /** How long a new server can be set up after it started, without an account. */
 export const SETUP_MS = 60 * 60 * 1000;
 

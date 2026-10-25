@@ -11,6 +11,7 @@ import {
   parseSpace,
   RemoteFolderGone,
   RemoteMoved,
+  RemoteNeedsNewer,
   RemoteOffline,
   RemoteSignedOut,
   type RemoteStore,
@@ -28,7 +29,9 @@ import {
 import { t } from '@scrawlnotes/i18n';
 import { type Cloud, oneDrive, type SignInIntent, signInSettled, takeSignInResult } from './cloud';
 import type { Session, SpaceView } from './session';
+import { desktopUpdateReady, restartIntoUpdate } from './desktopUpdate';
 import { isPhone, LEAVE_OVER } from './device';
+import { openingUpdate, reloadIntoUpdate, webUpdateReady } from './pwa';
 import { type KnownServer, serverKey, serverRemote, type SignInWhy, signedOutHere, signOutOf } from './servers';
 import { isDesktop, vaultFolder } from './storage';
 
@@ -100,9 +103,9 @@ export function sourceOf(connection: Pick<Connection, 'provider' | 'account' | '
 
 /**
  * How sync stands: off (not connected), resting between turns, in a turn, or kept from going on:
- * no network, signed out, the folder gone, or another error.
+ * no network, signed out, the folder gone, a newer version synced the space, or another error.
  */
-export type SyncPhase = 'off' | 'idle' | 'syncing' | 'offline' | 'signedOut' | 'folderGone' | 'moved' | 'failed';
+export type SyncPhase = 'off' | 'idle' | 'syncing' | 'offline' | 'signedOut' | 'folderGone' | 'moved' | 'update' | 'failed';
 
 /** A turn as the sync panel shows it: how it stands, or how it ended. */
 export interface TurnView {
@@ -139,9 +142,9 @@ export interface SpaceSync {
   /**
    * Why a space on a server stopped: this person was taken out of it, signed out of the server on
    * this device, or this device was never signed in to it (the server came with the personal
-   * space, from another device).
+   * space, from another device); or the server asks for a newer version to sync (`update`).
    */
-  why: 'removed' | 'left' | 'notYet' | null;
+  why: 'removed' | 'left' | 'notYet' | 'server' | null;
   /** The personal space moved on another device: where to, by which device, when. */
   moved: MovedMark | null;
 }
@@ -301,6 +304,8 @@ export class SyncService {
   private vault: VaultFs | null = null;
   /** The spaces beside it, as the session last showed them. */
   private spaces: SpaceView[] = [];
+  /** Turns wait as the app opens for the look for a new version (design/sync-gate.md 2). */
+  private looked = false;
 
   constructor(private readonly session: Session) {}
 
@@ -353,6 +358,19 @@ export class SyncService {
       this.session.deviceName = device.name;
       this.session.deviceId = device.id;
       void this.session.carry();
+      this.syncNow();
+    });
+    // They wait too for the look for a new version as the app opens: one that comes down while
+    // nothing was done yet is gone over to before anything syncs, so that an old version kept on
+    // the device does not sync first (design/sync-gate.md 2).
+    void openingUpdate().then(async (found) => {
+      if (found) {
+        await this.session.beforeSync();
+        reloadIntoUpdate();
+        // Should the page not go over to it, it syncs as it is: the space's level keeps an old version from undoing anything.
+        await new Promise((resolve) => window.setTimeout(resolve, 5000));
+      }
+      this.looked = true;
       this.syncNow();
     });
     let wasSaved = true;
@@ -589,10 +607,23 @@ export class SyncService {
     const keys = space === undefined ? [...this.units.keys()] : [space ?? PERSONAL];
     for (const key of keys) {
       const unit = this.units.get(key);
-      if (!unit || unit.gone || !unit.connection || !this.snapshot.device.id || unit.phase === 'moved') continue;
+      if (!unit || unit.gone || !unit.connection || !this.snapshot.device.id || !this.looked || unit.phase === 'moved' || unit.phase === 'update') continue;
       if (unit.running) unit.again = true;
       else unit.running = this.turn(unit);
     }
+  }
+
+  /**
+   * Goes over to a newer version, for a space a newer one synced (design/sync-gate.md 3.4): it is
+   * looked for, and once it is downloaded the page reloads into it, or the desktop app restarts
+   * into it. False when none is found.
+   */
+  async updateApp(): Promise<boolean> {
+    if (!(isDesktop ? await desktopUpdateReady() : await webUpdateReady())) return false;
+    await this.session.beforeSync();
+    if (isDesktop) await restartIntoUpdate();
+    else reloadIntoUpdate();
+    return true;
   }
 
   private storeFor(unit: Unit): RemoteStore {
@@ -670,6 +701,8 @@ export class SyncService {
       else if (error instanceof RemoteFolderGone) this.change(unit, { phase: 'folderGone', why: error.removed ? 'removed' : null, turn, lastDone });
       // Moved on another device: nothing was done, and no turn goes until this device follows.
       else if (error instanceof RemoteMoved) this.change(unit, { phase: 'moved', moved: error.mark, turn, lastDone });
+      // A newer version synced it: nothing was done, and no turn goes until this one is updated.
+      else if (error instanceof RemoteNeedsNewer) this.change(unit, { phase: 'update', why: error.level === null ? 'server' : null, turn, lastDone });
       else this.change(unit, { phase: 'failed', error: error instanceof Error ? error.message : String(error), turn, lastDone });
       if (!missed) unit.missed = false;
     } finally {

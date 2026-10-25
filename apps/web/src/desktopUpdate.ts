@@ -58,3 +58,21 @@ export const checkForUpdates = () => invoke<UpdateStatus>('update_check').then(s
 
 /** Installs the update downloaded and opens the new version; the app closes on the way. */
 export const restartIntoUpdate = () => invoke('update_restart');
+
+/**
+ * Looks for an update and resolves once it is downloaded, for a space a newer version synced
+ * (design/sync-gate.md 3.4): true then, to restart into it; false when none is found or the look fails.
+ */
+export async function desktopUpdateReady(): Promise<boolean> {
+  if (status.state !== 'ready') await checkForUpdates().catch(() => undefined);
+  return new Promise<boolean>((resolve) => {
+    const settle = () => {
+      if (status.state === 'ready') resolve(true);
+      else if (status.state === 'upToDate' || status.state === 'failed' || status.state === 'idle') resolve(false);
+      else return;
+      listeners.delete(settle);
+    };
+    listeners.add(settle);
+    settle();
+  });
+}

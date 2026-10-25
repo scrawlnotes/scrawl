@@ -68,7 +68,9 @@ export {
   type RemoteFile,
   RemoteFolderGone,
   RemoteMoved,
+  RemoteNeedsNewer,
   RemoteOffline,
   RemoteSignedOut,
   type RemoteStore,
 } from './remote';
+export { LEVEL_FILE, parseLevel, serializeLevel, SYNC_LEVEL } from './level';

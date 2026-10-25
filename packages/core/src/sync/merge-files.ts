@@ -12,11 +12,12 @@ import { mergePeople, parsePeople } from '../people';
 import { mergeQuickOrders, parseQuickOrder, QUICK_NOTES_FILE, serializeQuickOrder } from '../quick-notes';
 import { parseSpace, serializeSpace } from '../space';
 import { parseList, serializeList, type Task, type TaskEntry, type Section, TASK_LIST_EXT } from '../tasks';
+import { LEVEL_FILE, mergeLevels, parseLevel } from './level';
 import { canonical, mergeFields, mergeOrder, mergeRecords, mergeValue, spreadOrder } from './merge-records';
 
 // Merging a file changed on both sides, by what kind of file it is. See design/sync.md, section 5.
 
-export type MergeKind = 'text' | 'tasks' | 'board' | 'filters' | 'favorites' | 'labels' | 'quickNotes' | 'space' | 'me' | 'people' | 'agents' | 'trash';
+export type MergeKind = 'text' | 'tasks' | 'board' | 'filters' | 'favorites' | 'labels' | 'quickNotes' | 'space' | 'me' | 'people' | 'agents' | 'trash' | 'syncLevel';
 
 const TRASH_INDEX = '.scrawl/trash/index.json';
 
@@ -37,6 +38,7 @@ export function mergeKindOf(path: string): MergeKind | null {
   if (lower === '.scrawl/people.json') return 'people';
   if (lower === '.scrawl/agents.json') return 'agents';
   if (lower === TRASH_INDEX) return 'trash';
+  if (lower === LEVEL_FILE) return 'syncLevel';
   return null;
 }
 
@@ -293,6 +295,7 @@ const MERGERS: Record<Exclude<MergeKind, 'text'>, (base: string, local: string, 
   people: mergePeople,
   agents: mergeAgents,
   trash: mergeTrash,
+  syncLevel: mergeLevels,
 };
 
 /** The structure a file of a kind is read into, to tell whether two writings of it say the same. */
@@ -308,6 +311,7 @@ const READERS: Record<Exclude<MergeKind, 'text'>, (text: string) => unknown> = {
   people: parsePeople,
   agents: parseAgents,
   trash: parseTrashIndex,
+  syncLevel: parseLevel,
 };
 
 /**

@@ -3,10 +3,11 @@ import { freePath, splitName } from '../paths';
 import { deletedSince, trashedHere, trashItem } from '../vault';
 import { finishAwayOps, mayStayAway, readAwayOps } from './away';
 import { sha256 } from './hash';
+import { LEVEL_FILE, parseLevel, serializeLevel, SYNC_LEVEL } from './level';
 import { mergeFile, mergeKindOf } from './merge-files';
 import { isSynced, keyOf } from './paths';
 import { movedAt, parseMoved } from './moved';
-import { type RemoteChanges, RemoteConflict, type RemoteFile, RemoteMoved, type RemoteStore } from './remote';
+import { type RemoteChanges, RemoteConflict, type RemoteFile, RemoteMoved, RemoteNeedsNewer, type RemoteStore } from './remote';
 import { dropBase, type FileRecord, loadSyncState, moveBase, readBase, saveSyncState, type SyncState, writeBase } from './state';
 
 // One turn of syncing a space with its remote. Each path is told against the base it had when it
@@ -171,6 +172,10 @@ class Turn {
    * as it is there, and no listing from the cursor will tell otherwise.
    */
   private stale = false;
+  /** The space's level as the turn found it, from its level file there. */
+  private levelThere = 0;
+  /** The level file as read there to tell the level, so that bringing it here does not read it again. */
+  private levelRead: { tag: string; data: Blob } | null = null;
 
   constructor(
     private readonly fs: VaultFs,
@@ -194,6 +199,7 @@ class Turn {
       this.tell();
     });
     await this.stopIfMoved(listing);
+    await this.stopIfNewer(listing);
     for (const entry of listing.changed) {
       if (!isSynced(entry.path)) continue;
       if (entry.kind === 'dir') this.remoteDirs.set(keyOf(entry.path), entry.path);
@@ -281,6 +287,7 @@ class Turn {
       else await run();
     }
     await this.folders();
+    await this.raiseLevel();
 
     // Files that are the same but were touched keep their new time, so they are not read again.
     for (const [key, [here]] of status) {
@@ -431,6 +438,23 @@ class Turn {
     if (mark) throw new RemoteMoved(mark);
   }
 
+  /**
+   * A newer Scrawl synced the space: its level file says a level above this version's, and the
+   * turn stops before anything is done, here or there. The file is read there when the listing
+   * tells it changed since this device synced it, and here otherwise, where it is as last synced.
+   */
+  private async stopIfNewer(listing: RemoteChanges): Promise<void> {
+    const key = keyOf(LEVEL_FILE);
+    const entry = listing.changed.find((e): e is RemoteFile => e.kind === 'file' && keyOf(e.path) === key);
+    let text: string;
+    if (entry !== undefined && entry.tag !== this.state.files[key]?.tag) {
+      this.levelRead = { tag: entry.tag, data: await this.remote.read(entry.path) };
+      text = await this.levelRead.data.text();
+    } else text = await this.fs.readText(LEVEL_FILE).catch(() => '');
+    this.levelThere = parseLevel(text);
+    if (this.levelThere > SYNC_LEVEL) throw new RemoteNeedsNewer(this.levelThere);
+  }
+
   private async moves(): Promise<void> {
     const records = this.state.files;
     // Moved here: a record whose file is gone, and a new file with its digest.
@@ -506,7 +530,7 @@ class Turn {
   private async download(key: string): Promise<void> {
     const file = this.remoteFiles.get(key)!;
     const path = this.local.files.get(key)?.path ?? file.path;
-    const data = await this.remote.read(file.path, this.sent);
+    const data = this.levelRead?.tag === file.tag && key === keyOf(LEVEL_FILE) ? this.levelRead.data : await this.remote.read(file.path, this.sent);
     if (!(await this.untouched(key, path))) return;
     await this.fs.writeBlob(path, data);
     await this.keep(key, path, file.tag, data);
@@ -779,6 +803,23 @@ class Turn {
         delete this.state.dirs[key];
       }
     }
+  }
+
+  /**
+   * A turn that went through raises the space's level to this version's: a version below it does
+   * nothing there from then on. It is written there first, while the file is as this device last
+   * saw it, so that two devices raising it at once cannot both write; the one refused finds it
+   * raised the next turn. A level is never lowered.
+   */
+  private async raiseLevel(): Promise<void> {
+    if (this.levelThere >= SYNC_LEVEL) return;
+    const key = keyOf(LEVEL_FILE);
+    const data = new Blob([serializeLevel(SYNC_LEVEL)]);
+    await this.attempt(LEVEL_FILE, async () => {
+      const sent = await this.remote.write(LEVEL_FILE, data, this.state.files[key]?.tag ?? null);
+      await this.fs.writeBlob(LEVEL_FILE, data);
+      await this.keep(key, LEVEL_FILE, sent.tag, data);
+    });
   }
 
   // ---------- the state ----------

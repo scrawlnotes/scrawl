@@ -213,6 +213,13 @@ describe('merging a board', () => {
 });
 
 describe('merging the files of a space', () => {
+  it('keeps the higher of two levels a space was raised to at once', () => {
+    expect(mergeKindOf('.scrawl/sync.json')).toBe('syncLevel');
+    const level = (n: number) => `${JSON.stringify({ version: 1, level: n }, null, 2)}\n`;
+    expect(JSON.parse(merged('syncLevel', level(1), level(2), level(1))).level).toBe(2);
+    expect(JSON.parse(merged('syncLevel', '', level(1), level(3))).level).toBe(3);
+  });
+
   it('merges saved filters by id and the trash index by name', () => {
     const filters = (names: string[]) => `${JSON.stringify({ version: 1, filters: names.map((name) => ({ id: name, name, due: 'any', priorities: [], folders: [], text: '' })) })}\n`;
     expect(JSON.parse(merged('filters', filters(['a']), filters(['a', 'b']), filters(['a', 'c']))).filters.map((f: { id: string }) => f.id).sort()).toEqual(['a', 'b', 'c']);

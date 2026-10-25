@@ -27,6 +27,7 @@ import {
   STATUS,
   TAB_LABEL,
   turnLine,
+  updateLong,
   useFolderChoice,
   useSharedFolder,
   useTicking,
@@ -311,7 +312,9 @@ export function PhoneSyncPage({ space, values, frame }: { space: string | null; 
   // What mends what keeps it from going on, where something does: signing in again; for the
   // personal space, another folder.
   const mend =
-    phase === 'signedOut'
+    phase === 'update'
+      ? { label: t('status.reload'), run: () => void service.updateApp() }
+      : phase === 'signedOut'
       ? { label: signInLabel(unit), run: () => (connection?.server ? service.askServerSignIn(connection.server, connection.account.email) : void signIn()) }
       : phase === 'folderGone' && personal && connection && !connection.server
         ? { label: t('sync.chooseFolder'), run: () => setPicking(connection.account) }
@@ -347,7 +350,9 @@ export function PhoneSyncPage({ space, values, frame }: { space: string | null; 
           </span>
         )}
         <div className="sub">
-          {phase === 'moved' && unit.moved
+          {phase === 'update'
+            ? updateLong(unit.why)
+            : phase === 'moved' && unit.moved
             ? t('phone.movedText', { device: unit.moved.by || t('personal.anotherDevice'), place: placeOf(unit.moved.to), day: new Date(unit.moved.at).toLocaleDateString(locale(), { month: 'short', day: 'numeric' }) })
             : turnLine(unit, running, doneFrom)}
         </div>

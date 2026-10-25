@@ -1,10 +1,12 @@
 import { sha256 } from './hash';
+import { SYNC_LEVEL } from './level';
 import {
   RemoteConflict,
   type RemoteChanges,
   type RemoteEntry,
   type RemoteFile,
   RemoteFolderGone,
+  RemoteNeedsNewer,
   RemoteOffline,
   RemoteSignedOut,
   type RemoteStore,
@@ -59,13 +61,18 @@ const encodePath = (path: string) => path.split('/').map(encodeURIComponent).joi
 export class ServerClient {
   private readonly fetch: typeof fetch;
 
-  constructor(private readonly options: ServerOptions) {
+  constructor(
+    private readonly options: ServerOptions,
+    /** Headers every request of this client carries. */
+    private readonly always: Record<string, string> = {},
+  ) {
     this.fetch = options.fetch ?? ((input, init) => globalThis.fetch(input, init));
   }
 
   /** The answer as it comes, but for a server out of reach and, when `signed`, a key it no longer takes. */
   async request(path: string, init: RequestInit = {}, signed = true): Promise<Response> {
     const headers = new Headers(init.headers);
+    for (const [name, value] of Object.entries(this.always)) headers.set(name, value);
     if (signed) {
       const token = await this.options.token();
       if (!token) throw new RemoteSignedOut(true);
@@ -106,7 +113,8 @@ export class ServerRemote implements RemoteStore {
   private readonly base: string;
 
   constructor(options: ServerOptions & { space: string }) {
-    this.client = new ServerClient(options);
+    // The server refuses to sync with a version below the level it asks for (design/sync-gate.md 3.3).
+    this.client = new ServerClient(options, { 'Scrawl-Sync': String(SYNC_LEVEL) });
     this.base = `/spaces/${encodeURIComponent(options.space)}`;
   }
 
@@ -181,9 +189,13 @@ export class ServerRemote implements RemoteStore {
     return (await response.json()) as T;
   }
 
-  /** A refusal as the engine knows it: the file not as last seen, the space gone or not this person's, or the server's own word. */
+  /**
+   * A refusal as the engine knows it: the file not as last seen, the space gone or not this
+   * person's, a version too old to sync there, or the server's own word.
+   */
   private async fail(response: Response, path = ''): Promise<never> {
     const error = await errorOf(response);
+    if (error.code === 'update-app') throw new RemoteNeedsNewer();
     if (response.status === 412 || error.code === 'no-file') throw new RemoteConflict(path);
     if (error.code === 'no-space' || error.code === 'not-member') throw new RemoteFolderGone(error.code === 'not-member');
     throw error;

@@ -5,6 +5,7 @@ import {
   MemoryFs,
   RemoteConflict,
   RemoteFolderGone,
+  RemoteNeedsNewer,
   RemoteSignedOut,
   ServerAccount,
   ServerRemote,
@@ -30,11 +31,11 @@ afterEach(() => {
   }
 });
 
-function start(options: { ownerEmail?: string; pageSize?: number } = {}) {
+function start(options: { ownerEmail?: string; pageSize?: number; minSyncLevel?: number } = {}) {
   const data = mkdtempSync(join(tmpdir(), 'scrawl-server-'));
   let clock = Date.UTC(2026, 9, 15, 10, 0);
   const config: Config = { url: URL, port: 0, data, maxFileBytes: 1024 * 1024, ownerEmail: options.ownerEmail ?? null, appUrl: 'https://app.scrawlnotes.com' };
-  const server = makeServer(config, { now: () => clock, ...(options.pageSize && { pageSize: options.pageSize }) });
+  const server = makeServer(config, { now: () => clock, ...(options.pageSize && { pageSize: options.pageSize }), ...(options.minSyncLevel !== undefined && { minSyncLevel: options.minSyncLevel }) });
   opened.push({
     data,
     close: () => {
@@ -236,5 +237,61 @@ describe('two devices on one space', () => {
     await sync(phone, PHONE, phoneKey);
     const again = await sync(laptop, LAPTOP, laptopKey);
     expect([...again.uploaded, ...again.downloaded, ...again.merged, ...again.conflicts, ...again.removedHere, ...again.removedThere]).toEqual([]);
+  });
+});
+
+describe('the sync gate', () => {
+  const LAPTOP: SyncDevice = { id: 'laptop-id', name: 'Laptop' };
+  const api = (s: ReturnType<typeof start>, token: string, path: string, init: RequestInit = {}) =>
+    s.fetch(`${URL}/api/v1/spaces/${SPACE}${path}`, { ...init, headers: { Authorization: `Bearer ${token}`, ...(init.headers as Record<string, string>) } });
+
+  it('refuses a device without a level, or below the one it asks for, before it lists or writes; reading a file stays open', async () => {
+    const s = start({ minSyncLevel: 1 });
+    const token = await owner(s);
+    // The app of this level syncs as before.
+    const laptop = new MemoryFs();
+    await laptop.writeText('Sales/Plan.md', '# Plan');
+    expect((await syncOnce(laptop, s.remote(token), LAPTOP, { saveEveryMs: 0 })).uploaded).toContain('Sales/Plan.md');
+
+    // A version from before the gate sends no level: each call of a turn is refused, and nothing changes.
+    const json = { 'Content-Type': 'application/json' };
+    const calls: [string, RequestInit][] = [
+      ['/changes', {}],
+      ['/files/Sales/New.md', { method: 'PUT', headers: { 'If-None-Match': '*' }, body: 'new' }],
+      ['/files/Sales/Plan.md', { method: 'DELETE' }],
+      ['/move', { method: 'POST', headers: json, body: JSON.stringify({ from: 'Sales/Plan.md', to: 'Plan.md', ifMatch: null }) }],
+      ['/dirs', { method: 'POST', headers: json, body: JSON.stringify({ path: 'Projects' }) }],
+    ];
+    for (const [path, init] of calls) {
+      const response = await api(s, token, path, init);
+      expect(response.status).toBe(426);
+      expect(((await response.json()) as { error: { code: string } }).error.code).toBe('update-app');
+      expect((await api(s, token, path, { ...init, headers: { ...(init.headers as Record<string, string>), 'Scrawl-Sync': '0' } })).status).toBe(426);
+    }
+    expect((await s.remote(token).changes(null)).changed.map((e) => e.path)).toEqual(['.scrawl', '.scrawl/sync.json', 'Sales', 'Sales/Plan.md']);
+    const read = await api(s, token, '/files/Sales/Plan.md');
+    expect(read.status).toBe(200);
+    expect(await read.text()).toBe('# Plan');
+  });
+
+  it('tells the app it is too old when the server asks for a higher level than it has', async () => {
+    const s = start({ minSyncLevel: 99 });
+    const token = await owner(s);
+    const laptop = new MemoryFs();
+    await laptop.writeText('Plan.md', 'plan');
+    expect(await refusal(s.remote(token).changes(null))).toBeInstanceOf(RemoteNeedsNewer);
+    expect(await refusal(syncOnce(laptop, s.remote(token), LAPTOP, { saveEveryMs: 0 }))).toBeInstanceOf(RemoteNeedsNewer);
+    expect(await laptop.stat('.scrawl/sync-state.json')).toBeNull();
+  });
+
+  it('refuses none while it asks for no level, and lets a browser send the header', async () => {
+    const s = start();
+    const token = await owner(s);
+    expect((await api(s, token, '/changes')).status).toBe(200);
+    const preflight = await s.fetch(`${URL}/api/v1/spaces/${SPACE}/changes`, {
+      method: 'OPTIONS',
+      headers: { Origin: 'https://app.scrawlnotes.com', 'Access-Control-Request-Method': 'GET', 'Access-Control-Request-Headers': 'authorization,scrawl-sync' },
+    });
+    expect(preflight.headers.get('Access-Control-Allow-Headers')?.toLowerCase()).toContain('scrawl-sync');
   });
 });

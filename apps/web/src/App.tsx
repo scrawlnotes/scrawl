@@ -3266,6 +3266,7 @@ export function App() {
               onSyncNow={(space) => syncService.syncNow(space)}
               onSettings={(space) => setDialog({ kind: 'settings', section: 'spaces', space })}
               onSignIn={signInFor}
+              onUpdate={() => syncService.updateApp()}
               onOpenCopy={(path) => void session.open(path)}
             />
           </footer>

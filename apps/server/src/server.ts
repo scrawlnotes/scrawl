@@ -14,7 +14,10 @@ import { Push, type Sender, vapidKeys } from './push';
 import { Spaces } from './spaces';
 
 /** The server's parts on its data folder, and its app; for running it and for tests. */
-export function makeServer(config: Config, options: { now?: () => number; pageSize?: number; fetchDoc?: typeof fetch; sender?: Sender; later?: (run: () => void, ms: number) => ReturnType<typeof setTimeout> } = {}) {
+export function makeServer(
+  config: Config,
+  options: { now?: () => number; pageSize?: number; fetchDoc?: typeof fetch; sender?: Sender; later?: (run: () => void, ms: number) => ReturnType<typeof setTimeout>; minSyncLevel?: number } = {},
+) {
   const now = options.now ?? Date.now;
   mkdirSync(config.data, { recursive: true });
   const db: Db = openDb(join(config.data, 'scrawl.db'));
@@ -34,6 +37,6 @@ export function makeServer(config: Config, options: { now?: () => number; pageSi
   const subject = config.url.startsWith('https://') ? config.url : 'mailto:push@scrawlnotes.com';
   const push = new Push(db, live, chats, vapidKeys(join(config.data, 'vapid.json')), subject, config.url, options.sender, options.later);
   chats.onSent = (chat, message) => push.sent(chat, message);
-  const app = createApp({ config, blobs, files, accounts, spaces, live, invites, oauth, chats, push, now });
+  const app = createApp({ config, blobs, files, accounts, spaces, live, invites, oauth, chats, push, now, ...(options.minSyncLevel !== undefined && { minSyncLevel: options.minSyncLevel }) });
   return { db, blobs, files, accounts, spaces, live, invites, oauth, chats, push, app };
 }

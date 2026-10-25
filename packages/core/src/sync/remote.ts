@@ -96,6 +96,18 @@ export class RemoteFolderGone extends Error {
   }
 }
 
+/**
+ * A newer Scrawl synced this space, by a rule this version does not know: nothing was done here,
+ * and no turn goes until this version is updated (design/sync-gate.md).
+ */
+export class RemoteNeedsNewer extends Error {
+  /** @param level The space's level, where it is known: a server that refuses says none. */
+  constructor(readonly level: number | null = null) {
+    super('A newer version of Scrawl synced this space');
+    this.name = 'RemoteNeedsNewer';
+  }
+}
+
 /** The personal space moved from here to another place on another device; nothing was done here. */
 export class RemoteMoved extends Error {
   constructor(readonly mark: MovedMark) {

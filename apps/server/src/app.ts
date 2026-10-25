@@ -1,11 +1,11 @@
 import { PassThrough, Readable } from 'node:stream';
 import { rmSync } from 'node:fs';
 import { upgradeWebSocket } from '@hono/node-server';
-import { type Context, Hono } from 'hono';
+import { type Context, Hono, type MiddlewareHandler } from 'hono';
 import { cors } from 'hono/cors';
 import { type Account, type Accounts, Refused } from './auth';
 import { type Blobs, TooLarge } from './blobs';
-import { type Config, VERSION } from './config';
+import { type Config, MIN_SYNC_LEVEL, VERSION } from './config';
 import { BadPath, checkPath, Conflict, type SpaceFiles } from './files';
 import type { Chats } from './chat';
 import type { Push } from './push';
@@ -34,6 +34,8 @@ export interface Parts {
   push: Push;
   /** The server's clock, for what is measured against it. */
   now: () => number;
+  /** The lowest sync level a device must tell to sync here; `MIN_SYNC_LEVEL` unless a test gives another. */
+  minSyncLevel?: number;
 }
 
 type Env = { Variables: { account: Account; device: string } };
@@ -68,14 +70,14 @@ function pathIn(c: Context, space: string): string {
 const unquote = (tag: string) => tag.trim().replace(/^W\//, '').replace(/^"|"$/g, '');
 
 export function createApp(parts: Parts) {
-  const { config, blobs, files, accounts, spaces, live, invites, oauth, chats, push } = parts;
+  const { config, blobs, files, accounts, spaces, live, invites, oauth, chats, push, minSyncLevel = MIN_SYNC_LEVEL } = parts;
   const app = new Hono<Env>();
 
   app.use(
     '/api/*',
     cors({
       origin: '*',
-      allowHeaders: ['Authorization', 'Content-Type', 'If-Match', 'If-None-Match'],
+      allowHeaders: ['Authorization', 'Content-Type', 'If-Match', 'If-None-Match', 'Scrawl-Sync'],
       allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       exposeHeaders: ['ETag'],
       maxAge: 86400,
@@ -236,6 +238,13 @@ export function createApp(parts: Parts) {
     await next();
   });
   const actor = (c: Context<Env>) => ({ account: c.get('account').id, device: c.get('device') });
+  // A device of a version too old to sync here does nothing: its turn stops at the listing, before
+  // it writes (design/sync-gate.md 3.3). Reading a file stays open; it undoes nothing.
+  const syncing: MiddlewareHandler<Env> = async (c, next) => {
+    const level = Number.parseInt(c.req.header('Scrawl-Sync') ?? '', 10) || 0;
+    if (level < minSyncLevel) throw new Refused(426, 'update-app', 'This version of Scrawl is too old to sync. Reload the page, or update the app.');
+    await next();
+  };
 
   // Who is in a space, their roles, inviting, taking out.
   app.get('/api/v1/spaces/:id/members', (c) => c.json(spaces.members(c.req.param('id'))));
@@ -256,7 +265,7 @@ export function createApp(parts: Parts) {
   // Its rooms for Browse rooms (design/chat.md, 8.1).
   app.get('/api/v1/spaces/:id/rooms', (c) => c.json(chats.rooms(c.get('account').id, c.req.param('id'))));
 
-  app.get('/api/v1/spaces/:id/changes', (c) => {
+  app.get('/api/v1/spaces/:id/changes', syncing, (c) => {
     const cursor = c.req.query('cursor');
     const at = c.req.query('at');
     return c.json(
@@ -275,7 +284,7 @@ export function createApp(parts: Parts) {
     return c.body(stream, 200, { 'Content-Type': 'application/octet-stream', 'Content-Length': String(file.size), ETag: `"${file.hash}"` });
   });
 
-  app.put('/api/v1/spaces/:id/files/*', async (c) => {
+  app.put('/api/v1/spaces/:id/files/*', syncing, async (c) => {
     const space = c.req.param('id');
     const path = pathIn(c, space);
     const ifMatch = c.req.header('If-Match');
@@ -289,14 +298,14 @@ export function createApp(parts: Parts) {
     }
   });
 
-  app.delete('/api/v1/spaces/:id/files/*', (c) => {
+  app.delete('/api/v1/spaces/:id/files/*', syncing, (c) => {
     const space = c.req.param('id');
     const ifMatch = c.req.header('If-Match');
     files.remove(space, pathIn(c, space), ifMatch ? unquote(ifMatch) : null, actor(c));
     return c.body(null, 204);
   });
 
-  app.post('/api/v1/spaces/:id/move', async (c) => {
+  app.post('/api/v1/spaces/:id/move', syncing, async (c) => {
     const body = await json(c);
     const from = typeof body.from === 'string' ? checkPath(body.from) : '';
     const to = typeof body.to === 'string' ? checkPath(body.to) : '';
@@ -304,7 +313,7 @@ export function createApp(parts: Parts) {
     return c.json(files.move(c.req.param('id'), from, to, typeof body.ifMatch === 'string' ? body.ifMatch : null, actor(c)));
   });
 
-  app.post('/api/v1/spaces/:id/dirs', async (c) => {
+  app.post('/api/v1/spaces/:id/dirs', syncing, async (c) => {
     const body = await json(c);
     files.mkdir(c.req.param('id'), typeof body.path === 'string' ? body.path : '', actor(c));
     return c.body(null, 204);

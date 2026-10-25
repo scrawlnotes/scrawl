@@ -4,8 +4,9 @@ import { type Entry, MemoryFs, type VaultFs } from '../fs';
 import { parseList, serializeList, type Task } from '../tasks';
 import { deleteFromTrash, emptyTrash, readTrash, restoreFromTrash, trashFolder, trashItem, trashPiece } from '../vault';
 import { type SyncDevice, type SyncProgress, syncOnce } from './engine';
+import { LEVEL_FILE, parseLevel, serializeLevel, SYNC_LEVEL } from './level';
 import { isSynced } from './paths';
-import { MemoryRemote, type RemoteStore } from './remote';
+import { MemoryRemote, RemoteNeedsNewer, type RemoteStore } from './remote';
 
 // Two devices and a remote, as design/sync.md section 8 lists them.
 
@@ -21,10 +22,10 @@ function setup(hashes = false) {
   return { remote, laptop, phone, syncLaptop: (store?: RemoteStore) => run(laptop, LAPTOP, store), syncPhone: (store?: RemoteStore) => run(phone, PHONE, store) };
 }
 
-/** Every synced file of a device with its text, sorted by path. */
+/** Every synced file of a device with its text, sorted by path; but the space's level file, which a first turn writes (30.). */
 async function contents(fs: VaultFs, dir = '', out: Record<string, string> = {}): Promise<Record<string, string>> {
   for (const entry of await fs.list(dir)) {
-    if (!isSynced(entry.path)) continue;
+    if (!isSynced(entry.path) || entry.path === LEVEL_FILE) continue;
     if (entry.kind === 'dir') await contents(fs, entry.path, out);
     else out[entry.path] = await fs.readText(entry.path);
   }
@@ -83,7 +84,7 @@ describe('sync', () => {
     await laptop.writeText('Inbox.tasks.json', serializeList({ sections: [], tasks: [task('a')] }));
     await laptop.writeBlob('_attachments/photo.png', new Blob([new Uint8Array([1, 2, 3])]));
     await syncLaptop();
-    expect(remote.paths()).toEqual(['Inbox.tasks.json', 'Scrawl/Plan.md', '_attachments/photo.png']);
+    expect(remote.paths()).toEqual([LEVEL_FILE, 'Inbox.tasks.json', 'Scrawl/Plan.md', '_attachments/photo.png']);
     await syncPhone();
     expect(await contents(phone)).toEqual(await contents(laptop));
   });
@@ -151,7 +152,7 @@ describe('sync', () => {
     expect(await phone.readText(report.conflicts[0]!)).toBe('one\nlaptop');
     await syncLaptop();
     expect(await contents(laptop)).toEqual(await contents(phone));
-    expect(remote.paths()).toHaveLength(2);
+    expect(remote.paths().filter((path) => path !== LEVEL_FILE)).toHaveLength(2);
   });
 
   it('5. lets only one of two devices settling the same conflict at once write, and makes no copy twice', async () => {
@@ -324,8 +325,9 @@ describe('sync', () => {
     const sent = remote.calls.write;
     const report = await syncLaptop();
     expect(report.uploaded.sort()).toEqual(['Scrawl/c.md', 'Scrawl/d.md']);
-    expect(remote.calls.write - sent).toBe(2);
-    expect(remote.paths()).toHaveLength(4);
+    // And the space's level, which the turn cut off did not reach.
+    expect(remote.calls.write - sent).toBe(3);
+    expect(remote.paths()).toHaveLength(5);
   });
 
   it('14. never sends what stays on the device', async () => {
@@ -337,7 +339,7 @@ describe('sync', () => {
     await laptop.writeText('Scrawl/desktop.ini', '[x]');
     await laptop.writeText('.scrawl/space.json', '{"version":1,"name":"Home"}');
     await syncLaptop();
-    expect(remote.paths()).toEqual(['.scrawl/space.json', 'Scrawl/Plan.md']);
+    expect(remote.paths()).toEqual(['.scrawl/space.json', LEVEL_FILE, 'Scrawl/Plan.md']);
   });
 
   it('15. brings a folder deleted on one device back with the note changed in it on the other', async () => {
@@ -390,8 +392,9 @@ describe('sync', () => {
     }
     await syncLaptop();
     const report = await syncPhone();
-    expect(remote.calls.read).toBe(0);
-    expect(report.downloaded).toEqual([]);
+    // Only the space's level the laptop wrote, read once to tell it and kept.
+    expect(remote.calls.read).toBe(1);
+    expect(report.downloaded).toEqual([LEVEL_FILE]);
     expect(report.uploaded).toEqual([]);
   });
 
@@ -450,7 +453,7 @@ describe('sync', () => {
     const picky: RemoteStore = { ...interrupted(remote, 'write', async () => undefined), accepts: (path) => !/[:?]/.test(path) };
     const report = await syncLaptop(picky);
     expect(report.refused).toEqual(['Scrawl/What: now?.md']);
-    expect(remote.paths()).toEqual(['Scrawl/Plan.md']);
+    expect(remote.paths()).toEqual([LEVEL_FILE, 'Scrawl/Plan.md']);
     expect(await laptop.readText('Scrawl/What: now?.md')).toBe('x');
   });
 
@@ -520,7 +523,7 @@ describe('sync', () => {
     expect(await laptop.readText('Scrawl/Scribbles.md')).toBe('call the bank\nbuy milk\nbook the dinner\n');
     await syncPhone();
     expect(await contents(phone)).toEqual(await contents(laptop));
-    expect(remote.paths()).toEqual(['Scrawl/Scribbles.md']);
+    expect(remote.paths()).toEqual([LEVEL_FILE, 'Scrawl/Scribbles.md']);
   });
 
   describe('26. reads everything again when the other side refuses a file its listing told nothing of', () => {
@@ -731,6 +734,56 @@ describe('sync', () => {
       const kept = ['Client', 'Client/2026', 'Client/2026/Ideas'];
       expect(remote.dirPaths().filter(client)).toEqual(kept);
       for (const fs of [laptop, phone]) expect((await dirs(fs)).filter(client)).toEqual(kept);
+    });
+  });
+
+  describe('30. the space’s level: a version below the one that synced it does nothing there', () => {
+    it('a first turn writes it there and here, and the turns after read it here', async () => {
+      const { remote, laptop, phone, syncLaptop, syncPhone } = setup();
+      await laptop.writeText('Scrawl/Plan.md', 'plan');
+      await syncLaptop();
+      expect(parseLevel((await remote.text(LEVEL_FILE)) ?? '')).toBe(SYNC_LEVEL);
+      expect(parseLevel(await laptop.readText(LEVEL_FILE))).toBe(SYNC_LEVEL);
+      // The phone finds it raised: it brings it, and writes nothing of its own.
+      const writes = remote.calls.write;
+      expect((await syncPhone()).downloaded).toContain(LEVEL_FILE);
+      expect(remote.calls.write).toBe(writes);
+      expect(parseLevel(await phone.readText(LEVEL_FILE))).toBe(SYNC_LEVEL);
+    });
+
+    it('raised by a newer version, it stops the turn before anything is done, here or there', async () => {
+      const { remote, laptop, phone, syncLaptop, syncPhone } = setup();
+      await laptop.writeText('Scrawl/Plan.md', 'plan');
+      await syncLaptop();
+      await syncPhone();
+      // A newer version raises it, and writes a note by a rule this one does not know.
+      await remote.write(LEVEL_FILE, new Blob([serializeLevel(SYNC_LEVEL + 1)]), await tagOf(remote, LEVEL_FILE));
+      await remote.write('Scrawl/New.md', new Blob(['new']), null);
+      await laptop.writeText('Scrawl/Plan.md', 'plan, changed here');
+      await phone.remove('Scrawl/Plan.md');
+      const calls = { ...remote.calls };
+      for (const sync of [syncLaptop, syncPhone]) await expect(sync()).rejects.toBeInstanceOf(RemoteNeedsNewer);
+      // Only the level file was read, once by each; nothing went up, nothing came down.
+      expect(remote.calls).toEqual({ ...calls, read: calls.read + 2 });
+      expect(await remote.text('Scrawl/Plan.md')).toBe('plan');
+      expect(await laptop.stat('Scrawl/New.md')).toBeNull();
+      expect(parseLevel(await laptop.readText(LEVEL_FILE))).toBe(SYNC_LEVEL);
+      // Still stopped the next turn, though the listing tells nothing new: the level was not taken as seen.
+      await expect(syncLaptop()).rejects.toBeInstanceOf(RemoteNeedsNewer);
+    });
+
+    it('two devices raising it at once: one writes it, the other finds it raised, with no copy beside it', async () => {
+      const { remote, laptop, phone, syncLaptop, syncPhone } = setup();
+      await phone.writeText('Scrawl/Ideas.md', 'ideas');
+      await laptop.writeText('Scrawl/Plan.md', 'plan');
+      // While the phone sends its note, the laptop's first turn goes through and raises it.
+      await syncPhone(interrupted(remote, 'write', () => syncLaptop()));
+      await syncPhone();
+      await syncLaptop();
+      expect(remote.paths().filter((path) => path.startsWith('.scrawl/sync'))).toEqual([LEVEL_FILE]);
+      expect(parseLevel((await remote.text(LEVEL_FILE)) ?? '')).toBe(SYNC_LEVEL);
+      for (const fs of [laptop, phone]) expect(Object.keys(await contents(fs))).toEqual(['Scrawl/Ideas.md', 'Scrawl/Plan.md']);
+      expect(parseLevel(await phone.readText(LEVEL_FILE))).toBe(SYNC_LEVEL);
     });
   });
 

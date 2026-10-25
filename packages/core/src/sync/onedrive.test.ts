@@ -4,6 +4,7 @@ import { MemoryFs, type VaultFs } from '../fs';
 import { type SyncDevice, syncOnce } from './engine';
 import { FakeGraph } from './fake-graph';
 import { OneDriveAccount, OneDriveRemote, oneDriveTakes, UPLOAD_PART } from './onedrive';
+import { LEVEL_FILE } from './level';
 import { isSynced } from './paths';
 import { quickXorHash } from './quickxor';
 import { RemoteConflict, RemoteFolderGone, RemoteOffline, RemoteSignedOut } from './remote';
@@ -45,9 +46,10 @@ function setup() {
   };
 }
 
+/** Every synced file of a device with its text; but the space's level file, which a first turn writes. */
 async function contents(fs: VaultFs, dir = '', out: Record<string, string> = {}): Promise<Record<string, string>> {
   for (const entry of await fs.list(dir)) {
-    if (!isSynced(entry.path)) continue;
+    if (!isSynced(entry.path) || entry.path === LEVEL_FILE) continue;
     if (entry.kind === 'dir') await contents(fs, entry.path, out);
     else out[entry.path] = await fs.readText(entry.path);
   }
@@ -434,7 +436,7 @@ describe('sync through OneDrive', () => {
     await syncPhone();
     await syncLaptop();
     expect(Object.keys(await contents(laptop)).filter((p) => !p.startsWith('.scrawl/trash'))).toEqual(['Clients/Brief.md']);
-    expect(graph.paths('Scrawl')).toEqual(['Clients/Brief.md']);
+    expect(graph.paths('Scrawl')).toEqual([LEVEL_FILE, 'Clients/Brief.md']);
   });
 
   it('links a first sync of two full sides by digest, without reading files that are alike', async () => {
@@ -445,9 +447,10 @@ describe('sync through OneDrive', () => {
     }
     await syncLaptop();
     const report = await syncPhone();
-    expect(report.downloaded).toEqual([]);
+    // Only the space's level the laptop wrote.
+    expect(report.downloaded).toEqual([LEVEL_FILE]);
     expect(report.uploaded).toEqual([]);
-    expect(graph.calls.download ?? 0).toBe(0);
+    expect(graph.calls.download ?? 0).toBe(1);
   });
 
   it('keeps a name OneDrive does not take on the device, and tells it', async () => {
@@ -456,7 +459,7 @@ describe('sync through OneDrive', () => {
     await laptop.writeText('Inbox/Plan.md', 'plan');
     const report = await syncLaptop();
     expect(report.refused).toEqual(['Inbox/What: now?.md']);
-    expect(graph.paths('Scrawl')).toEqual(['Inbox/Plan.md']);
+    expect(graph.paths('Scrawl')).toEqual([LEVEL_FILE, 'Inbox/Plan.md']);
   });
 
   it('starts over from a full listing when its cursor is too old, losing and doubling nothing', async () => {

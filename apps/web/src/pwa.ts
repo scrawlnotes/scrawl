@@ -1,3 +1,4 @@
+import { lookAtOpening, waitingAtOpen } from './newVersion';
 import { isDesktop } from './storage';
 
 // The web app as an app of its own: its service worker, which keeps the app's files on the device
@@ -83,27 +84,100 @@ export async function checkForWebUpdate() {
   });
 }
 
-export function startWebApp() {
-  if (isDesktop) return;
+/** How long the page waits, as it opens, for its service worker before it is drawn all the same. */
+const REGISTER_MS = 3000;
+/** How long the page waits to go over to a version found waiting before it is drawn as it is. */
+const TAKE_OVER_MS = 3000;
+/** How long the first turn of syncing waits for a new version coming down as the app opens (design/sync-gate.md 2). */
+const OPENING_WAIT_MS = 60_000;
+
+/** Resolves with what `promise` gives, or with null after `ms`. */
+const within = <T>(promise: Promise<T>, ms: number) => Promise.race([promise, new Promise<null>((resolve) => setTimeout(() => resolve(null), ms))]);
+
+/** The person did something on the page since it opened: a version found then is offered, not gone over to by itself. */
+let touched = false;
+
+/**
+ * Starts the web app's service worker as the page opens, before the app is drawn. A new version
+ * that came on an earlier opening and waits on the device is gone over to at once, before the app
+ * draws and syncs anything: false then, the page going. See design/sync-gate.md 2.
+ */
+export async function startWebApp(): Promise<boolean> {
+  if (isDesktop) return true;
   // The notes live in the browser until they are synced: the browser is asked not to clear them when short of room.
   void navigator.storage?.persist?.().catch(() => undefined);
-  if (!import.meta.env.PROD || !('serviceWorker' in navigator)) return;
-  navigator.serviceWorker
-    .register('/sw.js')
-    .then((kept) => {
-      registration = kept;
-      tell();
-      found(kept.waiting);
-      kept.addEventListener('updatefound', () => {
-        const worker = kept.installing;
-        worker?.addEventListener('statechange', () => worker.state === 'installed' && found(worker));
-      });
-      // An app left open for days looks for a new version whenever it comes back on screen.
-      document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') void kept.update().catch(() => undefined);
-      });
-    })
-    .catch(() => undefined);
+  if (!import.meta.env.PROD || !('serviceWorker' in navigator)) return true;
+  for (const kind of ['keydown', 'pointerdown'] as const) window.addEventListener(kind, () => (touched = true), { capture: true, once: true });
+  const kept = await within(navigator.serviceWorker.register('/sw.js'), REGISTER_MS).catch(() => null);
+  if (!kept) return true;
+  registration = kept;
+  const ready = waitingAtOpen(kept, navigator.serviceWorker.controller !== null) as ServiceWorker | null;
+  if (ready) {
+    const going = await new Promise<boolean>((resolve) => {
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        window.location.reload();
+        resolve(true);
+      }, { once: true });
+      ready.postMessage('update');
+      // Should it not take over, the page opens as it is.
+      setTimeout(() => resolve(false), TAKE_OVER_MS);
+    });
+    if (going) return false;
+  }
+  tell();
+  found(kept.waiting);
+  kept.addEventListener('updatefound', () => {
+    const worker = kept.installing;
+    worker?.addEventListener('statechange', () => worker.state === 'installed' && found(worker));
+  });
+  // An app left open for days looks for a new version whenever it comes back on screen.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') void kept.update().catch(() => undefined);
+  });
+  return true;
+}
+
+let opening: Promise<boolean> | null = null;
+
+/**
+ * The look for a new version as the app opens, which its first turn of syncing waits on, so that
+ * an old version kept on the device does not sync before the new one is known (design/sync-gate.md
+ * 2). True when one came down while the person did nothing yet: the page goes over to it before it
+ * syncs. False when none came, the look failed or went on for a minute, or the person already did
+ * something; the status bar's Reload offers it then.
+ */
+export function openingUpdate(): Promise<boolean> {
+  opening ??= within(lookHere(), OPENING_WAIT_MS).then((found) => found === true);
+  return opening;
+}
+
+async function lookHere(): Promise<boolean> {
+  const kept = registration;
+  if (!kept || waiting) return false;
+  const came = await lookAtOpening(kept, navigator.serviceWorker.controller !== null, () => touched);
+  if (!came) return false;
+  found(came.worker as ServiceWorker);
+  return came.go;
+}
+
+/**
+ * Looks for a new version and resolves once it is kept on the device, for a space a newer version
+ * synced (design/sync-gate.md 3.4): true then, to reload into it; false when none is found.
+ */
+export async function webUpdateReady(): Promise<boolean> {
+  if (waiting) return true;
+  if (!registration) return false;
+  await checkForWebUpdate();
+  return new Promise<boolean>((resolve) => {
+    const settle = () => {
+      if (waiting) resolve(true);
+      else if (checked.state === 'upToDate' || checked.state === 'failed') resolve(false);
+      else return;
+      listeners.delete(settle);
+    };
+    listeners.add(settle);
+    settle();
+  });
 }
 
 /** Goes over to the new version: the page reloads into it once it has taken over. */

@@ -94,6 +94,7 @@ function stateOf(sync: SpaceSync, space: string | null = null): { text: string; 
   if (phase === 'offline') return { text: t('sync.offlineLong', { place: placeName(sync.connection) }), tone: 'off' };
   if (phase === 'signedOut') return { text: signedOutLong(sync.connection, sync.why), tone: 'bad' };
   if (phase === 'folderGone') return { text: goneLong(space, sync.connection, sync.why), tone: 'bad' };
+  if (phase === 'update') return { text: updateLong(sync.why), tone: 'bad' };
   if (phase === 'failed') return { text: t('sync.failedLong', { error: error ?? '' }), tone: 'bad' };
   const synced = syncedAt === null ? t('sync.notYet') : t('sync.syncedAgo', { ago: ago(syncedAt) });
   return { text: sync.live ? `${synced} · ${t('sync.live')}` : synced, tone: 'ok' };
@@ -247,7 +248,9 @@ export function SyncRow({ sync, service, onPlace, onFollow }: SyncRowProps & { o
           {state.text}
         </span>
         <span className="acts">
-          {sync.phase === 'signedOut' ? (
+          {sync.phase === 'update' ? (
+            <UpdateButton run={() => service.updateApp()} />
+          ) : sync.phase === 'signedOut' ? (
             <button type="button" className="st-btn go" onClick={() => (connection.server ? service.askServerSignIn(connection.server, connection.account.email) : void signIn())}>
               {signInLabel(sync)}
             </button>
@@ -360,6 +363,8 @@ export function SpaceSyncRow({ view, service }: { view: SpaceSyncView | undefine
             <button type="button" className="st-btn" onClick={() => signing.cancel()}>
               {t('sync.cancel')}
             </button>
+          ) : view.phase === 'update' ? (
+            <UpdateButton run={() => service.updateApp()} />
           ) : view.phase === 'signedOut' ? (
             <button type="button" className="st-btn go" onClick={() => void signIn()}>
               {signInLabel(view)}
@@ -901,6 +906,7 @@ export const STATUS: Record<Exclude<SyncPhase, 'off' | 'idle' | 'syncing'>, Mess
   signedOut: 'sync.signedOut',
   folderGone: 'sync.folderGone',
   moved: 'sync.moved',
+  update: 'sync.update',
   failed: 'sync.failed',
 };
 
@@ -911,11 +917,11 @@ const HOVER_OPEN_MS = 350;
 const HOVER_CLOSE_MS = 300;
 
 /** What keeps a space from going on until something is done: its row on the panel says it in the accent. */
-const STOPPED: ReadonlySet<SyncPhase> = new Set(['signedOut', 'folderGone', 'failed', 'moved']);
+const STOPPED: ReadonlySet<SyncPhase> = new Set(['signedOut', 'folderGone', 'failed', 'moved', 'update']);
 
 /** Which of the spaces that sync the status bar speaks of: one in a turn, else one kept from going on, else the one synced longest ago. */
 function standing(all: readonly SpaceSyncView[]): SpaceSyncView | null {
-  const worst: SyncPhase[] = ['syncing', 'signedOut', 'folderGone', 'failed', 'offline'];
+  const worst: SyncPhase[] = ['syncing', 'update', 'signedOut', 'folderGone', 'failed', 'offline'];
   for (const phase of worst) {
     const found = all.find((unit) => unit.phase === phase);
     if (found) return found;
@@ -948,6 +954,8 @@ export interface SyncStatusProps {
   onSettings: (space: string | null) => void;
   /** Signs in again after the key stopped working: to OneDrive, or to the server of the space told. */
   onSignIn: (sync?: SpaceSyncView) => void;
+  /** Goes over to a newer version, for a space a newer one synced; false when none is found. */
+  onUpdate: () => Promise<boolean>;
   onOpenCopy: (path: string) => void;
 }
 
@@ -958,7 +966,7 @@ export interface SyncStatusProps {
  * said beside it even while another one syncs: one place by its name, which signs in; several
  * by how many, which opens the panel. Nothing while not connected.
  */
-export function SyncStatus({ sync, onSyncNow, onSettings, onSignIn, onOpenCopy }: SyncStatusProps) {
+export function SyncStatus({ sync, onSyncNow, onSettings, onSignIn, onUpdate, onOpenCopy }: SyncStatusProps) {
   useTicking(sync.all.length > 0);
   const narrow = useNarrow();
   const [copy, setCopy] = useState<string | null>(null);
@@ -1078,6 +1086,7 @@ export function SyncStatus({ sync, onSyncNow, onSettings, onSignIn, onOpenCopy }
               close();
               onSignIn(unit);
             }}
+            onUpdate={onUpdate}
           />,
           document.body,
         )}
@@ -1085,6 +1094,30 @@ export function SyncStatus({ sync, onSyncNow, onSettings, onSignIn, onOpenCopy }
   );
 }
 
+
+/** Why a space asks for a newer version: a newer one synced it, or its server asks for one. */
+export const updateLong = (why: SpaceSync['why']) => t(why === 'server' ? 'sync.updateServerLong' : 'sync.updateLong');
+
+/**
+ * Goes over to a newer version, for a space a newer one synced (design/sync-gate.md 3.4): Reload
+ * on the web, Update on the desktop. It waits while the version comes down; when none is found, it
+ * says so and can be pressed again.
+ */
+export function UpdateButton({ run, className = 'st-btn go' }: { run: () => Promise<boolean>; className?: string }) {
+  const [state, setState] = useState<'idle' | 'busy' | 'none'>('idle');
+  const go = () => {
+    setState('busy');
+    run().then(
+      (found) => setState(found ? 'busy' : 'none'),
+      () => setState('none'),
+    );
+  };
+  return (
+    <button type="button" className={className} disabled={state === 'busy'} title={state === 'none' ? t('sync.noUpdate') : undefined} onClick={go}>
+      {state === 'busy' ? t('sync.updating') : t(isDesktop ? 'sync.updateButton' : 'status.reload')}
+    </button>
+  );
+}
 
 /** A share as the language writes it, never 100% before the end: `38%`. */
 export function percent(share: number): string {
@@ -1254,6 +1287,7 @@ const SHORT: Record<Exclude<SyncPhase, 'off' | 'idle' | 'syncing'>, MessageKey> 
   signedOut: 'phone.signedOut',
   folderGone: 'phone.folderGone',
   moved: 'phone.moved',
+  update: 'phone.update',
   failed: 'phone.syncFailed',
 };
 
@@ -1331,6 +1365,7 @@ export function turnLine(sync: SpaceSyncView, running: boolean, doneFrom: TurnVi
   if (phase === 'offline') return t('sync.offlineLong', { place: placeName(sync.connection) });
   if (phase === 'signedOut') return signedOutLong(sync.connection, sync.why);
   if (phase === 'folderGone') return goneLong(sync.space, sync.connection, sync.why);
+  if (phase === 'update') return updateLong(sync.why);
   return t('sync.failedLong', { error: sync.error ?? '' });
 }
 
@@ -1353,6 +1388,7 @@ interface PanelProps {
   onSyncNow: (space?: string | null) => void;
   onSettings: (space: string | null) => void;
   onSignIn: (sync: SpaceSyncView) => void;
+  onUpdate: () => Promise<boolean>;
 }
 
 /**
@@ -1362,7 +1398,7 @@ interface PanelProps {
  * and why. It only tells. A space may hold thousands of files: one tab shows at a time, and
  * only the rows in sight are drawn.
  */
-function SyncPanel({ sync: whole, narrow, anchor, kept, onEnter, onLeave, onClose, onSyncNow, onSettings, onSignIn }: PanelProps) {
+function SyncPanel({ sync: whole, narrow, anchor, kept, onEnter, onLeave, onClose, onSyncNow, onSettings, onSignIn, onUpdate }: PanelProps) {
   const box = useRef<HTMLElement>(null);
   // With more than one space, each is a row on top, and the one chosen is told under them.
   const [picked, setPicked] = useState<string | null>(null);
@@ -1544,7 +1580,9 @@ function SyncPanel({ sync: whole, narrow, anchor, kept, onEnter, onLeave, onClos
         <button type="button" className="st-btn" onClick={() => onSettings(sync.space)}>
           {t('panel.settings')}
         </button>
-        {phase === 'signedOut' ? (
+        {phase === 'update' ? (
+          <UpdateButton run={onUpdate} />
+        ) : phase === 'signedOut' ? (
           <button type="button" className="st-btn go" onClick={() => onSignIn(sync)}>
             {signInLabel(sync)}
           </button>
