@@ -3857,6 +3857,151 @@ p { margin: 0; max-width: 68ch; }
 .na-mq .ea-mwas { display: block; margin: -4px 4px 8px; color: var(--m-accent); font-size: 13px; }
 .na-mrow.ea-head { min-height: 0; padding: 10px 14px 4px; color: var(--m-faint); font-size: 12.5px; letter-spacing: .05em; text-transform: uppercase; border-bottom: 0; }
 .gy-mt .late { color: var(--m-p1); }
+/* App's entry and menu (draft): an app is one row in the sidebar; its tab has Home, its modules and the module's menu; a record's lines under its row. */
+.it.fx.ah-app .ah-ic { display: flex; color: var(--m-accent); }
+.it.fx.ah-app .hide { margin-left: auto; color: var(--m-accent); font-size: 11px; }
+.ah { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.ah-top { display: flex; align-items: center; gap: 4px; flex: none; padding: 12px 16px 0; border-bottom: 1px solid var(--m-line); }
+.ah-name { display: flex; align-items: center; gap: 7px; margin-right: 14px; padding-bottom: 9px; font-size: 14.5px; font-weight: 600; }
+.mock .ah-name svg { width: 18px; height: 18px; color: var(--m-accent); }
+.ah-mods { display: flex; align-items: flex-end; gap: 2px; align-self: stretch; }
+.ah-mods span { display: flex; align-items: center; padding: 0 11px 9px; border-bottom: 2px solid transparent; color: var(--m-dim); font-size: 13px; }
+.ah-mods span.on { border-bottom-color: var(--m-accent); color: var(--m-fg); font-weight: 500; }
+.ah-top .more { margin-left: auto; padding: 0 4px 9px; color: var(--m-faint); letter-spacing: 1px; }
+.ah-menu { display: flex; align-items: center; gap: 4px; flex: none; padding: 10px 16px 2px; font-size: 12.5px; }
+.ah-menu span { display: flex; align-items: center; gap: 6px; padding: 4px 11px; border: 1px solid var(--m-line); border-radius: 14px; color: var(--m-dim); }
+.ah-menu span small { color: var(--m-faint); font-size: 11px; }
+.ah-menu span.on { border-color: color-mix(in srgb, var(--m-accent) 55%, var(--m-line)); background: color-mix(in srgb, var(--m-accent) 14%, transparent); color: var(--m-fg); }
+.ah .bv .th { padding-top: 10px; }
+.ah .bv .th .srch { margin-left: 0; }
+.ah .bv .th .ghost { margin-left: auto; }
+.ah-lines > .ah-lr, .ah-lines > .ah-add { max-width: 640px; }
+.ah-lines > .ah-lr.gl, .ah-lines > .gy-part { max-width: 920px; }
+.ah-home { flex: 1; min-height: 0; overflow: hidden; padding: 14px 18px; }
+.ah-home > * { max-width: 1080px; }
+.ah-tile .rs { margin-top: 10px; }
+.ah-today .r .st-btn { flex: none; }
+.ah-cap { display: flex; align-items: baseline; gap: 8px; margin: 2px 0 8px; color: var(--m-faint); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; }
+.ah-cap small { font-size: 10.5px; }
+.ah-today { margin-bottom: 18px; border: 1px solid var(--m-line); border-radius: 8px; }
+.ah-today .r { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 4px 12px; }
+.ah-today .r + .r { border-top: 1px solid var(--m-line); }
+.ah-today .r .bar { width: 3px; align-self: stretch; margin: 6px 0; border-radius: 2px; background: var(--rc, var(--m-dim)); }
+.ah-today .r .tx { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.ah-today .r .tx small { color: var(--m-faint); font-size: 11.5px; }
+.ah-today .r .tx small .late { color: var(--m-p1); }
+.ah-today .r .key { font: 11px var(--m-mono); color: var(--m-dim); }
+.ah-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.ah-card { padding: 12px 14px 8px; border: 1px solid var(--m-line); border-radius: 9px; background: color-mix(in srgb, var(--m-side) 55%, var(--m-bg)); }
+.ah-card h4 { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 13.5px; font-weight: 600; }
+.mock .ah-card h4 svg { width: 17px; height: 17px; color: var(--m-accent); }
+.ah-card h4 small { margin-left: auto; color: var(--m-faint); font-size: 11px; font-weight: 400; }
+.ah-cr { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--m-line); font-size: 12.5px; }
+.mock .ah-cr svg { width: 15px; height: 15px; color: var(--m-faint); }
+.ah-cr .n { margin-left: auto; color: var(--m-dim); font-variant-numeric: tabular-nums; }
+.ah-cr .warn { color: var(--m-p2); font-size: 11.5px; }
+.ah-cr .shared { color: var(--m-faint); font-size: 11px; }
+.ah-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.ah-tile { display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; border: 1px solid var(--m-line); border-radius: 9px; background: color-mix(in srgb, var(--m-side) 55%, var(--m-bg)); }
+.ah-tile .h { display: flex; align-items: center; gap: 8px; color: var(--m-dim); font-size: 12.5px; }
+.mock .ah-tile .h svg { width: 16px; height: 16px; color: var(--m-accent); }
+.ah-tile b { font-size: 26px; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.ah-tile small { color: var(--m-faint); font-size: 11.5px; }
+.ah-tile small .warn { color: var(--m-p2); }
+.ca-row.ah-ord { grid-template-columns: 18px 84px minmax(0, 1fr) 84px 76px 70px 96px; }
+.ca-row.ah-prog { grid-template-columns: 18px minmax(0, 1fr) 160px 80px 70px 100px; }
+.ca-row .tg { display: flex; color: var(--m-faint); }
+.mock .ca-row .tg svg { width: 14px; height: 14px; }
+.ca-row.open { background: color-mix(in srgb, var(--m-sel) 30%, transparent); border-bottom-color: transparent; }
+.ca-row.open .tg { color: var(--m-fg); }
+.ca-row .ah-n { color: var(--m-dim); }
+.mock .ah-lines .gy-part svg { width: 13px; height: 13px; }
+.ah-lr .calc { color: var(--m-faint); }
+.it.fx.ah-app.hot .more { display: block; }
+.cc-row .edit { box-shadow: inset 0 0 0 1.5px var(--m-accent); border-radius: 3px; }
+.ah-lines { margin: 0 -8px 2px; padding: 0 8px 6px 34px; border-bottom: 1px solid var(--m-line); background: color-mix(in srgb, var(--m-sel) 12%, transparent); }
+.ah-lines .gy-part { padding-left: 4px; }
+.ah-lr { display: grid; grid-template-columns: minmax(0, 1fr) 56px 84px 88px; align-items: center; gap: 0 12px; min-height: 28px; padding: 0 6px; border-bottom: 1px solid color-mix(in srgb, var(--m-line) 70%, transparent); font-size: 12px; }
+.ah-lr.head { min-height: 22px; color: var(--m-faint); font-size: 10px; letter-spacing: .07em; text-transform: uppercase; }
+.ah-lr .num { text-align: right; font-variant-numeric: tabular-nums; }
+.ah-lr .edit { box-shadow: inset 0 0 0 1.5px var(--m-accent); border-radius: 3px; padding: 1px 4px; }
+.ah-lr.gl { grid-template-columns: 22px minmax(0, 1fr) 48px 56px 64px minmax(0, 1fr); }
+.ah-lr.gl .gy-note { color: var(--m-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ah-add { padding: 6px 6px 2px; color: var(--m-accent); font-size: 12px; }
+.ah-add.sum { display: flex; justify-content: space-between; color: var(--m-dim); }
+.ah-add.sum b { color: var(--m-fg); font-weight: 500; }
+.cc-row.ah-dr { grid-template-columns: 22px minmax(0, 1fr) 56px 88px 92px; }
+.cc-row.ah-dr > .dr { justify-content: center; padding: 0; }
+.cc-row.ah-dr > .dr i { width: 6px; height: 6px; border-radius: 50%; background: var(--m-accent); }
+.cc-row.ah-dr.new { background: color-mix(in srgb, var(--m-accent) 7%, transparent); }
+.ah-xmenu { min-width: 210px; }
+.ah-edit { width: 760px; padding: 0; }
+.ah-edit .hd { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--m-line); }
+.ah-edit .hd b { margin: 0; font-size: 14px; }
+.ah-edit .hd small { color: var(--m-faint); }
+.ah-edit .hd .x { margin-left: auto; color: var(--m-faint); }
+.ah-edit .cols { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 330px; }
+.ah-edit .mods { padding: 10px 8px; border-right: 1px solid var(--m-line); background: color-mix(in srgb, var(--m-bg) 40%, transparent); }
+.ah-edit .scr { padding: 10px 16px; }
+.ah-er { display: flex; align-items: center; gap: 8px; min-height: 30px; padding: 0 8px; border-radius: 5px; font-size: 12.5px; }
+.ah-er .gr { color: var(--m-faint); letter-spacing: -1px; }
+.mock .ah-er svg { width: 15px; height: 15px; color: var(--m-faint); }
+.ah-er small { color: var(--m-faint); font-size: 11px; }
+.ah-er .eye { margin-left: auto; display: flex; }
+.ah-er.on { background: var(--m-sel); }
+.ah-er.off .t { color: var(--m-faint); text-decoration: line-through; }
+.ah-er.fixed { color: var(--m-dim); }
+.ah-er.ah-plus { color: var(--m-accent); }
+.ah-er + .ah-er { margin-top: 2px; }
+.ah-edit .scr .ah-er { border: 1px solid var(--m-line); }
+.ah-edit .scr .ah-er.ah-plus { border-style: dashed; }
+.ah-edit .sub { margin: 14px 0 6px; color: var(--m-faint); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; }
+.ah-edit .lines { display: flex; flex-direction: column; gap: 4px; color: var(--m-faint); font-size: 12px; }
+.ah-edit .lines span { display: flex; align-items: center; gap: 8px; }
+.ah-edit .ah-hopts { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; padding: 10px 8px 0; border-top: 1px solid var(--m-line); color: var(--m-dim); font-size: 12px; }
+.ah-edit .ah-hopts .ah-cbx { display: flex; align-items: center; gap: 7px; }
+.ah-edit .ah-hopts .ah-cbx i, .ah-fe .ah-cbx i { display: grid; place-items: center; width: 13px; height: 13px; border: 1.5px solid var(--m-faint); border-radius: 3px; box-sizing: border-box; }
+.ah-edit .ah-hopts .ah-cbx i.on, .ah-fe .ah-cbx i.on { border-color: var(--m-accent); background: var(--m-accent); color: var(--m-on-accent); }
+.mock .ah-edit .ah-hopts .ah-cbx i svg, .mock .ah-fe .ah-cbx i svg { width: 10px; height: 10px; stroke-width: 2.8; }
+.ah-edit .foot { display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-top: 1px solid var(--m-line); }
+.ah-edit .foot .reset { margin-right: auto; color: var(--m-dim); font-size: 12px; }
+.ah-fe { width: 640px; padding: 0; }
+.ah-fe .body { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 14px; padding: 14px 16px; }
+.ah-fe .fl { display: flex; flex-direction: column; gap: 4px; }
+.ah-fe .fl span { padding: 5px 9px; border: 1px solid var(--m-line); border-radius: 5px; color: var(--m-dim); font-size: 12px; }
+.ah-fe .blk { display: flex; flex-direction: column; gap: 9px; padding: 10px 12px; border: 1.5px solid var(--m-accent); border-radius: 7px; font-size: 12px; }
+.ah-fe .blk .t { display: flex; align-items: center; gap: 8px; }
+.ah-fe .blk .t b { color: var(--m-faint); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; }
+.ah-fe .blk .in { flex: 1; padding: 3px 8px; border: 1px solid var(--m-line); border-radius: 5px; }
+.ah-fe .blk .seg { display: flex; gap: 2px; }
+.ah-fe .blk .seg span { padding: 2px 9px; border-radius: 5px; color: var(--m-dim); }
+.ah-fe .blk .seg span.on { background: var(--m-sel); color: var(--m-fg); }
+.ah-fe .ah-cbx { display: flex; align-items: center; gap: 7px; color: var(--m-dim); }
+.ah-fe .ah-cbx.hot { color: var(--m-fg); font-weight: 500; }
+.ah-fe .note { color: var(--m-faint); font-size: 11.5px; line-height: 1.45; }
+.ah-fe .note.hot { color: var(--m-dim); }
+.mb-row .ah-ic { display: flex; color: var(--m-accent); }
+.ah-mrow { position: relative; display: flex; align-items: center; gap: 10px; min-height: 58px; padding: 0 16px; background: var(--m-bg); }
+.ah-mrow + .ah-mrow::before { content: ''; position: absolute; top: 0; left: 16px; right: 0; border-top: 1px solid var(--m-line); }
+.ah-mrow .tx { display: flex; flex-direction: column; flex: 1; min-width: 0; gap: 1px; }
+.ah-mrow .tx b { font-weight: 500; }
+.ah-mrow .tx small { color: var(--m-faint); font-size: 13.5px; }
+.ah-mrow .rt { color: var(--m-dim); font-size: 15px; font-variant-numeric: tabular-nums; }
+.ah-mrow .lc { display: flex; align-items: center; gap: 2px; padding: 2px 8px; border-radius: 10px; background: var(--m-side); color: var(--m-dim); font-size: 12.5px; }
+.mock .ah-mrow .lc svg { width: 14px; height: 14px; }
+.ah-mrow.open { background: color-mix(in srgb, var(--m-sel) 25%, var(--m-bg)); }
+.ah-mlines { padding: 0 0 8px 28px; background: color-mix(in srgb, var(--m-sel) 25%, var(--m-bg)); }
+.ah-ml { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 16px 0 0; border-top: 1px solid var(--m-line); font-size: 14.5px; }
+.ah-ml .q { color: var(--m-dim); font-variant-numeric: tabular-nums; }
+.ah-ml .t { flex: 1; }
+.ah-ml .rt { color: var(--m-dim); font-variant-numeric: tabular-nums; }
+.ah-ml.ah-madd { color: var(--m-accent); }
+.ah-mtoday { display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 0 16px; background: var(--m-bg); }
+.ah-mtoday .tx { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.ah-mtoday .tx small { color: var(--m-faint); font-size: 13px; }
+.ah-mtoday .tx small .late { color: var(--m-p1); }
+.ah-mtoday .bar { width: 3px; align-self: stretch; margin: 10px 0; border-radius: 2px; background: var(--rc, var(--m-dim)); }
+.mb-row .warn { color: var(--m-p2); }
 </style>
 
 <main class="page">
@@ -4688,6 +4833,30 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-eaview="eanone">Değişen yok</button>
         <button type="button" data-eaview="eadone">Kaydedildi: Undo</button>
         <button type="button" data-eaview="eaphone">Telefon</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="apphome">
+    <div class="brief">
+      <div>
+        <span class="letter">SCRAWL APPS · TASLAK</span>
+        <h2>App'in girişi, menüsü ve satırları</h2>
+        <p>App dosya olarak gösterilmez, kendi girişi ve menüsü olan bir uygulama gibi açılır. Kenar çubuğunda app tek satır; tıklayınca kendi sekmesi <b>Home</b> ile açılır: app'in bugünkü işleri ve her modülün kartı, ekranları ve sayılarıyla. Üstte modüller (her şablon bir modül: CRM, Sales, Stock), altında seçili modülün <b>menüsü</b>: yalnız ana ekranlar. Bir kaydın <b>satırları</b> (siparişin kalemleri, programın maddeleri) menüde yok; yeni kayıt penceresinde Create'ten önce eklenir, tabloda satırın altında ▸ ile açılıp yerinde yazılır. Ortak ekran onu kuran her modülde görünür. Dosyalar diskte aynı; ··· › Show files klasörü bugünkü gibi açar. Menü ··· › Edit menu ile değişir. Tek şablonlu app'te (Gym) modül satırı yok. Telefonda Browse'da app tek satır, app'in sayfası ve satırlar. Teknik tasarım <code>design/app-home.md</code>.</p>
+        <ul class="traits"><li>kenar çubuğunda tek satır</li><li>Home: Today ve modül kartları</li><li>modüller ve menü</li><li>satırlar menüde yok</li><li>satırlar tabloda ▸ ile</li><li>yeni kayıtta satırlar</li><li>Show files</li><li>Edit menu</li><li>telefonda da</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="App'in girişi görünümü">
+        <button type="button" data-ahview="ahhome">Home</button>
+        <button type="button" data-ahview="ahorders">Sales › Orders</button>
+        <button type="button" data-ahview="ahnew">New order: satırlar</button>
+        <button type="button" data-ahview="ahgym">Gym: Home</button>
+        <button type="button" data-ahview="ahgymprog">Gym › Programs</button>
+        <button type="button" data-ahview="ahmore">App'in menüsü</button>
+        <button type="button" data-ahview="ahfiles">Show files</button>
+        <button type="button" data-ahview="ahedit">Edit menu</button>
+        <button type="button" data-ahview="ahfields">Fields: satırlar</button>
+        <button type="button" data-ahview="ahphone">Telefon</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -14237,6 +14406,247 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderEa(sectionEa, b.dataset.eaview);
   });
   renderEa(sectionEa, 'eamenu');
+
+  // The app's entry and menu (draft, Oct 25, design/app-home.md): an app is not shown as its files.
+  // The sidebar has it as one row; its tab opens on Home, its modules on top, the module's menu
+  // under them with the main screens only. A record's lines are not in the menu: they are typed in
+  // the new record's window before Create, and under the record's row in the table.
+  ['Open', 'Shipped', 'Invoiced', 'Paid'].forEach(function (s, i) { LC[s] = LC[s] || ['#6aa5f0', '#e0a040', '#b48ef0', '#5cb87a'][i]; });
+  LC.Tue = LC.Tue || '#6aa5f0'; LC.Sat = LC.Sat || '#6aa5f0';
+  /** The app as one row of the tree: its icon, its name, its ··· menu; its files under it only when shown. */
+  function ahRow(label, o) {
+    o = o || {};
+    return '<div class="it fx ah-app' + (o.on ? ' on' : '') + (o.hot ? ' hot' : '') + '" style="--d: ' + (o.d || 1) + '"><span class="fpad"></span><span class="ah-ic">' + (o.icon || ICON.app) + '</span><span>' + label + '</span>' +
+      (o.files ? '<span class="hide">Hide files</span>' : '') + '<span class="more">···</span></div>';
+  }
+  /** Atlas Lifts: Spare parts one row; with its files shown, the folder as it is today under it. */
+  function ahTree(o) {
+    o = o || {};
+    var files = o.files ? AA_BEFORE.concat(AA_ADDED).sort(function (a, b) { return a[0] === 'notes' ? -1 : b[0] === 'notes' ? 1 : a[1].localeCompare(b[1]); })
+      .map(function (p) { return opRowT({ d: 2, icon: p[0], label: p[1] }); }).join('') : '';
+    return '<div class="tree fxt">' + row({ label: 'Today', ct: 4 }) + row({ label: 'Upcoming', ct: 11 }) +
+      opRowT({ sp: true, label: 'Personal' }) +
+      opRowT({ sp: true, open: true, label: CA_SPACE }) +
+      opRowT({ d: 1, folder: true, label: 'Operations' }) +
+      ahRow('Spare parts', { on: true, files: o.files, hot: o.hot }) + files +
+      opRowT({ d: 1, folder: true, label: 'Customers' }) +
+      opRowT({ d: 1, icon: 'notes', label: 'Price list 2026' }) +
+      '</div>' + spFoot(null);
+  }
+  /** Personal: Gym one row beside its folders. */
+  function ahGymTree() {
+    return '<div class="tree fxt">' + row({ label: 'Today', ct: 5 }) + row({ label: 'Upcoming', ct: 9 }) +
+      opRowT({ sp: true, open: true, label: 'Personal' }) +
+      ahRow('Gym', { on: true, icon: ICON.rise }) +
+      opRowT({ d: 1, folder: true, label: 'Home', ct: 5 }) + opRowT({ d: 1, icon: 'notes', label: 'Reading list' }) +
+      opRowT({ sp: true, label: 'Acme' }) + '</div>' + spFoot(null);
+  }
+  function ahFrame(tree, kind, label, body, count, over) {
+    var tabs = tab('notes', 'Price list 2026', 'x', false) + tab(kind, label, 'x', true) + '<div class="tab plus">+</div>';
+    return '<aside class="side">' + tree + '</aside><section class="main"><div class="panes">' + pane(tabs, body) + '</div>' +
+      '<div class="status"><span>' + count + '</span>' + syncStatus(false, null) + '</div></section>' + (over || '');
+  }
+  /** The app's top: its icon and name, its modules (or, with one template, its screens), its ···; the module's menu under it. */
+  function ahTop(name, icon, mods, on, menu) {
+    return '<div class="ah-top"><span class="ah-name">' + icon + name + '</span><span class="ah-mods">' +
+      mods.map(function (m) { return '<span' + (m === on ? ' class="on"' : '') + '>' + m + '</span>'; }).join('') + '</span><span class="more">···</span></div>' +
+      (menu ? '<div class="ah-menu">' + menu.map(function (s) { return '<span' + (s.on ? ' class="on"' : '') + '>' + s.label + '</span>'; }).join('') + '</div>' : '');
+  }
+  var AH_MODS = ['Home', 'CRM', 'Sales', 'Stock'];
+  var AH_SALES = [{ label: 'Orders', on: true }, { label: 'Payments' }, { label: 'Companies' }, { label: 'Products' }];
+  function ahToday(rows) { return '<div class="ah-cap">Today <small>' + rows.length + '</small></div><div class="ah-today">' + rows.join('') + '</div>'; }
+  function ahTr(color, title, sub, right) {
+    return '<div class="r" style="--rc:' + color + '"><span class="bar"></span><span class="tx"><span>' + title + '</span><small>' + sub + '</small></span>' + (right || '') + '</div>';
+  }
+  function ahCard(icon, name, sub, rows) {
+    return '<div class="ah-card"><h4>' + ICON[icon] + name + '<small>' + sub + '</small></h4>' + rows.map(function (r) {
+      return '<div class="ah-cr">' + ICON[r[0]] + '<span>' + r[1] + '</span>' + (r[3] ? '<span class="warn">' + r[3] + '</span>' : '') + '<span class="n">' + r[2] + '</span></div>';
+    }).join('') + '</div>';
+  }
+  /** Spare parts' Home: what is due today in it, then a card for each module with its screens and their counts. */
+  function ahHome() {
+    var today = ahToday([
+      ahTr('#6aa5f0', '<span class="key">DEA-14</span> Kuzey Asansör · send the revised quote', '<span class="late">Yesterday</span> · Deals · Quote'),
+      ahTr('#f0a54a', 'SO-0009 · Globex', 'Payments · € 2,060 due today'),
+      ahTr('#5cb87a', 'PO-0031 · Bosch Parts', 'Purchase orders · arrives today')
+    ]);
+    var cards = '<div class="ah-cards">' +
+      ahCard('person', 'CRM', '4 screens', [['collection', 'Companies', '24'], ['collection', 'People', '61'], ['board', 'Deals', '6 open'], ['collection', 'Activities', '9 this week']]) +
+      ahCard('tag', 'Sales', '4 screens', [['collection', 'Orders', '12 open'], ['collection', 'Payments', '3 due', '2 to check'], ['collection', 'Companies', '24'], ['collection', 'Products', '140']]) +
+      ahCard('stack', 'Stock', '5 screens', [['collection', 'Products', '140'], ['collection', 'Stock levels', '5 low'], ['collection', 'Stock movements', '18 today'], ['collection', 'Purchase orders', '2 open'], ['collection', 'Locations', '2']]) +
+      '</div>';
+    return '<div class="ah">' + ahTop('Spare parts', ICON.app, AH_MODS, 'Home') + '<div class="ah-home">' + today + '<div class="ah-cap">Modules</div>' + cards + '</div></div>';
+  }
+  var AH_ORDERS = [
+    ['SO-0012', 'Kuzey Asansör', 'Open', 'Oct 24', 3, '€ 1,240', true], ['SO-0011', 'Globex', 'Open', 'Oct 23', 5, '€ 2,060'],
+    ['SO-0010', 'Initech', 'Shipped', 'Oct 21', 2, '€ 410'], ['SO-0009', 'Ankara Holding', 'Invoiced', 'Oct 18', 7, '€ 3,915'],
+    ['SO-0008', 'Atlas Mekanik', 'Invoiced', 'Oct 16', 1, '€ 96'], ['SO-0007', 'Kuzey Asansör', 'Paid', 'Oct 12', 4, '€ 1,120']
+  ];
+  var AH_LINES = [['Brake pad set', 4, '€ 85', '€ 340'], ['Oil filter', 10, '€ 12', '€ 120'], ['Timing belt', 6, '€ 130', '€ 780']];
+  function ahScreen(views, head, rows) {
+    return '<div class="bv"><div class="th"><span class="srch">' + ICON.find + 'Search…</span><button type="button" class="ghost">Fields</button><button type="button" class="add">Add record</button></div>' +
+      '<div class="gy-views">' + views.map(function (v, i) { return '<span' + (i === 0 ? ' class="on"' : '') + '>' + v + '</span>'; }).join('') + '</div><div class="blist">' + head + rows + '</div></div>';
+  }
+  /** Sales › Orders: an order's lines open under its row, typed in where they are. */
+  function ahOrders() {
+    var rows = AH_ORDERS.map(function (o) {
+      var r = '<div class="ca-row ah-ord' + (o[6] ? ' open' : '') + '"><span class="tg">' + (o[6] ? ICON.chevd : ICON.chevr) + '</span><span class="mono">' + o[0] + '</span><span class="tt">' + o[1] + '</span>' + lbl(o[2]) +
+        '<span class="dt">' + o[3] + '</span><span class="num ah-n">' + o[4] + ' lines</span><span class="num">' + o[5] + '</span></div>';
+      if (!o[6]) return r;
+      return r + '<div class="ah-lines"><div class="ah-lr head"><span>Product</span><span class="num">Qty</span><span class="num">Price</span><span class="num">Total</span></div>' +
+        AH_LINES.map(function (l, i) { return '<div class="ah-lr"><span>' + l[0] + '</span><span class="num' + (i === 2 ? ' edit' : '') + '">' + l[1] + '</span><span class="num">' + l[2] + '</span><span class="num">' + l[3] + '</span></div>'; }).join('') +
+        '<div class="ah-add sum"><span>+ Add line</span><span>3 lines · <b>€ 1,240</b></span></div></div>';
+    }).join('');
+    var head = '<div class="ca-row ah-ord head"><span></span><span>Order</span><span>Customer</span><span>Status</span><span>Date</span><span class="num">Lines</span><span class="num">Total</span></div>';
+    return '<div class="ah">' + ahTop('Spare parts', ICON.app, AH_MODS, 'Sales', AH_SALES) + ahScreen(['Open', 'All', 'Calendar'], head, rows) + '</div>';
+  }
+  /** A new order: its lines are typed in before Create, not written yet; Create writes the order and its lines together. */
+  function ahNew() {
+    var head = ICON.collection + '<span>Orders · ' + CA_SPACE + '</span><span class="more">···</span><span class="x">×</span>';
+    var left = ccProp('Order', '<span class="calc">SO-0013</span>') +
+      ccProp('Customer', '<span class="lk">Kuzey Asansör</span>', { dd: true, req: true }) +
+      '<div class="cc-two">' + ccProp('Date', 'Oct 25, 2026') + ccProp('Status', lbl('Open'), { dd: true }) + '</div>' +
+      ccProp('Notes', 'Add a note…', { body: true });
+    var rows = AH_LINES.map(function (l, i) {
+      var last = i === AH_LINES.length - 1;
+      return '<div class="cc-row ah-dr' + (last ? ' new' : '') + '"><span class="dr"><i></i></span><span class="nm"><span class="t">' + l[0] + '</span></span>' +
+        '<span class="num' + (last ? ' edit' : '') + '">' + l[1] + (last ? '<span class="caret"></span>' : '') + '</span><span class="num">' + l[2] + '</span><span class="num">' + l[3] + '</span></div>';
+    }).join('');
+    var right = '<div class="cc-blk"><div class="blk-h">Lines <small>3 · not written yet</small></div>' +
+      '<div class="cc-row ah-dr head"><span></span><span>Product</span><span class="num">Qty</span><span class="num">Price</span><span class="num">Total</span></div>' +
+      rows + '<div class="cc-addrow">+ Add line</div><div class="ah-add sum" style="padding: 8px 6px"><span></span><span>Total <b>€ 1,240</b></span></div></div>';
+    return '<div class="ovl center"><div class="rmod cc-rm"><div class="cp-head">' + head + '</div><div class="cc-cols"><div class="cc-col">' + left + '</div><div class="cc-col">' + right + '</div></div>' +
+      '<div class="rm-foot"><span class="hint">The order and its 3 lines are written together</span><span class="st-btn">Cancel</span><span class="st-btn go">Create</span></div></div></div>';
+  }
+  /** A screen of a one-template app on its Home: its count, then the first records of its view. */
+  function ahTile(icon, name, n, sub, rows) {
+    return '<div class="ah-tile"><span class="h">' + ICON[icon] + name + '</span><b>' + n + '</b><small>' + sub + '</small>' +
+      '<div class="rs">' + rows.map(function (r) { return '<div class="ah-cr"><span>' + r[0] + '</span>' + (r[2] ? '<span class="warn">' + r[2] + '</span>' : '') + '<span class="n">' + r[1] + '</span></div>'; }).join('') + '</div></div>';
+  }
+  var AH_GYM = ['Home', 'Workouts', 'Programs', 'Exercises'];
+  /** Gym's Home: one template, so no modules; today's program day, then its screens as tiles. */
+  function ahGymHome() {
+    var today = ahToday([
+      ahTr('#5cb87a', GY_PROGRAM, 'Today · Programs · 45–60 min · 8 moves', '<span class="st-btn">Didn’t go</span><span class="st-btn go">Start</span>')
+    ]);
+    var tiles = '<div class="ah-tiles">' +
+      ahTile('collection', 'Workouts', '8', 'this month · 1 didn’t go', [['Fri, Oct 23', '7 of 8'], ['Mon, Oct 19', '8 of 8'], ['Fri, Oct 16', '6 of 8'], ['Wed, Oct 14', '8 of 8']]) +
+      ahTile('collection', 'Programs', '2', 'Mon, Wed, Fri and Tue, Sat', [[GY_PROGRAM, '20 items'], ['Evde 20 dk', '9 items']]) +
+      ahTile('collection', 'Exercises', '21', '<span class="warn">1 to check</span> · done in less than 7 of 10', [['Lying Leg Curl', '4 of 8', '50%'], ['Leg Press', 'best 70 kg'], ['Chest Press Machine', 'best 45 kg']]) + '</div>';
+    return '<div class="ah">' + ahTop('Gym', ICON.rise, AH_GYM, 'Home') + '<div class="ah-home">' + today + '<div class="ah-cap">Screens</div>' + tiles + '</div></div>';
+  }
+  /** Gym › Programs: a program's items open under its row, in their parts. */
+  function ahGymPrograms() {
+    function items(p, from) {
+      return p.items.map(function (x, i) {
+        return '<div class="ah-lr gl"><span class="calc">' + (from + i + 1) + '</span><span>' + x.name + '</span><span class="num">' + (x.sets || '–') + '</span><span class="num">' + (x.reps || x.time || '–') + '</span><span class="num">' + (x.rest || '–') + '</span><span class="gy-note">' + (x.note || '') + '</span></div>';
+      }).join('');
+    }
+    var lines = '<div class="ah-lines"><div class="ah-lr gl head"><span></span><span>Item</span><span class="num">Sets</span><span class="num">Reps</span><span class="num">Rest</span><span>Note</span></div>' +
+      '<div class="gy-part">Warm-up <small>4</small></div>' + items(GY_PARTS[0], 0) + '<div class="ah-add">+ Add to Warm-up</div>' +
+      '<div class="gy-part">Workout <small>8</small></div>' + items(GY_PARTS[1], 4) + '<div class="ah-add">+ Add to Workout</div>' +
+      '<div class="gy-part">' + ICON.chevr + 'Cool-down <small>7</small></div><div class="gy-part">' + ICON.chevr + 'Cardio <small>1</small></div></div>';
+    var rows = '<div class="ca-row ah-prog open"><span class="tg">' + ICON.chevd + '</span><span class="tt">' + GY_PROGRAM + '</span><span class="gy-days">' + lbl('Mon') + lbl('Wed') + lbl('Fri') + '</span><span class="num ah-n">20 items</span><span class="num">8</span><span class="dt">Oct 23</span></div>' + lines +
+      '<div class="ca-row ah-prog"><span class="tg">' + ICON.chevr + '</span><span class="tt">Evde 20 dk</span><span class="gy-days">' + lbl('Tue') + lbl('Sat') + '</span><span class="num ah-n">9 items</span><span class="num">2</span><span class="dt">Oct 17</span></div>';
+    var head = '<div class="ca-row ah-prog head"><span></span><span>Name</span><span>Days</span><span class="num">Items</span><span class="num">Done</span><span>Last</span></div>';
+    return '<div class="ah">' + ahTop('Gym', ICON.rise, AH_GYM, 'Programs') + ahScreen(['All', 'Program days'], head, rows) + '</div>';
+  }
+  /** The app's ··· menu: its Home and About, Edit menu, the templates, its files, its place. */
+  var AH_MORE = aaMenu('left: 196px; top: 168px', [
+    { icon: 'app', label: 'Home' }, { icon: 'notes', label: 'About Spare parts' }, '-',
+    { icon: 'bullets', label: 'Edit menu…' }, { icon: 'plus', label: 'Add to app…' }, { icon: 'pen', label: 'Edit app…' }, '-',
+    { icon: 'folder', label: 'Show files' }, { icon: 'move', label: 'Move to…' }, { icon: 'pen', label: 'Rename' }, '-',
+    { icon: 'trash', label: 'Delete app', red: true }]).replace('class="aa-menu"', 'class="aa-menu ah-xmenu"');
+  /** Edit menu: the modules on the left, the chosen one's screens on the right; lines and what is not in the menu under them. */
+  function ahEdit() {
+    var counts = { CRM: '4 screens', Sales: '4 screens', Stock: '5 screens' };
+    var mods = '<div class="ah-er fixed">' + ICON.app + '<span class="t">Home</span><small>Today, modules</small></div>' +
+      ['CRM', 'Sales', 'Stock'].map(function (m) { return '<div class="ah-er' + (m === 'Sales' ? ' on' : '') + '"><span class="gr">⋮⋮</span><span class="t">' + m + '</span><small>' + counts[m] + '</small></div>'; }).join('') +
+      '<div class="ah-er ah-plus">' + ICON.plus + 'Add module</div>' +
+      '<div class="ah-hopts"><span class="ah-cbx"><i class="on">' + GY_TICK + '</i>Today on Home</span><span class="ah-cbx"><i class="on">' + GY_TICK + '</i>Module cards on Home</span></div>';
+    function scr(icon, name, small, off) {
+      return '<div class="ah-er' + (off ? ' off' : '') + '"><span class="gr">⋮⋮</span>' + ICON[icon] + '<span class="t">' + name + '</span>' + (small ? '<small>' + small + '</small>' : '') + '<span class="eye">' + (off ? ICON.eyeoff : ICON.eye) + '</span></div>';
+    }
+    var screens = '<div class="sub" style="margin-top: 0">Sales · screens</div>' +
+      scr('collection', 'Orders', 'opens on Open') + scr('collection', 'Payments') + scr('collection', 'Companies', 'also in CRM and Stock') + scr('collection', 'Products', 'also in Stock') +
+      '<div class="ah-er ah-plus">' + ICON.plus + 'Add screen</div>' +
+      '<div class="sub">Lines, not in the menu</div><div class="lines"><span>' + ICON.collection + 'Order lines · lines of Orders</span></div>' +
+      '<div class="sub">In the folder, not in a menu</div><div class="lines"><span>' + ICON.collection + 'Supplier prices · made by you</span></div>';
+    return '<div class="ovl center"><div class="mdlg ah-edit"><div class="hd"><b>Edit menu</b><small>Spare parts</small><span class="x">×</span></div>' +
+      '<div class="cols"><div class="mods">' + mods + '</div><div class="scr">' + screens + '</div></div>' +
+      '<div class="foot"><span class="reset">Reset to template</span><span class="st-btn">Cancel</span><span class="st-btn go">Save</span></div></div></div>';
+  }
+  /** Fields, the linked block of Orders: Lines of this record. */
+  function ahFields() {
+    var left = '<div class="fl"><span>Order · code</span><span>Customer · link</span><span>Date</span><span>Status · select</span><span>Total · rollup</span><span>Notes</span></div>';
+    var blk = '<div class="blk"><span class="t"><b>Linked records</b><span class="in">Order lines</span></span>' +
+      '<span class="seg"><span>Timeline</span><span>List</span><span class="on">Table</span></span>' +
+      '<span class="t"><span class="in">By Product ▾</span><span class="in">Product, Qty, Price, Total ▾</span></span>' +
+      '<span class="ah-cbx"><i class="on">' + GY_TICK + '</i>Sums under it</span>' +
+      '<span class="ah-cbx hot"><i class="on">' + GY_TICK + '</i>Lines of this record</span>' +
+      '<span class="note hot">Order lines are this order’s lines: not in the app’s menu, typed in the new order’s window before Create, and under its row in the table. A line needs its order.</span>' +
+      '<span class="note">The order lines whose order is this record, as a table: a column for each field shown, typed in where they are.</span></div>';
+    return '<div class="ovl center"><div class="mdlg ah-edit ah-fe"><div class="hd"><b>Fields</b><small>Orders · Spare parts</small><span class="x">×</span></div>' +
+      '<div class="body">' + left + blk + '</div>' +
+      '<div class="foot"><span class="reset"></span><span class="st-btn">Cancel</span><span class="st-btn go">Save</span></div></div></div>';
+  }
+  function ahMt(color, title, sub) { return '<div class="ah-mtoday" style="--rc:' + color + '"><span class="bar"></span><span class="tx"><span>' + title + '</span><small>' + sub + '</small></span></div>'; }
+  /** On a phone: the app one row in Browse; its page with Today and its modules; an order's lines under it; a new order's lines before Save. */
+  function ahPhone() {
+    var browse = mbPage(mbNav('Browse') + mbHead(CA_SPACE, 'Shared · 6 people'), '<div>' +
+      mbRow({ icon: 'folder', label: 'Operations', ct: 12 }) +
+      '<div class="mb-row"><span class="ah-ic">' + ICON.app + '</span><span class="tx"><b>Spare parts</b><small>CRM · Sales · Stock</small></span>' + MB_CHEV + '</div>' +
+      mbRow({ icon: 'folder', label: 'Customers', ct: 4 }) + mbRow({ icon: 'notes', label: 'Price list 2026' }) + '</div>');
+    var home = mbPage(mbNav(CA_SPACE, ['dots']) + mbHead('Spare parts', 'CRM · Sales · Stock'),
+      '<div class="mb-sec">Today <small>3</small></div>' +
+      ahMt('#6aa5f0', 'Kuzey Asansör · revised quote', '<span class="late">Yesterday</span> · Deals') + ahMt('#f0a54a', 'SO-0009 · Globex', 'Payments · € 2,060 due today') +
+      '<div class="mb-sec">Sales</div>' + mbRow({ icon: 'collection', label: 'Orders', ct: '12 open' }) + mbRow({ icon: 'collection', label: 'Payments', sub: '<span class="warn">2 to check</span>', ct: '3 due' }) +
+      mbRow({ icon: 'collection', label: 'Companies', ct: 24 }) + mbRow({ icon: 'collection', label: 'Products', ct: 140 }) +
+      '<div class="mb-sec">CRM</div>' + mbRow({ icon: 'collection', label: 'Companies', ct: 24 }) + mbRow({ icon: 'board', label: 'Deals', ct: '6 open' }));
+    var orders = mbPage(mbNav('Spare parts', ['find', 'plus']) + mbHead('Orders', 'Sales · 12 open'), '<div>' +
+      AH_ORDERS.slice(0, 5).map(function (o) {
+        var r = '<div class="ah-mrow' + (o[6] ? ' open' : '') + '"><span class="tx"><b>' + o[0] + ' · ' + o[1] + '</b><small>' + o[2] + ' · ' + o[3] + '</small></span><span class="rt">' + o[5] + '</span><span class="lc">' + o[4] + (o[6] ? ICON.chevu : ICON.chevd) + '</span></div>';
+        if (!o[6]) return r;
+        return r + '<div class="ah-mlines">' + AH_LINES.map(function (l) { return '<div class="ah-ml"><span class="q">' + l[1] + ' ×</span><span class="t">' + l[0] + '</span><span class="rt">' + l[3] + '</span></div>'; }).join('') + '<div class="ah-ml ah-madd">+ Add line</div></div>';
+      }).join('') + '</div>');
+    var nav = '<div class="mb-nav"><span class="tb plain">Cancel</span><span class="mid">New order</span><span class="acts"><span class="tb">Save</span></span></div>';
+    var neworder = mbPage(nav, '<div class="mb-form" style="padding-top: 8px"><div class="mb-group wide">' + mbVal('Customer', 'Kuzey Asansör') + mbVal('Date', 'Today') + mbVal('Status', 'Open') + '</div></div>' +
+      '<div class="mb-sec">Lines <small>3</small><span class="sum">€ 1,240</span></div><div class="ah-mlines" style="padding-left: 16px; background: none">' +
+      AH_LINES.map(function (l) { return '<div class="ah-ml"><span class="q">' + l[1] + ' ×</span><span class="t">' + l[0] + '</span><span class="rt">' + l[3] + '</span></div>'; }).join('') + '<div class="ah-ml ah-madd">+ Add line</div></div>');
+    return mbPhone('Browse: app tek satır', browse, mbTabs('browse')) + mbPhone('App’in sayfası: Today ve modüller', home, mbTabs('browse')) +
+      mbPhone('Orders: satırlar altında açılır', orders, mbTabs('browse')) + mbPhone('New order: satırlar Save’den önce', neworder, '');
+  }
+  var AH_VIEWS = {
+    ahhome: function () { return ahFrame(ahTree(), 'app', 'Spare parts', ahHome(), 'Home'); },
+    ahorders: function () { return ahFrame(ahTree(), 'app', 'Spare parts', ahOrders(), '12 open · Sorted by Date'); },
+    ahnew: function () { return ahFrame(ahTree(), 'app', 'Spare parts', ahOrders(), '12 open · Sorted by Date', ahNew()); },
+    ahgym: function () { return ahFrame(ahGymTree(), 'rise', 'Gym', ahGymHome(), 'Home'); },
+    ahgymprog: function () { return ahFrame(ahGymTree(), 'rise', 'Gym', ahGymPrograms(), '2 records · Sorted by Name'); },
+    ahmore: function () { return ahFrame(ahTree({ hot: true }), 'app', 'Spare parts', ahHome(), 'Home', AH_MORE); },
+    ahfiles: function () { return ahFrame(ahTree({ files: true }), 'app', 'Spare parts', ahHome(), 'Home'); },
+    ahedit: function () { return ahFrame(ahTree(), 'app', 'Spare parts', ahHome(), 'Home', ahEdit()); },
+    ahfields: function () { return ahFrame(ahTree(), 'app', 'Spare parts', ahOrders(), '12 open · Sorted by Date', ahFields()); }
+  };
+  function renderAh(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (view === 'ahphone') {
+      mock.className = 'mock dir-a phones four mbs';
+      mock.innerHTML = ahPhone();
+    } else {
+      mock.className = 'mock dir-a wider';
+      mock.innerHTML = AH_VIEWS[view]();
+    }
+    section.querySelectorAll('.brief [data-ahview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.ahview === view));
+    });
+  }
+  var sectionAh = document.querySelector('.dir[data-dir="apphome"]');
+  sectionAh.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-ahview]');
+    if (b) renderAh(sectionAh, b.dataset.ahview);
+  });
+  renderAh(sectionAh, 'ahhome');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });
