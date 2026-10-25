@@ -15,14 +15,20 @@ function mark(root: string, ...paths: string[]) {
   for (const path of paths) mine.set(pathKey(path), now);
 }
 
-/** Whether this app itself changed a path of a folder a moment ago: it, or a folder it is in. */
+/**
+ * Whether this app itself changed a path of a folder a moment ago: it, a folder it is in, or
+ * something in it. Windows tells a folder changed when a file in it is written, as `.scrawl` is
+ * with every turn's sync state: that is this app's own change too, else it starts a turn again.
+ */
 export function wroteLately(root: string, path: string, now = Date.now()): boolean {
   const mine = written.get(root);
   if (!mine) return false;
-  for (let at = pathKey(path); at; at = dirname(at)) {
+  const key = pathKey(path);
+  for (let at = key; at; at = dirname(at)) {
     const when = mine.get(at);
     if (when !== undefined && now - when <= OWN_MS) return true;
   }
+  for (const [at, when] of mine) if (at.startsWith(`${key}/`) && now - when <= OWN_MS) return true;
   return false;
 }
 
