@@ -54,6 +54,7 @@ import {
   schemasOf,
   serializeSchema,
   settleSchema,
+  hiddenOnForm,
   shownField,
   SINGLE_TYPES,
   spaceOf,
@@ -180,6 +181,8 @@ interface DraftColumn {
 interface Draft {
   fields: DraftField[];
   columns: DraftColumn[];
+  /** The fields kept off the record's window, by id: their eye shut (Layout.hidden). */
+  hidden: ReadonlySet<string>;
 }
 
 /** A screen has three columns at most. */
@@ -231,7 +234,8 @@ function toDraft(schema: Schema, linked: LayoutBlock[]): Draft {
     const at = Math.max(0, columns.findIndex((c) => c.sections.some((s) => s.items.some((i) => 'field' in i))));
     columns[at]!.sections.push({ id: newId(), title: t('collection.moreFields'), items: left.map((f) => ({ id: newId(), field: f.id })) });
   }
-  return { fields, columns };
+  const off = hiddenOnForm(schema);
+  return { fields, columns, hidden: new Set(fields.filter((f) => off.has(f.key)).map((f) => f.id)) };
 }
 
 /** Fields as the window holds them, each with an id of its own and its choices with the names they had. */
@@ -332,6 +336,10 @@ function toSchema(draft: Draft, base: Schema): Schema {
       })),
     })),
   };
+  // The fields off the window are written when they are not the template's own.
+  const off = draft.fields.filter((f) => draft.hidden.has(f.id)).map((f) => f.key);
+  const usual = hiddenOnForm({ ...base, layout: undefined });
+  if (off.length !== usual.size || off.some((k) => !usual.has(k))) layout.hidden = off;
   return { ...base, fields: draft.fields.map(toField), layout };
 }
 
@@ -1611,14 +1619,34 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
       },
     };
     if (field) {
+      // Its eye: shut, the field is kept off the record's window, in the table and the views still.
+      const off = draft.hidden.has(field.id);
       return (
-        <div key={item.id} className="fitem" {...shared}>
+        <div key={item.id} className={off ? 'fitem off' : 'fitem'} {...shared}>
           <span className="grip">{GRIP}</span>
           <span className="fl">
             {field.label || t('fields.fieldName')}
             {(field.required || field.type === 'name') && <i title={t('collection.required')}>*</i>}
           </span>
-          <small>{typeWords(field)}</small>
+          <small>{off ? t('fields.offRecord') : typeWords(field)}</small>
+          <button
+            type="button"
+            className="feye"
+            title={t(off ? 'fields.showOnRecord' : 'fields.hideOnRecord')}
+            aria-label={t(off ? 'fields.showOnRecord' : 'fields.hideOnRecord')}
+            aria-pressed={off}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              setDraft((d) => {
+                const hidden = new Set(d.hidden);
+                if (!hidden.delete(field.id)) hidden.add(field.id);
+                return { ...d, hidden };
+              });
+            }}
+          >
+            <Icon name={off ? 'eyeOff' : 'eye'} />
+          </button>
         </div>
       );
     }

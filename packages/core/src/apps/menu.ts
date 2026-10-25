@@ -166,6 +166,9 @@ export const appIcon = (app: AppFile): string => {
   return ids.length === 1 ? TEMPLATES[ids[0]!].icon : (app.icon ?? 'app');
 };
 
+/** The fields kept off a collection's record window: as its layout says, else as its template's piece does (Layout.hidden). */
+export const hiddenOnForm = (schema: Schema): ReadonlySet<string> => new Set(schema.layout?.hidden ?? (schema.role ? PIECES[schema.role]?.hidden : undefined) ?? []);
+
 /** The roles of the pieces that are another's lines, by role: an order's lines are the order's (design/app-home.md 4). */
 export const linesOf = (role: string) => PIECES[role]?.lines ?? [];
 

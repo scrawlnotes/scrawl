@@ -20281,3 +20281,63 @@ button.ppl:hover {
 .am-foot > .am-reset:hover {
   color: var(--sl-fg);
 }
+
+/* What is worked out is read, not typed: it is said under its label, with no box around it. */
+.prop .pe .st-field.formula {
+  border-color: transparent;
+  background: none;
+  padding-right: 0;
+  padding-left: 0;
+}
+
+/* A new record's table before the field its rows come from is given: a new workout's "Pick a
+   program" (the Gym mockup's New workout). */
+.blk-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 220px;
+  margin: 6px 0 8px;
+  padding: 16px;
+  border: 1px dashed var(--sl-line);
+  border-radius: 8px;
+  color: var(--sl-faint);
+  font-size: 12.5px;
+  text-align: center;
+}
+
+.blk-hint b {
+  color: var(--sl-dim);
+  font-weight: 500;
+}
+
+/* A field's eye in Fields: shut, the field is kept off the record's window, faint here. */
+.fitem .feye {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-left: auto;
+  border-radius: 5px;
+  color: var(--sl-faint);
+  visibility: hidden;
+}
+
+.fitem:hover .feye,
+.fitem:focus-within .feye,
+.fitem.off .feye {
+  visibility: visible;
+}
+
+.fitem .feye:hover {
+  background: color-mix(in srgb, var(--sl-fg) 8%, transparent);
+  color: var(--sl-fg);
+}
+
+.fitem.off .fl,
+.fitem.off small {
+  opacity: 0.5;
+}

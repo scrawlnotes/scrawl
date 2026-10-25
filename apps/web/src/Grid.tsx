@@ -34,10 +34,12 @@ export const typedInCell = (field: Field) => !isComputed(field.type) && field.ty
  * The picking and the typing of an editable table. `rows` and `fields` are in the order shown,
  * for the arrows; `open` opens a record, `write` writes one value of it.
  */
-export function useGrid({ rows, fields, open, write }: {
+export function useGrid({ rows, fields, open, opener, write }: {
   rows: Record[];
   fields: Field[];
   open: (record: Record) => void;
+  /** A field whose cell opens its record, as a name's does: a line's first, its product or its move. */
+  opener?: string;
   write: (record: Record, field: Field, value: FieldValue) => void;
 }) {
   const [picked, setPicked] = useState<CellAt | null>(null);
@@ -111,7 +113,7 @@ export function useGrid({ rows, fields, open, write }: {
       onClick: (event: MouseEvent) => {
         // A link or an address in the cell does what it does; the record's name opens it.
         if ((event.target as HTMLElement).closest('a, .lnk-open')) return;
-        if (field.type === 'name') return open(record);
+        if (field.type === 'name' || field.key === opener) return open(record);
         if (on) edit(record, field);
         else pick({ id: record.id, key: field.key });
       },

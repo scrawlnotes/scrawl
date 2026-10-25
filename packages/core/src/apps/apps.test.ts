@@ -6,10 +6,11 @@ import { dueRecords } from '../calendar';
 import { planSave, recordWith, type RuleSpaceNow } from '../run';
 import { Computer } from '../compute';
 import { MemoryFs } from '../fs';
+import { settleSchema } from '../fields';
 import { linksIn, resolveHref } from '../links';
 import { APP_FILE, APP_ICONS, AppProblems, type FoundApp, planApp } from './build';
 import { installApp, undoApp } from './install';
-import { appIcon, type AppPiece, homeOf, linesBlocks, menuEditOf, menuFileOf, menuOf, screenKey, showsLines, unplacedOf } from './menu';
+import { appIcon, type AppPiece, hiddenOnForm, homeOf, linesBlocks, menuEditOf, menuFileOf, menuOf, screenKey, showsLines, unplacedOf } from './menu';
 import { PIECES } from './pieces';
 import { readAnswers, TEMPLATES } from './questions';
 import { findApp, readAppFile, readAppMenu, writeAppMenu } from './roles';
@@ -603,6 +604,52 @@ describe('the menu the person sets', () => {
       hidden: ['x'],
       home: { today: false },
     });
+  });
+});
+
+describe('what a new Gym starts with', () => {
+  it('has the moves most used in a gym, each with its muscle group, and a program of three days, its items linked to them', async () => {
+    const fs = new MemoryFs();
+    await installApp(fs, planApp({ name: 'Gym', templates: [{ id: 'gym' }] }, { ids, today: '2026-10-25' }));
+    const exercises = await loadCollection(fs, 'Gym/Exercises');
+    expect(exercises.records).toHaveLength(72);
+    expect(exercises.records.every((r) => typeof r.values.muscle === 'string')).toBe(true);
+    expect(exercises.records.find((r) => r.name === 'Leg Press')?.values.muscle).toBe('Legs');
+    const programs = await loadCollection(fs, 'Gym/Programs');
+    expect(programs.records).toHaveLength(1);
+    const [program] = programs.records;
+    expect(program!.values).toMatchObject({ name: '3-Day Full Body', days: ['Mon', 'Wed', 'Fri'], from: '2026-10-25', duration: '45–60 min' });
+    expect(program!.body).toContain('**Progression**');
+    const items = await loadCollection(fs, 'Gym/Program items');
+    expect(items.records).toHaveLength(20);
+    const press = items.records.find((r) => r.name === 'Chest Press Machine')!;
+    expect(press.values).toMatchObject({ part: 'Workout', order: 1, sets: '3', reps: '12', rest: '90 s', note: 'Push at chest height' });
+    // Linked by id, as the app links: the program counts its items, the move is the one in Exercises.
+    expect((press.values.exercise as { id: string }).id).toBe(exercises.records.find((r) => r.name === 'Chest Press Machine')!.id);
+    expect((press.values.program as { id: string }).id).toBe(program!.id);
+    const computer = new Computer([programs, items, exercises], {}, '2026-10-25');
+    expect(computer.values('Gym/Programs', program!).items).toBe(20);
+    // A Gym without program days has its program, with no days.
+    const other = new MemoryFs();
+    await installApp(other, planApp({ name: 'Gym', templates: [{ id: 'gym', answers: { days: false } }] }, { ids }));
+    expect((await loadCollection(other, 'Gym/Programs')).records[0]!.values.days).toBeUndefined();
+  });
+});
+
+describe('the fields kept off a record’s window', () => {
+  it('are the template’s, as its mockup has them, until the layout says its own; and they are written and read back', async () => {
+    const fs = new MemoryFs();
+    await installApp(fs, planApp({ name: 'Gym', templates: [{ id: 'gym' }] }, { ids }));
+    const workouts = await loadCollection(fs, 'Gym/Workouts');
+    expect([...hiddenOnForm(workouts.schema)].sort()).toEqual(['all_moves', 'done_moves', 'moves', 'name', 'status', 'this_month', 'this_week']);
+    expect([...hiddenOnForm((await loadCollection(fs, 'Gym/Program items')).schema)].sort()).toEqual(['name', 'order']);
+    // Shown again, every one: the layout says so, and it stays when the schema is settled and read back.
+    const shown = { ...workouts.schema, layout: { ...workouts.schema.layout!, hidden: [] } };
+    const read = parseSchema(serializeSchema(settleSchema(shown)));
+    expect(read.layout?.hidden).toEqual([]);
+    expect(hiddenOnForm(read).size).toBe(0);
+    const one = parseSchema(serializeSchema(settleSchema({ ...workouts.schema, layout: { ...workouts.schema.layout!, hidden: ['minutes'] } })));
+    expect([...hiddenOnForm(one)]).toEqual(['minutes']);
   });
 });
 

@@ -9914,3 +9914,25 @@ body > .mb-lifted {
 .mb-app .app-empty {
   margin: 24px 16px 8px;
 }
+
+/* A new workout's lines before its program is picked: what to do first, a tap picking it. */
+.mb-pickfirst {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  margin: 4px 0 8px;
+  padding: 18px 16px;
+  border: 1px dashed var(--sl-line);
+  border-radius: 12px;
+  color: var(--sl-faint);
+  font-size: 14px;
+  text-align: center;
+}
+
+.mb-pickfirst b {
+  color: var(--sl-fg);
+  font-size: 15px;
+  font-weight: 600;
+}

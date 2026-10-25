@@ -47,6 +47,7 @@ import {
   type PlannedFile,
   type RuleChunk,
   APP_FILE,
+  RECORD_BODY,
   TEMPLATE_IDS,
   type TemplateId,
   type TemplateSummary,
@@ -387,7 +388,7 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
   const seeds = (part: CollectionPart, schema: Schema, records: CollectionPart['records']) => {
     const named = seeded.get(part.path) ?? new Map<string, string>();
     seeded.set(part.path, named);
-    for (const given of records) {
+    for (const { [RECORD_BODY]: body, ...given } of records) {
       const id = recordId();
       const path = join(part.path, `${id}${RECORD_EXT}`);
       const values = Object.fromEntries(
@@ -398,7 +399,7 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
         }),
       );
       named.set(String(given.name ?? '').toLowerCase(), id);
-      file(path, serializeRecord({ id, path, name: String(given.name ?? ''), code: '', values, extra: {}, body: '' }, schema));
+      file(path, serializeRecord({ id, path, name: String(given.name ?? ''), code: '', values, extra: {}, body: typeof body === 'string' ? body : '' }, schema));
     }
   };
 

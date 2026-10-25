@@ -11,6 +11,9 @@ import type { PieceInfo } from './pieces';
 /** The file in an app's folder that says it is one: its templates and their answers. */
 export const APP_FILE = '_app.json';
 
+/** A record a template sets up gives its notes under this key, which no field can be called: a program's. */
+export const RECORD_BODY = '#body';
+
 /** The templates, in the order they are set up: the one before sets up what a shared piece starts with. */
 export const TEMPLATE_IDS = ['crm', 'sales', 'support', 'appointments', 'projects', 'budget', 'stock', 'ecommerce', 'product', 'recruiting', 'assets', 'content', 'subscriptions', 'contracts', 'timeoff', 'goals', 'incidents', 'field', 'consulting', 'association', 'finance', 'home', 'health', 'recipes', 'travel', 'split', 'jobs', 'people', 'reading', 'sport', 'gym', 'habits'] as const;
 

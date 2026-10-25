@@ -83,7 +83,7 @@ function settleLayout(layout: Layout): Layout {
       sections: column.sections.filter((s) => s.items.length > 0 || s.title).map((s) => ({ ...(s.title?.trim() && { title: s.title.trim() }), items: s.items })),
     }))
     .filter((column) => column.sections.length > 0);
-  return { columns };
+  return { columns, ...(layout.hidden && { hidden: layout.hidden }) };
 }
 
 /**

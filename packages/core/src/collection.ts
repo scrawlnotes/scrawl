@@ -165,6 +165,12 @@ export interface LayoutColumn {
 
 export interface Layout {
   columns: LayoutColumn[];
+  /**
+   * The fields kept off the record's window, by key: worked out for the table and its views, or
+   * written by the rules, a workout's name. They are in the table, the views and the files as any
+   * other; Fields lists them with their eye shut. Without it, the template's (PieceInfo.hidden).
+   */
+  hidden?: string[];
 }
 
 export type CollectionTemplate = 'companies' | 'people' | 'activities' | 'feedback' | 'payments' | 'blank';
@@ -605,7 +611,8 @@ function readLayout(raw: unknown): Layout | undefined {
     const width = typeof column.width === 'number' && column.width > 0 ? column.width : undefined;
     columns.push({ ...(width && { width }), sections });
   }
-  return columns.length > 0 ? { columns } : undefined;
+  const hidden = Array.isArray(raw.hidden) ? raw.hidden.filter((k): k is string => typeof k === 'string').map(cleanFieldKey).filter(Boolean) : undefined;
+  return columns.length > 0 ? { columns, ...(hidden && { hidden }) } : undefined;
 }
 
 /**

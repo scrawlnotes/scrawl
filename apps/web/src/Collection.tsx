@@ -62,6 +62,7 @@ import {
   linkedSort,
   linesBlocks,
   showsLines,
+  hiddenOnForm,
   linkedValues,
   linkFieldsTo,
   linkGone,
@@ -512,14 +513,16 @@ function ChoicesField({ id, field, value, used, onChange }: { id: string; field:
  * to find another by name or code in the collection the field points at; the list under it shows
  * what matches. A link whose record is gone keeps showing the name it had, marked as deleted.
  */
-function LinkField({ field, value, ctx, onChange }: {
+function LinkField({ field, value, autoFocus, ctx, onChange }: {
   field: Field;
   value: Link | Link[] | null;
+  /** Where the form starts: its list opens at once, a new workout's programs. */
+  autoFocus?: boolean;
   ctx: ValueContext;
   onChange: (value: Link | Link[] | null) => void;
 }) {
   const [typed, setTyped] = useState('');
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(!!autoFocus);
   const box = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const keys = useRef<((event: KeyboardEvent) => void) | null>(null);
@@ -565,6 +568,7 @@ function LinkField({ field, value, ctx, onChange }: {
             ref={input}
             id={`field-${field.key}`}
             aria-label={field.label}
+            autoFocus={autoFocus}
             autoComplete="off"
             placeholder={links.length > 0 ? t('collection.addTag') : t('collection.pickRecord')}
             value={typed}
@@ -649,7 +653,7 @@ export function FieldInput({ field, value, autoFocus, ctx, currency, onChange, o
   const id = `field-${field.key}`;
   switch (field.type) {
     case 'link':
-      return <LinkField field={field} value={isLink(value) || Array.isArray(value) ? (value as Link | Link[]) : null} ctx={ctx} onChange={onChange} />;
+      return <LinkField field={field} value={isLink(value) || Array.isArray(value) ? (value as Link | Link[]) : null} autoFocus={autoFocus} ctx={ctx} onChange={onChange} />;
     case 'select':
       return <SelectField field={field} value={typeof value === 'string' && value ? value : null} onChange={onChange} />;
     case 'multi-select':
@@ -777,7 +781,7 @@ export const singularOf = (schema: Schema) => schema.singular ?? t('collection.r
  * stays, so that the first is added from here. A collection made on its own looks for the ones its
  * template keeps beside it; one that is not there is made from here, from the template of its name.
  */
-function LinkedRecords({ block, dir, record, today, actions, drafts, onOpen, onAdd }: {
+function LinkedRecords({ block, dir, record, today, actions, drafts, hint, onOpen, onAdd }: {
   block: LinkedBlock;
   /** The collection of the record on screen. */
   dir: string;
@@ -786,8 +790,10 @@ function LinkedRecords({ block, dir, record, today, actions, drafts, onOpen, onA
   actions: CollectionActions;
   /** In a form whose rules add rows as it is typed in: those rows, not written yet. */
   drafts?: LinkedDrafts;
+  hint?: { title: string; text: string };
   onOpen: (source: Collection, record: Record) => void;
-  onAdd: (source: Collection) => void;
+  /** A new linked record's window, with the values given: a group's, in a table. */
+  onAdd: (source: Collection, values?: Record['values']) => void;
 }) {
   const [failed, setFailed] = useState<string | null>(null);
   const making = useRef(false);
@@ -836,7 +842,7 @@ function LinkedRecords({ block, dir, record, today, actions, drafts, onOpen, onA
     );
   }
   const { schema } = source;
-  if (block.style === 'table') return <LinkedTable block={block} source={source} dir={dir} record={record} today={today} actions={actions} drafts={drafts} onOpen={onOpen} />;
+  if (block.style === 'table') return <LinkedTable block={block} source={source} dir={dir} record={record} today={today} actions={actions} drafts={drafts} hint={hint} onOpen={onOpen} onAdd={onAdd} />;
   // The linked records with what is worked out among their values, and their fields as those show.
   const computer = computerFor(source, actions.collections(), actions.boards(), today);
   const shownAs = computer.shown(source.dir);
@@ -907,121 +913,12 @@ function LinkedRecords({ block, dir, record, today, actions, drafts, onOpen, onA
   );
 }
 
-/**
- * The row + Add row opens at the foot of a table, after the slice 3 views of design/mockups.html:
- * a box for each field the table shows, the defaults in them, what is worked out shown faint.
- * Add writes the record (faint while it has no name, nor one its onSave gives it: a line its
- * product's), Cancel and Esc close the row.
- */
-function NewRow({ fields, schema, values, computed, shown, cellClass, ctx, width, error, onChange, onAdd, onCancel }: {
-  fields: Field[];
-  schema: Schema;
-  values: Record['values'];
-  /** What is worked out from them, with what the collection's onSaves set. */
-  computed: Record['values'];
-  shown: (field: Field) => Field;
-  cellClass: (field: Field, i: number) => string | undefined;
-  ctx: ValueContext;
-  /** How wide the line with Add is: as the table shows, so that its buttons stay in sight when the table is wider. */
-  width?: number;
-  error: string | null;
-  onChange: (values: Record['values']) => void;
-  onAdd: () => void;
-  onCancel: () => void;
-}) {
-  const named = nameField(schema);
-  const nameless = !!named && !valueText(values[named.key] ?? null).trim() && !valueText(computed[named.key] ?? null).trim();
-  const first = fields.find((f) => f.key !== TITLE.key && !isComputed(f.type))?.key;
-  return (
-    <>
-      <div
-        className="crow new"
-        role="row"
-        onKeyDown={(event) => {
-          if (event.key !== 'Escape' || event.defaultPrevented) return;
-          event.stopPropagation();
-          onCancel();
-        }}
-      >
-        {fields.map((field, i) => (
-          <div key={field.key} role="cell" className={[cellClass(field, i), isComputed(field.type) && 'calc'].filter(Boolean).join(' ') || undefined}>
-            {field.key === TITLE.key ? (
-              <span className="empty">–</span>
-            ) : isComputed(field.type) ? (
-              <Cell field={shown(field)} value={computed[field.key]} ctx={ctx} values={computed} />
-            ) : (
-              <FieldInput
-                field={field}
-                value={values[field.key] ?? null}
-                autoFocus={field.key === first}
-                ctx={ctx}
-                currency={currencyOf(field.format, values)}
-                onChange={(next) => onChange({ ...values, [field.key]: next })}
-                onEnter={field.type === 'name' && !nameless ? onAdd : undefined}
-              />
-            )}
-          </div>
-        ))}
-      </div>
-      <div className="cadd-acts" style={width ? { width } : undefined}>
-        {error && <p role="alert">{error}</p>}
-        <button type="button" onClick={onCancel}>
-          {t('dialog.cancel')}
-        </button>
-        <button type="button" className="primary" disabled={nameless} onClick={onAdd}>
-          {t('collection.addRowButton')}
-        </button>
-      </div>
-    </>
-  );
-}
-
-/**
- * A table's + Add row: the values of the row being added, the defaults first; Add writes it and
- * opens the next one at once, with the defaults again (the next number counting the one added).
- */
-function useAdding({ computer, dir, schema, given, me, add }: {
-  computer: Computer;
-  dir: string;
-  schema: Schema;
-  /** What a new row starts with before the defaults: the links of a linked block. */
-  given: () => Record['values'];
-  me?: string;
-  add: (values: Record['values']) => Promise<string | null>;
-}) {
-  const [values, setValues] = useState<Record['values'] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const again = useRef(false);
-  const busy = useRef(false);
-  const start = () => {
-    setError(null);
-    setValues(computer.defaults(dir, given(), me));
-  };
-  // The record added comes into the collection; the next row counts it.
-  useEffect(() => {
-    if (!again.current) return;
-    again.current = false;
-    start();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [computer]);
-  const write = async () => {
-    if (!values || busy.current) return;
-    const missing = missingFields(values, schema).filter((key) => key !== nameField(schema)?.key);
-    if (missing.length > 0) return setError(t('collection.requiredMissing', { fields: missing.map((k) => schema.fields.find((f) => f.key === k)?.label ?? k).join(t('list.separator')) }));
-    busy.current = true;
-    const failed = await add(values);
-    busy.current = false;
-    if (failed) return setError(failed);
-    again.current = true;
-    setValues(null);
-  };
-  return { values, error, start, write, change: (next: Record['values']) => (setError(null), setValues(next)), cancel: () => setValues(null) };
-}
-
 /** The fields a linked table shows when its block names none: the collection's, but the link back here, six at most. */
-function linkedColumns(block: LinkedBlock, schema: Schema, dir: string): Field[] {
+function linkedColumns(block: LinkedBlock, schema: Schema, dir: string, lines = false): Field[] {
   const byKey = new Map(schema.fields.map((f) => [f.key, f]));
   const named = nameField(schema);
+  // A record's lines show what their block says, no name before it: the product or the move is what a line is (design/app-home.md 4.2).
+  if (lines && block.fields?.length) return block.fields.map((k) => byKey.get(k)).filter((f): f is Field => !!f);
   const back = new Set(linkFieldsTo(schema, dir).map((f) => f.key));
   const chosen = block.fields ? block.fields.map((k) => byKey.get(k)).filter((f): f is Field => !!f && f.type !== 'name') : schema.fields.filter((f) => f.type !== 'name' && !back.has(f.key)).slice(0, 5);
   return [...(named ? [named] : schema.fields.length > 0 ? [] : [TITLE]), ...chosen];
@@ -1056,7 +953,7 @@ interface LinkedDrafts {
  * level's heading ticks its rows or unticks them. In a form whose rules add rows as it is typed in,
  * those rows are among the others, typed in and added to as they are, written on Save.
  */
-function LinkedTable({ block, source, dir, record, today, actions, drafts, onOpen }: {
+function LinkedTable({ block, source, dir, record, today, actions, drafts, hint, onOpen, onAdd }: {
   block: LinkedBlock;
   source: Collection;
   dir: string;
@@ -1064,14 +961,23 @@ function LinkedTable({ block, source, dir, record, today, actions, drafts, onOpe
   today: string;
   actions: CollectionActions;
   drafts?: LinkedDrafts;
+  /** What an empty table says instead of that it is empty: a new workout's "Pick a program". */
+  hint?: { title: string; text: string };
+  /** A row not written yet opens in the window it was added in. */
   onOpen: (source: Collection, record: Record) => void;
+  /** + Add opens the new row's window, the values given in it: the link back, a group's value. */
+  onAdd: (source: Collection, values: Record['values']) => void;
 }) {
   const { schema } = source;
   const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink };
   const computer = useMemo(() => computerFor(source, actions.collections(), actions.boards(), today), [source, actions, today]);
   const shownAs = computer.shown(source.dir);
   const asShown = (field: Field) => shownAs.get(field.key) ?? field;
-  const columns = linkedColumns(block, schema, dir);
+  const recordSchema = actions.collection(dir)?.schema;
+  const lines = showsLines(block, recordSchema?.role, schema.role);
+  const columns = linkedColumns(block, schema, dir, lines);
+  // Where a row opens: its name, else in a table of lines its first column that is not a tick.
+  const openAt = columns.some((f) => f.type === 'name') ? columns.findIndex((f) => f.type === 'name') : Math.max(0, columns.findIndex((f) => f.type !== 'checkbox'));
   // A row not written yet gives way to its record once it is: as the form is saved.
   const written = linkedRecords(source, dir, record);
   const unsaved = (drafts?.rows(source) ?? []).filter((r) => !written.some((w) => w.id === r.id));
@@ -1081,23 +987,6 @@ function LinkedTable({ block, source, dir, record, today, actions, drafts, onOpe
   const groups = groupLinked(sorted, schema, block.group ?? [], today);
   // The rows in the order they are shown, group by group, for the keyboard to go through.
   const rows = groups.flatMap((g) => (g.groups ? g.groups.flatMap((s) => s.records) : g.records));
-  const recordSchema = actions.collection(dir)?.schema;
-  const lines = showsLines(block, recordSchema?.role, schema.role);
-  // + Add to a group starts the row with the group's value.
-  const into = useRef<{ key: string; values: Record['values'] } | null>(null);
-  const [addingTo, setAddingTo] = useState<string | null>(null);
-  const adding = useAdding({
-    computer,
-    dir: source.dir,
-    schema,
-    given: () => ({ ...(recordSchema ? linkedValues(schema, dir, record, recordSchema) : {}), ...(into.current?.values ?? {}) }),
-    me: actions.me?.(),
-    add: async (values) => {
-      if (!drafts) return actions.addRecord(source.dir, { values });
-      drafts.add(source, values);
-      return null;
-    },
-  });
   const lit = useLit(source);
   /** A cell typed in: a row not written yet in the form, one written at once. */
   const write = (r: Record, field: Field, value: FieldValue) => {
@@ -1105,7 +994,7 @@ function LinkedTable({ block, source, dir, record, today, actions, drafts, onOpe
     lit.wrote(r.id, field.key, value);
     void actions.updateRecord(source.dir, r.id, { values: { [field.key]: value } }).then((failed) => failed && actions.say?.(failed));
   };
-  const grid = useGrid({ rows, fields: columns, open: (r) => !isDraft.has(r.id) && onOpen(source, r), write });
+  const grid = useGrid({ rows, fields: columns, open: (r) => onOpen(source, r), opener: lines ? columns[openAt]?.key : undefined, write });
   const numeric = (field: Field) => asShown(field).type === 'number';
   const cellClass = (field: Field, i: number) => [i === 0 && 'c0', numeric(field) && 'r'].filter(Boolean).join(' ') || undefined;
   const widths = columns.map((f) => WIDTHS[asShown(f).type][0]);
@@ -1114,28 +1003,12 @@ function LinkedTable({ block, source, dir, record, today, actions, drafts, onOpe
   const tick = columns.find((f) => f.type === 'checkbox');
   const ticked = (r: Record) => r.values[tick!.key] === true;
   const tickAll = (records: Record[], on: boolean) => records.filter((r) => ticked(r) !== on).forEach((r) => write(r, tick!, on));
+  // + Add opens the row's window; + Add to a group starts it with the group's value.
   const startAdding = (group: { key: string; records: Record[] } | null) => {
     grid.clear();
     const first = block.group?.[0];
-    into.current = group && first ? { key: group.key, values: { [first]: group.records[0]?.values[first] ?? null } } : null;
-    setAddingTo(group?.key ?? null);
-    adding.start();
+    onAdd(source, { ...(recordSchema ? linkedValues(schema, dir, record, recordSchema) : {}), ...(group && first ? { [first]: group.records[0]?.values[first] ?? null } : {}) });
   };
-  const newRow = (
-    <NewRow
-      fields={columns}
-      schema={schema}
-      values={adding.values ?? {}}
-      computed={computer.draft(source.dir, null, actions.planSaved?.(source.dir, '', adding.values ?? {}, null) ?? adding.values ?? {})}
-      shown={asShown}
-      cellClass={cellClass}
-      ctx={ctx}
-      error={adding.error}
-      onChange={adding.change}
-      onAdd={() => void adding.write()}
-      onCancel={adding.cancel}
-    />
-  );
   const row = (r: Record) => (
     <div key={r.id} role="row" className={['crow', grid.picked?.id === r.id && 'on', isDraft.has(r.id) && 'draft', tick && !ticked(r) && 'off'].filter(Boolean).join(' ')}>
       {columns.map((field, i) => {
@@ -1145,11 +1018,11 @@ function LinkedTable({ block, source, dir, record, today, actions, drafts, onOpe
             key={field.key}
             role="cell"
             data-cell={c['data-cell']}
-            className={[cellClass(field, i), c.picked && 'pk', c.editing && 'ed', isComputed(field.type) && 'calc', field.type === 'name' && !isDraft.has(r.id) && 'opens', lit.on(r.id, field.key) && 'lit'].filter(Boolean).join(' ') || undefined}
+            className={[cellClass(field, i), c.picked && 'pk', c.editing && 'ed', isComputed(field.type) && 'calc', (field.type === 'name' || (lines && i === openAt)) && 'opens', lit.on(r.id, field.key) && 'lit'].filter(Boolean).join(' ') || undefined}
             onClick={c.onClick}
             onDoubleClick={c.onDoubleClick}
           >
-            {i === 0 && !isDraft.has(r.id) && (
+            {i === openAt && (
               <button type="button" className="ropen" title={t('collection.openRecord')} aria-label={t('collection.openRecord')} onClick={(event) => (event.stopPropagation(), onOpen(source, r))}>
                 <Icon name="open" />
               </button>
@@ -1172,7 +1045,7 @@ function LinkedTable({ block, source, dir, record, today, actions, drafts, onOpe
         <span>{collectionName(block.collection)}</span>
         <small>{tick && rows.length > 0 ? t('collection.tickedOf', { ticked: rows.filter(ticked).length, count: rows.length }) : rows.length}</small>
       </div>
-      <div className="ltable-scroll">
+      <div className="ltable-scroll" hidden={!!hint && rows.length === 0}>
         <div ref={grid.box} className="ctable" role="table" aria-label={collectionName(block.collection)} tabIndex={0} onKeyDown={grid.keyDown} style={{ '--grid': [`minmax(${widths[0]}px, 1fr)`, ...widths.slice(1).map((w) => `${w}px`)].join(' ') } as CSSProperties}>
           <div className="crow head" role="row">
             {columns.map((field, i) => (
@@ -1214,16 +1087,12 @@ function LinkedTable({ block, source, dir, record, today, actions, drafts, onOpe
                       </Fragment>
                     ))
                   : g.records.map(row)}
-                {adding.values && addingTo === g.key && newRow}
-                {!adding.values && (
-                  <button type="button" className="cadd gadd" onClick={() => startAdding(g)}>
-                    {t('collection.addTo', { group: g.label || t('collection.none') })}
-                  </button>
-                )}
+                <button type="button" className="cadd gadd" onClick={() => startAdding(g)}>
+                  {t('collection.addTo', { group: g.label || t('collection.none') })}
+                </button>
               </Fragment>
             ),
           )}
-          {adding.values && addingTo === null && newRow}
           {block.sums && rows.length > 0 && (
             <div className="crow sum" role="row">
               {columns.map((field, i) => (
@@ -1243,9 +1112,17 @@ function LinkedTable({ block, source, dir, record, today, actions, drafts, onOpe
           )}
         </div>
       </div>
-      {rows.length === 0 && !adding.values && <p className="blk-none">{t('collection.noLinked', { collection: collectionName(block.collection).toLowerCase() })}</p>}
+      {rows.length === 0 &&
+        (hint ? (
+          <div className="blk-hint">
+            <b>{hint.title}</b>
+            <span>{hint.text}</span>
+          </div>
+        ) : (
+          <p className="blk-none">{t('collection.noLinked', { collection: collectionName(block.collection).toLowerCase() })}</p>
+        ))}
       {/* In groups each group has its own + Add; with none yet, the table has it. */}
-      {!adding.values && (!block.group?.length || rows.length === 0) && (
+      {(!block.group?.length || rows.length === 0) && (
         <button type="button" className="cadd" onClick={() => startAdding(null)}>
           {t(lines ? 'collection.addLine' : 'collection.addRow')}
         </button>
@@ -1453,7 +1330,8 @@ export function savePreview(
 }
 
 /** A record opened over another: one of a collection that links to it, or a new one already linked; or a card that links to it. */
-type Over = { dir: string; id: string } | { dir: string; values: Record['values'] } | { board: string; card: string };
+/** What opens over a record's window: a linked record, a new one, a line not written yet (`draft`, its id when it is there), a card. */
+type Over = { dir: string; id: string } | { dir: string; values: Record['values']; draft?: string | null } | { board: string; card: string };
 
 /**
  * The screen of one record, or of a new one: one form, saved as a whole. A record is drawn from
@@ -1461,12 +1339,19 @@ type Over = { dir: string; id: string } | { dir: string; values: Record['values'
  * its body when the schema has none. A new one is a narrow form of its fields and its body, since
  * nothing links to it yet.
  */
-export function RecordDialog({ collection, record, values, today, actions, onClose }: {
+export function RecordDialog({ collection, record, values, line, parent, today, actions, onClose }: {
   collection: Collection;
   /** Null for a new record. */
   record: Record | null;
   /** What a new record starts with: the links of the record it is added from. */
   values?: Record['values'];
+  /**
+   * A line of a record not written yet, added or changed in its own window: Add gives its values
+   * back, nothing written; the record's Create writes it (design/app-home.md 4.2).
+   */
+  line?: { done: (values: Record['values']) => void; editing: boolean };
+  /** The record it is a line of, by its collection: its link back is not asked, it is that record. */
+  parent?: string;
   today: string;
   actions: CollectionActions;
   onClose: () => void;
@@ -1474,7 +1359,9 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
   const { dir, schema } = collection;
   const name = collectionName(dir);
   const fields = useMemo(() => new Map(schema.fields.map((f) => [f.key, f])), [schema]);
-  const unplaced = unplacedFields(schema);
+  // Kept off the window: what its layout or its template says (worked out for the views, written by the rules), and a line's link back.
+  const offForm = useMemo(() => new Set([...hiddenOnForm(schema), ...(parent ? linkFieldsTo(schema, parent).map((f) => f.key) : [])]), [schema, parent]);
+  const unplaced = unplacedFields(schema).filter((f) => !offForm.has(f.key));
   // A new record starts with the values given (the links of the block it is added from), then its fields' defaults.
   const [given] = useState(() => (record ? values : computerFor(collection, actions.collections(), actions.boards(), today).defaults(collection.dir, values ?? {}, actions.me?.())));
   const [draft, setDraft] = useState<Draft>(() => draftOf(record, given));
@@ -1491,7 +1378,9 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
   const id = record?.id ?? newId;
   const [drafted, setDrafted] = useState<Change[]>([]);
   // A new record's lines, an order's or a program's items, are typed in before Create, as rows not written yet (design/app-home.md 4.2).
-  const lines = useMemo(() => (record ? [] : linesBlocks(schema, (path) => actions.collection(path) ?? undefined).map((l) => l.block)), [record, schema, actions]);
+  const lines = useMemo(() => (record || line ? [] : linesBlocks(schema, (path) => actions.collection(path) ?? undefined).map((l) => l.block)), [record, line, schema, actions]);
+  // The collections of its lines, a saved record's too: one opened from here does not ask for its link back.
+  const lineDirs = useMemo(() => new Set(linesBlocks(schema, (path) => actions.collection(path) ?? undefined).map((l) => l.source.dir)), [schema, actions]);
   const drafting = watched.length > 0 || lines.length > 0;
   const original = useMemo(() => draftOf(record, given), [record, given]);
   const dirty = differs(draft, original) || drafted.length > 0;
@@ -1550,6 +1439,9 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
         }
     : undefined;
 
+  // A new workout's items come from its program: until it is picked, its table says so, + Add under it.
+  const source = isNew ? watched.map((w) => fields.get(w.field)).find((f): f is Field => !!f && isEmpty(draft.values[f.key] ?? null)) : undefined;
+  const pickFirst = source ? { title: t('collection.pickFirst', { field: source.label.toLowerCase() }), text: t('collection.pickFirstText', { field: source.label.toLowerCase() }) } : null;
   const named = nameField(schema);
   /** Writes the form; false when it cannot be, saying why. */
   const write = async (): Promise<boolean> => {
@@ -1560,6 +1452,11 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
       const labels = missing.filter((k) => k !== named?.key).map((k) => fields.get(k)?.label ?? k);
       setError(named && missing.includes(named.key) ? t('collection.nameNeeded') : t('collection.requiredMissing', { fields: labels.join(t('list.separator')) }));
       return false;
+    }
+    // A line not written yet goes back to the record's window, which writes it with the record.
+    if (line) {
+      line.done(draft.values);
+      return true;
     }
     busy.current = true;
     const patch = { values: draft.values, body: draft.body, subtasks: draft.subtasks };
@@ -1600,7 +1497,9 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
   }, [overGone]);
 
   // A new record's first box has the keyboard.
-  const firstKey = isNew ? layout.columns.flatMap((c) => c.sections.flatMap((s) => s.items)).find((i): i is { field: string } => 'field' in i)?.field : undefined;
+  // A new record starts at the field its rows come from, its list open: a workout's program; else at its first.
+  const placedFields = layout.columns.flatMap((c) => c.sections.flatMap((s) => s.items)).filter((i): i is { field: string } => 'field' in i);
+  const firstKey = isNew ? (placedFields.find((i) => watched.some((w) => w.field === i.field)) ?? placedFields[0])?.field : undefined;
   // What is worked out (formulas, lookups, rollups) from what the form holds now; the rollups are the
   // record's, from what links to it, the rows typed in and not written yet among them: a new order's
   // total its new lines'.
@@ -1618,11 +1517,13 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
   const recordWide = problems.filter((p) => !p.field || !fields.has(p.field));
   const item = (key: string, index: number): ReactNode => {
     const field = fields.get(key);
-    if (!field) return null;
-    // What is worked out is shown, not typed.
+    if (!field || offForm.has(key)) return null;
+    // What is worked out is shown, not typed; a new record's only when it says something: what its lines add up to, a total.
     const problem = problems.find((p) => p.field === field.key);
     if (isComputed(field.type)) {
       const worked = computed[field.key];
+      const fromLines = field.rollup && [...lineDirs].some((d) => localPath(d) === field.rollup!.from);
+      if (isNew && !fromLines && (isEmpty(worked ?? null) || worked === 0 || worked === false)) return null;
       return (
         <div key={`${key}-${index}`} className={problem ? 'prop bad' : 'prop'}>
           <span className="pl">{field.label}</span>
@@ -1701,8 +1602,12 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
           today={today}
           actions={actions}
           drafts={drafts}
-          onOpen={(source, linked) => setOver({ dir: source.dir, id: linked.id })}
-          onAdd={(source) => setOver({ dir: source.dir, values: linkedValues(source.schema, dir, self, schema) })}
+          hint={pickFirst ?? undefined}
+          onOpen={(source, linked) => {
+            const unsaved = drafted.find((c) => c.kind === 'add' && c.id === linked.id);
+            setOver(unsaved && 'values' in unsaved ? { dir: source.dir, values: unsaved.values, draft: linked.id } : { dir: source.dir, id: linked.id });
+          }}
+          onAdd={(source, given) => setOver({ dir: source.dir, values: { ...linkedValues(source.schema, dir, self, schema), ...given }, ...(drafts && { draft: null }) })}
         />
       );
     }
@@ -1745,7 +1650,13 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
       )}
     </div>
   ));
-  const title = isNew ? (schema.singular ? t('collection.newOne', { singular: schema.singular }) : t('collection.newRecord', { collection: name })) : collectionLabel(dir);
+  const title = line?.editing
+    ? recordTitle(recordWith(collection, id, draft.values)) || t('collection.newOne', { singular: singularOf(schema) })
+    : isNew
+      ? schema.singular
+        ? t('collection.newOne', { singular: schema.singular })
+        : t('collection.newRecord', { collection: name })
+      : collectionLabel(dir);
 
   return (
     <div ref={backdrop} className="backdrop card-backdrop" onMouseDown={(event) => event.target === event.currentTarget && leave()}>
@@ -1784,15 +1695,13 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
           {error ? (
             <p role="alert">{error}</p>
           ) : (
-            isNew && (
-              <span className="hint">{t('collection.savedIn', { collection: name })}</span>
-            )
+            isNew && <span className="hint">{line ? t('collection.lineHint') : t('collection.savedIn', { collection: name })}</span>
           )}
           <button type="button" onClick={() => leave()}>
             {t('dialog.cancel')}
           </button>
           <button type="button" className="primary" disabled={!isNew && !dirty} onClick={() => void save()}>
-            {isNew ? t('collection.create') : t('collection.save')}
+            {line ? t(line.editing ? 'collection.save' : 'collection.addRowButton') : isNew ? t('collection.create') : t('collection.save')}
           </button>
         </div>
       </section>
@@ -1801,10 +1710,19 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
       )}
       {over && !('board' in over) && overCollection && !overGone && (
         <RecordDialog
-          key={'id' in over ? over.id : `new:${'dir' in over ? over.dir : ''}`}
+          key={'id' in over ? over.id : `new:${'dir' in over ? over.dir : ''}:${'draft' in over ? (over.draft ?? '') : ''}`}
           collection={overCollection}
           record={overRecord}
           values={'values' in over ? over.values : undefined}
+          line={
+            'draft' in over && drafts
+              ? {
+                  editing: !!over.draft,
+                  done: (values) => (over.draft ? drafts.write(overCollection, over.draft, values) : drafts.add(overCollection, values)),
+                }
+              : undefined
+          }
+          parent={lineDirs.has(over.dir) ? dir : undefined}
           today={today}
           actions={actions}
           onClose={() => setOver(null)}
@@ -2067,9 +1985,10 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
   const linesOn = lineBlocks.length > 0 && look?.lines !== false;
   const openedLines = new Set(look?.opened ?? []);
   const showLines = (ids: string[], on: boolean) => onLook({ ...look, opened: on ? [...new Set([...openedLines, ...ids])] : [...openedLines].filter((id) => !ids.includes(id)) });
-  const [line, setLine] = useState<{ dir: string; id: string } | null>(null);
+  // A line opened from under its row, or a new one added there, in its own window.
+  const [line, setLine] = useState<{ dir: string; id: string } | { dir: string; values: Record['values'] } | null>(null);
   const lineCollection = line ? actions.collection(line.dir) : null;
-  const lineRecord = line ? (lineCollection?.records.find((r) => r.id === line.id) ?? null) : null;
+  const lineRecord = line && 'id' in line ? (lineCollection?.records.find((r) => r.id === line.id) ?? null) : null;
   // Conditions applied without being saved as a view, until the tab closes.
   const [adHoc, setAdHoc] = useState<Condition[]>([]);
   const views = schema.views ?? [];
@@ -2196,7 +2115,6 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
     lit.wrote(record.id, field.key, value);
     void actions.updateRecord(dir, record.id, { values: { [field.key]: value } }).then((failed) => failed && actions.say?.(failed));
   };
-  const adding = useAdding({ computer, dir, schema, given: () => ({}), me: actions.me?.(), add: (values) => actions.addRecord(dir, { values }) });
   const sortBy = (key: string) => change({ sort: { key, dir: state.sort.key === key && state.sort.dir === 'asc' ? 'desc' : 'asc' } });
   const isNumeric = (field: Field) => asShown(field).type === 'number';
   const cellClass = (field: Field, i: number) => [i === 0 && 'c0', isNumeric(field) && 'r'].filter(Boolean).join(' ') || undefined;
@@ -2297,7 +2215,7 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
           row(record, group),
           <div key={`${group}\u0000${record.id}\u0000lines`} className="clines" role="row">
             {lineBlocks.map(({ block, source }) => (
-              <LinkedTable key={block.collection} block={block} source={source} dir={dir} record={record} today={today} actions={actions} onOpen={(s, r) => setLine({ dir: s.dir, id: r.id })} />
+              <LinkedTable key={block.collection} block={block} source={source} dir={dir} record={record} today={today} actions={actions} onOpen={(s, r) => setLine({ dir: s.dir, id: r.id })} onAdd={(s, values) => setLine({ dir: s.dir, values })} />
             ))}
           </div>,
         ]
@@ -2370,34 +2288,18 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
   // The rows in the order the table shows them, for the arrows that move the cell picked.
   const inOrder = groups ? groups.flatMap((group) => (closed.has(group.key) ? [] : group.records)) : rows;
   const grid = useGrid({ rows: inOrder, fields, open: (record) => openRecord(record.id), write: writeCell });
-  const newRow = adding.values ? (
-    <NewRow
-      fields={fields}
-      schema={schema}
-      values={adding.values}
-      computed={computer.draft(dir, null, actions.planSaved?.(dir, '', adding.values, null) ?? adding.values)}
-      shown={asShown}
-      cellClass={cellClass}
-      ctx={ctx}
-      width={space > 0 ? space - 2 * SIDES : undefined}
-      error={adding.error}
-      onChange={adding.change}
-      onAdd={() => void adding.write()}
-      onCancel={adding.cancel}
-    />
-  ) : (
-    !noFields && (
-      <button
-        type="button"
-        className="cadd"
-        onClick={() => {
-          grid.clear();
-          adding.start();
-        }}
-      >
-        {t('collection.addRow')}
-      </button>
-    )
+  // + Add row opens the new record's window, as Add record does.
+  const newRow = !noFields && (
+    <button
+      type="button"
+      className="cadd"
+      onClick={() => {
+        grid.clear();
+        setOpen({ kind: 'new' });
+      }}
+    >
+      {t('collection.addRow')}
+    </button>
   );
 
   const table = narrow ? (
@@ -2720,7 +2622,9 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
       )}
       {open?.kind === 'new' && <RecordDialog collection={collection} record={null} values={open.values} today={today} actions={actions} onClose={() => setOpen(null)} />}
       {opened && <RecordDialog key={opened.id} collection={collection} record={opened} today={today} actions={actions} onClose={() => setOpen(null)} />}
-      {lineCollection && lineRecord && <RecordDialog key={lineRecord.id} collection={lineCollection} record={lineRecord} today={today} actions={actions} onClose={() => setLine(null)} />}
+      {lineCollection && line && (lineRecord || 'values' in line) && (
+        <RecordDialog key={lineRecord?.id ?? `new:${line.dir}`} collection={lineCollection} record={lineRecord} values={'values' in line ? line.values : undefined} parent={dir} today={today} actions={actions} onClose={() => setLine(null)} />
+      )}
       {designing && <FieldsDialog collection={collection} actions={actions} onClose={() => setDesigning(false)} />}
       {calendaring && (
         <CalendarViewDialog schema={schema} view={calendaring.view} showAs={asShown} records={actions.records} count={countFor} onSave={saveCalendar} onClose={() => setCalendaring(null)} />

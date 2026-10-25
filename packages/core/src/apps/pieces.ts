@@ -12,6 +12,8 @@ export interface PieceInfo {
   about: string;
   /** The roles of the piece it is the lines of, the first set up: an order's lines, a program's items (design/app-home.md 4). */
   lines?: readonly string[];
+  /** The fields kept off its record's window, as its mockup has it: worked out for its views, or written by its rules (Layout.hidden). */
+  hidden?: readonly string[];
 }
 
 export const PIECES: { [role: string]: PieceInfo } = {
@@ -115,12 +117,18 @@ export const PIECES: { [role: string]: PieceInfo } = {
   'personal-goals': { kind: 'collection', name: 'Goals', singular: 'goal', about: 'your own goals, by when, and how far you are.' },
   workouts: { kind: 'collection', name: 'Workouts', singular: 'workout', about: 'each workout: what, when, how long, how far and how hard.' },
   'training-plan': { kind: 'collection', name: 'Plan', singular: 'session', about: 'what is planned on which day.' },
-  exercises: { kind: 'collection', name: 'Exercises', singular: 'exercise', about: 'each exercise and its muscle group, your best and when you last did it.' },
+  exercises: { kind: 'collection', name: 'Exercises', singular: 'exercise', about: 'each exercise and its muscle group, your best and when you last did it.', hidden: ['done_4w', 'in_4w'] },
   sets: { kind: 'collection', name: 'Sets', singular: 'set', about: 'each set: the exercise, the weight and the reps.', lines: ['workouts'] },
-  programs: { kind: 'collection', name: 'Programs', singular: 'program', about: 'each program: its days and its items, part by part.' },
-  'program-items': { kind: 'collection', name: 'Program items', singular: 'item', about: 'each item of a program: the move, its sets, reps, time and rest.', lines: ['programs'] },
-  'gym-workouts': { kind: 'collection', name: 'Workouts', singular: 'workout', about: 'each time you went, or did not: its program and how long.' },
-  'workout-items': { kind: 'collection', name: 'Workout items', singular: 'item', about: 'each item of a workout, ticked when done: its sets, reps and weight.', lines: ['gym-workouts'] },
+  programs: { kind: 'collection', name: 'Programs', singular: 'program', about: 'each program: its days and its items, part by part.', hidden: ['from', 'items'] },
+  'program-items': { kind: 'collection', name: 'Program items', singular: 'item', about: 'each item of a program: the move, its sets, reps, time and rest.', lines: ['programs'], hidden: ['name', 'order'] },
+  'gym-workouts': {
+    kind: 'collection',
+    name: 'Workouts',
+    singular: 'workout',
+    about: 'each time you went, or did not: its program and how long.',
+    hidden: ['name', 'status', 'done_moves', 'all_moves', 'moves', 'this_week', 'this_month'],
+  },
+  'workout-items': { kind: 'collection', name: 'Workout items', singular: 'item', about: 'each item of a workout, ticked when done: its sets, reps and weight.', lines: ['gym-workouts'], hidden: ['name', 'order', 'day'] },
   'body-measures': { kind: 'collection', name: 'Body', singular: 'measure', about: 'your weight, waist and body fat on each day, and how far from the first.' },
   races: { kind: 'collection', name: 'Races and goals', singular: 'race', about: 'each race or goal: when, what you aim for, and how it went.' },
 };

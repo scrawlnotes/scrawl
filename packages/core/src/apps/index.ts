@@ -5,4 +5,4 @@ export { appPieces, findApp, isApp, readAppFile, readAppMenu, writeAppMenu } fro
 export { installApp, type Installed, undoApp } from './install';
 export { aboutName } from './about';
 export { PIECES } from './pieces';
-export { appIcon, type AppModule, type AppPiece, type AppScreen, type EditScreen, homeOf, linesBlocks, linesIn, linesOf, type MenuEdit, menuEditOf, menuFileOf, menuOf, pieceName, screenKey, showsLines, unplacedOf } from './menu';
+export { appIcon, hiddenOnForm, type AppModule, type AppPiece, type AppScreen, type EditScreen, homeOf, linesBlocks, linesIn, linesOf, type MenuEdit, menuEditOf, menuFileOf, menuOf, pieceName, screenKey, showsLines, unplacedOf } from './menu';

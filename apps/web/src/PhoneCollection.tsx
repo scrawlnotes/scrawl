@@ -23,6 +23,8 @@ import {
   INBOX_TASKS,
   isComputed,
   isEmpty,
+  changesOf,
+  hiddenOnForm,
   isFinished,
   isLink,
   keyOf,
@@ -585,9 +587,10 @@ function NameBox({ value, label, onChange }: { value: string; label: string; onC
   return <textarea ref={box} rows={1} className="mb-rname" aria-label={label} placeholder={label} value={value} onChange={(event) => onChange(event.target.value.replace(/\n/g, ' '))} />;
 }
 
-/** The fields a record's form shows, in the layout's order, then the ones it does not place. */
+/** The fields a record's form shows, in the layout's order, then the ones it does not place; not those kept off it (Layout.hidden). */
 function formFields(schema: Schema, items: { field: string }[]): Field[] {
-  const keys = [...new Set([...items.map((item) => item.field), ...unplacedFields(schema).map((f) => f.key)])];
+  const off = hiddenOnForm(schema);
+  const keys = [...new Set([...items.map((item) => item.field), ...unplacedFields(schema).map((f) => f.key)])].filter((key) => !off.has(key));
   return keys.map((key) => schema.fields.find((f) => f.key === key)).filter((f): f is Field => !!f);
 }
 
@@ -1114,6 +1117,12 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
   const [draft, setDraft] = useState<Draft>(original);
   const [error, setError] = useState<string | null>(null);
   const [picking, setPicking] = useState<Field | null>(null);
+  // A new workout starts at its program, its list open: the field an onChange watches, when it is a choice to pick.
+  const from = useMemo(() => changesOf(collection.rules).map((c) => schema.fields.find((f) => f.key === c.field)).find((f): f is Field => !!f && (f.type === 'link' || f.type === 'select')) ?? null, [collection.rules, schema]);
+  useEffect(() => {
+    if (from && isEmpty(values?.[from.key] ?? null)) setPicking(from);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const busy = useRef(false);
   const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink, used: (field) => usedValues(collection.records.map((r) => r.values[field.key])) };
   // The checks of the collection's rules it fails as it is typed: said under the form, the fields marked.
@@ -1122,7 +1131,11 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
   const items = layout.columns.flatMap((column) => column.sections.flatMap((section) => section.items));
   // Nothing links to it yet but its lines: its other rollups have nothing to work out.
   const counted = new Set(lineBlocks.map(({ source }) => localPath(source.dir)));
-  const fields = formFields(schema, items.filter((item): item is { field: string } => 'field' in item)).filter((f) => f.type !== 'rollup' || counted.has(f.rollup?.from ?? ''));
+  // What is worked out shows when it says something: a total of its lines, not an empty or a zero.
+  const worked = computer.draft(dir, { id: newId, name: '', path: '' }, draft.values);
+  const fields = formFields(schema, items.filter((item): item is { field: string } => 'field' in item)).filter(
+    (f) => (f.type !== 'rollup' || counted.has(f.rollup?.from ?? '')) && !(f.type === 'formula' && (isEmpty(worked[f.key] ?? null) || worked[f.key] === 0 || worked[f.key] === false)),
+  );
   const title = t('collection.newOne', { singular: singularOf(schema) });
   const typedName = nameField(schema);
   const setValue = (key: string, value: FieldValue) => {
@@ -1146,6 +1159,8 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
     actions.ask(t('collection.discardTitle'), t('collection.discardText', { name: quote(name || t('collection.newRecordShort')) }), onClose, t('collection.discard'));
   };
   const about = (typedName && valueText(draft.values[typedName.key] ?? null).trim()) || title;
+  // Its rows come from a field, a workout's from its program: until it is given, its lines say so.
+  const pickFirst = from && isEmpty(draft.values[from.key] ?? null) ? from : null;
   return (
     <>
       <Sheet label={title} className="mb-create mb-newrec" onClose={leave}>
@@ -1182,6 +1197,12 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
                 <div className="mb-cap">
                   {collectionName(block.collection)} <small>{rows.length}</small>
                 </div>
+                {rows.length === 0 && pickFirst && (
+                  <button type="button" className="mb-pickfirst" onClick={() => setPicking(pickFirst)}>
+                    <b>{t('collection.pickFirst', { field: pickFirst.label.toLowerCase() })}</b>
+                    <span>{t('collection.pickFirstText', { field: pickFirst.label.toLowerCase() })}</span>
+                  </button>
+                )}
                 {rows.length > 0 && (
                   <div className="mb-group">
                     {rows.map((c) => (

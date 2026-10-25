@@ -1,5 +1,6 @@
 import { checkbox, day, formula, link, multi, nameField, number, PERCENT, rollup, select, text } from '../pieces';
-import type { AppTemplate } from '../types';
+import { type AppTemplate, RECORD_BODY } from '../types';
+import { EXERCISES, PROGRAM, PROGRAM_DAYS, PROGRAM_DURATION, PROGRAM_ITEMS, PROGRAM_NOTES } from './gym-seed';
 
 // Gym (design/gym.md): programs written once, part by part; each workout picks one and its items
 // come ticked, the weight from the last time; the days a program is on come to Today and Upcoming,
@@ -165,13 +166,23 @@ export const gym: AppTemplate = {
     app.block('exercises', { block: 'linked', collection: items, style: 'table', fields: sets ? ['day', 'set', 'reps', 'kg'] : ['day', 'sets', 'reps', 'kg'], sort: 'day', dir: 'desc' });
     app.rule('exercises', { kind: 'check', name: 'Less than 7 of 10', src: 'check("regular", () => in_4w == 0 || regular >= 0.7, `Done in ${last_4_weeks} of its workouts in the last 4 weeks`)' });
 
+    // What it starts with: the moves most used in a gym, and a program of three days a week, part by part (gym-seed.ts).
+    for (const [name, muscle] of EXERCISES) app.record('exercises', { name, muscle });
+    app.record('programs', { name: PROGRAM, ...(days && { days: PROGRAM_DAYS, from: app.today }), duration: PROGRAM_DURATION, [RECORD_BODY]: PROGRAM_NOTES });
+    const order = new Map<string, number>();
+    for (const item of PROGRAM_ITEMS) {
+      order.set(item.part, (order.get(item.part) ?? 0) + 1);
+      const { exercise, ...rest } = item;
+      app.record('program-items', { name: exercise, program: PROGRAM, exercise, order: order.get(item.part)!, ...rest });
+    }
+
     app.about({
       title: 'Gym',
       what: `Your gym programs, part by part, and each time you went${days ? ', your program days in Today' : ''}: how regular each move is, and your best${sets ? ', set by set' : ''}.`,
       pieces: ['programs', 'program-items', 'gym-workouts', 'workout-items', 'exercises'],
       glance: ['A workout’s items come ticked from its program', 'The weight from the last time', ...(days ? ['Program days in Today and Upcoming, the ones gone by in Overdue'] : []), 'How regular each move is, and its best'],
       how: [
-        'Write your program: its items part by part, each with its sets, reps, time and rest.',
+        `It starts with the moves most used in a gym and a program, ${PROGRAM}: change it to yours, or write your own, its items part by part, each with its sets, reps, time and rest.`,
         days ? 'At the gym press Start on the program’s day; untick what you did not do, write what changed, Save.' : 'At the gym add a workout and pick its program; untick what you did not do, write what changed, Save.',
         ...(days ? ['On a day you did not go, press Didn’t go.'] : []),
       ],
