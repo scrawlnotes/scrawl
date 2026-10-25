@@ -16,7 +16,7 @@ export interface Config {
   appUrl: string;
 }
 
-export const VERSION = '0.2.24';
+export const VERSION = '0.2.25';
 
 /**
  * The lowest sync level a device must tell in its Scrawl-Sync header to sync a space here
