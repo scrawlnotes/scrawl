@@ -20,6 +20,7 @@ export const habits: AppTemplate = {
   ],
   money: () => false,
   pieces: (answers) => ['habits', 'habit-checkins', ...(answers.goals !== false ? ['personal-goals'] : [])],
+  menu: ['habits', 'personal-goals'],
   build(app, answers) {
     const goals = app.hasPiece('personal-goals');
     const done = app.path('habit-checkins');

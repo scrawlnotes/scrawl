@@ -99,6 +99,17 @@ export interface CollectionLook {
   widths?: ColumnWidths;
 }
 
+/**
+ * Where an app's tab is on this device (design/app-home.md 5.3): its module, by its template, and
+ * the screen open in it, by its path; neither for Home. And whether the sidebar shows its files.
+ */
+export interface AppLook {
+  module?: string;
+  screen?: string;
+  /** Its folder shown in the sidebar under it, its files as they are (Show files). */
+  files?: true;
+}
+
 /** Which notes are open on this device, and how its boards, keys files and collections were looked at. Not synced. */
 export interface Workspace {
   tabs: string[];
@@ -119,6 +130,8 @@ export interface Workspace {
   folders?: Record<string, FolderLook>;
   /** How the quick notes are put in order on this device, when not by hand (design/quick-notes.md 2.3). */
   quickSort?: Exclude<QuickSort, 'custom'>;
+  /** Where each app's tab is, by the path of its folder. */
+  apps?: Record<string, AppLook>;
 }
 
 /**
@@ -1222,6 +1235,14 @@ export async function loadWorkspace(fs: VaultFs): Promise<Workspace> {
         }
       }
     }
+    const apps: Record<string, AppLook> = {};
+    if (data.apps && typeof data.apps === 'object') {
+      for (const [path, look] of Object.entries(data.apps as Record<string, unknown>)) {
+        const { module, screen, files } = (look ?? {}) as Partial<AppLook>;
+        const read: AppLook = { ...(typeof module === 'string' && { module }), ...(typeof screen === 'string' && { screen }), ...(files === true && { files: true }) };
+        if (Object.keys(read).length > 0) apps[path] = read;
+      }
+    }
     return {
       tabs,
       active: typeof data.active === 'string' && tabs.includes(data.active) ? data.active : null,
@@ -1234,6 +1255,7 @@ export async function loadWorkspace(fs: VaultFs): Promise<Workspace> {
       ...(Object.keys(folders).length > 0 && { folders }),
       // By hand is the default, and is not kept.
       ...((data.quickSort === 'created' || data.quickSort === 'modified') && { quickSort: data.quickSort }),
+      ...(Object.keys(apps).length > 0 && { apps }),
     };
   } catch {
     return { tabs: [], active: null, boards: {}, keys: {}, collections: {} };

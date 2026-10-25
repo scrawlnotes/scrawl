@@ -159,6 +159,8 @@ ${appTemplates()}
 
 To add templates to an app, give its folder as \`folder\`; an app that keeps no money yet takes \`currencies\` with a template that does. Only what is missing is added, the pieces found by the role in their schema or board file (\`"role": "orders"\`) wherever they are and whatever they are called now; nothing there is changed or taken away, and the result says what was added. \`_app.json\` in the app's folder keeps which templates it was set up from, with their answers: \`read\` it, never \`write\` it. After that, change the app as any other collection, board or rule, and keep its About note right.
 
+The person does not see an app as its files: it opens as an app of its own, Home and a module for each template, each module a menu of its main screens. \`tree\` gives an app's folder with \`app.modules\`, each with its \`name\` and the paths of its \`screens\`. A collection that is another's lines, an order's lines or a program's items, is in no menu: it is written inside the record it is the lines of, and through \`save_record\` as any other.
+
 ## Who did what
 
 Every change you make is written with your name and the person's ("Claude Code · Kaan") on card timelines and in the server's history. Assign a card or a task to a person by their name as the space knows them, as \`spaces\` lists them; a first or a last name is enough when only one person has it. In a space with people, a name that is none of them is refused; in the personal space a name is kept as it is written.

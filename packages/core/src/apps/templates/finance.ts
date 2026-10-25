@@ -32,6 +32,7 @@ export const finance: AppTemplate = {
   ],
   money: () => true,
   pieces: (answers) => ['accounts', 'transactions', 'categories', ...(answers.bills !== false ? ['bills'] : [])],
+  menu: ['transactions', 'accounts', 'bills', 'categories'],
   build(app, answers) {
     const bills = app.hasPiece('bills');
     const moves = app.path('transactions');

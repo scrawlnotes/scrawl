@@ -44,6 +44,7 @@ export const timeoff: AppTemplate = {
   ],
   money: () => false,
   pieces: () => ['employees', 'leave-requests', 'holidays'],
+  menu: ['leave-requests', 'employees', 'holidays'],
   build(app, answers) {
     const listed = (answers.types as string[] | undefined) ?? [];
     // Leave needs its kinds: none given, it has the usual ones.

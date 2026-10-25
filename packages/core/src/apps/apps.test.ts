@@ -1,3 +1,4 @@
+import { t } from '@scrawlnotes/i18n';
 import { describe, expect, it } from 'vitest';
 import { parseBoard } from '../board';
 import { addRecord, type Collection, loadCollection, parseSchema, type Record, serializeSchema } from '../collection';
@@ -6,8 +7,10 @@ import { planSave, recordWith, type RuleSpaceNow } from '../run';
 import { Computer } from '../compute';
 import { MemoryFs } from '../fs';
 import { linksIn, resolveHref } from '../links';
-import { APP_FILE, AppProblems, planApp } from './build';
+import { APP_FILE, AppProblems, type FoundApp, planApp } from './build';
 import { installApp, undoApp } from './install';
+import { type AppPiece, menuOf } from './menu';
+import { PIECES } from './pieces';
 import { readAnswers, TEMPLATES } from './questions';
 import { findApp } from './roles';
 import { type Answers, audienceOf, TEMPLATE_GROUPS, TEMPLATE_IDS, type TemplateId } from './types';
@@ -441,6 +444,51 @@ describe('setting up an app', () => {
     await installApp(fs, withMoney);
     const again = (await findApp(fs, 'Mine'))!;
     expect(planApp({ name: '', currencies: ['USD'], templates: [{ id: 'home' }] }, { found: again, ids }).app.currencies).toEqual(['EUR', 'TRY']);
+  });
+});
+
+describe('the menu of an app', () => {
+  const piecesOf = (found: FoundApp): AppPiece[] => [...found.pieces].map(([role, p]) => ({ kind: p.kind, path: p.path, role }));
+
+  it('has no line in any template’s menu, and only pieces there are', () => {
+    for (const id of TEMPLATE_IDS) {
+      for (const role of TEMPLATES[id].menu) {
+        expect(PIECES[role], `${id}: ${role}`).toBeDefined();
+        expect(PIECES[role]!.lines, `${id}: ${role}`).toBeUndefined();
+      }
+    }
+  });
+
+  it('gives each template a module of what it set up, its lines and its About note left out, with every answer turned on and off', async () => {
+    for (const answers of [MOST, LEAST]) {
+      for (const id of TEMPLATE_IDS) {
+        const fs = new MemoryFs();
+        await installApp(fs, planApp({ name: 'A', currencies: ['EUR'], templates: [{ id, answers: answers[id] }] }, { ids }));
+        const found = (await findApp(fs, 'A'))!;
+        const menu = menuOf(found.app, piecesOf(found));
+        const screens = menu.flatMap((m) => m.screens.map((s) => s.role!));
+        const wanted = [...found.pieces.keys()].filter((role) => !PIECES[role]!.lines);
+        expect(screens.slice().sort(), id).toEqual(wanted.sort());
+        expect(menu.map((m) => m.name)).toEqual(screens.length > 0 ? [t(TEMPLATES[id].short)] : []);
+      }
+    }
+  });
+
+  it('shows a piece two templates set up in the module of each, by its name now', async () => {
+    const fs = new MemoryFs();
+    await installApp(fs, planApp({ name: 'Spare parts', currencies: ['EUR'], templates: [{ id: 'crm' }, { id: 'sales' }, { id: 'stock' }] }, { ids }));
+    const found = (await findApp(fs, 'Spare parts'))!;
+    const menu = menuOf(found.app, piecesOf(found));
+    expect(menu.map((m) => [m.name, m.screens.map((s) => s.name)])).toEqual([
+      ['CRM', ['Companies', 'People', 'Deals', 'Activities']],
+      ['Sales', ['Orders', 'Payments', 'Companies', 'Products']],
+      ['Stock', ['Products', 'Stock movements', 'Purchase orders', 'Companies']],
+    ]);
+    // Order lines and Purchase order lines are lines: in no module.
+    expect(menu.flatMap((m) => m.screens.map((s) => s.name))).not.toContain('Order lines');
+    // What a piece is called now is its name in the menu.
+    const renamed = menuOf(found.app, piecesOf(found).map((p) => (p.role === 'companies' ? { ...p, path: 'Spare parts/Customers' } : p)));
+    expect(renamed[1]!.screens.map((s) => s.name)).toEqual(['Orders', 'Payments', 'Customers', 'Products']);
   });
 });
 

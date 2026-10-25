@@ -39,6 +39,7 @@ export const sales: AppTemplate = {
   ],
   money: () => true,
   pieces: (_answers, app) => [customerRole(app), 'products', 'orders', 'order-lines', 'payments'],
+  menu: ['orders', 'payments', 'companies', 'people', 'products'],
   build(app, answers) {
     const tax = answers.tax !== false;
     const discount = answers.discount !== false;

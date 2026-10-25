@@ -37,6 +37,7 @@ export const budget: AppTemplate = {
   ],
   money: () => true,
   pieces: (answers) => ['budget-lines', 'payments', ...(answers.expenses === true ? ['expenses'] : [])],
+  menu: ['budget-lines', 'payments', 'expenses'],
   build(app, answers) {
     const categories = (answers.categories as string[] | undefined) ?? CATEGORIES;
     const expenses = answers.expenses === true;

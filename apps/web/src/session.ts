@@ -70,6 +70,7 @@ import {
   serializeSchema,
   type Collection,
   type CollectionLook,
+  type AppLook,
   type CollectionTemplate,
   type BoardLinks,
   type Schema,
@@ -349,7 +350,7 @@ import {
   toggleStrike,
   type TransactionSpec,
 } from '@scrawlnotes/editor';
-import { boardPathOf, CHAT, collectionPathOf, collectionTab, FILES, filterOf, filterTab, folderOf, isBoardPath, isKeysPath, isNote, isTaskListPath, keysPathOf, listOf, pathOf, QUICK, spaceOfTab, tabOf, TODAY, TRASH, UPCOMING } from './items';
+import { appPathOf, appTab, boardPathOf, CHAT, collectionPathOf, collectionTab, FILES, filterOf, filterTab, folderOf, isBoardPath, isKeysPath, isNote, isTaskListPath, keysPathOf, listOf, pathOf, QUICK, spaceOfTab, tabOf, TODAY, TRASH, UPCOMING } from './items';
 import { JobQueue } from './jobs';
 import { type OpeningMeasure, openingMeasure, seconds } from './opening';
 import welcomeComputer from './welcome.md?raw';
@@ -506,6 +507,8 @@ export interface Snapshot {
   collections: Record<string, Collection>;
   /** How each collection's table was last looked at on this device, by its folder's path. */
   collectionLooks: Record<string, CollectionLook>;
+  /** Where each app's tab is on this device, and whether its files are shown, by its folder's path (design/app-home.md 3, 5.3). */
+  appLooks: Record<string, AppLook>;
   /** The saved filters, in the order they were made. */
   filters: TaskFilter[];
   /** What the person starred, in the order they put it (design/filters.md 5); what is gone is still here, not shown. */
@@ -695,6 +698,7 @@ function tabKind(id: string): string {
   if (boardPathOf(id) !== null) return 'a board';
   if (keysPathOf(id) !== null) return 'a keys file';
   if (collectionPathOf(id) !== null) return 'a collection';
+  if (appPathOf(id) !== null) return 'an app';
   if (filterOf(id) !== null) return 'a filter';
   if (VIEWS.has(id)) return id === TODAY ? 'Today' : id === UPCOMING ? 'Upcoming' : id === FILES ? 'Files' : id === CHAT ? 'Chat' : 'the trash';
   return isNote(id) ? 'a note' : 'a view';
@@ -803,6 +807,7 @@ export class Session {
     keysLooks: {},
     collections: {},
     collectionLooks: {},
+    appLooks: {},
     filters: [],
     favorites: [],
     labels: {},
@@ -1020,6 +1025,7 @@ export class Session {
       keysLooks: workspace.keys,
       collections: {},
       collectionLooks: workspace.collections,
+      appLooks: workspace.apps ?? {},
       filters,
       favorites,
       labels,
@@ -1338,6 +1344,8 @@ export class Session {
     if (id === WELCOME_NOTE) return true;
     const filter = filterOf(id);
     if (filter !== null) return filters.some((f) => f.id === filter);
+    const app = appPathOf(id);
+    if (app !== null) return this.nodeAt(app)?.app === true;
     const item = itemOfTab(id);
     if (item) {
       const [kind, path] = item;
@@ -2337,7 +2345,7 @@ export class Session {
   }
 
   private saveWorkspace() {
-    const { tabs, active, reading, tasks, boards, boardLooks, listLooks, labelLooks, keys, keysLooks, collections, collectionLooks, folderLooks } = this.snapshot;
+    const { tabs, active, reading, tasks, boards, boardLooks, listLooks, labelLooks, keys, keysLooks, collections, collectionLooks, folderLooks, appLooks } = this.snapshot;
     // Lists, boards, keys files and collections that are gone are forgotten; while the spaces are
     // still read, one not read yet is not gone: the opening forgets those once it has them all.
     const there = (path: string, items: Record<string, unknown>) => path in items || this.opening !== null || reading.size > 0;
@@ -2366,6 +2374,7 @@ export class Session {
       ...(this.welcomeClosed && { welcomeClosed: true }),
       ...(Object.keys(folderLooks).length > 0 && { folders: folderLooks }),
       ...(this.snapshot.quickSort !== 'custom' && { quickSort: this.snapshot.quickSort }),
+      ...(Object.keys(appLooks).length > 0 && { apps: appLooks }),
     });
   }
 
@@ -2470,6 +2479,12 @@ export class Session {
   }
 
   /** Remembers how a collection's table is looked at: the view, the sort, the group and the columns. */
+  /** Where an app's tab is now: its module and its screen, none for Home; or its files shown or hidden in the sidebar. */
+  lookAtApp(folder: string, look: AppLook) {
+    this.set({ appLooks: { ...this.snapshot.appLooks, [folder]: look } });
+    this.saveWorkspace();
+  }
+
   lookAtCollection(dir: string, look: CollectionLook) {
     this.set({ collectionLooks: { ...this.snapshot.collectionLooks, [dir]: look } });
     this.saveWorkspace();
@@ -5031,6 +5046,8 @@ export class Session {
   private followMove(from: string, to: string, across: boolean): string | null {
     const moved = (path: string) => (isUnder(path, from) ? to + path.slice(from.length) : null);
     const movedTab = (tab: string): string | null => {
+      const app = appPathOf(tab);
+      if (app !== null) return moved(app) === null ? null : appTab(moved(app)!);
       const dir = collectionPathOf(tab);
       const path = dir ?? pathOf(tab);
       const now = path === null ? null : moved(path);
@@ -5054,7 +5071,7 @@ export class Session {
     }
     const looks = <T>(by: Record<string, T>) => Object.fromEntries(Object.entries(by).map(([key, look]) => [moved(key) ?? key, look]));
     this.moveStars(from, to);
-    const { boardLooks, listLooks, keysLooks, collectionLooks, folderLooks, tabs, active, filters } = this.snapshot;
+    const { boardLooks, listLooks, keysLooks, collectionLooks, folderLooks, appLooks, tabs, active, filters } = this.snapshot;
     const shown = active === null ? null : movedTab(active);
     this.set({
       boardLooks: looks(boardLooks),
@@ -5062,6 +5079,7 @@ export class Session {
       keysLooks: looks(keysLooks),
       collectionLooks: looks(collectionLooks),
       folderLooks: looks(folderLooks),
+      appLooks: looks(Object.fromEntries(Object.entries(appLooks).map(([key, look]) => [key, look.screen ? { ...look, screen: moved(look.screen) ?? look.screen } : look]))),
       tabs: tabs.map((tab) => movedTab(tab) ?? tab),
       ...(shown !== null && { active: across ? null : shown }),
     });

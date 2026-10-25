@@ -19,6 +19,7 @@ export const jobs: AppTemplate = {
   questions: [{ key: 'stages', kind: 'list', label: 'apps.jobs.stages', default: STAGES, help: 'apps.jobs.stagesHelp', add: 'apps.jobs.addStage', hints: stageHints }],
   money: () => true,
   pieces: () => ['employers', 'applications', 'job-interviews'],
+  menu: ['applications', 'job-interviews', 'employers'],
   build(app, answers) {
     const listed = (answers.stages as string[] | undefined) ?? [];
     // A search needs its stages: none given, it has the usual ones.

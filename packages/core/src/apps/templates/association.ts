@@ -42,6 +42,7 @@ export const association: AppTemplate = {
     ...(answers.donations !== false ? ['donations', 'people'] : []),
     ...(answers.donations !== false && answers.campaigns === true ? ['campaigns'] : []),
   ],
+  menu: ['members', 'dues', 'dues-periods', 'donations', 'campaigns', 'people'],
   build(app, answers) {
     const types = (answers.types as string[] | undefined) ?? TYPES;
     const dues = app.hasPiece('dues');

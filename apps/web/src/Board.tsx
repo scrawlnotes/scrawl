@@ -1495,11 +1495,13 @@ function firstShown(board: Board, look: BoardLook | undefined): Shown {
  * open card in a panel on the right. The same cards read as a list too. Columns or list, and
  * the phase chosen, are remembered on the device for each board.
  */
-export function BoardView({ path, board, name, today, actions, look, onLook, onStatus, openCard, onCloseCard, adding, fieldsAsked }: {
+export function BoardView({ path, board, name, embedded, today, actions, look, onLook, onStatus, openCard, onCloseCard, adding, fieldsAsked }: {
   path: string;
   board: Board;
   /** What the board is called. */
   name: string;
+  /** In an app's tab, whose menu says its name (design/app-home.md 5.3). */
+  embedded?: boolean;
   today: string;
   actions: BoardActions;
   /** How the board was last looked at on this device. */
@@ -1827,7 +1829,7 @@ export function BoardView({ path, board, name, today, actions, look, onLook, onS
         </header>
       ) : (
       <header className="th">
-        <b>{name}</b>
+        {!embedded && <b>{name}</b>}
         <span className="vsw" role="tablist">
           <button type="button" role="tab" aria-selected={view === 'board'} onClick={() => chooseView('board')}>
             {t('board.viewBoard')}

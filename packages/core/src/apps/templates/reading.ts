@@ -42,6 +42,7 @@ export const reading: AppTemplate = {
     ...(answers.progress !== false || (answers.goal ?? 'none') !== 'none' ? ['reading-years'] : []),
     ...(answers.quotes !== false ? ['quotes'] : []),
   ],
+  menu: ['library', 'reading-lists', 'reading-years', 'quotes'],
   build(app, answers) {
     const listed = (answers.types as string[] | undefined) ?? [];
     const types = listed.length > 0 ? listed : TYPES;

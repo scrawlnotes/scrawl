@@ -98,14 +98,17 @@ export function readAnswers(template: AppTemplate, chosen: ReadonlySet<TemplateI
   return { answers, problems };
 }
 
-/** The templates another's answers bring with them, with their defaults: a project's budget brings Budget's pieces. */
-export function impliedBy(answers: ReadonlyMap<TemplateId, Answers>): TemplateId[] {
-  const implied: TemplateId[] = [];
-  if (answers.has('projects') && !answers.has('budget') && answers.get('projects')!.budget === true) implied.push('budget');
+/** The templates another's answers bring with them, each with the one that brings it: a project's budget brings Budget's pieces. */
+export function impliedWith(answers: ReadonlyMap<TemplateId, Answers>): [TemplateId, TemplateId][] {
+  const implied: [TemplateId, TemplateId][] = [];
+  if (answers.has('projects') && !answers.has('budget') && answers.get('projects')!.budget === true) implied.push(['budget', 'projects']);
   // E-commerce sells as Sales does.
-  if (answers.has('ecommerce') && !answers.has('sales')) implied.push('sales');
+  if (answers.has('ecommerce') && !answers.has('sales')) implied.push(['sales', 'ecommerce']);
   return implied;
 }
+
+/** The templates another's answers bring with them, with their defaults. */
+export const impliedBy = (answers: ReadonlyMap<TemplateId, Answers>): TemplateId[] => impliedWith(answers).map(([id]) => id);
 
 /** The currencies as kept: codes in capitals, each once; null when one of them is not a code. */
 export function readCurrencies(given: unknown): string[] | null {

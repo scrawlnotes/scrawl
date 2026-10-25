@@ -37,6 +37,7 @@ export const recruiting: AppTemplate = {
   ],
   money: () => false,
   pieces: (answers) => ['positions', 'candidates', 'hiring', ...(answers.interviews !== false ? ['interviews'] : [])],
+  menu: ['positions', 'hiring', 'candidates', 'interviews'],
   build(app, answers) {
     const listed = (answers.stages as string[] | undefined) ?? [];
     // A board needs its stages: none given, it has the usual ones.

@@ -23,6 +23,7 @@ export const incidents: AppTemplate = {
   ],
   money: () => false,
   pieces: (answers) => ['incidents', ...(answers.actions !== false ? ['actions'] : [])],
+  menu: ['incidents', 'actions'],
   build(app, answers) {
     const types = (answers.types as string[] | undefined) ?? TYPES;
     const actions = app.hasPiece('actions');

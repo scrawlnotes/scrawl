@@ -49,6 +49,7 @@ export const field: AppTemplate = {
   ],
   money: () => true,
   pieces: (_answers, app) => [customerRole(app), 'products', 'equipment', 'work-orders', 'work-order-lines', 'technicians'],
+  menu: ['work-orders', 'equipment', 'companies', 'people', 'technicians', 'products'],
   build(app, answers) {
     const jobs = ((answers.jobs as string[] | undefined) ?? JOBS).map((j) => JOB_NAMES[j]!).filter(Boolean);
     const regular = answers.contracts !== false;

@@ -36,6 +36,7 @@ export const ecommerce: AppTemplate = {
   ],
   money: () => true,
   pieces: (answers) => ['channels', ...(answers.returns !== false ? ['returns'] : []), 'products', 'orders', 'order-lines'],
+  menu: ['orders', 'returns', 'payments', 'products', 'companies', 'people', 'channels'],
   build(app, answers) {
     const channels = ((answers.channels as string[] | undefined) ?? CHANNELS).map((c) => c.trim()).filter(Boolean);
     const carriers = ((answers.carriers as string[] | undefined) ?? CARRIERS).map((c) => c.trim()).filter(Boolean);

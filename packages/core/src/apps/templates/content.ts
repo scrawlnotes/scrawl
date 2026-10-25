@@ -36,6 +36,7 @@ export const content: AppTemplate = {
   ],
   money: () => false,
   pieces: (answers) => ['content', ...(answers.campaigns === true ? ['campaigns'] : [])],
+  menu: ['content', 'campaigns'],
   build(app, answers) {
     const channels = (answers.channels as string[] | undefined) ?? [];
     const listed = (answers.stages as string[] | undefined) ?? [];

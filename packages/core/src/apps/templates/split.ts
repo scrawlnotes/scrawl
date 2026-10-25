@@ -34,6 +34,7 @@ export const split: AppTemplate = {
   ],
   money: () => true,
   pieces: (_answers, app) => [app.has('travel') ? 'trips' : 'groups', 'group-members', 'spending', 'shares', 'settlements'],
+  menu: ['spending', 'groups', 'trips', 'settlements'],
   build(app, answers) {
     const travel = app.has('travel') && app.hasPiece('trips');
     // A trip is the group with Travel: its link is the trip's.

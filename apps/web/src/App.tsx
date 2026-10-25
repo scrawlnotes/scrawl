@@ -1,6 +1,12 @@
 import { locale, type MessageKey, t } from '@scrawlnotes/i18n';
 import {
+  aboutName,
+  APP_TEMPLATES,
   type AppFile,
+  type AppPiece,
+  type AppScreen,
+  menuOf,
+  PIECES,
   asksAnything,
   assigneesOf,
   choosesAnything,
@@ -128,6 +134,8 @@ import { isSpreadsheet, readSheets, type Sheet, writeSheet } from './spreadsheet
 import { folderLabel, setSpaceNames,
   boardLabel,
   CHAT,
+  appPathOf,
+  appTab,
   boardOf,
   boardPathOf,
   collectionPathOf,
@@ -203,6 +211,7 @@ import { startTray, trayStatus } from './tray';
 import { startWatching } from './watch';
 import { ConnectServerDialog, ConnectServerSheet } from './ServerConnect';
 import { LoadingView, Spin, stillOpening } from './Loading';
+import { AppView, PhoneAppHome } from './AppView';
 import { openingDrawn, openingFailed } from './opening';
 import { pendingJoin } from './servers';
 import { type FavoriteRow, Sidebar } from './Sidebar';
@@ -438,7 +447,7 @@ export function App() {
   }, []);
   const update = useSyncExternalStore(subscribeUpdate, updateReady);
   const desktopUpdate = useDesktopUpdate();
-  const { ready, reading, folder, defaultFolder, me, tree, quick, quickOrder, quickSort, quickTexts, quickFormat, spaces, tabs, active, recent, titles, tasks, sections, boards, boardLooks, listLooks, labelLooks, folderLooks, created, keys: keyFiles, keysLooks, collections, collectionLooks, filters, favorites, labels: spaceLabels, space, trash, fileCount, downloads, fileVersion, saved, stats, written, format, source, recording, recordError } =
+  const { ready, reading, folder, defaultFolder, me, tree, quick, quickOrder, quickSort, quickTexts, quickFormat, spaces, tabs, active, recent, titles, tasks, sections, boards, boardLooks, listLooks, labelLooks, folderLooks, created, keys: keyFiles, keysLooks, collections, collectionLooks, appLooks, filters, favorites, labels: spaceLabels, space, trash, fileCount, downloads, fileVersion, saved, stats, written, format, source, recording, recordError } =
     useSyncExternalStore(
     session.subscribe,
     session.getSnapshot,
@@ -525,6 +534,8 @@ export function App() {
   const [draggedTab, setDraggedTab] = useState<string | null>(null);
   /** The card open in a panel beside its board's columns. */
   const [openCard, setOpenCard] = useState<{ board: string; id: string } | null>(null);
+  // Each app's `_app.json`, read as its tab opens; null when it is not one (design/app-home.md 5).
+  const [appFiles, setAppFiles] = useState<Record<string, AppFile | null>>({});
   // A record opened over whatever is on screen, from a task about it.
   const [recordOver, setRecordOver] = useState<{ dir: string; id: string } | null>(null);
   // On a phone a record opens as a page, asked for here; a new one is a form in a sheet; the
@@ -1279,6 +1290,7 @@ export function App() {
   };
   /** A folder's menu on a phone, from its page's ··· or from its row held. */
   const phoneFolderMenu = (path: string, addFolder: () => void) => {
+    if (nodeOf(path)?.app) return showSheet(appMenuItems(path, true), { icon: appIcons[path] ?? 'app', title: folderLabel(path), sub: t('create.app') });
     const parent = dirname(path);
     const top = localPath(path) === '';
     const sub = top ? undefined : parent ? t('phone.kindIn', { kind: t('create.folder'), folder: folderLabel(parent) }) : t('create.folder');
@@ -1347,6 +1359,7 @@ export function App() {
   // items are put in order and deleting it; a right click, `addFolder`, has Add new over them.
   const folderAdd = (event: MouseEvent, path: string, addFolder: () => void) => openMenu(event, folderMenuItems(path, addFolder), path);
   const folderMenu = (event: MouseEvent, path: string, addFolder?: () => void) => {
+    if (nodeOf(path)?.app) return appMenu(event, path);
     const items = [...appItems(path), ...placeItems(path, appItems(path).length > 0), ...orderItems(path), folderDelete(path)];
     openMenu(event, addFolder ? withAddNew(path, addFolder, items) : items, path);
   };
@@ -1377,6 +1390,40 @@ export function App() {
           },
         ]
       : [];
+  /**
+   * An app's menu (design/app-home.md 3): its Home and its About note, adding to it and changing its
+   * answers, its files shown in the sidebar or not, where it is and its name, deleting it.
+   */
+  const appMenu = (event: MouseEvent, path: string) => openMenu(event, appMenuItems(path), path);
+  // On a phone the app's page has its About note and its files as rows: its sheet has neither, nor Home.
+  const appMenuItems = (path: string, phone = false): MenuItem[] => {
+    const look = appLooks[path] ?? {};
+    const { files: _files, ...rest } = look;
+    const about = aboutOf(path);
+    const [add, ...edit] = appItems(path);
+    const home: MenuItem = {
+      label: t('menu.appHome'),
+      icon: 'app',
+      run: () => {
+        session.lookAtApp(path, look.files ? { files: true } : {});
+        void session.open(appTab(path));
+      },
+    };
+    return [
+      ...(phone ? [] : [home, ...(about ? [{ label: about.name, icon: 'note' as const, run: () => void session.open(about.path) }] : [])]),
+      ...(add ? [{ ...add, apart: !phone }, ...edit] : []),
+      ...(phone ? [] : [{ label: t(look.files ? 'menu.hideFiles' : 'menu.showFiles'), icon: 'folder' as const, apart: true, run: () => session.lookAtApp(path, look.files ? rest : { ...rest, files: true }) }]),
+      ...placeItems(path, phone),
+      { ...folderDelete(path), label: t('menu.deleteApp') },
+    ];
+  };
+  /** An app's About note, at the top of its folder: its path and its name. */
+  const aboutOf = (path: string) => {
+    const node = nodeOf(path);
+    const file = `${aboutName(appFiles[path]?.name ?? node?.name ?? '')}.md`.toLowerCase();
+    const note = node?.children?.find((each) => each.kind === 'note' && each.name.toLowerCase() === file);
+    return note ? { path: note.path, name: titles[note.path] ?? note.title ?? note.name.replace(/\.md$/, '') } : null;
+  };
   const folderDelete = (path: string): MenuItem => ({ label: t('menu.deleteFolder'), icon: 'trash', danger: true, run: () => deleteFolder(path), apart: true });
   /**
    * How the items of a folder (by its path), or of a space's top (its key, '' for the personal
@@ -1850,6 +1897,30 @@ export function App() {
       { all, until: addDays(today, 13) },
     );
   }, [collections, boards, today]);
+  // An app's tab (design/app-home.md 5): its folder is read first.
+  const appPath = active ? appPathOf(active) : null;
+  const nodeOf = (path: string) => [tree, ...spaces.map((each) => each.tree)].map((nodes) => findNode(nodes, path)).find((node) => node !== undefined);
+  useEffect(() => {
+    if (appPath !== null) session.want([appPath]);
+  }, [session, appPath]);
+  // Every app's `_app.json` is read as the tree is, again after Add to app or Edit app: one of a
+  // template has its template's icon in the sidebar and on its tab (design/app-home.md 3).
+  const appFolders = useMemo(() => {
+    const found: string[] = [];
+    const walk = (nodes: TreeNode[]) => nodes.forEach((node) => (node.app ? found.push(node.path) : node.kind === 'folder' && walk(node.children ?? [])));
+    [tree, ...spaces.map((each) => each.tree)].forEach(walk);
+    return found;
+  }, [tree, spaces]);
+  useEffect(() => {
+    for (const path of appFolders) void session.appAt(path).then((file) => setAppFiles((was) => ({ ...was, [path]: file })));
+  }, [session, appFolders]);
+  const appIcons = Object.fromEntries(
+    appFolders.flatMap((path) => {
+      const ids = appFiles[path]?.templates.map((x) => x.id) ?? [];
+      return ids.length === 1 ? [[path, APP_TEMPLATES[ids[0]!].icon as IconName]] : [];
+    }),
+  );
+  const tabIcon = (id: string) => appIcons[appPathOf(id) ?? ''] ?? iconOf(id);
   /** Changes the subtasks of a card or a record, from the list as it is now. */
   const changeSubtasksOf = (ref: SubtaskRef, change: (list: Subtask[]) => Subtask[]) =>
     'board' in ref ? session.changeCardSubtasks(ref.board, ref.id, change) : void session.changeRecordSubtasks(ref.collection, ref.id, change);
@@ -2146,11 +2217,81 @@ export function App() {
   const keysText = keysPath !== null ? keyFiles[keysPath] : undefined;
   const collectionPath = active ? collectionPathOf(active) : null;
   const collection = collectionPath !== null ? collections[collectionPath] : undefined;
+  // What is in the app's folder, found by the role each carries wherever it is: its collections, its
+  // boards and its folders of notes; and its menu, worked out from them and its templates.
+  const appFile = appPath !== null ? (appFiles[appPath] ?? null) : null;
+  const piecesIn = (folder: string): AppPiece[] => [
+    ...Object.values(collections).flatMap((c) => (c.dir !== folder && isUnder(c.dir, folder) ? [{ kind: 'collection' as const, path: c.dir, ...(c.schema.role && { role: c.schema.role }) }] : [])),
+    ...Object.entries(boards).flatMap(([path, each]) => (isUnder(path, folder) ? [{ kind: 'board' as const, path, ...(each.role && { role: each.role }) }] : [])),
+    ...(nodeOf(folder)?.children ?? []).flatMap((node) => {
+      const role = node.kind === 'folder' ? Object.keys(PIECES).find((r) => PIECES[r]!.kind === 'folder' && PIECES[r]!.name.toLowerCase() === node.name.toLowerCase()) : undefined;
+      return role ? [{ kind: 'folder' as const, path: node.path, role }] : [];
+    }),
+  ];
+  const modulesOf = (folder: string) => (appFiles[folder] ? menuOf(appFiles[folder]!, piecesIn(folder)) : []);
+  const appModules = appPath !== null ? modulesOf(appPath) : [];
+  const notesIn = (folder: string) => (nodeOf(folder)?.children ?? []).filter((node) => node.kind === 'note');
+  const notesOf = (folder: string) =>
+    Object.fromEntries(piecesIn(folder).flatMap((p) => (p.kind === 'folder' ? [[p.path, notesIn(p.path).map((node) => tabTitles[node.path] ?? node.title ?? node.name.replace(/\.md$/, ''))]] : [])));
+  const appNotes = appPath !== null ? notesOf(appPath) : {};
   // As the app opens, a tab whose task list, board, keys file or collection is not read yet shows
   // it is loading, rather than empty.
   const readingItem = (path: string | null, items: Record<string, unknown>) => path !== null && !(path in items) && reading.has(spaceOf(path) ?? '');
   const itemLoading = readingItem(list, tasks) || readingItem(boardPath, boards) || readingItem(keysPath, keyFiles) || readingItem(collectionPath, collections);
   const loadingName = list !== null ? listName(list) : boardPath !== null ? boardName(boardPath) : keysPath !== null ? keysName(keysPath) : collectionPath !== null ? collectionName(collectionPath) : '';
+  const appScreen = (screen: AppScreen) => {
+    if (screen.kind === 'folder') {
+      return (
+        <section className="app-notes">
+          {notesIn(screen.path).map((node) => (
+            <button key={node.path} type="button" onClick={() => void session.open(node.path)}>
+              <Icon name="note" />
+              <span>{tabTitles[node.path] ?? node.title ?? node.name.replace(/\.md$/, '')}</span>
+            </button>
+          ))}
+        </section>
+      );
+    }
+    if (screen.kind === 'board') {
+      const shown = boards[screen.path];
+      return shown ? (
+        <BoardView
+          key={screen.path}
+          path={screen.path}
+          board={shown}
+          name={screen.name}
+          embedded
+          today={today}
+          actions={boardActions}
+          look={boardLooks[screen.path]}
+          onLook={(look) => session.lookAtBoard(screen.path, look)}
+          onStatus={setViewStatus}
+          openCard={openCard?.board === screen.path ? openCard.id : null}
+          onCloseCard={() => setOpenCard(null)}
+          adding={boardAdding}
+          fieldsAsked={boardFields}
+        />
+      ) : (
+        <LoadingView name={screen.name} />
+      );
+    }
+    const shown = collections[screen.path];
+    return shown ? (
+      <CollectionView
+        key={screen.path}
+        collection={shown}
+        embedded
+        today={today}
+        look={collectionLooks[screen.path]}
+        onLook={(look) => session.lookAtCollection(screen.path, look)}
+        actions={collectionActions}
+        onStatus={setViewStatus}
+        fieldsAsked={collectionFields}
+      />
+    ) : (
+      <LoadingView name={screen.name} />
+    );
+  };
   // And under what shows tasks, and in Search, the spaces still read.
   const still = stillOpening(reading, new Map([['', space.name ?? t('settings.personal')], ...spaces.map((each) => [each.id, each.name] as const)]));
   const isDueView = active === TODAY || active === UPCOMING;
@@ -2505,6 +2646,25 @@ export function App() {
         adding={keysAdding}
       />
     )}
+    {!phone && appPath !== null && (
+      <AppView
+        key={appPath}
+        folder={appPath}
+        app={appFile}
+        modules={appModules}
+        look={appLooks[appPath] ?? {}}
+        onLook={(look) => session.lookAtApp(appPath, look)}
+        collections={collections}
+        boards={boards}
+        notes={appNotes}
+        today={today}
+        due={dueRecordsNow.filter((d) => isUnder(d.collection, appPath))}
+        actions={taskActions}
+        screen={appScreen}
+        onOpen={(screen) => screen.kind !== 'folder' && void session.open(screen.kind === 'collection' ? collectionTab(screen.path) : boardOf(screen.path))}
+        onMenu={(event) => appMenu(event, appPath)}
+      />
+    )}
     {collection && collectionPath !== null && (
       <CollectionView
         key={collectionPath}
@@ -2611,7 +2771,7 @@ export function App() {
         onOpen={(path) => setQuickWindow({ path, made: Date.now() })}
       />
     )}
-    {!phone && !showingEditor && !itemLoading && list === null && !board && keysText === undefined && !collection && !isDueView && !filterPageOn && active !== FILTERS && active !== TRASH && active !== FILES && active !== CHAT && active !== QUICK &&
+    {!phone && !showingEditor && !itemLoading && list === null && !board && keysText === undefined && !collection && appPath === null && !isDueView && !filterPageOn && active !== FILTERS && active !== TRASH && active !== FILES && active !== CHAT && active !== QUICK &&
       (active ? (
         <section className="placeholder">
           <h1>{labelOf(active, tabTitles, filters)}</h1>
@@ -2832,6 +2992,28 @@ export function App() {
               return page && keepOf(id, page);
             }}
             onFolderMenu={phoneFolderMenu}
+            apps={{
+              icon: (path) => appIcons[path] ?? 'app',
+              sub: (path) => {
+                const modules = modulesOf(path);
+                return (modules.length === 1 ? modules[0]!.screens : modules).map((each) => each.name).join(' · ');
+              },
+              view: (path, go) => (
+                <PhoneAppHome
+                  modules={modulesOf(path)}
+                  collections={collections}
+                  boards={boards}
+                  notes={notesOf(path)}
+                  today={today}
+                  due={dueRecordsNow.filter((d) => isUnder(d.collection, path))}
+                  actions={taskActions}
+                  onScreen={(screen) => (screen.kind === 'folder' ? go.folder(screen.path) : go.item(screen.kind === 'collection' ? collectionTab(screen.path) : boardOf(screen.path)))}
+                  about={aboutOf(path)}
+                  onAbout={(note) => go.item(note)}
+                  onFiles={() => go.folder(path)}
+                />
+              ),
+            }}
             movedFolder={revealFolder?.from !== undefined && revealFolder.item !== undefined ? { from: revealFolder.from, to: revealFolder.item, at: revealFolder.at } : null}
             onSpaceOrder={(key) => showSheet(orderItems(key), { icon: 'tune', title: key === '' ? (space.name ?? t('settings.personal')) : folderLabel(key) })}
             folderLooks={folderLooks}
@@ -3087,6 +3269,8 @@ export function App() {
           onMove={moveAndSay}
           onNewFolder={(name, parent) => session.newFolder(name, parent)}
           onItemMenu={itemMenu}
+          appIcons={appIcons}
+          appFiles={new Set(Object.entries(appLooks).flatMap(([path, look]) => (look.files ? [path] : [])))}
           onFolderMenu={folderMenu}
           onFolderAdd={folderAdd}
           menuTarget={menu?.target ?? null}
@@ -3165,7 +3349,7 @@ export function App() {
                 onDoubleClick={(event) => !(event.target as Element).closest('.tab-close') && void renameTab(id)}
               >
                 <button type="button" className="tab-title" onClick={() => void session.open(id)}>
-                  <Icon name={iconOf(id)} />
+                  <Icon name={tabIcon(id)} />
                   <span>{labelOf(id, tabTitles, filters)}</span>
                 </button>
                 {/* The dot marks a note that has not been filed yet; it gives way to the close button on hover. */}

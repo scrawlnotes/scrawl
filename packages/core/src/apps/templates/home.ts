@@ -37,6 +37,7 @@ export const home: AppTemplate = {
     // Something to keep: none chosen, the things you own.
     return KEEPS.filter((k) => keeps.includes(k)).length > 0 ? KEEPS.filter((k) => keeps.includes(k)) : ['items'];
   },
+  menu: ['items', 'documents', 'vehicles', 'upkeep'],
   build(app, answers) {
     const items = app.hasPiece('items');
     const documents = app.hasPiece('documents');

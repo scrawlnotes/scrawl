@@ -62,6 +62,7 @@ export const crm: AppTemplate = {
   ],
   money: (answers) => answers.deals !== false,
   pieces: (answers) => [...(answers.customers === 'companies' ? ['companies'] : []), 'people', 'activities', ...(answers.deals !== false ? ['deals'] : [])],
+  menu: ['companies', 'people', 'deals', 'activities'],
   build(app, answers) {
     const deals = answers.deals !== false;
     const firms = app.hasPiece('companies') && answers.customers === 'companies';

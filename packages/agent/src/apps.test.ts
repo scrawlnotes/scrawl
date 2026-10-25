@@ -2,7 +2,7 @@ import { APP_TEMPLATES, type Answers, audienceOf, MemoryFs, saveMe, TEMPLATE_GRO
 import { describe, expect, it } from 'vitest';
 import { checkFile, checkRules } from './check';
 import { fileKind, Refusal } from './paths';
-import { readTool } from './read';
+import { readTool, treeTool } from './read';
 import { dueRecordsTool, recordsTool, saveRecordTool } from './records';
 import type { Agent, AgentSpace } from './space';
 import { createTool, writeTool } from './write';
@@ -135,6 +135,17 @@ describe('apps', () => {
     expect(same.data).toMatchObject({ message: 'Every answer is as it was; nothing was changed.' });
     const both = await createTool(agent, { kind: 'app', name: 'Atlas', folder: 'Atlas', templates: ['crm', 'sales'], answers: { crm: { deals: false } } });
     expect(both.data).toMatchObject({ answered: ['crm'], templates: ['crm', 'sales'] });
+  });
+
+  it('gives an app in the tree with its modules and their screens, as the person sees it', async () => {
+    const { agent } = await world();
+    await createTool(agent, { kind: 'app', name: 'Spare parts', templates: ['crm', 'sales'], currencies: ['TRY'] });
+    const { nodes } = (await treeTool(agent, {})).data as { nodes: { path: string; app?: { modules: { name: string; screens: string[] }[] } }[] };
+    expect(nodes.find((n) => n.path === 'Spare parts')?.app?.modules).toEqual([
+      { name: 'CRM', screens: ['Spare parts/Companies', 'Spare parts/People', 'Spare parts/Deals.board.json', 'Spare parts/Activities'] },
+      { name: 'Sales', screens: ['Spare parts/Orders', 'Spare parts/Payments', 'Spare parts/Companies', 'Spare parts/Products'] },
+    ]);
+    expect(nodes.find((n) => n.path === 'Inbox.tasks.json')?.app).toBeUndefined();
   });
 
   it('sets up each template, each two of a side and each group as files the checks of a write take', async () => {

@@ -24,6 +24,7 @@ export const travel: AppTemplate = {
     const keeps = Array.isArray(answers.keeps) ? answers.keeps : KEEPS;
     return ['trips', 'bookings', ...(keeps.includes('places') ? ['places'] : []), ...(keeps.includes('packing') ? ['packing'] : []), ...(keeps.includes('expenses') || app.has('split') ? ['spending'] : [])];
   },
+  menu: ['trips', 'spending'],
   build(app, answers) {
     const places = app.hasPiece('places');
     const packing = app.hasPiece('packing');

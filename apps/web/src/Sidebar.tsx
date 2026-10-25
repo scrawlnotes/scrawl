@@ -5,7 +5,7 @@ import { LATEST_RELEASE } from './desktopUpdate';
 import { cutShort, useHoverTip } from './HoverTip';
 import { Icon, type IconName } from './Icon';
 import { Spin } from './Loading';
-import { CHAT, collectionTab, countItems, FILES, FILTERS, pathOf, QUICK, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
+import { appTab, CHAT, collectionTab, countItems, FILES, FILTERS, pathOf, QUICK, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
 import type { SpaceView } from './session';
 import { isDesktop } from './storage';
 import type { SpaceSyncView } from './sync';
@@ -79,6 +79,10 @@ interface Props {
   onNewFolder: (name: string, parent: string) => Promise<string | null>;
   /** A right click on a note, a task list or a folder. */
   onItemMenu: (event: MouseEvent, path: string) => void;
+  /** The apps whose files are shown in the sidebar under them (Show files), by their folders' paths. */
+  appFiles?: ReadonlySet<string>;
+  /** An app's icon when it is not the app's: its template's, for one of a template. */
+  appIcons?: Record<string, IconName>;
   /** A folder's menu; on a right click `addFolder`, which starts naming a folder inside it, under its row, for its Add new. */
   onFolderMenu: (event: MouseEvent, path: string, addFolder?: () => void) => void;
   /** A folder's +: what can be made in it; `addFolder` starts naming a folder inside it, under its row. */
@@ -150,6 +154,8 @@ export function Sidebar({
   onMove,
   onNewFolder,
   onItemMenu,
+  appFiles,
+  appIcons,
   onFolderMenu,
   onFolderAdd,
   onSettings,
@@ -570,8 +576,37 @@ export function Sidebar({
     </>
   );
 
+  // An app is one row (design/app-home.md 3): it opens its own tab, with its Home and its menu.
+  // Its files are under it only when shown, from its menu; then they are a folder's.
+  const appRow = (node: TreeNode, depth: number): ReactNode => {
+    const tab = appTab(node.path);
+    const files = appFiles?.has(node.path) ?? false;
+    return (
+      <div key={node.path}>
+        <div
+          className={`it app${tab === active ? ' on' : ''}${node.path === dropTarget ? ' drop' : ''}${marked(node.path)}`}
+          style={indent(depth)}
+          data-path={node.path}
+          {...dragProps(node.path)}
+          {...folderDropProps(node.path, files)}
+          onContextMenu={(event) => onFolderMenu(event, node.path)}
+        >
+          <button type="button" className="it-main" onClick={() => onOpen(tab)}>
+            <i className="it-pad" />
+            <Icon name={appIcons?.[node.path] ?? 'app'} />
+            <span>{shownName(node.name)}</span>
+          </button>
+          {more((event) => folderMenu(event, node.path))}
+        </div>
+        {files && children(node, depth + 1, true)}
+        {files && node.reading && loadingRow(depth + 1)}
+      </div>
+    );
+  };
+
   // A folder being added in a folder is named at the top of what it holds.
   const folderRow = (node: TreeNode, depth: number): ReactNode => {
+    if (node.app) return appRow(node, depth);
     const open = opened.has(node.path);
     return (
       <div key={node.path}>

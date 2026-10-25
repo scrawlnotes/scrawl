@@ -82,6 +82,7 @@ export const stock: AppTemplate = {
     ...(answers.purchasing !== false ? ['purchase-orders', 'purchase-order-lines'] : []),
     ...(answers.locations === true ? ['locations', 'stock-levels'] : []),
   ],
+  menu: ['products', 'stock-levels', 'stock-movements', 'purchase-orders', 'locations', 'companies'],
   build(app, answers) {
     const buying = answers.purchasing !== false;
     const places = answers.locations === true;

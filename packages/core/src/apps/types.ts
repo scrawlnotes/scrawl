@@ -86,6 +86,11 @@ export interface AppTemplate {
   money: (answers: Answers) => boolean;
   /** The pieces it sets up, by role, with its answers and the templates set up with it. */
   pieces: (answers: Answers, app: Chosen) => string[];
+  /**
+   * Its module's menu in the app's tab (design/app-home.md 9): the roles of its screens, in their
+   * order, those it sets up shown; a piece that is another's lines, or its About note, is not one.
+   */
+  menu: readonly string[];
   /** What its answers call its own pieces, where they name them: Memberships for Subscriptions. */
   names?: (answers: Answers, app: Chosen) => { [role: string]: Pick<PieceInfo, 'name' | 'singular' | 'about'> };
   /** Adds its fields, blocks, rules and records to the pieces, and its section to the About note. */

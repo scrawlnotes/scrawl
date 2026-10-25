@@ -24,6 +24,7 @@ export const product: AppTemplate = {
     ...(answers.releases !== false ? ['releases'] : []),
     ...(keepsFeedback(app) ? ['feedback'] : []),
   ],
+  menu: ['roadmap', 'bugs', 'feedback', 'releases'],
   build(app, answers) {
     const bugs = answers.bugs !== false;
     const releases = answers.releases !== false;

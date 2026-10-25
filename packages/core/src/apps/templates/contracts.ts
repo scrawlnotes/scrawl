@@ -43,6 +43,7 @@ export const contracts: AppTemplate = {
   ],
   money: () => true,
   pieces: () => ['contracts', 'companies'],
+  menu: ['contracts', 'companies'],
   build(app, answers) {
     const kinds = ((answers.kinds as string[] | undefined) ?? KINDS).map((k) => KIND_NAMES[k]!).filter(Boolean);
     const notice = Number(answers.notice ?? 30);

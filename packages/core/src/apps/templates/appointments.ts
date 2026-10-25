@@ -74,6 +74,7 @@ export const appointments: AppTemplate = {
     ...(answers.for === 'resources' || answers.for === 'both' ? ['resources'] : []),
     'people',
   ],
+  menu: ['appointments', 'people', 'services', 'staff', 'resources'],
   build(app, answers) {
     const services = app.hasPiece('services');
     const team = app.hasPiece('staff');

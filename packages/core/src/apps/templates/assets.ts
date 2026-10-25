@@ -31,6 +31,7 @@ export const assets: AppTemplate = {
   ],
   money: () => true,
   pieces: (answers) => ['assets', 'maintenance', ...(answers.places === true ? ['locations'] : [])],
+  menu: ['assets', 'maintenance', 'locations'],
   build(app, answers) {
     const categories = (answers.categories as string[] | undefined) ?? CATEGORIES;
     const assign = answers.assign !== false;

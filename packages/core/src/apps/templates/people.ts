@@ -26,6 +26,7 @@ export const people: AppTemplate = {
   ],
   money: () => false,
   pieces: () => ['close-people', 'moments'],
+  menu: ['close-people'],
   build(app, answers) {
     const anniversaries = answers.anniversaries !== false;
     const often = answers.often !== false;

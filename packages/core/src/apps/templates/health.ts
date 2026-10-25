@@ -30,6 +30,7 @@ export const health: AppTemplate = {
   ],
   money: () => false,
   pieces: (answers) => ['visits', ...(answers.medications !== false ? ['medications'] : []), 'results', 'vaccinations'],
+  menu: ['visits', 'medications', 'results', 'vaccinations'],
   build(app, answers) {
     const family = answers.for === 'family';
     const names = family ? ((answers.family as string[] | undefined) ?? []).map((n) => n.trim()).filter(Boolean) : [];

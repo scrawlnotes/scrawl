@@ -37,6 +37,7 @@ export const goals: AppTemplate = {
   ],
   money: () => false,
   pieces: (answers) => ['goals', 'key-results', ...(answers.checkins !== false ? ['check-ins'] : [])],
+  menu: ['goals'],
   build(app, answers) {
     const checkins = answers.checkins !== false;
     const results = app.path('key-results');

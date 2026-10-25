@@ -30,6 +30,7 @@ export const gym: AppTemplate = {
   // Beside Sport and training, whose workouts are each a run or a swim, a workout here is a gym's.
   names: (_answers, app): { [role: string]: { name: string; singular: string; about: string } } =>
     app.has('sport') ? { 'gym-workouts': { name: 'Gym workouts', singular: 'gym workout', about: 'each time you went to the gym, or did not: its program and how long.' } } : {},
+  menu: ['gym-workouts', 'programs', 'exercises'],
   build(app, answers) {
     const days = answers.days !== false;
     const sets = answers.sets === true;

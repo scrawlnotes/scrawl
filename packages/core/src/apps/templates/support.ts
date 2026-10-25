@@ -36,6 +36,7 @@ export const support: AppTemplate = {
   ],
   money: () => false,
   pieces: (answers) => ['people', 'requests', ...(answers.feedback !== false ? ['feedback'] : []), ...(answers.replies !== false ? ['saved-replies'] : [])],
+  menu: ['requests', 'people', 'feedback', 'saved-replies'],
   build(app, answers) {
     companies(app);
     people(app);

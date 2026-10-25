@@ -31,6 +31,7 @@ export const sport: AppTemplate = {
     const sets = sports.includes('Gym') && answers.sets !== false;
     return ['workouts', 'training-plan', ...(sets ? ['exercises', 'sets'] : []), ...(answers.body === true ? ['body-measures'] : []), ...(answers.races === true ? ['races'] : [])];
   },
+  menu: ['workouts', 'training-plan', 'exercises', 'body-measures', 'races'],
   build(app, answers) {
     const chosen = (answers.sports as string[] | undefined) ?? SPORTS;
     const kinds = [...chosen, 'Other'];

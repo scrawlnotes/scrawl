@@ -9735,3 +9735,8 @@ body > .mb-lifted {
 .phone-app .qn-ed.phone .qn-body .cm-line {
   padding-right: 18px;
 }
+
+/* An app's page (design/app-home.md 7): a screen with records to check says so under its name. */
+.mb-app .mb-row .tx small.warn {
+  color: var(--sl-p2);
+}

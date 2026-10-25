@@ -38,6 +38,7 @@ export const projects: AppTemplate = {
   ],
   money: (answers) => answers.budget === true,
   pieces: (answers) => ['projects', 'work', ...(answers.time === true ? ['time-entries'] : [])],
+  menu: ['projects', 'work', 'time-entries'],
   build(app, answers) {
     const customers = answers.for !== 'internal';
     const billable = answers.for !== 'internal';

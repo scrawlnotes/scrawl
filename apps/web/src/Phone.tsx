@@ -51,6 +51,8 @@ const PLACES: Place[] = ['recent', 'browse', 'today', 'search'];
 type PageKind =
   | { kind: 'root' }
   | { kind: 'folder'; path: string }
+  // An app's page: its Today and its modules' screens (design/app-home.md 7).
+  | { kind: 'app'; path: string }
   | { kind: 'item'; id: string }
   | { kind: 'trash' }
   | { kind: 'files' }
@@ -195,6 +197,12 @@ export interface PhoneProps {
   itemAction: (id: string) => { label: string; icon?: IconName; run: () => void } | null;
   /** A folder's menu; `addFolder` names a new folder in it. */
   onFolderMenu: (path: string, addFolder: () => void) => void;
+  /** The apps in Browse: each one row, its icon and what is in it under its name, opening its page (design/app-home.md 7). */
+  apps: {
+    icon: (path: string) => IconName;
+    sub: (path: string) => string;
+    view: (path: string, go: { item: (id: string) => void; folder: (path: string) => void }) => ReactNode;
+  };
   /** A folder moved or renamed, from where it was to where it is: its pages, and those of the folders in it, show it there. `at` tells one from the next. */
   movedFolder: { from: string; to: string; at: number } | null;
   /** How a space's top is put in order, as a sheet: by its key, '' for the personal space. */
@@ -640,7 +648,7 @@ export function Phone(props: PhoneProps) {
     requestAnimationFrame(() => requestAnimationFrame(() => setEntering((now) => (now === key ? null : now))));
   };
   const push = (page: PageKind) => {
-    if (page.kind === 'folder') props.onWant([page.path]);
+    if (page.kind === 'folder' || page.kind === 'app') props.onWant([page.path]);
     const added: Page = { ...page, key: ++pageKeys };
     // One quick note is open at a time: one opened from a link in another takes the other's page.
     // A place's pages are drawn only while it is on screen, so another place's keep theirs.
@@ -726,7 +734,7 @@ export function Phone(props: PhoneProps) {
   const moved = props.movedFolder;
   useEffect(() => {
     if (!moved) return;
-    const follow = (page: Page): Page => (page.kind === 'folder' && isUnder(page.path, moved.from) ? { ...page, path: moved.to + page.path.slice(moved.from.length) } : page);
+    const follow = (page: Page): Page => ((page.kind === 'folder' || page.kind === 'app') && isUnder(page.path, moved.from) ? { ...page, path: moved.to + page.path.slice(moved.from.length) } : page);
     setStacks((current) => Object.fromEntries(Object.entries(current).map(([each, pages]) => [each, pages.map(follow)])) as typeof current);
     // Each move once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -998,7 +1006,7 @@ export function Phone(props: PhoneProps) {
     if (page.kind === 'chatInfo') return t('chat.info');
     if (page.kind === 'chatPart') return partName(page.tab);
     if (page.kind === 'chatSearch') return t('chat.search');
-    if (page.kind === 'folder') return folderName(page.path);
+    if (page.kind === 'folder' || page.kind === 'app') return folderName(page.path);
     if (page.kind === 'trash') return t('side.trash');
     if (page.kind === 'files') return t('side.files');
     if (page.kind === 'settings') return t('settings.title');
@@ -1052,7 +1060,11 @@ export function Phone(props: PhoneProps) {
   };
 
   /** A row of Browse for a folder, or for something at a space's top. */
+  const appRow = (node: TreeNode) => (
+    <Row key={node.path} icon={props.apps.icon(node.path)} label={shownName(node.name)} sub={props.apps.sub(node.path) || undefined} onClick={() => push({ kind: 'app', path: node.path })} onHold={folderHold(node.path)} />
+  );
   const browseRow = (node: TreeNode) => {
+    if (node.app) return appRow(node);
     if (node.kind === 'folder') {
       return (
         <Row
@@ -1213,6 +1225,7 @@ export function Phone(props: PhoneProps) {
     const rows = (
       <>
         {children.map((child) => {
+            if (child.app) return appRow(child);
             if (child.kind === 'folder') {
               return (
                 <Row
@@ -1387,6 +1400,13 @@ export function Phone(props: PhoneProps) {
           }
         >
           <div className="mb-due">{props.dueView(due)}</div>
+        </PageFrame>
+      );
+    }
+    if (page.kind === 'app') {
+      return (
+        <PageFrame title={titleOf(page, of)} nav={{ ...nav, onMenu: () => props.onFolderMenu(page.path, () => undefined) }}>
+          {props.apps.view(page.path, { item: openItem, folder: (path) => push({ kind: 'folder', path }) })}
         </PageFrame>
       );
     }

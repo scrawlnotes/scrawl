@@ -5,16 +5,19 @@ import {
   collectionName,
   displayTitle,
   type Findable,
+  findApp,
   listName,
   loadBoard,
   loadCollection,
   loadList,
+  menuOf,
   readTree,
   recordTitle,
   search as searchCore,
   searchIndex,
   type TreeNode,
   valueText,
+  type VaultFs,
 } from '@scrawlnotes/core';
 import { GUIDE } from './guide';
 import { checkPart, partOf, PARTS } from './parts';
@@ -53,14 +56,27 @@ export async function spacesTool(agent: Agent, client: Client = {}) {
   return { data: { ...data, guide: GUIDE }, text: `${JSON.stringify(data)}\n\n${GUIDE}` };
 }
 
-/** A node as the tree tool gives it: without what only the app's screen needs. */
-function nodeOut(node: TreeNode): { name: string; path: string; kind: ElementKind; title?: string; children?: ReturnType<typeof nodeOut>[] } {
+/** A node as the tree tool gives it: without what only the app's screen needs; an app's folder with its menu. */
+interface NodeOut {
+  name: string;
+  path: string;
+  kind: ElementKind;
+  title?: string;
+  /** An app's modules, as the person sees it (design/app-home.md 8.4): each one's name and the paths of its screens. */
+  app?: { modules: { name: string; screens: string[] }[] };
+  children?: NodeOut[];
+}
+
+async function nodeOut(fs: VaultFs, node: TreeNode): Promise<NodeOut> {
+  const found = node.app ? await findApp(fs, node.path) : null;
+  const pieces = found ? [...found.pieces].map(([role, piece]) => ({ kind: piece.kind, path: piece.path, role })) : [];
   return {
     name: node.name,
     path: node.path,
     kind: node.kind,
     ...(node.title !== undefined && { title: node.title }),
-    ...(node.children && { children: node.children.map(nodeOut) }),
+    ...(found && { app: { modules: menuOf(found.app, pieces).map((m) => ({ name: m.name, screens: m.screens.map((s) => s.path) })) } }),
+    ...(node.children && { children: await Promise.all(node.children.map((child) => nodeOut(fs, child))) }),
   };
 }
 
@@ -81,7 +97,7 @@ export async function treeTool(agent: Agent, args: { space?: string; folder?: st
     const items = (await elementsOf(space.fs, [args.kind])).filter((e) => !folder || e.path.startsWith(`${folder}/`));
     return { data: { space: space.id, folder, kind: args.kind, items } };
   }
-  const nodes = (await readTree(space.fs, folder)).map(nodeOut);
+  const nodes = await Promise.all((await readTree(space.fs, folder)).map((node) => nodeOut(space.fs, node)));
   return { data: { space: space.id, folder, nodes } };
 }
 

@@ -1994,8 +1994,10 @@ const FIT = '\u0000fit';
 /** On a phone, a menu opens from the bottom wherever it was asked for. */
 const NO_POINTER = { preventDefault: () => undefined, clientX: 0, clientY: 0 } as unknown as MouseEvent;
 
-export function CollectionView({ collection, today, look, onLook, actions, onStatus, fieldsAsked }: {
+export function CollectionView({ collection, embedded, today, look, onLook, actions, onStatus, fieldsAsked }: {
   collection: Collection;
+  /** In an app's tab, whose menu says its name (design/app-home.md 5.3). */
+  embedded?: boolean;
   today: string;
   look: CollectionLook | undefined;
   onLook: (look: CollectionLook) => void;
@@ -2534,7 +2536,7 @@ export function CollectionView({ collection, today, look, onLook, actions, onSta
   return (
     <section className="bv collection-view">
       <header className="th">
-        <b>{name}</b>
+        {!embedded && <b>{name}</b>}
         <span className="count">{t('count.records', { count: records.length })}</span>
         <label className="search">
           <Icon name="search" />

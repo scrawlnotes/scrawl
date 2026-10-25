@@ -74,6 +74,7 @@ export const subscriptions: AppTemplate = {
     if (answers.sells === 'agreements') return { subscriptions: { name: 'Service agreements', singular: 'agreement', about: 'each service agreement: with whom, on which plan, from when, and when it renews.' } };
     return {};
   },
+  menu: ['subscriptions', 'plans', 'companies', 'people'],
   build(app, answers) {
     const words = WORDS[answers.sells as string] ?? WORDS.subscriptions!;
     const trial = answers.trial === true;

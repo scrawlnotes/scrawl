@@ -21,6 +21,7 @@ export const recipes: AppTemplate = {
   ],
   money: () => false,
   pieces: (answers) => ['recipes', 'ingredients', 'meals', ...(answers.shopping !== false ? ['shopping'] : [])],
+  menu: ['recipes', 'meals', 'shopping'],
   build(app, answers) {
     const listed = (answers.meals as string[] | undefined) ?? [];
     // A plan needs its meals: none given, it has the usual ones.

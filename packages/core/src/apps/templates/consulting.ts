@@ -67,6 +67,7 @@ export const consulting: AppTemplate = {
     ...(answers.time !== false && { 'time-entries': { name: 'Time entries', singular: 'time entry', about: 'the hours spent on each engagement or project, and whether they are billed.' } }),
     expenses: { name: 'Expenses', singular: 'expense', about: 'what was spent, on an engagement or by a person, and whether it is billed or paid back.' },
   }),
+  menu: ['engagements', 'time-entries', 'expenses', 'deliverables', 'deadlines', 'companies', 'people'],
   build(app, answers) {
     const listed = (answers.models as string[] | undefined) ?? [];
     const models = listed.length > 0 ? listed : MODELS;

@@ -22,6 +22,7 @@ const KEYS = 'keys:';
 const FILTER = 'filter:';
 const COLLECTION = 'collection:';
 const LABEL = 'label:';
+const APP = 'app:';
 
 /** The tab of a saved filter, by its id. */
 export const filterTab = (id: string) => `${FILTER}${id}`;
@@ -45,6 +46,10 @@ export const boardOf = (board: string) => `${BOARD}${board}`;
 export const keysOf = (keys: string) => `${KEYS}${keys}`;
 /** The tab of a collection, by the path of its folder. */
 export const collectionTab = (dir: string) => `${COLLECTION}${dir}`;
+/** The tab of an app, its own entry and menu (design/app-home.md 5), by the path of its folder. */
+export const appTab = (folder: string) => `${APP}${folder}`;
+/** The folder of an app's tab, or null for any other tab. */
+export const appPathOf = (id: string) => (id.startsWith(APP) ? id.slice(APP.length) : null);
 /** The folder of a collection tab, or null for any other tab. */
 export const collectionPathOf = (id: string) => (id.startsWith(COLLECTION) ? id.slice(COLLECTION.length) : null);
 export const isNote = (id: string) => !id.includes(':');
@@ -64,7 +69,7 @@ export const tabOf = (path: string) =>
 export const pathOf = (id: string) => (isNote(id) ? id : (listOf(id) ?? boardPathOf(id) ?? keysPathOf(id)));
 
 /** The space a tab's note, list, board, keys file or collection is in; null in the personal space and for the views over all of them. */
-export const spaceOfTab = (id: string) => spaceOf(pathOf(id) ?? collectionPathOf(id) ?? '');
+export const spaceOfTab = (id: string) => spaceOf(pathOf(id) ?? collectionPathOf(id) ?? appPathOf(id) ?? '');
 
 /**
  * What a folder holds, all the way down: its notes, task lists, boards, keys files and
@@ -156,7 +161,7 @@ export const collectionWhere = (dir: string) => spaceWhere(dir) ?? collectionLab
  * folders, `Acme › Sales`; `personal` names the personal space. Null for the views over all.
  */
 export function pathTip(id: string, personal: string): string | null {
-  const path = pathOf(id) ?? collectionPathOf(id);
+  const path = pathOf(id) ?? collectionPathOf(id) ?? appPathOf(id);
   if (path === null) return null;
   const space = spaceOf(path);
   const folders = path === WELCOME_NOTE ? [] : dirname(localPath(path)).split('/').filter(Boolean);
@@ -167,7 +172,7 @@ export function pathTip(id: string, personal: string): string | null {
 export function folderOf(id: string): string | null {
   // The onboarding note is kept under `.scrawl`, but is at the personal space's top, where what is made beside it goes.
   if (id === WELCOME_NOTE) return '';
-  const collection = collectionPathOf(id);
+  const collection = collectionPathOf(id) ?? appPathOf(id);
   if (collection !== null) return dirname(collection);
   const path = pathOf(id);
   return path === null ? null : dirname(path);
@@ -206,6 +211,7 @@ export function iconOf(id: string): IconName {
   if (id === CHAT) return 'chat';
   if (id === QUICK) return 'quick';
   if (id.startsWith(COLLECTION)) return 'collection';
+  if (id.startsWith(APP)) return 'app';
   if (id.startsWith(FILTER) || id === FILTERS || id === NEW_FILTER) return 'filter';
   if (id.startsWith(LABEL)) return 'tag';
   if (id.startsWith(KEYS)) return 'keys';
@@ -236,6 +242,8 @@ export function labelOf(id: string, titles: Record<string, string>, filters: Tas
   if (keys !== null) return keysLabel(keys);
   const collection = collectionPathOf(id);
   if (collection !== null) return collectionLabel(collection);
+  const app = appPathOf(id);
+  if (app !== null) return shownName(basename(app));
   // A record opened as a note is not in the tree's titles; it is named after its file.
   return titles[id] ?? (isScratchNote(id) ? t('note.untitled') : shownName(basename(id).replace(/\.md$/, '')));
 }
