@@ -246,7 +246,8 @@ describe('the sync gate', () => {
     s.fetch(`${URL}/api/v1/spaces/${SPACE}${path}`, { ...init, headers: { Authorization: `Bearer ${token}`, ...(init.headers as Record<string, string>) } });
 
   it('refuses a device without a level, or below the one it asks for, before it lists or writes; reading a file stays open', async () => {
-    const s = start({ minSyncLevel: 1 });
+    // The level it asks for as it is released.
+    const s = start();
     const token = await owner(s);
     // The app of this level syncs as before.
     const laptop = new MemoryFs();
@@ -285,7 +286,7 @@ describe('the sync gate', () => {
   });
 
   it('refuses none while it asks for no level, and lets a browser send the header', async () => {
-    const s = start();
+    const s = start({ minSyncLevel: 0 });
     const token = await owner(s);
     expect((await api(s, token, '/changes')).status).toBe(200);
     const preflight = await s.fetch(`${URL}/api/v1/spaces/${SPACE}/changes`, {

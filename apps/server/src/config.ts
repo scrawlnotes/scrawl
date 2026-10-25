@@ -16,7 +16,7 @@ export interface Config {
   appUrl: string;
 }
 
-export const VERSION = '0.2.23';
+export const VERSION = '0.2.24';
 
 /**
  * The lowest sync level a device must tell in its Scrawl-Sync header to sync a space here
@@ -24,7 +24,7 @@ export const VERSION = '0.2.23';
  * anything. 0 refuses none. Raised only once the apps of that level are out: before, every device
  * would stop syncing.
  */
-export const MIN_SYNC_LEVEL = 0;
+export const MIN_SYNC_LEVEL = 1;
 
 /** How long a new server can be set up after it started, without an account. */
 export const SETUP_MS = 60 * 60 * 1000;
