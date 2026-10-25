@@ -57,7 +57,10 @@ async function takeBack(fs: VaultFs, done: Installed) {
  * files it added to a collection (its rules, the records it started with) are taken away.
  */
 export async function undoApp(fs: VaultFs, done: Installed, now = new Date()): Promise<void> {
-  if (done.dirs[0] === done.folder) return trashFolder(fs, done.folder, now);
+  if (done.dirs[0] === done.folder) {
+    await trashFolder(fs, done.folder, now);
+    return;
+  }
   const inDir = (path: string) => done.dirs.some((d) => path.startsWith(`${d}/`));
   for (const file of [...done.files].reverse()) {
     if (file.before !== null) await fs.writeText(file.path, file.before);

@@ -19834,3 +19834,69 @@ button.ppl:hover {
 .it.app > .it-main .icon {
   color: var(--sl-accent);
 }
+
+/* A record's lines under its row (design/app-home.md 4.2): ▸ at the start of the row opens them,
+   the record's own table of them, typed in where they are. */
+.ctable .crow > .c0:has(> .rlines) {
+  padding-left: 30px;
+}
+
+.ctable .crow > .c0:has(> .rlines) > .ropen {
+  left: 28px;
+}
+
+.ctable .rlines {
+  position: absolute;
+  top: 50%;
+  left: 6px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-top: -10px;
+  border-radius: 4px;
+  color: var(--sl-faint);
+}
+
+.ctable .rlines:hover {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+.ctable .rlines .icon {
+  width: 12px;
+  height: 12px;
+  transition: transform 0.12s;
+}
+
+.ctable .rlines.on {
+  color: var(--sl-fg);
+}
+
+.ctable .rlines.on .icon {
+  transform: rotate(90deg);
+}
+
+.ctable .clines {
+  position: sticky;
+  left: 8px;
+  box-sizing: border-box;
+  max-width: min(980px, calc(100% - 16px));
+  padding: 2px 0 10px 30px;
+  border-bottom: 1px solid var(--sl-line);
+  background: color-mix(in srgb, var(--sl-sel) 14%, transparent);
+}
+
+.ctable .clines .ltable {
+  margin: 0;
+}
+
+.ctable .clines .ltable + .ltable {
+  margin-top: 10px;
+}
+
+.ctable .clines .crow > .c0 {
+  position: static;
+  background: none;
+  box-shadow: none;
+}

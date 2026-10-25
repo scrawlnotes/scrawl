@@ -870,7 +870,7 @@ export async function writePlan(fs: VaultFs, plan: Plan, space: Pick<RuleSpaceNo
       const c = collection(change.dir);
       if (!c) continue;
       const record = await addRecord(fs, c, { values: change.values }, change.id);
-      undo.push(() => trashItem(fs, record.path).catch(() => undefined));
+      undo.push(async () => void (await trashItem(fs, record.path).catch(() => undefined)));
     } else if (change.kind === 'update') {
       const c = collection(change.dir);
       const record = await fresh(change.dir, change.id);

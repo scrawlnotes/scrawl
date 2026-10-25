@@ -148,6 +148,37 @@ describe('apps', () => {
     expect(nodes.find((n) => n.path === 'Inbox.tasks.json')?.app).toBeUndefined();
   });
 
+  it('adds an order with its lines at once, each from its product, and says how many lines each order has', async () => {
+    const { agent } = await world();
+    await createTool(agent, { kind: 'app', name: 'Atlas', templates: ['sales'], currencies: ['TRY'] });
+    await saveRecordTool(agent, { collection: 'Atlas/Companies', values: { name: 'Lara Turizm' } });
+    await saveRecordTool(agent, { collection: 'Atlas/Products', values: { name: 'Rail', price: 1000 } });
+    await saveRecordTool(agent, { collection: 'Atlas/Products', values: { name: 'Bracket', price: 50 } });
+
+    const order = await saveRecordTool(agent, { collection: 'Atlas/Orders', values: { customer: 'Lara Turizm' }, lines: [{ product: 'Rail', quantity: 2 }, { product: 'Bracket', quantity: 4, unit_price: 40 }] });
+    expect(order.data.record.values).toMatchObject({ code: 'ORD-0001', subtotal: 2160 });
+    const { lines } = order.data as unknown as { lines: { collection: string; records: { name: string; values: { [key: string]: unknown } }[] } };
+    expect(lines.collection).toBe('Atlas/Order lines');
+    expect(lines.records.map((r) => [r.name, r.values.unit_price, (r.values.order as { code: string }).code])).toEqual([
+      ['Rail', 1000, 'ORD-0001'],
+      ['Bracket', 40, 'ORD-0001'],
+    ]);
+
+    await saveRecordTool(agent, { collection: 'Atlas/Orders', values: { customer: 'Lara Turizm' }, another: true });
+    const listed = (await recordsTool(agent, { collection: 'Atlas/Orders' })).data as unknown as { lines: string[]; records: { code: string; lines: number }[] };
+    expect(listed.lines).toEqual(['Atlas/Order lines']);
+    expect(listed.records.map((r) => [r.code, r.lines]).sort()).toEqual([
+      ['ORD-0001', 2],
+      ['ORD-0002', 0],
+    ]);
+
+    // Lines come with a new record only, without their link to it; a collection without lines takes none.
+    expect((await refusal(saveRecordTool(agent, { collection: 'Atlas/Orders', id: 'ORD-0002', lines: [{ product: 'Rail' }] }))).message).toMatch(/lines come with a new record.*save_record in Atlas\/Order lines/);
+    expect((await refusal(saveRecordTool(agent, { collection: 'Atlas/Orders', values: { customer: 'Lara Turizm' }, another: true, lines: [{ order: 'ORD-0001', product: 'Rail' }] }))).message).toMatch(/Order of a line is the record it comes with/);
+    expect((await refusal(saveRecordTool(agent, { collection: 'Atlas/Products', values: { name: 'Bolt' }, lines: [{ name: 'x' }] }))).message).toMatch(/have no lines/);
+    expect((await recordsTool(agent, { collection: 'Atlas/Orders' })).data.total).toBe(2);
+  });
+
   it('sets up each template, each two of a side and each group as files the checks of a write take', async () => {
     let apps = 0;
     const sets = setsToTry();

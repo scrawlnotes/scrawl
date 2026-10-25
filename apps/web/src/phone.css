@@ -9740,3 +9740,76 @@ body > .mb-lifted {
 .mb-app .mb-row .tx small.warn {
   color: var(--sl-p2);
 }
+
+/* A record's lines on a phone (design/app-home.md 4.2): in the list a chip with how many opens
+   them under its row; a new record's lines are added before Create. */
+.mb-crl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.mb-crl > .mb-cr {
+  padding-right: 8px;
+}
+
+.mb-lc {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-right: 14px;
+  padding: 3px 6px 3px 9px;
+  border-radius: 11px;
+  background: var(--sl-side);
+  color: var(--sl-dim);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-lc .icon {
+  width: 14px;
+  height: 14px;
+  transform: rotate(90deg);
+  transition: transform 0.12s;
+}
+
+.mb-crl.on > .mb-lc .icon {
+  transform: rotate(-90deg);
+}
+
+.mb-crl.on {
+  background: color-mix(in srgb, var(--sl-sel) 25%, var(--sl-bg));
+}
+
+.mb-lines {
+  grid-column: 1 / -1;
+  padding: 0 0 8px 20px;
+}
+
+.mb-addline {
+  display: block;
+  width: 100%;
+  padding: 10px 16px;
+  color: var(--sl-accent);
+  font-size: 15px;
+  text-align: left;
+}
+
+.mb-newlines .mb-group {
+  margin-bottom: 2px;
+}
+
+.mb-newlines .mb-addline {
+  padding-left: 4px;
+}
+
+.mb-removeline {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--sl-side);
+  color: var(--sl-p1);
+  font-size: 15px;
+}

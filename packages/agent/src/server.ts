@@ -257,7 +257,7 @@ export function buildServer(agent: Agent): McpServer {
     'records',
     {
       title: 'Records',
-      description: 'Lists the records of a collection with their values, formulas and rollups worked out, and `problems` on values that do not fit the schema. `where` filters by field (key or label) with ops contains, is, is-not, empty, not-empty, gt, lt, before, after, on, true, false; `sort` orders; `limit` caps at 100 when left out. `from` and `to` (YYYY-MM-DD), or `due`, keep the records on those days, by the field its calendar goes by. With no collection, gives what the calendars that show in Today and Upcoming bring there, today\'s with `due: "today"`, in every space unless one is named: what is on today, with the tasks and cards. Use it before save_record to see what is there.',
+      description: 'Lists the records of a collection with their values, formulas and rollups worked out, and `problems` on values that do not fit the schema. `where` filters by field (key or label) with ops contains, is, is-not, empty, not-empty, gt, lt, before, after, on, true, false; `sort` orders; `limit` caps at 100 when left out. `from` and `to` (YYYY-MM-DD), or `due`, keep the records on those days, by the field its calendar goes by. With no collection, gives what the calendars that show in Today and Upcoming bring there, today\'s with `due: "today"`, in every space unless one is named: what is on today, with the tasks and cards. A collection whose records have lines, an order its order lines, names their collections in `lines`, and each record says how many it has in its own `lines`. Use it before save_record to see what is there.',
       inputSchema: z.object({
         space,
         collection: z.string().optional().describe('The collection, by name or path. Left out with due, from or to: the records the calendars bring to Today and Upcoming.'),
@@ -277,7 +277,7 @@ export function buildServer(agent: Agent): McpServer {
     'save_record',
     {
       title: 'Save a record',
-      description: 'Adds one record to a collection, or changes one when `id` is given (its id, name or code). Values are by field key or label; a link field takes the linked record’s name, code or id. A value that does not fit its field is written and marked in `problems`, not refused. Without `id`, a record with the same name or code is not added again: the tool returns it with exists: true; give its id to change it, or another: true to add a second one on purpose. `action` presses a button of the collection’s rules (an action() in its _rules.js) on the record, after the values are written: what it adds and changes is written at once and said back in `action`; a button that stops writes nothing and says the line and why. What the collection runs as a record is saved (an onSave() in its _rules.js) runs here too; what it did elsewhere, or where it stopped, comes back in `onSave`.',
+      description: 'Adds one record to a collection, or changes one when `id` is given (its id, name or code). Values are by field key or label; a link field takes the linked record’s name, code or id. A value that does not fit its field is written and marked in `problems`, not refused. Without `id`, a record with the same name or code is not added again: the tool returns it with exists: true; give its id to change it, or another: true to add a second one on purpose. `action` presses a button of the collection’s rules (an action() in its _rules.js) on the record, after the values are written: what it adds and changes is written at once and said back in `action`; a button that stops writes nothing and says the line and why. What the collection runs as a record is saved (an onSave() in its _rules.js) runs here too; what it did elsewhere, or where it stopped, comes back in `onSave`. A new record whose records have lines, an order, takes them in `lines`: each line its values, written with the record at once, holding it.',
       inputSchema: z.object({
         space,
         collection: z.string(),
@@ -285,6 +285,7 @@ export function buildServer(agent: Agent): McpServer {
         values,
         body: z.string().optional().describe('The notes under the fields, markdown.'),
         subtasks,
+        lines: z.array(z.record(z.string(), z.unknown())).optional().describe('With a new record whose records have lines (`records` names their collection): each line’s values by field key or label, its link to the record left out: [{ "product": "Desk", "quantity": 2 }].'),
         another,
         action: z.string().optional().describe('A button of the collection’s rules to press on the record, by its label: "Start project".'),
         input: z.record(z.string(), z.unknown()).optional().describe('With action: the answers to what the button asks, by its questions’ keys: { "total": 11 }; a link by the record’s name, code or id.'),

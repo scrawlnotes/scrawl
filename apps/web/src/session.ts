@@ -98,6 +98,8 @@ import {
   loadFilters,
   loadFavorites,
   type Favorite,
+  linesBlocks,
+  linkedRecords,
   moveFavorites,
   relabelFavorites,
   saveFavorites,
@@ -3146,12 +3148,21 @@ export class Session {
     }
   }
 
-  /** Moves a record's file to the trash, with the files only it used; the interface asks first. */
+  /**
+   * Moves a record's file to the trash, with the files only it used, and its lines, which are shown
+   * with it there and come back with it (design/app-home.md 4.2); the interface asks first.
+   */
   async trashRecord(dir: string, record: CollectionRecord) {
     await this.settle();
+    const collection = this.snapshot.collections[dir];
+    const lines = new Map(
+      (collection ? linesBlocks(collection.schema, (path) => this.snapshot.collections[path]) : []).flatMap(({ source }) => linkedRecords(source, dir, record).map((line) => [line.path, { dir: source.dir, line }] as const)),
+    );
     await this.detach(record.path);
-    await this.trashWithFiles(record.path, false);
+    for (const path of lines.keys()) await this.detach(path);
+    await this.trashWithFiles(record.path, false, [...lines.keys()]);
     this.setCollection(dir, (current) => ({ ...current, records: current.records.filter((r) => r.id !== record.id) }));
+    for (const { dir: at, line } of lines.values()) this.setCollection(at, (current) => ({ ...current, records: current.records.filter((r) => r.id !== line.id) }));
     await this.freshTrash();
   }
 
@@ -3195,6 +3206,22 @@ export class Session {
       return this.onSave(dir, old ? { ...old, values } : recordWith(collection, id, values), old, undefined, { field });
     } catch {
       return null;
+    }
+  }
+
+  /**
+   * What the onSaves of the collection at `dir` make of a record, writing nothing: a line a new
+   * record's form adds (design/app-home.md 4.2) takes its product's name and price there, as one
+   * added to a table does. `old` is the line as it was, null for a new one; the values as given
+   * when nothing runs on save, or it stops.
+   */
+  planSaved(dir: string, id: string, values: CollectionRecord['values'], old: CollectionRecord['values'] | null): CollectionRecord['values'] {
+    const collection = this.snapshot.collections[dir];
+    if (!collection) return values;
+    try {
+      return this.onSave(dir, recordWith(collection, id, values), old && recordWith(collection, id, old))?.values ?? values;
+    } catch {
+      return values;
     }
   }
 
@@ -3309,10 +3336,10 @@ export class Session {
    * Moves an item or a folder to the trash, and with it the attached files only it used: they
    * come back with it. Its tabs are closed first, so that it is not counted as still using them.
    */
-  private async trashWithFiles(path: string, folder: boolean) {
+  private async trashWithFiles(path: string, folder: boolean, lines: string[] = []) {
     const { fs, local } = this.at(path);
     const space = spaceOf(path);
-    const moved = await trashWithFiles(fs, local, folder, () => this.openTexts(space));
+    const moved = await trashWithFiles(fs, local, folder, () => this.openTexts(space), new Date(), { lines: lines.map(localPath) });
     if (moved.length === 0) return;
     this.forgetMedia(moved.map((file) => inSpace(space, file)));
     await this.freshTrash();

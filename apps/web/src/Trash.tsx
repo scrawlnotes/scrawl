@@ -87,6 +87,8 @@ function TrashRow({ item, today, bySpace, chosen, choosing, onChoose, onOpen, on
     item.cards !== undefined && item.cards > 0 && t('count.cards', { count: item.cards }),
     item.keys !== undefined && item.keys > 0 && t('count.keys', { count: item.keys }),
     item.records !== undefined && item.records > 0 && t('count.records', { count: item.records }),
+    // A record's lines went with it, and come back with it.
+    item.lines && item.lines.length > 0 && t('trash.withLines', { count: item.lines.length }),
     item.here && t('trash.here'),
     bySpace ? whenOf(item, today) : clockTime(item.deleted),
   ].filter(Boolean);

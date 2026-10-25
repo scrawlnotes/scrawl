@@ -133,7 +133,7 @@ export const NAME_KEY = 'name';
 export type LayoutItem =
   | { field: string }
   | { block: 'body' }
-  | { block: 'linked'; collection: string; sort?: string; dir?: 'desc'; style?: LinkedStyle; fields?: string[]; sums?: boolean; group?: string[] }
+  | { block: 'linked'; collection: string; sort?: string; dir?: 'desc'; style?: LinkedStyle; fields?: string[]; sums?: boolean; group?: string[]; lines?: boolean }
   | { block: 'cards' }
   | { block: 'subtasks' }
   /** The buttons of the collection's rules (`action(…)` in _rules.js). */
@@ -143,7 +143,10 @@ export type LayoutItem =
  * How a block shows the records that link to the record: newest first by a day, a list, or a table
  * whose cells are typed in, with its sums when `sums`, in groups by one field or two when `group`
  * (design/gym.md 4.2): a program's items by their part, a workout's sets by their exercise. A list
- * and a table go up by `sort`, down with `dir`: an exercise's workouts newest first.
+ * and a table go up by `sort`, down with `dir`: an exercise's workouts newest first. With
+ * `lines` they are the record's lines (design/app-home.md 4): an order's, a program's items, typed
+ * in a new record's window and under its row in the table; `false` says they are not, though their
+ * role would.
  */
 export type LinkedStyle = 'list' | 'timeline' | 'table';
 
@@ -580,6 +583,7 @@ function readItem(raw: unknown): LayoutItem | null {
       ...(fields.length > 0 && { fields }),
       ...(raw.sums === true && { sums: true }),
       ...(group.length > 0 && { group }),
+      ...(typeof raw.lines === 'boolean' && { lines: raw.lines }),
     };
   }
   return null;

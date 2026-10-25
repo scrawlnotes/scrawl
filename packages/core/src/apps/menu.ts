@@ -1,4 +1,5 @@
 import { t } from '@scrawlnotes/i18n';
+import type { Collection, LinkedBlock, Schema } from '../collection';
 import { basename } from '../fs';
 import { PIECES } from './pieces';
 import { impliedWith, isTemplateId, readAnswers, TEMPLATES } from './questions';
@@ -67,3 +68,19 @@ export function menuOf(app: AppFile, pieces: readonly AppPiece[]): AppModule[] {
 
 /** The roles of the pieces that are another's lines, by role: an order's lines are the order's (design/app-home.md 4). */
 export const linesOf = (role: string) => PIECES[role]?.lines ?? [];
+
+/**
+ * Whether a linked block shows the record's lines (design/app-home.md 4): as its `lines` says,
+ * else as the roles say, an order's lines on an order's screen.
+ */
+export const showsLines = (block: LinkedBlock, role: string | undefined, sourceRole: string | undefined): boolean =>
+  block.lines ?? (!!role && !!sourceRole && linesOf(sourceRole).includes(role));
+
+/** The blocks of a collection's record screen that show its lines, each with the collection of its lines, found by `collection`. */
+export function linesBlocks(schema: Schema, collection: (path: string) => Collection | undefined): { block: LinkedBlock; source: Collection }[] {
+  const blocks = (schema.layout?.columns ?? []).flatMap((c) => c.sections.flatMap((s) => s.items)).filter((item): item is LinkedBlock => 'block' in item && item.block === 'linked');
+  return blocks.flatMap((block) => {
+    const source = collection(block.collection);
+    return source && showsLines(block, schema.role, source.schema.role) ? [{ block, source }] : [];
+  });
+}

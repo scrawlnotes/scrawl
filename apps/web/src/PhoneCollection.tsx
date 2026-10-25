@@ -11,6 +11,7 @@ import {
   computerFor,
   actionsOf,
   actionState,
+  type Change,
   type Condition,
   type ConditionOp,
   faceFields,
@@ -32,7 +33,11 @@ import {
   linkedSort,
   groupLinked,
   linkedValues,
+  linesBlocks,
   linkFieldsTo,
+  localPath,
+  newRecordId,
+  recordWith,
   linkTo,
   missingFields,
   nameField,
@@ -61,7 +66,7 @@ import {
 import { t } from '@scrawlnotes/i18n';
 import { type FormEvent, type MouseEvent, type PointerEvent, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Chip } from './choices';
-import { type CollectionActions, type Draft, differs, draftOf, excerpt, NotesBlock, recordLayout, savePreview, singularOf, usedValues, type ValueContext } from './Collection';
+import { type CollectionActions, type Draft, differs, draftOf, excerpt, NotesBlock, recordLayout, savePreview, singularOf, usedValues, type ValueContext, withDrafts } from './Collection';
 import { fieldChoices, LabelSheet } from './labels';
 import { Icon, type IconName } from './Icon';
 import { Subtasks } from './Subtasks';
@@ -868,7 +873,7 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
  * list shows each by its name with a field or two under it. A row opens its record as a page. A
  * collection that is not there is made from here, from the template of its name.
  */
-function LinkedTab({ block, dir, schema: own, record, today, actions }: { block: LinkedBlock; dir: string; schema: Schema; record: Entry; today: string; actions: CollectionActions }) {
+export function LinkedTab({ block, dir, schema: own, record, today, actions }: { block: LinkedBlock; dir: string; schema: Schema; record: Entry; today: string; actions: CollectionActions }) {
   const [failed, setFailed] = useState<string | null>(null);
   const making = useRef(false);
   const source = actions.collection(block.collection);
@@ -1095,7 +1100,14 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
   onClose: () => void;
 }) {
   const { dir, schema } = collection;
-  const computer = computerFor(collection, actions.collections(), actions.boards(), today);
+  // Its lines, an order's or a program's items, are added before Create and written with it (design/app-home.md 4.2),
+  // and counted in its rollups before: a new order's total is its new lines'.
+  const lineBlocks = useMemo(() => linesBlocks(schema, (path) => actions.collection(path) ?? undefined), [schema, actions]);
+  const [newId] = useState(newRecordId);
+  const [drafted, setDrafted] = useState<Change[]>([]);
+  const linking = useMemo(() => withDrafts(actions.collections(), drafted), [actions, drafted]);
+  const computer = computerFor(collection, linking, actions.boards(), today);
+  const [line, setLine] = useState<{ source: Collection; block: LinkedBlock; id: string | null; values: Entry['values'] } | null>(null);
   // It starts with the values given (the links of the block it is added from), then its fields' defaults.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const original = useMemo(() => draftOf(null, computer.defaults(dir, values ?? {}, actions.me?.())), [values]);
@@ -1105,11 +1117,12 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
   const busy = useRef(false);
   const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink, used: (field) => usedValues(collection.records.map((r) => r.values[field.key])) };
   // The checks of the collection's rules it fails as it is typed: said under the form, the fields marked.
-  const checked = computer.checks(dir, null, draft.values);
+  const checked = computer.checks(dir, recordWith(collection, newId, draft.values), draft.values);
   const layout = recordLayout(schema, dir, true, actions);
   const items = layout.columns.flatMap((column) => column.sections.flatMap((section) => section.items));
-  // Nothing links to it yet: its rollups have nothing to work out.
-  const fields = formFields(schema, items.filter((item): item is { field: string } => 'field' in item)).filter((f) => f.type !== 'rollup');
+  // Nothing links to it yet but its lines: its other rollups have nothing to work out.
+  const counted = new Set(lineBlocks.map(({ source }) => localPath(source.dir)));
+  const fields = formFields(schema, items.filter((item): item is { field: string } => 'field' in item)).filter((f) => f.type !== 'rollup' || counted.has(f.rollup?.from ?? ''));
   const title = t('collection.newOne', { singular: singularOf(schema) });
   const typedName = nameField(schema);
   const setValue = (key: string, value: FieldValue) => {
@@ -1121,14 +1134,14 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
     const missing = missingText(schema, draft.values);
     if (missing) return setError(missing);
     busy.current = true;
-    const failed = await actions.addRecord(dir, { values: draft.values, body: draft.body, subtasks: draft.subtasks });
+    const failed = await actions.addRecord(dir, { values: draft.values, body: draft.body, subtasks: draft.subtasks }, lineBlocks.length > 0 ? { id: newId, drafted } : undefined);
     busy.current = false;
     if (failed) setError(failed);
     else onClose();
   };
   // Nothing typed is lost without asking.
   const leave = () => {
-    if (!differs(draft, original)) return onClose();
+    if (!differs(draft, original) && drafted.length === 0) return onClose();
     const name = typedName ? valueText(draft.values[typedName.key] ?? null).trim() : '';
     actions.ask(t('collection.discardTitle'), t('collection.discardText', { name: quote(name || t('collection.newRecordShort')) }), onClose, t('collection.discard'));
   };
@@ -1151,7 +1164,7 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
               schema={schema}
               fields={fields}
               values={draft.values}
-              rollups={computer.draft(dir, null, draft.values)}
+              rollups={computer.draft(dir, { id: newId, name: '', path: '' }, draft.values)}
               original={null}
               problems={new Set(checked.map((p) => p.field))}
               firstFocus={fields.find((f) => f.type !== 'formula' && f.type !== 'checkbox')?.key}
@@ -1161,6 +1174,30 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
               onPick={setPicking}
             />
           )}
+          {lineBlocks.map(({ block, source }) => {
+            const rows = drafted.flatMap((c) => (c.kind === 'add' && c.dir === localPath(source.dir) ? [c] : []));
+            const self = { id: newId, name: typedName ? valueText(draft.values[typedName.key] ?? null) : '', code: '' };
+            return (
+              <div key={block.collection} className="mb-newlines">
+                <div className="mb-cap">
+                  {collectionName(block.collection)} <small>{rows.length}</small>
+                </div>
+                {rows.length > 0 && (
+                  <div className="mb-group">
+                    {rows.map((c) => (
+                      <button key={c.id} type="button" className="mb-fr" onClick={() => setLine({ source, block, id: c.id, values: c.values })}>
+                        <span className="fl">{valueText(c.values[nameField(source.schema)?.key ?? ''] ?? null) || t('collection.newRecordShort')}</span>
+                        <span className="val">{lineSummary(source.schema, block, c.values)}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <button type="button" className="mb-addline" onClick={() => setLine({ source, block, id: null, values: linkedValues(source.schema, dir, { ...self, path: '', values: draft.values, extra: {}, body: '' }, schema) })}>
+                  {t('collection.addLine')}
+                </button>
+              </div>
+            );
+          })}
           <div className="mb-cap">{t('collection.body')}</div>
           <div className="mb-notes in-sheet">
             <NotesBlock home={collection.dir} text={draft.body} editor={actions.editor} attach={actions.attach} onChange={(body) => setDraft((d) => ({ ...d, body }))} />
@@ -1193,6 +1230,119 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
           onClose={() => setPicking(null)}
         />
       )}
+      {line && (
+        <LineSheet
+          source={line.source}
+          block={line.block}
+          dir={dir}
+          values={line.values}
+          known={line.id !== null}
+          today={today}
+          actions={actions}
+          onDone={(values) => {
+            const id = line.id;
+            // What the lines' collection runs on save runs here, as on a line added on its own: its product's price.
+            const lineId = id ?? newRecordId();
+            const saved = actions.planSaved?.(line.source.dir, lineId, values, id ? line.values : null) ?? values;
+            setDrafted((now) => (id ? now.map((c) => (c.kind === 'add' && c.id === id ? { ...c, values: saved } : c)) : [...now, { kind: 'add', dir: localPath(line.source.dir), id: lineId, values: saved }]));
+            setLine(null);
+          }}
+          onRemove={() => {
+            setDrafted((now) => now.filter((c) => !(c.kind === 'add' && c.id === line.id)));
+            setLine(null);
+          }}
+          onClose={() => setLine(null)}
+        />
+      )}
+    </>
+  );
+}
+
+/** What a line not written yet says on the right of its row: the block's fields after its name, filled in. */
+function lineSummary(schema: Schema, block: LinkedBlock, values: Entry['values']): string {
+  const named = nameField(schema)?.key;
+  const fields = (block.fields ?? schema.fields.map((f) => f.key)).filter((key) => key !== named).flatMap((key) => schema.fields.filter((f) => f.key === key && !isComputed(f.type) && f.type !== 'link'));
+  return fields
+    .map((f) => values[f.key])
+    .filter((value) => !isEmpty(value ?? null))
+    .slice(0, 3)
+    .map((value) => valueText(value ?? null))
+    .join(' · ');
+}
+
+/**
+ * A line of a new record typed in on a phone (design/app-home.md 4.2): the fields its block shows,
+ * its link to the record set and not shown; Add puts it among the record's lines, written with it.
+ */
+function LineSheet({ source, block, dir, values, known, today, actions, onDone, onRemove, onClose }: {
+  source: Collection;
+  block: LinkedBlock;
+  dir: string;
+  values: Entry['values'];
+  /** One added before: Done and Remove, not Add. */
+  known: boolean;
+  today: string;
+  actions: CollectionActions;
+  onDone: (values: Entry['values']) => void;
+  onRemove: () => void;
+  onClose: () => void;
+}) {
+  const { schema } = source;
+  const computer = computerFor(source, actions.collections(), actions.boards(), today);
+  // A new line starts with its link to the record, then its fields' defaults.
+  const [draft, setDraft] = useState(() => (known ? values : computer.defaults(source.dir, values, actions.me?.())));
+  const [picking, setPicking] = useState<Field | null>(null);
+  const back = new Set(linkFieldsTo(schema, dir).map((f) => f.key));
+  const named = nameField(schema);
+  const keys = [...(named ? [named.key] : []), ...(block.fields ?? schema.fields.map((f) => f.key))];
+  const fields = [...new Set(keys)].flatMap((key) => schema.fields.filter((f) => f.key === key && !back.has(f.key) && f.type !== 'rollup'));
+  const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink, used: (field) => usedValues(source.records.map((r) => r.values[field.key])) };
+  const typed = named ? valueText(values[named.key] ?? null) : '';
+  const title = known && typed ? typed : t('collection.newOne', { singular: singularOf(schema) });
+  return (
+    <>
+      <Sheet label={title} className="mb-create mb-newrec" onClose={onClose}>
+        <div className="mb-sh three">
+          <button type="button" className="cancel" onClick={onClose}>
+            {t('dialog.cancel')}
+          </button>
+          <b>{title}</b>
+          <button type="button" className="ok" onMouseDown={(event) => event.preventDefault()} onClick={() => onDone(draft)}>
+            {t(known ? 'phone.done' : 'collection.add')}
+          </button>
+        </div>
+        <div className="mb-form">
+          <FieldRows
+            schema={schema}
+            fields={fields}
+            values={draft}
+            rollups={computer.draft(source.dir, null, draft)}
+            original={null}
+            problems={new Set()}
+            firstFocus={fields[0]?.key}
+            today={today}
+            ctx={ctx}
+            onChange={(key, value) => setDraft((d) => ({ ...d, [key]: value }))}
+            onPick={setPicking}
+          />
+          {known && (
+            <button type="button" className="mb-removeline" onClick={onRemove}>
+              {t('collection.removeLine')}
+            </button>
+          )}
+        </div>
+      </Sheet>
+      {picking && (
+        <FieldPicker
+          field={picking}
+          value={draft[picking.key] ?? null}
+          about={title}
+          today={today}
+          ctx={ctx}
+          onChange={(value) => setDraft((d) => ({ ...d, [picking.key]: value }))}
+          onClose={() => setPicking(null)}
+        />
+      )}
     </>
   );
 }
@@ -1205,7 +1355,7 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
  * three of the fields the view shows, on the right its number or its day. Grouped, each group has
  * its head with how many and the number added up. A view held opens its menu.
  */
-export function PhoneCollectionList({ name, count, schema, today, fields, records, shown, groups, groupField, closed, filtered, problems, query, views, view, onToggle, onQuery, onPickView, onViewMenu, onViewSheet, onOpen, onAdd, onFields, side, body }: {
+export function PhoneCollectionList({ name, count, schema, today, fields, records, shown, groups, groupField, closed, filtered, problems, query, views, view, onToggle, onQuery, onPickView, onViewMenu, onViewSheet, onOpen, onAdd, onFields, lines, side, body }: {
   /** Beside the name: a calendar's Day and Month. */
   side?: ReactNode;
   /** In place of the list: a calendar. */
@@ -1235,10 +1385,20 @@ export function PhoneCollectionList({ name, count, schema, today, fields, record
   onOpen: (record: Entry) => void;
   onAdd: () => void;
   onFields: () => void;
+  /** A record's lines (design/app-home.md 4.2): the fields counting them, how many, and the view of them that opens under its row. */
+  lines?: { counted: string[]; count: (record: Entry) => number; view: (record: Entry) => ReactNode };
 }) {
   const hold = useHold();
+  const [openLines, setOpenLines] = useState<ReadonlySet<string>>(() => new Set());
+  const toggleLines = (id: string) =>
+    setOpenLines((now) => {
+      const next = new Set(now);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
   const noFields = schema.fields.length === 0;
-  const sub = fields.filter((f) => f.type !== 'name' && f.type !== 'code');
+  // A field counting the lines, an order's Lines, is not said again beside the count on the right.
+  const sub = fields.filter((f) => f.type !== 'name' && f.type !== 'code' && !lines?.counted.includes(f.key));
   // On the right: the view's first number, else its first day.
   const right = sub.find(isNumeric) ?? sub.find(holdsDays);
   const number = sub.find(isNumeric);
@@ -1246,7 +1406,7 @@ export function PhoneCollectionList({ name, count, schema, today, fields, record
     const value = (field: Field) => fieldValueOf(record, field, schema, today);
     const at = right ? value(right) : null;
     const rest = sub.filter((f) => f !== right && !isEmpty(value(f)) && (f.type !== 'checkbox' || value(f) === true)).slice(0, 3);
-    return (
+    const main = (
       <button key={`${group}\u0000${record.id}`} type="button" className="mb-cr" onClick={() => onOpen(record)}>
         <span className="tx">
           <b>
@@ -1265,6 +1425,18 @@ export function PhoneCollectionList({ name, count, schema, today, fields, record
           <span className={typeof at === 'number' ? 'rt num' : at === today ? 'rt today' : 'rt'}>{workedText(at ?? null, today, right, record.values)}</span>
         )}
       </button>
+    );
+    if (!lines) return main;
+    const on = openLines.has(record.id);
+    return (
+      <div key={`${group}\u0000${record.id}`} className={on ? 'mb-crl on' : 'mb-crl'}>
+        {main}
+        <button type="button" className="mb-lc" aria-expanded={on} aria-label={t('collection.lines')} onClick={() => toggleLines(record.id)}>
+          {lines.count(record)}
+          <Icon name="chevron" />
+        </button>
+        {on && <div className="mb-lines">{lines.view(record)}</div>}
+      </div>
     );
   };
   const groupHead = (group: RecordGroup) => {

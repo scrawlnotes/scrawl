@@ -2,6 +2,8 @@ import { locale, type MessageKey, t } from '@scrawlnotes/i18n';
 import {
   aboutName,
   APP_TEMPLATES,
+  linesBlocks,
+  linkedRecords,
   type AppFile,
   type AppPiece,
   type AppScreen,
@@ -2080,8 +2082,13 @@ export function App() {
     addRecord: (dir, input, form) => session.addRecord(dir, input, form),
     updateRecord: (dir, id, patch, form) => session.updateRecord(dir, id, patch, form),
     planChange: (dir, id, values, old, field) => session.planChange(dir, id, values, old, field),
+    planSaved: (dir, id, values, old) => session.planSaved(dir, id, values, old),
     moveRecord,
-    removeRecord: (dir, record) => ask(t('delete.record'), recordDeleteText(record), () => void session.trashRecord(dir, record)),
+    removeRecord: (dir, record) => {
+      const own = collections[dir];
+      const lines = own ? linesBlocks(own.schema, (path) => collections[path]).reduce((n, { source }) => n + linkedRecords(source, dir, record).length, 0) : 0;
+      ask(t('delete.record'), recordDeleteText(record, lines), () => void session.trashRecord(dir, record));
+    },
     pressButton,
     openNote: (path) => void session.open(path),
     // The desktop app hands an address to the system; in a browser it opens beside the app.

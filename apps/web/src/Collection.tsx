@@ -60,6 +60,8 @@ import {
   linkedCards,
   linkedRecords,
   linkedSort,
+  linesBlocks,
+  showsLines,
   linkedValues,
   linkFieldsTo,
   linkGone,
@@ -126,7 +128,7 @@ import { Icon } from './Icon';
 import type { FormSave, StopNote } from './session';
 import { collectionLabel } from './items';
 import { useNarrow } from './narrow';
-import { FilterSheet, PhoneCollectionList, ViewSheet } from './PhoneCollection';
+import { FilterSheet, LinkedTab as PhoneLinkedTab, PhoneCollectionList, ViewSheet } from './PhoneCollection';
 import { Subtasks } from './Subtasks';
 import { dueClass, dueLabel } from './Tasks';
 import { DateTimeBox, DurationBox } from './TimeInputs';
@@ -145,6 +147,8 @@ export interface CollectionActions {
   updateRecord: (dir: string, id: string, patch: RecordPatch, form?: FormSave) => Promise<string | null>;
   /** What the onChanges of a field do as the form changes it, writing nothing; null when nothing watches it. */
   planChange?: (dir: string, id: string, values: Record['values'], old: Record | null, field: string) => SaveRun | null;
+  /** What the onSaves of a collection make of a record not written yet, a new record's line; `old` null for a new one. */
+  planSaved?: (dir: string, id: string, values: Record['values'], old: Record['values'] | null) => Record['values'];
   /** Writes values a calendar moved or stretched a record to, saying so with `text` and Undo. */
   moveRecord: (dir: string, id: string, values: Record['values'], text: string) => void;
   /** Asks first, then moves the record's file to the trash. */
@@ -906,13 +910,14 @@ function LinkedRecords({ block, dir, record, today, actions, drafts, onOpen, onA
 /**
  * The row + Add row opens at the foot of a table, after the slice 3 views of design/mockups.html:
  * a box for each field the table shows, the defaults in them, what is worked out shown faint.
- * Add writes the record (faint while it has no name), Cancel and Esc close the row.
+ * Add writes the record (faint while it has no name, nor one its onSave gives it: a line its
+ * product's), Cancel and Esc close the row.
  */
 function NewRow({ fields, schema, values, computed, shown, cellClass, ctx, width, error, onChange, onAdd, onCancel }: {
   fields: Field[];
   schema: Schema;
   values: Record['values'];
-  /** What is worked out from them. */
+  /** What is worked out from them, with what the collection's onSaves set. */
   computed: Record['values'];
   shown: (field: Field) => Field;
   cellClass: (field: Field, i: number) => string | undefined;
@@ -925,7 +930,7 @@ function NewRow({ fields, schema, values, computed, shown, cellClass, ctx, width
   onCancel: () => void;
 }) {
   const named = nameField(schema);
-  const nameless = !!named && !valueText(values[named.key] ?? null).trim();
+  const nameless = !!named && !valueText(values[named.key] ?? null).trim() && !valueText(computed[named.key] ?? null).trim();
   const first = fields.find((f) => f.key !== TITLE.key && !isComputed(f.type))?.key;
   return (
     <>
@@ -1022,12 +1027,21 @@ function linkedColumns(block: LinkedBlock, schema: Schema, dir: string): Field[]
   return [...(named ? [named] : schema.fields.length > 0 ? [] : [TITLE]), ...chosen];
 }
 
+/** The collections with the rows a form added and has not written yet among their records, for its rollups: a new order's total its new lines'. */
+export function withDrafts(all: Collection[], drafted: readonly Change[]): Collection[] {
+  if (drafted.length === 0) return all;
+  return all.map((c) => {
+    const added = drafted.flatMap((d) => (d.kind === 'add' && d.dir === localPath(c.dir) && !c.records.some((r) => r.id === d.id) ? [recordWith(c, d.id, d.values)] : []));
+    return added.length > 0 ? { ...c, records: [...c.records, ...added] } : c;
+  });
+}
+
 /** The rows a form adds to a linked table as it is typed in (design/gym.md 4.1), not written until Save. */
 interface LinkedDrafts {
   /** The rows added to a collection, as records not written yet. */
   rows: (source: Collection) => Record[];
   /** A row typed in. */
-  write: (id: string, values: Record['values']) => void;
+  write: (source: Collection, id: string, values: Record['values']) => void;
   /** A row added with + Add row. */
   add: (source: Collection, values: Record['values']) => void;
 }
@@ -1058,14 +1072,17 @@ function LinkedTable({ block, source, dir, record, today, actions, drafts, onOpe
   const shownAs = computer.shown(source.dir);
   const asShown = (field: Field) => shownAs.get(field.key) ?? field;
   const columns = linkedColumns(block, schema, dir);
-  const unsaved = drafts?.rows(source) ?? [];
+  // A row not written yet gives way to its record once it is: as the form is saved.
+  const written = linkedRecords(source, dir, record);
+  const unsaved = (drafts?.rows(source) ?? []).filter((r) => !written.some((w) => w.id === r.id));
   const isDraft = new Set(unsaved.map((r) => r.id));
-  const linked = [...linkedRecords(source, dir, record).map((r) => ({ ...r, values: computer.values(source.dir, r) })), ...unsaved.map((r) => ({ ...r, values: computer.draft(source.dir, null, r.values) }))];
+  const linked = [...written.map((r) => ({ ...r, values: computer.values(source.dir, r) })), ...unsaved.map((r) => ({ ...r, values: computer.draft(source.dir, null, r.values) }))];
   const sorted = sortRecords(linked, schema, linkedSort(block, schema), today);
   const groups = groupLinked(sorted, schema, block.group ?? [], today);
   // The rows in the order they are shown, group by group, for the keyboard to go through.
   const rows = groups.flatMap((g) => (g.groups ? g.groups.flatMap((s) => s.records) : g.records));
   const recordSchema = actions.collection(dir)?.schema;
+  const lines = showsLines(block, recordSchema?.role, schema.role);
   // + Add to a group starts the row with the group's value.
   const into = useRef<{ key: string; values: Record['values'] } | null>(null);
   const [addingTo, setAddingTo] = useState<string | null>(null);
@@ -1084,7 +1101,7 @@ function LinkedTable({ block, source, dir, record, today, actions, drafts, onOpe
   const lit = useLit(source);
   /** A cell typed in: a row not written yet in the form, one written at once. */
   const write = (r: Record, field: Field, value: FieldValue) => {
-    if (isDraft.has(r.id)) return drafts!.write(r.id, { [field.key]: value });
+    if (isDraft.has(r.id)) return drafts!.write(source, r.id, { [field.key]: value });
     lit.wrote(r.id, field.key, value);
     void actions.updateRecord(source.dir, r.id, { values: { [field.key]: value } }).then((failed) => failed && actions.say?.(failed));
   };
@@ -1109,7 +1126,7 @@ function LinkedTable({ block, source, dir, record, today, actions, drafts, onOpe
       fields={columns}
       schema={schema}
       values={adding.values ?? {}}
-      computed={computer.draft(source.dir, null, adding.values ?? {})}
+      computed={computer.draft(source.dir, null, actions.planSaved?.(source.dir, '', adding.values ?? {}, null) ?? adding.values ?? {})}
       shown={asShown}
       cellClass={cellClass}
       ctx={ctx}
@@ -1227,9 +1244,10 @@ function LinkedTable({ block, source, dir, record, today, actions, drafts, onOpe
         </div>
       </div>
       {rows.length === 0 && !adding.values && <p className="blk-none">{t('collection.noLinked', { collection: collectionName(block.collection).toLowerCase() })}</p>}
-      {!adding.values && !block.group?.length && (
+      {/* In groups each group has its own + Add; with none yet, the table has it. */}
+      {!adding.values && (!block.group?.length || rows.length === 0) && (
         <button type="button" className="cadd" onClick={() => startAdding(null)}>
-          {t('collection.addRow')}
+          {t(lines ? 'collection.addLine' : 'collection.addRow')}
         </button>
       )}
     </div>
@@ -1341,11 +1359,13 @@ function CardsBlock({ dir, record, today, actions, onOpen }: { dir: string; reco
  * collection, and the cards of every board that does. The buttons of its rules are where the
  * layout puts them, or at the top when it puts them nowhere.
  */
-export function recordLayout(schema: Schema, dir: string, isNew: boolean, actions: Pick<CollectionActions, 'collections' | 'boards'>, buttons = false, drafts = false): Layout {
+export function recordLayout(schema: Schema, dir: string, isNew: boolean, actions: Pick<CollectionActions, 'collections' | 'boards'>, buttons = false, drafts = false, lines: readonly LinkedBlock[] = []): Layout {
   const own = layoutOf(schema);
-  // A new record whose rules add rows as it is typed in (onChange) keeps its tables, to show them before Create.
-  if (isNew && drafts) {
-    const kept = (item: LayoutItem) => 'field' in item || item.block === 'body' || item.block === 'subtasks' || (item.block === 'linked' && item.style === 'table');
+  // A new record whose rules add rows as it is typed in (onChange) keeps its tables, to show them
+  // before Create; one with lines keeps their blocks, its lines typed in before Create (design/app-home.md 4.2).
+  if (isNew && (drafts || lines.length > 0)) {
+    const kept = (item: LayoutItem) =>
+      'field' in item || item.block === 'body' || item.block === 'subtasks' || (item.block === 'linked' && ((drafts && item.style === 'table') || lines.some((l) => l.collection === item.collection)));
     const columns = own.columns.map((column) => ({ ...column, sections: column.sections.map((section) => ({ ...section, items: section.items.filter(kept) })).filter((section) => section.items.length > 0) }));
     return { columns: columns.filter((column) => column.sections.length > 0) };
   }
@@ -1470,6 +1490,9 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
   const [newId] = useState(newRecordId);
   const id = record?.id ?? newId;
   const [drafted, setDrafted] = useState<Change[]>([]);
+  // A new record's lines, an order's or a program's items, are typed in before Create, as rows not written yet (design/app-home.md 4.2).
+  const lines = useMemo(() => (record ? [] : linesBlocks(schema, (path) => actions.collection(path) ?? undefined).map((l) => l.block)), [record, schema, actions]);
+  const drafting = watched.length > 0 || lines.length > 0;
   const original = useMemo(() => draftOf(record, given), [record, given]);
   const dirty = differs(draft, original) || drafted.length > 0;
   // A form not typed in follows the record as it is written: after one of its buttons, or a change made elsewhere.
@@ -1482,7 +1505,7 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
   const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink, used: (field) => usedValues(collection.records.map((r) => r.values[field.key])) };
   const buttons = useMemo(() => actionsOf(collection.rules), [collection.rules]);
 
-  const layout: Layout = useMemo(() => recordLayout(schema, dir, isNew, actions, buttons.length > 0, watched.length > 0), [schema, isNew, dir, actions, buttons.length, watched.length]);
+  const layout: Layout = useMemo(() => recordLayout(schema, dir, isNew, actions, buttons.length > 0, watched.length > 0, lines), [schema, isNew, dir, actions, buttons.length, watched.length, lines]);
   // The name, and the fields the layout does not place, go in the first column that has fields.
   const fieldColumn = Math.max(0, layout.columns.findIndex((column) => column.sections.some((section) => section.items.some((item) => 'field' in item))));
 
@@ -1514,14 +1537,18 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   /** The rows the form adds to a linked table, not written until Save; typed in and added to there. */
-  const drafts: LinkedDrafts | undefined =
-    watched.length > 0
-      ? {
+  const drafts: LinkedDrafts | undefined = drafting
+    ? {
           rows: (source) => drafted.flatMap((c) => (c.kind === 'add' && c.dir === localPath(source.dir) ? [recordWith(source, c.id, c.values)] : [])),
-          write: (rowId, values) => setDrafted((now) => now.map((c) => (c.kind === 'add' && c.id === rowId ? { ...c, values: { ...c.values, ...values } } : c))),
-          add: (source, values) => setDrafted((now) => [...now, { kind: 'add', dir: localPath(source.dir), id: newRecordId(), values }]),
+          // A row runs what its collection runs on save, as one written to a table: a line takes its product's price.
+          write: (source, rowId, values) =>
+            setDrafted((now) => now.map((c) => (c.kind === 'add' && c.id === rowId ? { ...c, values: actions.planSaved?.(source.dir, rowId, { ...c.values, ...values }, c.values) ?? { ...c.values, ...values } } : c))),
+          add: (source, values) => {
+            const rowId = newRecordId();
+            setDrafted((now) => [...now, { kind: 'add', dir: localPath(source.dir), id: rowId, values: actions.planSaved?.(source.dir, rowId, values, null) ?? values }]);
+          },
         }
-      : undefined;
+    : undefined;
 
   const named = nameField(schema);
   /** Writes the form; false when it cannot be, saying why. */
@@ -1537,7 +1564,7 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
     busy.current = true;
     const patch = { values: draft.values, body: draft.body, subtasks: draft.subtasks };
     // With onChanges, the form ran them as it was typed in: what they added is written with it, and they do not run again.
-    const form: FormSave | undefined = watched.length > 0 ? { id, drafted } : undefined;
+    const form: FormSave | undefined = drafting ? { id, drafted } : undefined;
     const failed = isNew ? await actions.addRecord(dir, patch, form) : await actions.updateRecord(dir, record.id, patch, form);
     busy.current = false;
     if (failed) setError(failed);
@@ -1574,17 +1601,20 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
 
   // A new record's first box has the keyboard.
   const firstKey = isNew ? layout.columns.flatMap((c) => c.sections.flatMap((s) => s.items)).find((i): i is { field: string } => 'field' in i)?.field : undefined;
-  // What is worked out (formulas, lookups, rollups) from what the form holds now; the rollups are the record's, from what links to it.
-  const computer = useMemo(() => computerFor(collection, actions.collections(), actions.boards(), today), [collection, actions, today]);
+  // What is worked out (formulas, lookups, rollups) from what the form holds now; the rollups are the
+  // record's, from what links to it, the rows typed in and not written yet among them: a new order's
+  // total its new lines'.
+  const linking = useMemo(() => withDrafts(actions.collections(), drafted), [actions, drafted]);
+  const computer = useMemo(() => computerFor(collection, linking, actions.boards(), today), [collection, linking, actions, today]);
   // What the collection's rules will write in its own fields as it is saved, shown before Save: what
   // is worked out and checked is of the record as it will be.
   const willWrite = useMemo(() => savePreview(collection, record, draft.values, actions, today), [collection, record, draft.values, actions, today]);
   const toBe = willWrite.length > 0 ? { ...draft.values, ...Object.fromEntries(willWrite.map((w) => [w.key, w.value])) } : draft.values;
-  const computed = computer.draft(dir, record, toBe);
+  const computed = computer.draft(dir, record ?? { id, name: '', path: '' }, toBe);
   const shownAs = computer.shown(dir);
   // What does not fit the schema, as the form holds it now: a record's, not a new one's, which is checked on Create;
   // and the checks of the collection's rules it fails, a new one's too, at their fields or above the form.
-  const problems = [...(record ? recordProblems({ values: toBe, extra: record.extra }, schema) : []), ...computer.checks(dir, record, toBe)];
+  const problems = [...(record ? recordProblems({ values: toBe, extra: record.extra }, schema) : []), ...computer.checks(dir, record ?? recordWith(collection, id, toBe), toBe)];
   const recordWide = problems.filter((p) => !p.field || !fields.has(p.field));
   const item = (key: string, index: number): ReactNode => {
     const field = fields.get(key);
@@ -1665,7 +1695,7 @@ export function RecordDialog({ collection, record, values, today, actions, onClo
       return (
         <LinkedRecords
           key={`linked-${layoutItem.collection}-${index}`}
-          block={layoutItem}
+          block={!record && lines.some((l) => l.collection === layoutItem.collection) ? { ...layoutItem, style: 'table' } : layoutItem}
           dir={dir}
           record={self}
           today={today}
@@ -2031,6 +2061,15 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
     if (fieldsAsked) setDesigning(true);
   }, [fieldsAsked]);
   const [closed, setClosed] = useState<ReadonlySet<string>>(() => new Set());
+  // A record's lines, an order's, open under its row from the ▸ at its start, typed in where they
+  // are (design/app-home.md 4.2); which are open is kept on this device. A line opens in its window.
+  const lineBlocks = useMemo(() => linesBlocks(schema, (path) => actions.collection(path) ?? undefined), [schema, actions]);
+  const linesOn = lineBlocks.length > 0 && look?.lines !== false;
+  const openedLines = new Set(look?.opened ?? []);
+  const showLines = (ids: string[], on: boolean) => onLook({ ...look, opened: on ? [...new Set([...openedLines, ...ids])] : [...openedLines].filter((id) => !ids.includes(id)) });
+  const [line, setLine] = useState<{ dir: string; id: string } | null>(null);
+  const lineCollection = line ? actions.collection(line.dir) : null;
+  const lineRecord = line ? (lineCollection?.records.find((r) => r.id === line.id) ?? null) : null;
   // Conditions applied without being saved as a view, until the tab closes.
   const [adHoc, setAdHoc] = useState<Condition[]>([]);
   const views = schema.views ?? [];
@@ -2224,6 +2263,18 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
           >
             {i === 0 && (
               <>
+                {linesOn && (
+                  <button
+                    type="button"
+                    className={openedLines.has(record.id) ? 'rlines on' : 'rlines'}
+                    aria-expanded={openedLines.has(record.id)}
+                    title={t('collection.lines')}
+                    aria-label={t('collection.lines')}
+                    onClick={(event) => (event.stopPropagation(), showLines([record.id], !openedLines.has(record.id)))}
+                  >
+                    <Icon name="chevron" />
+                  </button>
+                )}
                 <button type="button" className="ropen" title={t('collection.openRecord')} aria-label={t('collection.openRecord')} onClick={(event) => (event.stopPropagation(), openRecord(record.id))}>
                   <Icon name="open" />
                 </button>
@@ -2239,6 +2290,18 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
       </button>
     </div>
   );
+  // A record's row, and its lines under it when they are open.
+  const withLines = (record: Record, group = '') =>
+    linesOn && openedLines.has(record.id)
+      ? [
+          row(record, group),
+          <div key={`${group}\u0000${record.id}\u0000lines`} className="clines" role="row">
+            {lineBlocks.map(({ block, source }) => (
+              <LinkedTable key={block.collection} block={block} source={source} dir={dir} record={record} today={today} actions={actions} onOpen={(s, r) => setLine({ dir: s.dir, id: r.id })} />
+            ))}
+          </div>,
+        ]
+      : [row(record, group)];
   const sums = fields.map((f) => columnSums(shown, schema, f.key, today));
   const hasSums = sums.some((v) => v !== null);
   // Money in each record's own currency is summed one currency a line, in the order of its choices.
@@ -2312,7 +2375,7 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
       fields={fields}
       schema={schema}
       values={adding.values}
-      computed={computer.draft(dir, null, adding.values)}
+      computed={computer.draft(dir, null, actions.planSaved?.(dir, '', adding.values, null) ?? adding.values)}
       shown={asShown}
       cellClass={cellClass}
       ctx={ctx}
@@ -2352,9 +2415,9 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
         {groups
           ? groups.flatMap((group) => [
               groupHead(group),
-              ...(closed.has(group.key) ? [] : [...group.records.map((r) => row(r, group.key)), ...(hasSums ? [sumRow(group.records, t('collection.sum'), `s\u0000${group.key}`)] : [])]),
+              ...(closed.has(group.key) ? [] : [...group.records.flatMap((r) => withLines(r, group.key)), ...(hasSums ? [sumRow(group.records, t('collection.sum'), `s\u0000${group.key}`)] : [])]),
             ])
-          : rows.map((r) => row(r))}
+          : rows.flatMap((r) => withLines(r))}
         {newRow}
         {hasSums && shown.length > 0 && sumRow(shown, groups ? t('collection.all') : t('collection.sum'), 'sum')}
       </div>
@@ -2366,13 +2429,38 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
   const groupOptions: Option[] = [{ value: null, label: t('collection.noGroup'), chip: false }, ...schema.fields.filter((f) => GROUPABLE.includes(asShown(f).type)).map((f) => ({ value: f.key, label: f.label, chip: false }))];
   const columnOptions: Option[] = allFields.slice(1).map((f) => ({ value: f.key, label: f.label, chip: false }));
   const columnsPicked = fields.slice(1).map((f) => f.key);
-  const viewMenu = (event: MouseEvent, v: View) =>
+  // A record's lines in the view's ··· menu (design/app-home.md 4.2): all open, all shut, and whether the rows have them.
+  const linesItems: MenuItem[] =
+    !narrow && !calendarView && lineBlocks.length > 0
+      ? [
+          ...(linesOn
+            ? [
+                { label: t('collection.linesOpenAll'), run: () => showLines(inOrder.map((r) => r.id), true) },
+                { label: t('collection.linesCloseAll'), run: () => onLook({ ...look, opened: [] }) },
+              ]
+            : []),
+          {
+            label: t('collection.linesUnder'),
+            checked: linesOn,
+            run: () => {
+              const { lines: _lines, ...rest } = look ?? {};
+              onLook(linesOn ? { ...rest, lines: false } : rest);
+            },
+          },
+        ]
+      : [];
+  const viewMenu = (event: MouseEvent, v: View | null) =>
     actions.menu(event, [
-      { label: t('collection.edit'), run: () => (v.kind === 'calendar' ? setCalendaring({ view: v }) : setFiltering(true)) },
-      { label: t('menu.delete'), run: () => actions.ask(t('delete.view'), t('delete.viewText', { name: quote(v.name) }), () => {
-        void actions.changeSchema(dir, (s) => removeView(s, v.id));
-        if (look?.view === v.id) pickView(null);
-      }, t('delete.action')) },
+      ...(v?.id === view?.id ? linesItems : []),
+      ...(v
+        ? [
+            { label: t('collection.edit'), run: () => (v.kind === 'calendar' ? setCalendaring({ view: v }) : setFiltering(true)), apart: v.id === view?.id && linesItems.length > 0 },
+            { label: t('menu.delete'), run: () => actions.ask(t('delete.view'), t('delete.viewText', { name: quote(v.name) }), () => {
+              void actions.changeSchema(dir, (s) => removeView(s, v.id));
+              if (look?.view === v.id) pickView(null);
+            }, t('delete.action')) },
+          ]
+        : []),
     ]);
 
   // The conditions applied: to the view, or to the plain table until it closes; or kept as a new view.
@@ -2464,6 +2552,28 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
           onViewMenu={phoneViewMenu}
           onViewSheet={() => setViewing(true)}
           onOpen={(record) => (actions.show ? actions.show(dir, record.id) : openRecord(record.id))}
+          lines={
+            linesOn
+              ? {
+                  counted: schema.fields.filter((f) => f.rollup?.fn === 'count' && lineBlocks.some(({ source }) => localPath(source.dir) === f.rollup!.from)).map((f) => f.key),
+                  count: (record) => lineBlocks.reduce((n, { source }) => n + linkedRecords(source, dir, record).length, 0),
+                  view: (record) => (
+                    <>
+                      {lineBlocks.map(({ block, source }) => (
+                        <Fragment key={block.collection}>
+                          <PhoneLinkedTab block={block} dir={dir} schema={schema} record={record} today={today} actions={actions} />
+                          {linkedRecords(source, dir, record).length > 0 && actions.create && (
+                            <button type="button" className="mb-addline" onClick={() => actions.create!(source.dir, linkedValues(source.schema, dir, record, schema))}>
+                              {t('collection.addLine')}
+                            </button>
+                          )}
+                        </Fragment>
+                      ))}
+                    </>
+                  ),
+                }
+              : undefined
+          }
           onAdd={() => {
             // On a calendar, a new record starts on the day shown.
             const values = calendarView ? startingValues(schema, calendarView.calendar!, nav.focus, null) : undefined;
@@ -2587,7 +2697,7 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
               onFit={() => change({ widths: null })}
             />
           )}
-          {view && (
+          {(view || linesItems.length > 0) && (
             <button type="button" className="more" title={t('collection.viewMenu')} aria-label={t('collection.viewMenu')} onClick={(event) => viewMenu(event, view)}>
               ···
             </button>
@@ -2610,6 +2720,7 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
       )}
       {open?.kind === 'new' && <RecordDialog collection={collection} record={null} values={open.values} today={today} actions={actions} onClose={() => setOpen(null)} />}
       {opened && <RecordDialog key={opened.id} collection={collection} record={opened} today={today} actions={actions} onClose={() => setOpen(null)} />}
+      {lineCollection && lineRecord && <RecordDialog key={lineRecord.id} collection={lineCollection} record={lineRecord} today={today} actions={actions} onClose={() => setLine(null)} />}
       {designing && <FieldsDialog collection={collection} actions={actions} onClose={() => setDesigning(false)} />}
       {calendaring && (
         <CalendarViewDialog schema={schema} view={calendaring.view} showAs={asShown} records={actions.records} count={countFor} onSave={saveCalendar} onClose={() => setCalendaring(null)} />
@@ -2689,4 +2800,6 @@ function ColumnsPicker({ options, picked, sized, onChange, onFit }: {
 }
 
 /** What the delete question says about a record. */
-export const recordDeleteText = (record: Record) => t('delete.recordText', { name: quote(recordTitle(record)) });
+/** What is said before a record goes to the trash, and its lines with it (design/app-home.md 4.2). */
+export const recordDeleteText = (record: Record, lines = 0) =>
+  lines > 0 ? t('delete.recordWithLines', { name: quote(recordTitle(record)), count: lines }) : t('delete.recordText', { name: quote(recordTitle(record)) });

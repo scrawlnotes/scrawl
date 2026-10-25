@@ -326,6 +326,26 @@ describe('vault', () => {
 describe('trash', () => {
   const later = new Date(2026, 9, 5, 15, 0, 0);
 
+  it('takes a record’s lines with it, shows them with it, and brings them back or deletes them with it', async () => {
+    const fs = new MemoryFs();
+    await fs.writeText('Shop/Orders/o1.md', '---\nid: o1\ncode: SO-0012\n---\n');
+    await fs.writeText('Shop/Order lines/l1.md', '---\nid: l1\nname: Oil filter\n---\n');
+    await fs.writeText('Shop/Order lines/l2.md', '---\nid: l2\nname: Timing belt\n---\n');
+    await fs.writeText('Shop/Order lines/l3.md', '---\nid: l3\nname: Brake pads\n---\n');
+    await trashWithFiles(fs, 'Shop/Orders/o1.md', false, () => [], later, { lines: ['Shop/Order lines/l1.md', 'Shop/Order lines/l2.md'] });
+    const trash = await readTrash(fs);
+    expect(trash.map((item) => [item.from, (item.lines ?? []).map((line) => line.from)])).toEqual([['Shop/Orders/o1.md', ['Shop/Order lines/l1.md', 'Shop/Order lines/l2.md']]]);
+    await restoreFromTrash(fs, trash[0]!);
+    expect(await fs.stat('Shop/Order lines/l1.md')).not.toBeNull();
+    expect(await fs.stat('Shop/Order lines/l2.md')).not.toBeNull();
+    expect(await readTrash(fs)).toEqual([]);
+    await trashWithFiles(fs, 'Shop/Orders/o1.md', false, () => [], later, { lines: ['Shop/Order lines/l1.md'] });
+    await deleteFromTrash(fs, (await readTrash(fs))[0]!);
+    expect(await readTrash(fs)).toEqual([]);
+    expect(await fs.stat('Shop/Order lines/l1.md')).toBeNull();
+    expect(await fs.stat('Shop/Order lines/l3.md')).not.toBeNull();
+  });
+
   it('lists what was deleted, the latest first, with where it was', async () => {
     const fs = new MemoryFs();
     await fs.writeText('Work/2026-10-05 101010.md', '# Call the bank');

@@ -5,4 +5,4 @@ export { findApp, isApp, readAppFile } from './roles';
 export { installApp, type Installed, undoApp } from './install';
 export { aboutName } from './about';
 export { PIECES } from './pieces';
-export { type AppModule, type AppPiece, type AppScreen, linesOf, menuOf, pieceName } from './menu';
+export { type AppModule, type AppPiece, type AppScreen, linesBlocks, linesOf, menuOf, pieceName, showsLines } from './menu';

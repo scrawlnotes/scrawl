@@ -18,7 +18,11 @@ import {
   isComputed,
   isEmpty,
   type Link,
+  linkFieldsTo,
   linkTo,
+  linkedRecords,
+  linkedValues,
+  linesBlocks,
   actionsOf,
   type ActionRule,
   clockOf,
@@ -175,12 +179,6 @@ async function ruleSpaceNow(fs: VaultFs, today: string, me: string | undefined):
   return { collections, boards, lists, today, ...(me && { me }) };
 }
 
-/** What works out a collection's records with the space around it: formulas (which may read a linked record's field), lookups, rollups, its checks, a new record's defaults. */
-async function computerAround(fs: VaultFs, collection: Collection, today: string): Promise<Computer> {
-  const { collections, boards } = await surroundings(fs, collection.dir);
-  return new Computer([collection, ...collections], boards, today);
-}
-
 /** Records as the tools give them, each with what is worked out and the checks it fails. */
 function recordsOut(computer: Computer, collection: Collection, records: CollectionRecord[], today: string) {
   return records.map((r) => recordOut({ ...r, values: computer.values(collection.dir, r) }, collection.schema, today, computer.checks(collection.dir, r)));
@@ -225,9 +223,12 @@ function dayField(schema: Schema): string | null {
 export async function recordsTool(agent: Agent, args: { space?: string; collection: string; where?: Where[]; sort?: { field: string; dir?: 'asc' | 'desc' }; limit?: number } & DayRange) {
   const { space, element } = await pickAcross(agent, args.space, args.collection, ['collection'], 'collection');
   const today = todayOf(agent);
-  const computer = await computerAround(space.fs, await loadCollection(space.fs, element.path), today);
+  const around = await surroundings(space.fs, element.path);
+  const computer = new Computer([await loadCollection(space.fs, element.path), ...around.collections], around.boards, today);
   const collection = computer.withValues(element.path)!;
   const { schema } = collection;
+  // A record's lines, an order's (design/app-home.md 4): where they are, and how many each record has.
+  const lines = linesBlocks(schema, (path) => around.collections.find((c) => c.dir === path));
   const conditions = (args.where ?? []).map((w) => conditionOf(schema, w));
   let records = collection.records.filter((r) => matchesConditions(r, schema, conditions, today));
   const days = daysOf(args, today);
@@ -244,8 +245,12 @@ export async function recordsTool(agent: Agent, args: { space?: string; collecti
       collection: element.path,
       ...(schema.singular && { singular: schema.singular }),
       fields: schema.fields.map(fieldOut),
+      ...(lines.length > 0 && { lines: lines.map(({ source }) => source.dir) }),
       total: records.length,
-      records: records.slice(0, limit).map((r) => recordOut(r, schema, today, computer.checks(element.path, r))),
+      records: records.slice(0, limit).map((r) => ({
+        ...recordOut(r, schema, today, computer.checks(element.path, r)),
+        ...(lines.length > 0 && { lines: lines.reduce((n, { source }) => n + linkedRecords(source, element.path, r).length, 0) }),
+      })),
     },
   };
 }
@@ -310,7 +315,7 @@ function twinsOf(collection: Collection, values: { [key: string]: FieldValue }):
   return null;
 }
 
-export async function saveRecordTool(agent: Agent, args: { space?: string; collection: string; id?: string; values?: { [key: string]: unknown }; body?: string; subtasks?: SubtaskArg[]; another?: boolean; action?: string; input?: { [key: string]: unknown } }) {
+export async function saveRecordTool(agent: Agent, args: { space?: string; collection: string; id?: string; values?: { [key: string]: unknown }; body?: string; subtasks?: SubtaskArg[]; lines?: { [key: string]: unknown }[]; another?: boolean; action?: string; input?: { [key: string]: unknown } }) {
   const { space, element } = await pickAcross(agent, args.space, args.collection, ['collection'], 'collection');
   const collection = await loadCollection(space.fs, element.path);
   const { schema } = collection;
@@ -318,6 +323,7 @@ export async function saveRecordTool(agent: Agent, args: { space?: string; colle
   const today = todayOf(agent);
   const around = await surroundings(space.fs, element.path);
   const computer = new Computer([collection, ...around.collections], around.boards, today);
+  const lines = args.lines ? await linesFor(space.fs, collection, around.collections, args.lines, !!args.id) : null;
   let record: CollectionRecord;
   let created = false;
   // What the collection runs as a record is saved runs before it is written, as in the app.
@@ -369,6 +375,27 @@ export async function saveRecordTool(agent: Agent, args: { space?: string; colle
     if (Object.keys(extra).length > 0) record = await updateRecord(space.fs, schema, { ...record, extra }, {});
     created = true;
   }
+  // Its lines come right after it, each holding it, before what the rules do elsewhere: as the app's new record writes them.
+  const written: CollectionRecord[] = [];
+  const lineStops: string[] = [];
+  if (lines) {
+    const { source } = lines;
+    const world = savesOf(source.rules).length > 0 || changesOf(source.rules).length > 0 ? await ruleSpaceNow(space.fs, today, me) : null;
+    for (const line of lines.lines) {
+      const given = { ...linkedValues(source.schema, element.path, record, schema), ...Object.fromEntries(Object.entries(line.values).filter(([, v]) => !isEmpty(v))) };
+      const made = computer.defaults(source.dir, given, me);
+      for (const key of Object.keys(line.values)) made[key] = line.values[key]!;
+      for (const key of Object.keys(line.extra)) delete made[key];
+      // What its collection runs on save runs on it, as on a line added on its own: its product's name and price.
+      const id = newRecordId();
+      const saved = world ? planSave(source.dir, recordWith(source, id, made), null, world) : null;
+      let added = await addRecord(space.fs, source, { values: saved ? saved.values : made }, id);
+      if (Object.keys(line.extra).length > 0) added = await updateRecord(space.fs, source.schema, { ...added, extra: line.extra }, {});
+      if (saved && saved.after.changes.length > 0) await writePlan(space.fs, saved.after, world!, () => nowOf(agent), me);
+      lineStops.push(...(saved?.stops ?? []).map((s) => `${s.name} stopped on line ${s.line} of the rules of ${source.dir}: ${s.message} The line was saved as given; what it does was left out.`));
+      written.push(added);
+    }
+  }
   // What the rules did elsewhere is written right after the record, the space read again for it.
   let onSave: { did?: string; stopped?: string[] } | undefined;
   if (ran && (ran.after.changes.length > 0 || ran.stops.length > 0)) {
@@ -378,6 +405,7 @@ export async function saveRecordTool(agent: Agent, args: { space?: string; colle
     const stopped = ran.stops.map((s) => `${s.name} stopped on line ${s.line} of the rules: ${s.message} The record was saved as given; what it does was left out.`);
     onSave = { ...(did && { did }), ...(stopped.length > 0 && { stopped }) };
   }
+  if (lineStops.length > 0) onSave = { ...onSave, stopped: [...(onSave?.stopped ?? []), ...lineStops] };
   if (args.action) {
     // The button runs on the record as written, as in the app; what it does is written at once.
     const world = await ruleSpaceNow(space.fs, today, me);
@@ -403,9 +431,34 @@ export async function saveRecordTool(agent: Agent, args: { space?: string; colle
     const after = new Computer([now, ...collections], boards, today);
     return { data: { space: space.id, collection: element.path, created, onSave, action: pressed, record: recordsOut(after, now, [written], today)[0]! } };
   }
-  // Worked out again with the record as written, for what links to it and what it reads.
-  const after = new Computer([{ ...collection, records: [...collection.records.filter((r) => r.id !== record.id), record] }, ...around.collections], around.boards, today);
-  return { data: { space: space.id, collection: element.path, created, onSave, record: recordsOut(after, collection, [record], today)[0]! } };
+  // Worked out again with the record as written, and its lines, for what links to it and what it reads.
+  const others = around.collections.map((c) => (lines && c.dir === lines.source.dir ? { ...c, records: [...c.records, ...written] } : c));
+  const after = new Computer([{ ...collection, records: [...collection.records.filter((r) => r.id !== record.id), record] }, ...others], around.boards, today);
+  const linesOut = lines ? { lines: { collection: lines.source.dir, records: recordsOut(after, lines.source, written, today) } } : {};
+  return { data: { space: space.id, collection: element.path, created, onSave, record: recordsOut(after, collection, [record], today)[0]!, ...linesOut } };
+}
+
+/**
+ * A new record's lines as the agent gave them, read before anything is written (design/app-home.md
+ * 4): each by field key or label, the link to the record left out, since it is the record.
+ */
+async function linesFor(fs: VaultFs, collection: Collection, collections: Collection[], given: { [key: string]: unknown }[], changing: boolean) {
+  const blocks = linesBlocks(collection.schema, (path) => collections.find((c) => c.dir === path));
+  if (blocks.length === 0) throw new Refusal(`The records of ${collection.dir} have no lines; nothing was written`);
+  if (blocks.length > 1) throw new Refusal(`The records of ${collection.dir} have lines in more than one collection; nothing was written. Add the record, then each line with save_record in its collection`, { lines: blocks.map(({ source }) => source.dir) });
+  const { source } = blocks[0]!;
+  const back = linkFieldsTo(source.schema, collection.dir);
+  if (changing) throw new Refusal(`lines come with a new record; nothing was written. To add a line to it, use save_record in ${source.dir} with ${back[0]?.label ?? 'its link'} holding the record`);
+  const lines: { values: { [key: string]: FieldValue }; extra: { [key: string]: unknown } }[] = [];
+  for (const line of given) {
+    if (!line || typeof line !== 'object' || Array.isArray(line)) throw new Refusal('A line is its values by field key or label; nothing was written');
+    for (const name of Object.keys(line)) {
+      const field = pickField(source.schema.fields, name);
+      if (back.includes(field)) throw new Refusal(`${field.label} of a line is the record it comes with; leave it out. Nothing was written`, { field: field.key });
+    }
+    lines.push(await parseValues(fs, source.schema.fields, line));
+  }
+  return { source, lines };
 }
 
 /**

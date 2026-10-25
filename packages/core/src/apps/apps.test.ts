@@ -9,7 +9,7 @@ import { MemoryFs } from '../fs';
 import { linksIn, resolveHref } from '../links';
 import { APP_FILE, AppProblems, type FoundApp, planApp } from './build';
 import { installApp, undoApp } from './install';
-import { type AppPiece, menuOf } from './menu';
+import { type AppPiece, linesBlocks, menuOf, showsLines } from './menu';
 import { PIECES } from './pieces';
 import { readAnswers, TEMPLATES } from './questions';
 import { findApp } from './roles';
@@ -489,6 +489,30 @@ describe('the menu of an app', () => {
     // What a piece is called now is its name in the menu.
     const renamed = menuOf(found.app, piecesOf(found).map((p) => (p.role === 'companies' ? { ...p, path: 'Spare parts/Customers' } : p)));
     expect(renamed[1]!.screens.map((s) => s.name)).toEqual(['Orders', 'Payments', 'Customers', 'Products']);
+  });
+});
+
+describe('the lines of a record', () => {
+  it('are what its block says, else what the roles say: an order’s lines, never its payments or a product', async () => {
+    const fs = new MemoryFs();
+    await installApp(fs, planApp({ name: 'Atlas', currencies: ['EUR'], templates: [{ id: 'sales' }, { id: 'stock', answers: { purchasing: true } }] }, { ids }));
+    const all: Collection[] = [];
+    for (const name of ['Orders', 'Order lines', 'Payments', 'Products', 'Purchase orders', 'Purchase order lines']) all.push(await loadCollection(fs, `Atlas/${name}`));
+    const at = (path: string) => all.find((c) => c.dir === path);
+    const linesOf = (name: string) => linesBlocks(at(`Atlas/${name}`)!.schema, at).map(({ source }) => source.dir);
+    expect(linesOf('Orders')).toEqual(['Atlas/Order lines']);
+    expect(linesOf('Purchase orders')).toEqual(['Atlas/Purchase order lines']);
+    expect(linesOf('Products')).toEqual([]);
+    // Payments show in an order but are not its lines, unless its block says so; the block says when lines are not.
+    const lines = { block: 'linked' as const, collection: 'Atlas/Order lines' };
+    const payments = { block: 'linked' as const, collection: 'Atlas/Payments' };
+    expect(showsLines(lines, 'orders', 'order-lines')).toBe(true);
+    expect(showsLines({ ...lines, lines: false }, 'orders', 'order-lines')).toBe(false);
+    expect(showsLines(payments, 'orders', 'payments')).toBe(false);
+    expect(showsLines({ ...payments, lines: true }, 'orders', 'payments')).toBe(true);
+    // Outside an app, no role: only the block says.
+    expect(showsLines(lines, undefined, undefined)).toBe(false);
+    expect(showsLines({ ...lines, lines: true }, undefined, undefined)).toBe(true);
   });
 });
 

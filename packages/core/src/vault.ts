@@ -97,6 +97,10 @@ export interface CollectionLook {
   group?: string | null;
   columns?: string[];
   widths?: ColumnWidths;
+  /** The records whose lines are open under their rows (design/app-home.md 4.2), by id. */
+  opened?: string[];
+  /** No ▸ at the start of the rows: their lines are not opened under them. */
+  lines?: false;
 }
 
 /**
@@ -449,6 +453,8 @@ interface TrashRecord {
   /** A task's, a section's or a card's title, and how much it holds: the trash is listed without reading their files. */
   title?: string;
   count?: number;
+  /** A record's line, gone with its record: the record's name in the trash (design/app-home.md 4.2). */
+  with?: string;
 }
 
 async function readTrashIndex(fs: VaultFs): Promise<TrashRecord[]> {
@@ -527,9 +533,10 @@ async function trashPath(fs: VaultFs, name: string, ext: string, now: Date): Pro
 /**
  * Deleted notes and task lists go to the trash instead of being removed, and the trash remembers
  * where they were. With `here`, a file sync found on this device only, gone on the other side,
- * goes to this device's trash and is never sent up; restored, it is synced again.
+ * goes to this device's trash and is never sent up; restored, it is synced again. With `with`, it
+ * is a record's line gone with its record, which brings it back. Returns its name in the trash.
  */
-export async function trashItem(fs: VaultFs, path: string, now = new Date(), { here = false }: { here?: boolean } = {}): Promise<void> {
+export async function trashItem(fs: VaultFs, path: string, now = new Date(), { here = false, with: along }: { here?: boolean; with?: string } = {}): Promise<string> {
   const [name, ext] = splitName(basename(path));
   const target = await trashPath(fs, name, ext, now);
   // Listed first, so that a turn of syncing that reads the trash meanwhile already passes it over.
@@ -537,7 +544,8 @@ export async function trashItem(fs: VaultFs, path: string, now = new Date(), { h
   // A file left on the other side goes to the trash there, with the next turn of syncing.
   if (await awayAt(fs, path)) await moveAway(fs, path, target);
   else await fs.move(path, target);
-  await changeTrashIndex(fs, (records) => [...records, { name: basename(target), from: path, deleted: now.toISOString() }]);
+  await changeTrashIndex(fs, (records) => [...records, { name: basename(target), from: path, deleted: now.toISOString(), ...(along && { with: along }) }]);
+  return basename(target);
 }
 
 /**
@@ -601,11 +609,12 @@ async function restorePiece(fs: VaultFs, item: TrashItem): Promise<string> {
 }
 
 /** Moves a folder to the trash with everything in it, files the app does not show included. */
-export async function trashFolder(fs: VaultFs, path: string, now = new Date()): Promise<void> {
+export async function trashFolder(fs: VaultFs, path: string, now = new Date()): Promise<string> {
   const target = await trashPath(fs, basename(path), '', now);
   await moveTree(fs, path, target);
   await fs.remove(path);
   await changeTrashIndex(fs, (records) => [...records, { name: basename(target), from: path, deleted: now.toISOString() }]);
+  return basename(target);
 }
 
 /** Something in the trash, as the trash screen shows it. */
@@ -638,6 +647,8 @@ export interface TrashItem {
   away?: boolean;
   /** A file sync found here only, gone on the other side: in this device's trash, never sent up. */
   here?: boolean;
+  /** A record's lines, gone with it: shown with it, restored and deleted with it (design/app-home.md 4.2). */
+  lines?: TrashItem[];
 }
 
 /** What a folder holds, all the way down. */
@@ -735,7 +746,19 @@ export async function readTrash(fs: VaultFs): Promise<TrashItem[]> {
     items.push({ path: file.path, kind: 'attachment', title: basename(record.from), from: record.from, deleted: record.deleted, size: file.size, away: true });
   }
   const here = new Set(await readHere(fs));
-  return items.map((item) => (here.has(basename(item.path)) ? { ...item, here: true } : item)).sort((a, b) => b.deleted.localeCompare(a.deleted));
+  // A record's lines are with their record, not apart; one whose record is not in the trash is apart.
+  const byName = new Map(items.map((item) => [basename(item.path), item]));
+  const lines = new Set<TrashItem>();
+  for (const item of items) {
+    const record = byName.get(records.get(basename(item.path))?.with ?? '');
+    if (!record) continue;
+    record.lines = [...(record.lines ?? []), item];
+    lines.add(item);
+  }
+  return items
+    .filter((item) => !lines.has(item))
+    .map((item) => (here.has(basename(item.path)) ? { ...item, here: true } : item))
+    .sort((a, b) => b.deleted.localeCompare(a.deleted));
 }
 
 /**
@@ -759,6 +782,8 @@ export async function restoreFromTrash(fs: VaultFs, item: TrashItem): Promise<st
   }
   await forget(fs, basename(item.path));
   if (tree || (item.kind !== 'attachment' && canLink(target))) await restoreAttachments(fs, await textsOf(fs, target));
+  // A record's lines come back with it.
+  for (const line of item.lines ?? []) await restoreFromTrash(fs, line);
   return target;
 }
 
@@ -775,6 +800,7 @@ export async function deleteFromTrash(fs: VaultFs, item: TrashItem, unsaved: str
   await forget(fs, basename(item.path));
   await removeAttachmentsOf(fs, texts, unsaved);
   await removeTrashedFilesOf(fs, texts, unsaved);
+  for (const line of item.lines ?? []) await deleteFromTrash(fs, line, unsaved);
 }
 
 /** Deletes everything in the trash for good, with the attached files that only its notes linked to. */
@@ -866,12 +892,13 @@ async function trashIfUnlinked(fs: VaultFs, files: Entry[], unsaved: () => strin
  * files it linked to that nothing outside the trash links to any more: they go with it, and come
  * back with it. A file that nothing ever linked to, put in Files, stays: only deleting what used
  * it takes a file to the trash. `unsaved` gives the text of notes not written yet, asked once
- * the item is in the trash. Returns the paths of the files that went with it.
+ * the item is in the trash. A record's `lines` go with it, and come back with it (design/app-home.md
+ * 4.2). Returns the paths of the files that went with it.
  */
-export async function trashWithFiles(fs: VaultFs, path: string, folder: boolean, unsaved: () => string[] = () => [], now = new Date()): Promise<string[]> {
-  const texts = folder || canLink(path) ? await textsOf(fs, path) : [];
-  if (folder) await trashFolder(fs, path, now);
-  else await trashItem(fs, path, now);
+export async function trashWithFiles(fs: VaultFs, path: string, folder: boolean, unsaved: () => string[] = () => [], now = new Date(), { lines = [] }: { lines?: readonly string[] } = {}): Promise<string[]> {
+  const texts = [...(folder || canLink(path) ? await textsOf(fs, path) : []), ...(await Promise.all(lines.map((line) => textsOf(fs, line)))).flat()];
+  const name = folder ? await trashFolder(fs, path, now) : await trashItem(fs, path, now);
+  for (const line of lines) await trashItem(fs, line, now, { with: name });
   if (texts.length === 0) return [];
   const gone = linkedIn(texts);
   const files = (await everyAttached(fs)).filter((file) => gone.includes(file.path.toLowerCase()));
@@ -1214,7 +1241,7 @@ export async function loadWorkspace(fs: VaultFs): Promise<Workspace> {
     if (data.collections && typeof data.collections === 'object') {
       for (const [path, look] of Object.entries(data.collections as Record<string, unknown>)) {
         if (!look || typeof look !== 'object') continue;
-        const { view, sort, group, columns, widths } = look as Partial<CollectionLook>;
+        const { view, sort, group, columns, widths, opened, lines } = look as Partial<CollectionLook>;
         const read: CollectionLook = {};
         if (typeof view === 'string' || view === null) read.view = view;
         if (sort && typeof sort === 'object' && typeof sort.key === 'string' && (sort.dir === 'asc' || sort.dir === 'desc')) read.sort = { key: sort.key, dir: sort.dir };
@@ -1222,6 +1249,8 @@ export async function loadWorkspace(fs: VaultFs): Promise<Workspace> {
         if (Array.isArray(columns)) read.columns = columns.filter((c): c is string => typeof c === 'string');
         const sized = readWidths(widths);
         if (sized) read.widths = sized;
+        if (Array.isArray(opened)) read.opened = opened.filter((id): id is string => typeof id === 'string');
+        if (lines === false) read.lines = false;
         collections[path] = read;
       }
     }

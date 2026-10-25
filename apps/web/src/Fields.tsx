@@ -33,6 +33,7 @@ import {
   type LinkedStyle,
   linkFieldsTo,
   linkingCollections,
+  showsLines,
   mixedCurrency,
   nameField,
   type NumberFormat,
@@ -1093,6 +1094,7 @@ function BlockEditor({ block, dir, collections, buttons, onRules, onChange, onDe
     onChange(value.endsWith(down) ? { ...rest, sort: value.slice(0, -down.length), dir: 'desc' } : { ...rest, sort: value });
   };
   const back = source ? linkFieldsTo(source.schema, dir).map((f) => f.label.toLowerCase()) : [];
+  const lines = !!source && showsLines(block, collections.find((c) => c.dir === dir)?.schema.role, source.schema.role);
   const name = collectionName(block.collection);
   const note =
     back.length === 0
@@ -1164,6 +1166,13 @@ function BlockEditor({ block, dir, collections, buttons, onRules, onChange, onDe
             }}
           />
           {t('fields.sums')}
+        </label>
+      )}
+      {/* Its records are the record's lines (design/app-home.md 4): typed in a new record's window before Create and under its row in the table. */}
+      {source && (
+        <label className="fcheck">
+          <input type="checkbox" checked={lines} onChange={(event) => onChange({ ...block, lines: event.target.checked })} />
+          {t('fields.lines')}
         </label>
       )}
       {style === 'table' && groupable.length > 1 && (
