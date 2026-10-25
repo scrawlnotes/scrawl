@@ -114,10 +114,16 @@ export function useGrid({ rows, fields, open, opener, write }: {
         // A link or an address in the cell does what it does; the record's name opens it.
         if ((event.target as HTMLElement).closest('a, .lnk-open')) return;
         if (field.type === 'name' || field.key === opener) return open(record);
+        // A tick turns at the first click, as a box does; another cell is picked first, then typed in.
+        if (field.type === 'checkbox') {
+          pick({ id: record.id, key: field.key });
+          return write(record, field, record.values[field.key] !== true);
+        }
         if (on) edit(record, field);
         else pick({ id: record.id, key: field.key });
       },
-      onDoubleClick: () => edit(record, field),
+      // Two clicks on a tick are two turns, not a third.
+      onDoubleClick: () => field.type !== 'checkbox' && edit(record, field),
     };
   };
   return { box, picked, editing, cell, keyDown, done, clear: () => setPicked(null) };
