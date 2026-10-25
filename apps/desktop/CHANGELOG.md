@@ -2,6 +2,19 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.17
+
+An app opens as an app, with its Home and its menu; a record's lines are written inside it; Edit menu and an app of your own; Gym as its mockup has it.
+
+- An app is one row in the sidebar and opens in a tab of its own: Home with what is due today and a card for each module, then each module's menu of its main screens. Its ··· menu has Home, its About note, Edit menu…, New, Add to app…, Edit app…, Show files, Move to, Rename and Delete app.
+- A record's lines, an order's or a program's items, are in no menu: a new record's are added before Create and written with it, and the table opens a record's lines under its row with ▸. A record sent to the trash takes its lines with it, and Restore brings them back.
+- Edit menu… puts modules and screens in order by dragging, renames them where they are, hides a screen, picks the view it opens on and what Home shows. Undo takes it back, and Reset to template brings the templates' menu back.
+- New app has Blank app: an app of your own, its screens made from its ··· menu, New › Collection, Board or Note, each into a module of its menu.
+- + Add row, + Add line and + Add to a group open the new row in a window of its own, instead of a row of boxes in the table; a line's first cell opens it again.
+- Gym's windows are as its mockup has them: a workout has its day, its program, how long it took and its notes, and a new one starts at its program; a program has its days, how long it takes, how often it was done and its notes. Fields has an eye on each field to keep it off a record's window.
+- A new Gym starts with 72 common gym moves, each with its muscle group, and a 3-day full-body program with its notes.
+- What is worked out is shown without a box, and a new record shows only what says something. A tick in a table is a box, and turns at the first click.
+
 ## 0.1.16
 
 Gym and Edit app, Chat's lists as Slack's, and an older version that no longer syncs over a newer one.
