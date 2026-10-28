@@ -81,6 +81,7 @@ export function fieldOut(field: Field) {
     ...(field.default !== undefined && { default: field.default }),
     ...(field.format && { format: field.format }),
     ...(field.when && { when: field.when }),
+    ...(field.suggest && { suggest: true }),
   };
 }
 

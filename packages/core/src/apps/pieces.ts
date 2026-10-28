@@ -85,7 +85,7 @@ export const PIECES: { [role: string]: PieceInfo } = {
   documents: { kind: 'collection', name: 'Documents', singular: 'document', about: 'the documents you keep, a manual or a passport, and when each runs out.' },
   vehicles: { kind: 'collection', name: 'Cars', singular: 'car', about: 'each car, its plate and the first of its reminders’ days.' },
   upkeep: { kind: 'collection', name: 'Reminders', singular: 'reminder', about: 'what is done again and again at home and for each car, how often, and when it is next.' },
-  visits: { kind: 'collection', name: 'Appointments', singular: 'appointment', about: 'your appointments: the doctor, for whom and when; the clinic and phone are the doctor’s.', hidden: ['name'] },
+  visits: { kind: 'collection', name: 'Appointments', singular: 'appointment', about: 'your appointments: the doctor, for whom, when and where.' },
   medications: { kind: 'collection', name: 'Medicines', singular: 'medicine', about: 'what is taken, how much and how often, and when it runs out.', hidden: ['status', 'left', 'remind'] },
   results: { kind: 'collection', name: 'Records', singular: 'record', about: 'lab results, reports and prescriptions, with their files in their notes.' },
   vaccinations: { kind: 'collection', name: 'Vaccinations', singular: 'vaccination', about: 'each vaccination, and when the next one is due.' },

@@ -381,14 +381,14 @@ export interface ValueContext {
   collection: CollectionActions['collection'];
   openLink: (href: string) => void;
   openRecord?: (field: Field, link: Link) => void;
-  /** What the other records, or the board's other cards, hold in a multi-select: offered beside its choices. */
+  /** What the other records, or the board's other cards, hold in a multi-select or a text that suggests: offered as it is typed. */
   used?: (field: Field) => string[];
 }
 
 /** The words a multi-select holds across records or cards, those held most first. */
 export function usedValues(values: unknown[]): string[] {
   const counts = new Map<string, number>();
-  for (const value of values) if (Array.isArray(value)) for (const each of value) if (typeof each === 'string' && each.trim()) counts.set(each, (counts.get(each) ?? 0) + 1);
+  for (const value of values) for (const each of Array.isArray(value) ? value : [value]) if (typeof each === 'string' && each.trim()) counts.set(each.trim(), (counts.get(each.trim()) ?? 0) + 1);
   return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([word]) => word);
 }
 
@@ -666,6 +666,66 @@ function LinkField({ field, value, autoFocus, ctx, onChange }: {
 }
 
 /**
+ * A text's box that offers, as it is typed, what the other records hold in it, the most written
+ * first: a doctor written before. A word typed anew is kept as it is.
+ */
+function SuggestBox({ id, field, value, used, autoFocus, onChange, onEnter }: {
+  id: string;
+  field: Field;
+  value: string;
+  used: string[];
+  autoFocus?: boolean;
+  onChange: (value: FieldValue) => void;
+  onEnter?: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLInputElement>(null);
+  const keys = useRef<((event: KeyboardEvent) => void) | null>(null);
+  const q = value.trim().toLowerCase();
+  const options: Option[] = used
+    .filter((word) => word.toLowerCase() !== q && (!q || word.toLowerCase().includes(q)))
+    .slice(0, 8)
+    .map((word) => ({ value: word, label: word, chip: false }));
+  return (
+    <>
+      <input
+        ref={box}
+        id={id}
+        type="text"
+        autoFocus={autoFocus}
+        autoComplete="off"
+        aria-label={field.label}
+        value={value}
+        onFocus={() => setOpen(true)}
+        onChange={(event) => {
+          onChange(event.target.value);
+          setOpen(true);
+        }}
+        onKeyDown={(event) => {
+          if (open && options.length > 0 && LIST_KEYS.includes(event.key)) return keys.current?.(event);
+          if (event.key === 'Escape') setOpen(false);
+          else if (onEnter && event.key === 'Enter') (event.preventDefault(), onEnter());
+        }}
+      />
+      {open && options.length > 0 && (
+        <OptionList
+          anchor={box}
+          options={options}
+          current={[]}
+          label={field.label}
+          keys={keys}
+          onPick={(word) => {
+            if (word !== null) onChange(word);
+            setOpen(false);
+          }}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </>
+  );
+}
+
+/**
  * A number's box. With a format it shows the number as the table does (₺96.800) and turns into
  * the plain number when it is typed in, back again when left.
  */
@@ -738,6 +798,7 @@ export function FieldInput({ field, value, autoFocus, ctx, currency, onChange, o
       return <input id={id} type="time" autoFocus={autoFocus} aria-label={field.label} value={typeof value === 'string' ? value : ''} onChange={(event) => onChange(event.target.value || null)} />;
     default: {
       const text = valueText(value);
+      if ((field.type === 'text' || field.type === 'name') && field.suggest) return <SuggestBox id={id} field={field} value={text} used={ctx.used?.(field) ?? []} autoFocus={autoFocus} onChange={onChange} onEnter={onEnter} />;
       const input = (
         <input
           id={id}

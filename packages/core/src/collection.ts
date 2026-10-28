@@ -93,6 +93,8 @@ export interface Field {
    * Type is Warranty. Its value stays when it is not shown; the table and the files keep it.
    */
   when?: Condition[];
+  /** A text's or a name's box offers what the collection's other records hold in it as it is typed: a doctor written before. */
+  suggest?: boolean;
   /** A link's target: the path of the collection its records come from. */
   collection?: string;
   /** A link that holds several records. */
@@ -597,6 +599,7 @@ function readField(raw: unknown): Field | null {
   // A condition on a field gone stays as it was written: the field is shown, Fields says it is broken.
   const when = (Array.isArray(raw.when) ? raw.when : []).map((c) => readCondition(c)).filter((c): c is Condition => c !== null && c.field !== key);
   if (when.length > 0) field.when = when;
+  if ((type === 'text' || type === 'name') && raw.suggest === true) field.suggest = true;
   return field;
 }
 

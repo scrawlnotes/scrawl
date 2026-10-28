@@ -9973,3 +9973,24 @@ body > .mb-lifted {
 .mb-cr small.lapart {
   color: var(--sl-p2);
 }
+
+/* A text's suggestions: what was written before, under its box. */
+.mb-chips.mb-sug {
+  margin: 0 0 6px;
+  padding: 0 16px;
+}
+
+.mb-sug .mb-chip {
+  height: 32px;
+  border: 1px solid var(--sl-line);
+  border-radius: 9px;
+  background: none;
+  color: var(--sl-fg);
+  font: inherit;
+  font-size: 14.5px;
+}
+
+.mb-rhead .mb-sug {
+  margin: 8px 0 2px;
+  padding: 0;
+}

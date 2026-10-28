@@ -133,6 +133,8 @@ interface DraftField {
   format: NumberFormat | null;
   /** A date that may hold a time too. */
   time: boolean;
+  /** A text that offers what was written in it before. */
+  suggest: boolean;
   /** Shown on the record's form only when these hold (design/shown-when.md). */
   when: Condition[];
   fresh: boolean;
@@ -259,6 +261,7 @@ function draftFields(fields: Field[]): DraftField[] {
       ...draftDefault(f),
       format: f.format ?? null,
       time: !!f.time,
+      suggest: !!f.suggest,
       when: f.when ?? [],
       fresh: false,
     }),
@@ -283,6 +286,7 @@ const freshField = (fields: DraftField[]): DraftField => ({
   defaultFormula: '',
   format: null,
   time: false,
+  suggest: false,
   when: [],
   fresh: true,
 });
@@ -322,6 +326,7 @@ function toField(f: DraftField): Field {
     ...(defaultOf(f) !== undefined && { default: defaultOf(f) }),
     ...(f.format && (f.type === 'number' || isComputed(f.type)) && { format: f.format }),
     ...(f.time && f.type === 'date' && { time: true }),
+    ...(f.suggest && (f.type === 'text' || f.type === 'name') && { suggest: true }),
     ...(f.when.some(isComplete) && { when: f.when.filter(isComplete) }),
   };
 }
@@ -788,6 +793,12 @@ function FieldEditor({ field, fields, collections, types, sources = [], schemaOf
           <label className="fcheck" title={field.type === 'name' ? t('fields.nameRequired') : undefined}>
             <input type="checkbox" checked={field.type === 'name' || field.required} disabled={field.type === 'name'} onChange={(event) => onChange({ required: event.target.checked })} />
             {t('fields.required')}
+          </label>
+        )}
+        {(field.type === 'text' || field.type === 'name') && (
+          <label className="fcheck" title={t('fields.suggestHint')}>
+            <input type="checkbox" checked={field.suggest} onChange={(event) => onChange({ suggest: event.target.checked })} />
+            {t('fields.suggest')}
           </label>
         )}
         <span className="fkey" title={t('fields.key')}>

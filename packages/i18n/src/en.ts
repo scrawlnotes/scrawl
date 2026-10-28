@@ -1480,6 +1480,8 @@ export const en = {
   'fields.deleteField': 'Delete field',
   'fields.removeBlock': 'Take off the screen',
   'fields.required': 'Required',
+  'fields.suggest': 'Suggest what was written',
+  'fields.suggestHint': 'As it is typed, offers what the other records hold in it',
   'fields.nameRequired': 'A name is always required',
   'fields.key': 'Key in the files',
   'fields.addChoice': '+ Add choice',

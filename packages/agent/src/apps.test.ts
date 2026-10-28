@@ -724,7 +724,7 @@ describe('apps', () => {
     expect((await saveRecordTool(agent, { collection: 'Garage/Reminders', values: { name: 'Wash' } })).data.record.values.car).toMatchObject({ name: 'Car' });
   });
 
-  it('keeps a family’s health: a medicine’s day it runs out, an appointment from its doctor and its follow-up, check-ups for each person', async () => {
+  it('keeps a family’s health: a medicine’s day it runs out, an appointment and its follow-up, check-ups for each person', async () => {
     const { agent } = await world();
     await createTool(agent, { kind: 'app', name: 'Health', templates: ['health'], answers: { health: { for: 'family', family: ['Ayşe', 'Can'], checkups: ['Dentist every 6 months', 'Tetanus every 10 years'] } } });
     // Check-ups are set up for each person, how often read from their words.
@@ -749,22 +749,21 @@ describe('apps', () => {
     const asNeeded = await saveRecordTool(agent, { collection: 'Health/Medicines', values: { name: 'Painkiller', person: 'Can', often: 'As needed', box: 20 } });
     expect(asNeeded.data.record.values.runs_out ?? null).toBeNull();
     expect((await saveRecordTool(agent, { collection: 'Health/Medicines', id: asNeeded.data.record.id, action: 'Stopped' })).data.record.values.status).toBe('Stopped');
-    // An appointment: its doctor's clinic and phone, named after the doctor and the person; its follow-up the same.
-    await saveRecordTool(agent, { collection: 'Health/Doctors', values: { name: 'Dr. Demir', specialty: 'Dentist', clinic: 'Smile Clinic', phone: '+90 212 555 0101' } });
-    const visit = await saveRecordTool(agent, { collection: 'Health/Appointments', values: { doctor: 'Dr. Demir', person: 'Can', when: '2026-10-25T10:00' } });
-    expect(visit.data.record.name).toBe('Dr. Demir · Can');
-    expect(visit.data.record.values).toMatchObject({ clinic: 'Smile Clinic', phone: '+90 212 555 0101' });
+    // An appointment: its name the doctor as it is said; its follow-up the same doctor, place and person. No Doctors.
+    expect((await refusal(recordsTool(agent, { collection: 'Health/Doctors' }))).message).toMatch(/No collection is called Health.Doctors/);
+    const visit = await saveRecordTool(agent, { collection: 'Health/Appointments', values: { name: 'Dr. Demir', person: 'Can', when: '2026-10-25T10:00', place: 'Smile Clinic' } });
+    expect(visit.data.record.values).toMatchObject({ person: 'Can', place: 'Smile Clinic' });
     await saveRecordTool(agent, { collection: 'Health/Appointments', id: visit.data.record.id, action: 'Book follow-up', input: { after: 'In 6 months' } });
     const visits = (await recordsTool(agent, { collection: 'Health/Appointments', sort: { field: 'when' } })).data.records;
-    expect(visits.map((v) => [v.name, v.values.person, String(v.values.when).slice(0, 10), (v.values.doctor as { name: string }).name])).toEqual([
-      ['Dr. Demir · Can', 'Can', '2026-10-25', 'Dr. Demir'],
-      ['Dr. Demir · Can', 'Can', '2027-04-25', 'Dr. Demir'],
+    expect(visits.map((v) => [v.name, v.values.person, String(v.values.when).slice(0, 10), v.values.place])).toEqual([
+      ['Dr. Demir', 'Can', '2026-10-25', 'Smile Clinic'],
+      ['Dr. Demir', 'Can', '2027-04-25', 'Smile Clinic'],
     ]);
     const due = (await dueRecordsTool(agent, { from: '2026-10-21', to: '2026-11-30' })).data.records as { start: string; record: { name: string } }[];
     // The dentist past its day stays, late, till Done; the medicine comes five days before it runs out.
     expect(due.map((d) => [d.record.name, d.start.slice(0, 10), !!(d as { late?: boolean }).late]).sort()).toEqual([
       ['Dentist', '2026-10-01', true],
-      ['Dr. Demir · Can', '2026-10-25', false],
+      ['Dr. Demir', '2026-10-25', false],
       ['Vitamin D', '2026-10-31', false],
     ]);
   });

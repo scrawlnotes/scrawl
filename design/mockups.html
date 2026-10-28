@@ -3928,6 +3928,10 @@ p { margin: 0; max-width: 68ch; }
 .hl-late { color: var(--m-p1); }
 .hl-follow { position: relative; }
 .hl-follow .cc-menu { position: absolute; right: 0; bottom: 34px; width: 200px; }
+.hl-sug { position: relative; display: block; }
+.hl-sug .caret { display: inline-block; width: 1.5px; height: 13px; margin-left: 1px; vertical-align: -2px; background: var(--m-accent); }
+.hl-sug .cc-menu { width: 240px; }
+.hl-sug .cc-menu b { font-weight: 600; }
 .ca-row.mp-plan { grid-template-columns: minmax(0, 1fr) 210px 96px 96px 70px 84px; }
 .ca-row.mp-day { grid-template-columns: 150px minmax(0, 1fr) 96px 100px 84px minmax(0, 1fr); }
 .ca-row.mp-today { background: color-mix(in srgb, var(--m-sel) 30%, transparent); }
@@ -4908,7 +4912,7 @@ p { margin: 0; max-width: 68ch; }
       <div>
         <span class="letter">SCRAWL APPS · TASLAK</span>
         <h2>Sağlık: en az girişle</h2>
-        <p>Medisafe, MyTherapy ve aile sağlık uygulamaları gibi. <b>Medicines</b>: ad, doz, günde kaç kez, kutudaki adet; bitiş günü kendiliğinden hesaplanır, bitmeden 5 gün önce Today'e gelir; <b>Refilled</b> sayacı yeniler. <b>Appointments</b>: doktor seçilir, yer ve telefon doktordan gelir; o gün Today'de; <b>Book follow-up</b> "6 ay sonra" diye sıradakini açar. <b>Check-ups</b>: diş, göz, yıllık kontrol, grip aşısı gibi tekrar edenler, her kişi için; Done sıradakini yazar. <b>Records</b>: tahlil, rapor, reçete, dosyası notlarda. <b>Doctors</b>: bir kez yazılır. Aile varsa her kayıtta kişi; tek kişiyken alan görünmez.</p>
+        <p>Medisafe, MyTherapy ve aile sağlık uygulamaları gibi. <b>Medicines</b>: ad, doz, günde kaç kez, kutudaki adet; bitiş günü kendiliğinden hesaplanır, bitmeden 5 gün önce Today'e gelir; <b>Refilled</b> sayacı yeniler. <b>Appointments</b>: doktor ve yer yazılır, daha önce yazılanlar yazarken öneri olarak çıkar; ayrı doktor kaydı yok; o gün Today'de; <b>Book follow-up</b> "6 ay sonra" diye sıradakini açar. <b>Check-ups</b>: diş, göz, yıllık kontrol, grip aşısı gibi tekrar edenler, her kişi için; Done sıradakini yazar. <b>Records</b>: tahlil, rapor, reçete, dosyası notlarda. Aile varsa her kayıtta kişi; tek kişiyken alan görünmez.</p>
         <ul class="traits"><li>ilaç bitişi hesaplanır</li><li>Refilled</li><li>doktordan gelen yer</li><li>Book follow-up</li><li>tekrar eden kontroller</li><li>kişi başına</li><li>sonuçlar dosya</li><li>Today'de yalnız gerekenler</li></ul>
       </div>
       <span class="pick" role="group" aria-label="Sağlık görünümü">
@@ -15013,11 +15017,11 @@ p { margin: 0; max-width: 68ch; }
   renderMp(sectionMp, 'mpplan');
 
   // Health (draft, Oct 28): what a person or a family needs to remember about health, with as little
-  // typed as can be: a medicine says when it runs out, an appointment takes its doctor's place, a
-  // check-up comes again by itself.
+  // typed as can be: a medicine says when it runs out, an appointment is its doctor and its place as
+  // they are said, those written before offered, a check-up comes again by itself.
   LC.Kaan = '#6aa5f0'; LC.Ayşe = '#b48ef0'; LC.Can = '#5cb87a'; LC['Lab result'] = '#6aa5f0'; LC.Report = '#b48ef0'; LC.Prescription = '#5cb87a';
   var HL_APP = 'Health';
-  var HL_MODS = ['Home', 'Medicines', 'Appointments', 'Check-ups', 'Records', 'Doctors'];
+  var HL_MODS = ['Home', 'Medicines', 'Appointments', 'Check-ups', 'Records'];
   function hlTree() {
     return '<div class="tree fxt">' + row({ label: 'Today', ct: 4 }) + row({ label: 'Upcoming', ct: 3 }) +
       opRowT({ sp: true, open: true, label: 'Personal' }) +
@@ -15051,18 +15055,15 @@ p { margin: 0; max-width: 68ch; }
       ccProp('Notes', 'Akşam yemekten sonra.', { body: true });
     return hlWindow('Medicines', left, '', '<span class="st-btn">Refilled</span><span class="st-btn">Stopped</span><span class="hint">A new box counts from today</span><span class="st-btn">Cancel</span>');
   }
-  /** An appointment: its doctor picked, the place and phone from the doctor; Book follow-up opens the next. */
+  /** An appointment: its doctor and its place as they are said, those written before offered as they are typed; Book follow-up opens the next. */
   function hlApt() {
-    var left = ccProp('Doctor', '<span class="lk">Dr. Selin Aydın</span>', { dd: true, req: true }) +
+    var sug = '<span class="hl-sug">Dr. S<span class="caret"></span><div class="cc-menu"><span class="on"><span><b>Dr. S</b>elin Aydın</span></span><span><span><b>Dr. S</b>inan Kurt</span></span></div></span>';
+    var left = ccProp('Doctor', sug, { req: true }) +
       '<div class="cc-two">' + ccProp('For', lbl('Kaan'), { dd: true }) + ccProp('When', 'Oct 29, 2026 · 14:30') + '</div>' +
-      '<div class="cc-two">' + ccProp('Clinic', '<span class="calc">Acıbadem Altunizade · Kardiyoloji</span>') + ccProp('Phone', '<span class="calc">0216 444 55 44</span>') + '</div>' +
+      ccProp('Where', 'Acıbadem Altunizade') +
       ccProp('Notes', 'Kolesterol kontrolü; açlık tahlili getir.', { body: true });
-    var right = '<div class="cc-blk"><div class="blk-h">Records <small>1</small></div>' +
-      '<div class="cc-row md head"><span></span><span>Record</span><span>Kind</span></div>' +
-      '<div class="cc-row md"><span class="go"></span><span class="nm"><span class="t">Lipid paneli · Oct 20</span></span>' + lbl('Lab result') + '</div>' +
-      '<div class="cc-addrow">+ Add row</div></div>';
     var menu = '<div class="cc-menu"><span>In 2 weeks</span><span>In 1 month</span><span>In 3 months</span><span class="on">In 6 months</span><span>In 1 year</span></div>';
-    return hlWindow('Appointments', left, right, '<span class="st-btn hl-follow">Book follow-up' + menu + '</span><span class="hint">With the same doctor, on the day you pick; its time when you know it</span><span class="st-btn">Cancel</span>');
+    return hlWindow('Appointments', left, '', '<span class="st-btn hl-follow">Book follow-up' + menu + '</span><span class="hint">With the same doctor and place, on the day you pick</span><span class="st-btn">Cancel</span>');
   }
   var HL_CHECKS = [
     ['Dentist', 'Kaan', 'Every 6 months', 'Nov 10', ''], ['Dentist', 'Ayşe', 'Every 6 months', 'Oct 20', 'late'],

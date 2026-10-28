@@ -320,7 +320,10 @@ function FieldRow({ field, value, values, worked, changed, bad, autoFocus, today
       const text = valueText(value);
       const href = isAddress(field.type) ? fieldHref(field.type, text) : null;
       const plain = field.type === 'url' || field.type === 'email';
-      return (
+      // A text that suggests: what the other records hold in it, a chip each under its box, the most written first.
+      const q = text.trim().toLowerCase();
+      const words = (field.type === 'text' || field.type === 'name') && field.suggest ? (ctx.used?.(field) ?? []).filter((w) => w.toLowerCase() !== q && (!q || w.toLowerCase().includes(q))).slice(0, 6) : [];
+      const box = (
         <label className={classes}>
           {label}
           <input
@@ -342,6 +345,19 @@ function FieldRow({ field, value, values, worked, changed, bad, autoFocus, today
             </button>
           )}
         </label>
+      );
+      if (words.length === 0) return box;
+      return (
+        <>
+          {box}
+          <div className="mb-chips mb-sug">
+            {words.map((word) => (
+              <button key={word} type="button" className="mb-chip" onClick={() => onChange(word)}>
+                {word}
+              </button>
+            ))}
+          </div>
+        </>
       );
     }
   }
@@ -579,16 +595,45 @@ function FieldPicker({ field, value, about, today, ctx, onChange, onOpen, onClos
   return <TextSheet label={field.label} value={valueText(value)} placeholder={field.type === 'person' ? t('card.unassigned') : field.label} onSave={(text) => onChange(text || null)} onClose={onClose} />;
 }
 
-/** A record's name, written in place, as tall as it needs. */
-function NameBox({ value, label, onChange }: { value: string; label: string; onChange: (value: string) => void }) {
+/** A record's name, written in place, as tall as it needs; one that suggests offers, while it is typed in, the names written before, a chip each under it. */
+function NameBox({ value, label, used, onChange }: { value: string; label: string; used?: string[]; onChange: (value: string) => void }) {
   const box = useRef<HTMLTextAreaElement>(null);
+  const [typing, setTyping] = useState(false);
   useLayoutEffect(() => {
     const element = box.current;
     if (!element) return;
     element.style.height = 'auto';
     element.style.height = `${element.scrollHeight}px`;
   }, [value]);
-  return <textarea ref={box} rows={1} className="mb-rname" aria-label={label} placeholder={label} value={value} onChange={(event) => onChange(event.target.value.replace(/\n/g, ' '))} />;
+  const q = value.trim().toLowerCase();
+  const words = typing && used ? used.filter((w) => w.toLowerCase() !== q && (!q || w.toLowerCase().includes(q))).slice(0, 6) : [];
+  const name = (
+    <textarea
+      ref={box}
+      rows={1}
+      className="mb-rname"
+      aria-label={label}
+      placeholder={label}
+      value={value}
+      onFocus={() => setTyping(true)}
+      onBlur={() => setTyping(false)}
+      onChange={(event) => onChange(event.target.value.replace(/\n/g, ' '))}
+    />
+  );
+  if (words.length === 0) return name;
+  return (
+    <>
+      {name}
+      <div className="mb-chips mb-sug">
+        {words.map((word) => (
+          // Pressed before the box is left, so that the chip is not gone with its focus.
+          <button key={word} type="button" className="mb-chip" onMouseDown={(event) => event.preventDefault()} onClick={() => (onChange(word), box.current?.blur())}>
+            {word}
+          </button>
+        ))}
+      </div>
+    </>
+  );
 }
 
 /** The fields a record's form shows, in the layout's order, then the ones it does not place; not those kept off it (Layout.hidden). */
@@ -754,7 +799,7 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
       )}
       <div className="mb-rbody">
         <div className="mb-rhead">
-          {named ? <NameBox value={typedName} label={named.label} onChange={(text) => setValue(named.key, text)} /> : <h2>{title}</h2>}
+          {named ? <NameBox value={typedName} label={named.label} used={named.suggest ? (ctx.used?.(named) ?? []) : undefined} onChange={(text) => setValue(named.key, text)} /> : <h2>{title}</h2>}
           {codeField && (
             <button type="button" className={isEmpty(draft.values[codeField.key]) ? 'code none' : 'code'} onClick={() => setPicking(codeField)}>
               {valueText(draft.values[codeField.key] ?? null) || codeField.label}

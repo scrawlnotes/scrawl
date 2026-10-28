@@ -61,6 +61,12 @@ describe('the Fields window', () => {
     expect(parseSchema(serializeSchema(settled))).toEqual(settled);
   });
 
+  it('keeps a text that suggests what was written; on another type it is nothing', () => {
+    const schema = parseSchema(JSON.stringify({ version: 2, fields: [{ key: 'doctor', label: 'Doctor', type: 'text', suggest: true }, { key: 'box', label: 'Box', type: 'number', suggest: true }] }));
+    expect(schema.fields.map((f) => f.suggest)).toEqual([true, undefined]);
+    expect(parseSchema(serializeSchema(schema)).fields[0]!.suggest).toBe(true);
+  });
+
   it('shows a field on the form only when its conditions hold, its value kept (design/shown-when.md)', () => {
     const text = JSON.stringify({
       version: 2,
