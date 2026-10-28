@@ -409,7 +409,7 @@ function FieldRows({ schema, fields, values, rollups, original, problems, firstF
 }) {
   return (
     <div className="mb-group wide">
-      {fields.map((field) => (
+      {fields.map((field) => [
         <FieldRow
           key={field.key}
           field={field}
@@ -423,8 +423,14 @@ function FieldRows({ schema, fields, values, rollups, original, problems, firstF
           ctx={ctx}
           onChange={(next) => onChange(field.key, next)}
           onPick={() => onPick(field)}
-        />
-      ))}
+        />,
+        // What is written in it, where its name alone does not say.
+        field.help && (
+          <p key={`${field.key}-help`} className="mb-fhelp">
+            {field.help}
+          </p>
+        ),
+      ])}
     </div>
   );
 }

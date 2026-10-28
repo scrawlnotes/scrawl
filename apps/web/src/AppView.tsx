@@ -46,6 +46,8 @@ interface Glance {
   /** With the collection's Home setting: its first records with a value each, and sums in place of the count. */
   rows?: { name: string; sub: { field: Field; value: FieldValue } | null; value: { field: Field; value: FieldValue } | null; values: CollectionRecord['values'] }[];
   sums?: { field: Field; value: number; values: CollectionRecord['values'] }[];
+  /** Said when it has no rows to show: "Give a category a monthly limit to see it here". */
+  empty?: string;
 }
 
 /** A screen's count and its first records: a collection by the view it opens on, a board by its open cards, a folder by its notes; none for a note. */
@@ -74,7 +76,7 @@ function glanceOf(screen: AppScreen, collections: Record<string, Collection>, bo
   const sorted = view?.sort ? sortRecords(shown, schema, view.sort, today) : shown;
   const check = collection.records.filter((r) => recordProblems(r, schema).length + computer.checks(collection.dir, r).length > 0).length;
   const glance: Glance = {
-    count: { text: view ? t('app.inView', { count: shown.length, view: view.name.toLowerCase() }) : String(shown.length), check },
+    count: { text: view && view.conditions.length > 0 ? t('app.inView', { count: shown.length, view: view.name.toLowerCase() }) : String(shown.length), check },
     first: sorted.slice(0, 4).map(recordTitle),
   };
   // A box that says values (design/more-apps.md 4.1): a balance beside each account and their total, a month's sums.
@@ -88,9 +90,12 @@ function glanceOf(screen: AppScreen, collections: Record<string, Collection>, bo
   const value = shownAs(home.value);
   const sub = shownAs(home.sub);
   const sum = (field: Field) => ({ field, value: shown.reduce((n, r) => n + (typeof r.values[field.key] === 'number' ? (r.values[field.key] as number) : 0), 0), values: shown[0]?.values ?? {} });
+  // Only those with a value, as the categories given a limit.
+  const listed = home.filled && value ? sorted.filter((r) => !isEmpty(r.values[value.key] ?? null)) : sorted;
   return {
     ...glance,
-    rows: sorted.slice(0, 4).map((r) => ({ name: recordTitle(r), value: value ? { field: value, value: r.values[value.key] ?? null } : null, sub: sub ? { field: sub, value: r.values[sub.key] ?? null } : null, values: r.values })),
+    ...(listed.length === 0 && home.empty && { first: [], empty: home.empty }),
+    rows: listed.slice(0, 4).map((r) => ({ name: recordTitle(r), value: value ? { field: value, value: r.values[value.key] ?? null } : null, sub: sub ? { field: sub, value: r.values[sub.key] ?? null } : null, values: r.values })),
     ...(home.totals ? { sums: home.totals.map((key) => shownAs(key)).filter((f): f is Field => !!f).map(sum) } : value && home.total ? { sums: [sum(value)] } : {}),
   };
 }
@@ -281,6 +286,10 @@ function AppHome({ modules, shows, collections, boards, notes, today, due, actio
                           {row.value && <Cell field={row.value.field} value={row.value.value} ctx={tileCtx} values={row.values} />}
                         </span>
                       ))}
+                    </span>
+                  ) : glance?.empty ? (
+                    <span className="rs">
+                      <span className="faint">{glance.empty}</span>
                     </span>
                   ) : (
                     glance &&

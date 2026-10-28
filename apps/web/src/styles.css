@@ -13599,6 +13599,92 @@ button.st-li:hover,
   border: 4px solid var(--sl-accent);
 }
 
+/* A rows question: a line each, a box for each column (design/more-apps.md 4.1). */
+.na-rows {
+  display: grid;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+
+.na-rows .row {
+  display: contents;
+}
+
+.na-rows .cell {
+  display: contents;
+}
+
+.na-rows .cap {
+  display: none;
+}
+
+.na-rows .h {
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.dialog .na-rows input,
+.dialog .na-rows select,
+.na-sheet .na-rows input,
+.na-sheet .na-rows select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  background: var(--sl-bg);
+  color: var(--sl-fg);
+  font: inherit;
+  font-size: 12.5px;
+}
+
+.dialog .na-rows input:focus,
+.dialog .na-rows select:focus,
+.na-sheet .na-rows input:focus,
+.na-sheet .na-rows select:focus {
+  border-color: var(--sl-accent);
+  outline: none;
+}
+
+.na-rows .x {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--sl-faint);
+  cursor: pointer;
+}
+
+.na-rows .x:hover {
+  color: var(--sl-fg);
+}
+
+.na-rows .na-add {
+  grid-column: 1 / -1;
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--sl-dim);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.na-rows .na-add:hover {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
 .na-list {
   display: flex;
   flex-direction: column;
@@ -19315,6 +19401,12 @@ button.ppl:hover {
   white-space: nowrap;
 }
 
+/* What it would show, when nothing has it yet: "Give a category a monthly limit". */
+.app-tile .rs span.faint {
+  color: var(--sl-faint);
+  white-space: normal;
+}
+
 /* A box that says values (design/more-apps.md 4.1): a month's sums, a value beside each record. */
 .app-tile .sums {
   display: flex;
@@ -20332,6 +20424,14 @@ button.ppl:hover {
   outline: none;
 }
 
+/* A field's line saying what is written in it. */
+.phelp {
+  margin: 4px 0 0;
+  color: var(--sl-faint);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
 /* A choice of a few side by side: Out, In, Transfer (design/more-apps.md 4.1). */
 .segs {
   display: inline-flex;
@@ -20579,4 +20679,10 @@ button.ppl:hover {
 
 .dmonth .dgrid > .on.now {
   color: var(--sl-bg);
+}
+
+/* The line a field says under it, written in the Fields window. */
+.fe-row .in.fhelp {
+  flex: 1;
+  font-size: 12px;
 }

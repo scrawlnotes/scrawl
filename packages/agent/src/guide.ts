@@ -8,9 +8,10 @@ import { t } from '@scrawlnotes/i18n';
 
 /** A question as the guide says it: its key, how it is answered and its default. */
 function questionLine(q: Question): string {
-  const shown = (v: unknown) => (Array.isArray(v) ? (v.length ? v.join(', ') : 'none') : typeof v === 'boolean' ? (v ? 'yes' : 'no') : String(v));
+  const row = (r: unknown) => (typeof r === 'object' && r !== null ? Object.values(r as object).join(' ') : String(r));
+  const shown = (v: unknown) => (Array.isArray(v) ? (v.length ? v.map(row).join(', ') : 'none') : typeof v === 'boolean' ? (v ? 'yes' : 'no') : String(v));
   const how =
-    q.kind === 'yesno' ? 'true or false' : q.kind === 'choice' ? `one of ${q.options!.map((o) => o.value).join(', ')}` : q.kind === 'multi' ? `some of ${q.options!.map((o) => o.value).join(', ')}` : 'a list of words';
+    q.kind === 'yesno' ? 'true or false' : q.kind === 'choice' ? `one of ${q.options!.map((o) => o.value).join(', ')}` : q.kind === 'multi' ? `some of ${q.options!.map((o) => o.value).join(', ')}` : q.kind === 'rows' ? `a list of rows, each { ${(q.columns ?? []).map((c) => `${c.key}: ${c.type === 'choice' ? (c.options ?? []).join(' | ') : c.type === 'day' ? 'a day of the month' : c.type}`).join(', ')} }` : 'a list of words';
   return `\`${q.key}\` (${how}; ${shown(q.default)} when not given): ${t(q.label)}`;
 }
 

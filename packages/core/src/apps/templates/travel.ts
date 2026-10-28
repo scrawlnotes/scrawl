@@ -22,7 +22,7 @@ export const travel: AppTemplate = {
   questions: [{ key: 'keeps', kind: 'multi', label: 'apps.travel.keeps', options: KEEPS.map((value) => ({ value, label: `apps.travel.keep.${value}` as MessageKey })), default: KEEPS }],
   money: () => true,
   pieces: (answers, app) => {
-    const keeps = Array.isArray(answers.keeps) ? answers.keeps : KEEPS;
+    const keeps = Array.isArray(answers.keeps) ? (answers.keeps as string[]) : KEEPS;
     return ['trips', 'bookings', ...(keeps.includes('places') ? ['places'] : []), ...(keeps.includes('packing') ? ['packing'] : []), ...(keeps.includes('expenses') || app.has('split') ? ['spending'] : [])];
   },
   menu: ['trips', 'spending'],

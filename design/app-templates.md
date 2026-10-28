@@ -68,9 +68,10 @@ Scrawl'ın elindeki parçalarla doğru ekran kurulamıyorsa altyapı genişletil
 - Sayılar sayı, süreler süredir; "2–3 min" gibi metin değer olmaz. Değerler okunur biçimde yazılır ("7 of 24 books"); durumlar renkli çip.
 - Hesaplanan alanlar formda kutusuz ya da gizli; yeni kayıtta boşken görünmez.
 - Gereksiz ya da ne olduğu anlaşılmayan alan olmaz (odalar, "No" gibi). Türe göre değişen alanlar türe göre görünür.
-- Adlar kullanıcının anlayacağı kelimelerdir (Upkeep değil Reminders).
+- Adlar kullanıcının anlayacağı kelimelerdir (Upkeep değil Reminders, What değil Description). Alanın ya da düğmenin adı tek başına yetmiyorsa altına kısa bir açıklama yazılır: içine ne yazılır, boş kalırsa ne olur ("Left empty, its category's name").
 - Bir iş yapılınca toast ve Undo çıkar.
 - Okunamayan değer sessizce atlanmaz; neden hatalı olduğu görünür.
+- Kurulum sorularında yapısı olan bilgi (ad, tutar, gün) serbest metinden okunmaz, sütunlu satırlarla sorulur; bilinen satırlar hazır gelir. Listede boş satır kalmaz.
 - Onaylı mockup'a birebir uyulur; boş, seyrek ve dolu hâller düşünülür; telefonda da aynı kısalıkta çalışır.
 
 ## App'ler

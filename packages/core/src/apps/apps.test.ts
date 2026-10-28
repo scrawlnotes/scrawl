@@ -60,7 +60,7 @@ const MOST: { [id in TemplateId]: Answers } = {
   field: { technicians: ['Ali', 'Veli'], contracts: true, stock: true, invoice: true },
   consulting: { time: true, deadlines: true, customers: 'people', payments: true },
   association: { dues: 'monthly', donations: true, campaigns: true, payments: true },
-  finance: { recurring: ['Salary 50,000 on the 15th', 'Rent 20,000 on the 1st'], budget: true },
+  finance: { recurring: [{ name: 'Salary', amount: 50000, direction: 'In', every: 'Monthly', day: 15, category: 'Salary' }, { name: 'Rent', amount: 20000, direction: 'Out', every: 'Monthly', day: 1, category: 'Rent' }], budget: true },
   home: { jobs: ['Gutters cleaned yearly'] },
   health: { for: 'family', family: ['Ayşe', 'Can'], medications: true },
   recipes: { shopping: true },

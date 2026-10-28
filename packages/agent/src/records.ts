@@ -82,6 +82,7 @@ export function fieldOut(field: Field) {
     ...(field.format && { format: field.format }),
     ...(field.when && { when: field.when }),
     ...(field.suggest && { suggest: true }),
+    ...(field.help && { help: field.help }),
   };
 }
 

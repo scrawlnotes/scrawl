@@ -22,13 +22,13 @@ export const sport: AppTemplate = {
   goesWith: ['gym'],
   questions: [
     { key: 'sports', kind: 'multi', label: 'apps.sport.sports', options: SPORTS.map((value) => ({ value, label: `apps.sport.sport.${value === 'Team sport' ? 'team' : value.toLowerCase()}` as MessageKey })), default: SPORTS },
-    { key: 'sets', kind: 'yesno', label: 'apps.sport.sets', default: true, when: ({ answers }) => !Array.isArray(answers.sports) || answers.sports.includes('Gym'), under: 'sports' },
+    { key: 'sets', kind: 'yesno', label: 'apps.sport.sets', default: true, when: ({ answers }) => !Array.isArray(answers.sports) || (answers.sports as string[]).includes('Gym'), under: 'sports' },
     { key: 'body', kind: 'yesno', label: 'apps.sport.body', default: false },
     { key: 'races', kind: 'yesno', label: 'apps.sport.races', default: false },
   ],
   money: () => false,
   pieces: (answers) => {
-    const sports = Array.isArray(answers.sports) ? answers.sports : SPORTS;
+    const sports = Array.isArray(answers.sports) ? (answers.sports as string[]) : SPORTS;
     const sets = sports.includes('Gym') && answers.sets !== false;
     return ['workouts', 'training-plan', ...(sets ? ['exercises', 'sets'] : []), ...(answers.body === true ? ['body-measures'] : []), ...(answers.races === true ? ['races'] : [])];
   },

@@ -1832,6 +1832,7 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
             onChange={(next) => setValue(field.key, next)}
             onEnter={field.type === 'name' ? () => void save() : undefined}
           />
+          {field.help && <p className="phelp">{field.help}</p>}
           {will && (
             <p className="pwill">
               <b>{will.by}</b> {t('run.writesThis')}

@@ -32,7 +32,7 @@ import { support } from './templates/support';
 import { timeoff } from './templates/timeoff';
 import { travel } from './templates/travel';
 import { listed } from './about';
-import { type Answer, type Answers, type AppTemplate, audienceOf, type Question, TEMPLATE_IDS, type TemplateId } from './types';
+import { type Answer, type AnswerRow, type Answers, type AppTemplate, audienceOf, type Question, TEMPLATE_IDS, type TemplateId } from './types';
 
 export const TEMPLATES: { [id in TemplateId]: AppTemplate } = { crm, sales, support, appointments, projects, budget, stock, ecommerce, product, recruiting, assets, content, subscriptions, contracts, timeoff, goals, incidents, field, consulting, association, finance, home, health, recipes, travel, split, jobs, people, reading, habits, sport, gym };
 
@@ -101,7 +101,39 @@ function wrongAnswer(q: Question, value: unknown): string | null {
       return Array.isArray(value) && value.every((v) => typeof v === 'string') ? null : t('apps.answerList');
     case 'text':
       return typeof value === 'string' ? null : t('apps.answerText');
+    case 'rows': {
+      const keys = (q.columns ?? []).map((c) => c.key);
+      return Array.isArray(value) && value.every((row) => typeof row === 'object' && row !== null && !Array.isArray(row) && Object.entries(row).every(([k, v]) => keys.includes(k) && (typeof v === 'string' || typeof v === 'number')))
+        ? null
+        : t('apps.answerRows', { columns: keys.join(', ') });
+    }
   }
+}
+
+/**
+ * A rows answer as kept: each row's values by its columns, a text trimmed, a number or a day read
+ * as one (a day kept 1 to 31), a choice one of its options; a row with no name (its first column)
+ * left out.
+ */
+function cleanRows(q: Question, rows: AnswerRow[]): AnswerRow[] {
+  const columns = q.columns ?? [];
+  const first = columns[0]?.key;
+  return rows
+    .map((row) => {
+      const out: AnswerRow = {};
+      for (const c of columns) {
+        const v = row[c.key];
+        if (v === undefined || v === '') continue;
+        if (c.type === 'number' || c.type === 'day') {
+          const n = typeof v === 'number' ? v : Number(String(v).replace(/[^\d.,-]/g, '').replace(/[.,](?=\d{3}\b)/g, '').replace(',', '.'));
+          if (Number.isFinite(n) && String(v).trim() !== '') out[c.key] = c.type === 'day' ? Math.max(1, Math.min(31, Math.round(n))) : n;
+        } else if (c.type === 'choice') {
+          if (c.options?.includes(String(v))) out[c.key] = String(v);
+        } else if (String(v).trim()) out[c.key] = String(v).trim();
+      }
+      return out;
+    })
+    .filter((row) => !first || (typeof row[first] === 'string' && row[first] !== ''));
 }
 
 /** A list's items as kept: trimmed, the empty ones and the second of the same left out. */
@@ -131,7 +163,7 @@ export function readAnswers(template: AppTemplate, chosen: ReadonlySet<TemplateI
       problems.push(`${template.id}.${q.key}: ${wrong}`);
       value = q.default;
     }
-    answers[q.key] = (q.kind === 'list' || q.kind === 'multi' ? cleanList(value as string[]) : value) as Answer;
+    answers[q.key] = (q.kind === 'list' || q.kind === 'multi' ? cleanList(value as string[]) : q.kind === 'rows' ? cleanRows(q, value as AnswerRow[]) : value) as Answer;
   }
   return { answers, problems };
 }

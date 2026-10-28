@@ -39,7 +39,7 @@ export const contracts: AppTemplate = {
       default: '30',
       help: 'apps.contracts.noticeHelp',
     },
-    { key: 'seats', kind: 'yesno', label: 'apps.contracts.seats', default: true, when: ({ answers }) => Array.isArray(answers.kinds) && answers.kinds.includes('software'), under: 'kinds' },
+    { key: 'seats', kind: 'yesno', label: 'apps.contracts.seats', default: true, when: ({ answers }) => Array.isArray(answers.kinds) && (answers.kinds as string[]).includes('software'), under: 'kinds' },
   ],
   money: () => true,
   pieces: () => ['contracts', 'companies'],

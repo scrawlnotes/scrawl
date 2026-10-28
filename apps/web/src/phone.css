@@ -10013,3 +10013,64 @@ body > .mb-lifted {
   padding: 6px 12px;
   font-size: 14px;
 }
+
+/* A rows question on a phone: each row a card of its boxes, two to a line. */
+.na-sheet .na-rows {
+  display: flex !important;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.na-sheet .na-rows .h {
+  display: none;
+}
+
+.na-sheet .na-rows .row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 10px 34px 10px 10px;
+  border: 1px solid var(--sl-line);
+  border-radius: 10px;
+}
+
+.na-sheet .na-rows .row > :first-child {
+  grid-column: 1 / -1;
+}
+
+.na-sheet .na-rows .cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.na-sheet .na-rows .cap {
+  display: block;
+  color: var(--sl-faint);
+  font-size: 12px;
+}
+
+.na-sheet .na-rows input,
+.na-sheet .na-rows select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 16px;
+}
+
+.na-sheet .na-rows .x {
+  position: absolute;
+  top: 12px;
+  right: 8px;
+}
+
+/* A field's line saying what is written in it, on a phone. */
+.mb-fhelp {
+  margin: -2px 0 0;
+  padding: 0 14px 10px;
+  color: var(--sl-faint);
+  font-size: 13px;
+  line-height: 1.4;
+}

@@ -137,6 +137,8 @@ interface DraftField {
   suggest: boolean;
   /** A link picked from chips. */
   chips: boolean;
+  /** The line under it on the form. */
+  help: string;
   /** Shown on the record's form only when these hold (design/shown-when.md). */
   when: Condition[];
   fresh: boolean;
@@ -266,6 +268,7 @@ function draftFields(fields: Field[]): DraftField[] {
       time: !!f.time,
       suggest: !!f.suggest,
       chips: !!f.chips,
+      help: f.help ?? '',
       when: f.when ?? [],
       fresh: false,
     }),
@@ -292,6 +295,7 @@ const freshField = (fields: DraftField[]): DraftField => ({
   time: false,
   suggest: false,
   chips: false,
+  help: '',
   when: [],
   fresh: true,
 });
@@ -336,6 +340,7 @@ function toField(f: DraftField): Field {
     ...(f.suggest && (f.type === 'text' || f.type === 'name') && { suggest: true }),
     ...(f.type === 'name' && !f.required && { optional: true }),
     ...(f.chips && (f.type === 'link' || f.type === 'select') && { chips: true }),
+    ...(f.help.trim() && { help: f.help.trim() }),
     ...(f.when.some(isComplete) && { when: f.when.filter(isComplete) }),
   };
 }
@@ -820,6 +825,9 @@ function FieldEditor({ field, fields, collections, types, sources = [], schemaOf
         <span className="fkey" title={t('fields.key')}>
           {field.key}
         </span>
+      </div>
+      <div className="fe-row">
+        <input className="in fhelp" aria-label={t('fields.help')} placeholder={t('fields.help')} value={field.help} onChange={(event) => onChange({ help: event.target.value })} />
       </div>
       {field.type === 'date' && (
         <>

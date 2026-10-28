@@ -1,16 +1,31 @@
 import { calendar, checkbox, currencyField, day, formula, inMain, link, nameField, number, rollup, select } from '../pieces';
-import type { AppTemplate } from '../types';
+import type { AnswerRow, AppTemplate } from '../types';
 import { EVERY, UNITS } from './home';
 
 // Personal finance (design/more-apps.md 4.1): an amount and a tap to spend, the account the last
 // one used; the month at a glance, day by day; a budget as bars; what comes again (a salary, the
-// rent) written by itself on its day, what changes each time (electricity) in Today with Paid.
+// rent) written by itself on its day, what changes each time (electricity) in Today with Paid; one
+// set up with no amount asked the first time it is paid.
 
 const ACCOUNTS = ['Bank account', 'Credit card', 'Cash'];
 const SPENDING = ['Groceries', 'Rent', 'Utilities', 'Transport', 'Fuel', 'Eating out', 'Coffee', 'Health', 'Clothes', 'Shopping', 'Subscriptions', 'Insurance', 'Education', 'Gifts', 'Travel', 'Fun', 'Sports', 'Kids', 'Pets', 'Home', 'Other'];
 const INCOME = ['Salary', 'Freelance', 'Other income'];
 const TYPES = ['Bank', 'Card', 'Cash', 'Savings'];
-const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+const EVERY_ROW = ['Monthly', 'Every 3 months', 'Every 6 months', 'Yearly', 'Weekly'];
+/** What comes again, ready with no amount: a salary, the rent, the bills of a home. */
+const RECURRING: AnswerRow[] = [
+  { name: 'Salary', direction: 'In', every: 'Monthly', day: 15, category: 'Salary' },
+  { name: 'Rent', direction: 'Out', every: 'Monthly', day: 1, category: 'Rent' },
+  { name: 'Electricity', direction: 'Out', every: 'Monthly', day: 20, category: 'Utilities' },
+  { name: 'Water', direction: 'Out', every: 'Monthly', day: 20, category: 'Utilities' },
+  { name: 'Natural gas', direction: 'Out', every: 'Monthly', day: 20, category: 'Utilities' },
+  { name: 'Internet', direction: 'Out', every: 'Monthly', day: 5, category: 'Utilities' },
+  { name: 'Phone', direction: 'Out', every: 'Monthly', day: 10, category: 'Utilities' },
+  { name: 'Building fee', direction: 'Out', every: 'Monthly', day: 5, category: 'Home' },
+  { name: 'Streaming', direction: 'Out', every: 'Monthly', day: 12, category: 'Subscriptions' },
+];
+/** One whose amount changes each time, paid with Paid and never by itself. */
+const varies = (name: string) => /electric|water|gas|elektrik|su\b|do[gğ]al ?gaz/i.test(name);
 
 /** An account as the list says it: its name, and its type from a word in it; a bank account when it says none. */
 export function accountOf(item: string): { name: string; type: string } {
@@ -19,40 +34,21 @@ export function accountOf(item: string): { name: string; type: string } {
   return { name, type };
 }
 
-/** Whether a category is money in, by its name. */
-const isIncome = (name: string) => /salary|freelance|income|bonus|wage|pension|dividend|maa[sş]/i.test(name);
-
-/** The category a recurring one goes to, from its name: rent to Rent, a salary to Salary; none when its name says nothing. */
-function categoryOf(name: string, categories: string[]): string | undefined {
-  const guess = /salary|wage|maa[sş]/i.test(name) ? 'Salary' : /rent|kira/i.test(name) ? 'Rent' : /electric|water|gas|internet|phone|utilit|aidat|building fee/i.test(name) ? 'Utilities' : /netflix|spotify|youtube|disney|subscription|icloud/i.test(name) ? 'Subscriptions' : /insurance|sigorta/i.test(name) ? 'Insurance' : /gym|fitness/i.test(name) ? 'Sports' : undefined;
-  return categories.find((c) => c.toLowerCase() === (guess ?? name).toLowerCase());
-}
-
 /**
- * What comes again as its words say it (design/more-apps.md 4.1): "Salary 50,000 on the 15th",
- * "Rent 20,000 on the 1st", "Car insurance 14,000 yearly on Mar 3", "Netflix 230 every 3 months";
- * monthly when it says no other, its next day the one it says from `today` on, else today.
+ * What comes again as a row of its table says it (design/more-apps.md 4.1): its name, amount, Out
+ * or In, how often, its day of the month and its category; its next day that day from `today` on,
+ * today for a weekly one or one with no day.
  */
-export function recurringOf(item: string, today: string): { name: string; amount?: number; every: string; next: string; direction: string } {
-  const words = item.trim();
-  const money = /(\d[\d.,]*)/.exec(words);
-  const amount = money ? Number(money[1]!.replace(/[.,](?=\d{3}\b)/g, '').replace(',', '.')) : undefined;
-  const name = (money ? words.slice(0, money.index) : words).replace(/\s+(on|every|yearly|monthly|weekly).*$/i, '').trim() || words;
-  const every = /\byearly\b|\bevery year\b|\bannual/i.test(words) ? 'Yearly' : /\bweekly\b|\bevery week\b/i.test(words) ? 'Weekly' : /every 3 months|quarterly/i.test(words) ? 'Every 3 months' : /every 6 months/i.test(words) ? 'Every 6 months' : 'Monthly';
+export function recurringOf(row: AnswerRow, today: string): { name: string; amount?: number; direction: string; every: string; next: string; category?: string } {
+  const name = String(row.name ?? '').trim();
+  const every = typeof row.every === 'string' && EVERY_ROW.includes(row.every) ? row.every : 'Monthly';
   const [y, m] = today.split('-').map(Number) as [number, number];
   const at = (year: number, month: number, date: number) => new Date(Date.UTC(year, month - 1, Math.min(date, new Date(Date.UTC(year, month, 0)).getUTCDate()))).toISOString().slice(0, 10);
-  let next = today;
-  const onMonth = /\bon\s+([a-z]{3})[a-z]*\.?\s+(\d{1,2})\b/i.exec(words);
-  const onDay = /\bon\s+(?:the\s+)?(\d{1,2})(?:st|nd|rd|th)?\b/i.exec(words);
-  if (onMonth && MONTHS.includes(onMonth[1]!.toLowerCase())) {
-    const month = MONTHS.indexOf(onMonth[1]!.toLowerCase()) + 1;
-    const date = Number(onMonth[2]);
-    next = at(y, month, date) >= today ? at(y, month, date) : at(y + 1, month, date);
-  } else if (onDay && every !== 'Weekly') {
-    const date = Number(onDay[1]);
-    next = at(y, m, date) >= today ? at(y, m, date) : at(m === 12 ? y + 1 : y, m === 12 ? 1 : m + 1, date);
-  }
-  return { name, ...(amount !== undefined && Number.isFinite(amount) && { amount }), every, next, direction: isIncome(name) ? 'In' : 'Out' };
+  const date = typeof row.day === 'number' ? row.day : undefined;
+  const next = every === 'Weekly' || date === undefined ? today : at(y, m, date) >= today ? at(y, m, date) : at(m === 12 ? y + 1 : y, m === 12 ? 1 : m + 1, date);
+  const amount = typeof row.amount === 'number' ? row.amount : undefined;
+  const category = typeof row.category === 'string' && row.category ? row.category : undefined;
+  return { name, ...(amount !== undefined && { amount }), direction: row.direction === 'In' ? 'In' : 'Out', every, next, ...(category && { category }) };
 }
 
 /** The sign of a currency as a person reads it: ₺, $, €. */
@@ -75,7 +71,22 @@ export const finance: AppTemplate = {
   goesWith: ['split'],
   questions: [
     { key: 'accounts', kind: 'list', label: 'apps.finance.accounts', default: ACCOUNTS, help: 'apps.finance.accountsHelp', add: 'apps.finance.addAccount' },
-    { key: 'recurring', kind: 'list', label: 'apps.finance.recurring', default: [], help: 'apps.finance.recurringHelp', add: 'apps.finance.addRecurring' },
+    {
+      key: 'recurring',
+      kind: 'rows',
+      label: 'apps.finance.recurring',
+      default: RECURRING,
+      help: 'apps.finance.recurringHelp',
+      add: 'apps.finance.addRecurring',
+      columns: [
+        { key: 'name', label: 'apps.finance.rowName', type: 'text' },
+        { key: 'amount', label: 'apps.finance.rowAmount', type: 'number', placeholder: 'apps.finance.rowAmountEmpty' },
+        { key: 'direction', label: 'apps.finance.rowDirection', type: 'choice', options: ['Out', 'In'] },
+        { key: 'every', label: 'apps.finance.rowEvery', type: 'choice', options: EVERY_ROW },
+        { key: 'day', label: 'apps.finance.rowDay', type: 'day', placeholder: 'apps.finance.rowDayEmpty' },
+        { key: 'category', label: 'apps.finance.rowCategory', type: 'choice', options: [...SPENDING, ...INCOME] },
+      ],
+    },
     { key: 'budget', kind: 'yesno', label: 'apps.finance.budget', default: true },
   ],
   money: () => true,
@@ -98,7 +109,7 @@ export const finance: AppTemplate = {
     app.field('accounts', nameField());
     app.field('accounts', select('type', 'Type', TYPES, { Bank: 'blue', Card: 'purple', Cash: 'green', Savings: 'teal' }, 'Bank'));
     if (multi) app.field('accounts', currencyField(app));
-    app.field('accounts', number('opening', 'Opening balance', { format: own }));
+    app.field('accounts', { ...number('opening', 'Opening balance', { format: own }), help: 'What was in it on the day you started' });
     app.field('accounts', { ...rollup('money_in', 'In', moves, 'sum', 'amount', [{ field: 'direction', op: 'is', value: ['In'] }], own), rollup: { from: moves, fn: 'sum', field: 'amount', where: [{ field: 'direction', op: 'is', value: ['In'] }], via: 'account' } });
     app.field('accounts', { ...rollup('money_out', 'Out', moves, 'sum', 'amount', [{ field: 'direction', op: 'is', value: ['Out'] }], own), rollup: { from: moves, fn: 'sum', field: 'amount', where: [{ field: 'direction', op: 'is', value: ['Out'] }], via: 'account' } });
     app.field('accounts', { ...rollup('sent', 'Moved out', moves, 'sum', 'amount', [], own), rollup: { from: moves, fn: 'sum', field: 'amount', where: [{ field: 'direction', op: 'is', value: ['Transfer'] }], via: 'account' } });
@@ -109,8 +120,8 @@ export const finance: AppTemplate = {
     app.homeTile('accounts', { value: 'balance', total: true });
     for (const item of accountNames) app.record('accounts', { ...accountOf(item), ...(multi && { currency: app.money.main }) });
 
-    // Transactions: the amount first, Out, In or Transfer, a category tapped; What left empty is its category's name.
-    app.field('transactions', { ...nameField('What'), optional: true });
+    // Transactions: the amount first, Out, In or Transfer, a category tapped; a Description left empty is its category's name.
+    app.field('transactions', { ...nameField('Description'), optional: true, help: 'Where or what it was for; left empty, its category’s name' });
     app.field('transactions', number('amount', 'Amount', { required: true, format: own }));
     if (multi) app.field('transactions', currencyField(app));
     app.field('transactions', { ...select('direction', 'Direction', ['Out', 'In', 'Transfer'], { Out: 'gray', In: 'green', Transfer: 'blue' }, 'Out'), chips: true });
@@ -142,45 +153,47 @@ export const finance: AppTemplate = {
 })` });
     if (multi) app.rule('transactions', { kind: 'onSave', name: 'Currency of the account', src: 'onSave("Currency of the account", () => {\n  if (!empty(account) && empty(currency)) currency = account.currency\n})' });
 
-    // Categories: money out or in; a budget for the month as a bar.
+    // Categories: money out or in, each with what was spent on it this month; a bar where it has a limit.
     app.field('categories', nameField());
     app.field('categories', select('kind', 'Kind', ['Spending', 'Income'], { Spending: 'gray', Income: 'green' }, 'Spending'));
     app.field('categories', { ...rollup('spent', 'Spent this month', moves, 'sum', 'amount', [{ field: 'direction', op: 'is', value: ['Out'] }, { field: 'this_month', op: 'true' }, ...inMain(app)], main), rollup: { from: moves, fn: 'sum', field: 'amount', where: [{ field: 'direction', op: 'is', value: ['Out'] }, { field: 'this_month', op: 'true' }, ...inMain(app)], via: 'category' } });
     app.block('categories', { block: 'linked', collection: moves, style: 'table', fields: ['date', 'amount', 'account'], sort: 'date', dir: 'desc', sums: true });
     if (budget) {
       const spending = [{ field: 'kind', op: 'is' as const, value: ['Spending'] }];
-      app.field('categories', { ...number('limit', 'Monthly limit', { format: main }), when: spending });
+      app.field('categories', { ...number('limit', 'Monthly limit', { format: main }), when: spending, help: 'What you mean to spend on it in a month; left empty, it has no budget' });
       app.field('categories', formula('left', 'Left', 'empty(limit) ? null : limit - spent', main));
       app.field('categories', formula('shown', 'Spent of limit', `empty(limit) ? null : ${money('spent')} + " of " + ${money('limit')}`));
-      app.field('categories', formula('progress', 'This month', 'empty(limit) || limit == 0 ? null : spent / limit', { style: 'percent', bar: true, caption: 'shown' }));
+      app.field('categories', formula('progress', 'Limit used', 'empty(limit) || limit == 0 ? null : spent / limit', { style: 'percent', bar: true, caption: 'shown' }));
       app.field('categories', { ...formula('status', 'Status', 'empty(limit) ? null : spent > limit ? "Over" : spent >= limit * 0.9 ? "Close" : "On track"'), colors: { 'On track': 'green', Close: 'orange', Over: 'red' } });
-      app.view('categories', { id: 'budget', name: 'Budget', conditions: [...spending, { field: 'limit', op: 'not-empty' }], sort: { key: 'name', dir: 'asc' }, columns: ['progress', 'left', 'status'] }, true);
-      app.homeTile('categories', { value: 'progress' });
+      app.homeTile('categories', { value: 'progress', filled: true, empty: 'Give a category a monthly limit to see it here.' });
       app.rule('categories', { kind: 'check', name: 'Over its limit', src: 'check("spent", () => empty(limit) || spent <= limit, "Over its limit")' });
     }
-    app.tableColumns('categories', ['kind', ...(budget ? ['limit', 'spent'] : ['spent'])]);
+    const columns = ['kind', 'spent', ...(budget ? ['progress', 'left', 'status'] : [])];
+    app.tableColumns('categories', columns);
     for (const name of categories) app.record('categories', { name, kind: INCOME.includes(name) ? 'Income' : 'Spending' });
 
     // Recurring: what comes in and goes out again and again; one paid automatically is written by itself on its day.
     const custom = { when: [{ field: 'every', op: 'is' as const, value: ['Custom'] }] };
     app.field('bills', nameField());
-    app.field('bills', number('amount', 'Amount', { required: true, format: own }));
+    app.field('bills', { ...number('amount', 'Amount', { format: own }), help: 'Left empty, it is asked the first time it is paid' });
     if (multi) app.field('bills', currencyField(app));
     app.field('bills', { ...select('direction', 'Direction', ['Out', 'In'], { Out: 'gray', In: 'green' }, 'Out'), chips: true });
     app.field('bills', select('every', 'Every', EVERY, gray(EVERY), 'Monthly'));
     app.field('bills', { ...number('interval', 'How many'), required: true, ...custom });
     app.field('bills', { ...select('unit', 'Of', UNITS, gray(UNITS), 'Months'), ...custom });
-    app.field('bills', { ...day('next', 'Next', true), required: true });
+    app.field('bills', { ...day('next', 'Next', true), required: true, help: 'The day it comes next; it moves on by itself when paid' });
     app.field('bills', { ...link('account', 'Account', accountsPath), required: true });
     app.field('bills', { ...link('category', 'Category', app.path('categories')), chips: true });
-    app.field('bills', checkbox('auto', 'Paid automatically', true));
-    app.field('bills', formula('signed', 'Amount', 'direction == "In" ? amount : -amount', own));
-    app.field('bills', formula('says', 'Says', `(auto ? "" : "about ") + (direction == "In" ? "+" : "−") + ${money('amount')} + (empty(account) ? "" : " · " + account.name)`));
+    app.field('bills', { ...checkbox('auto', 'Paid automatically', true), help: 'Written by itself on its day once it has an amount; off for one that changes, as electricity, paid in Today with Paid' });
+    // Written by itself: paid automatically, its amount known.
+    app.field('bills', formula('writes', 'Writes itself', 'auto && !empty(amount)'));
+    app.field('bills', formula('signed', 'Amount', 'empty(amount) ? null : direction == "In" ? amount : -amount', own));
+    app.field('bills', formula('says', 'Says', `(empty(amount) ? "No amount yet" : (auto ? "" : "about ") + (direction == "In" ? "+" : "−") + ${money('amount')}) + (empty(account) ? "" : " · " + account.name)`));
     app.block('bills', { block: 'linked', collection: moves, style: 'table', fields: ['date', 'amount', 'account'], sort: 'date', dir: 'desc' });
-    app.view('bills', { id: 'all', name: 'By next', conditions: [], sort: { key: 'next', dir: 'asc' }, columns: ['amount', 'every', 'next', 'account', 'auto'] }, true);
-    app.tableColumns('bills', ['amount', 'every', 'next', 'account', 'auto']);
+    app.view('bills', { id: 'all', name: 'By next', conditions: [], sort: { key: 'next', dir: 'asc' }, columns: ['signed', 'every', 'next', 'account', 'auto'] }, true);
+    app.tableColumns('bills', ['signed', 'every', 'next', 'account', 'auto']);
     app.homeTile('bills', { value: 'signed', sub: 'next' });
-    app.view('bills', calendar({ start: 'next', upcoming: true, button: 'Paid', auto: 'auto', words: ['says'] }));
+    app.view('bills', calendar({ start: 'next', upcoming: true, button: 'Paid', auto: 'writes', words: ['says'] }));
     app.rule('bills', {
       kind: 'action',
       name: 'Paid',
@@ -190,6 +203,8 @@ export const finance: AppTemplate = {
     account: { label: "Account", type: "link", collection: "${app.called('accounts')}", default: () => account, required: true },
   },
 }, () => {
+  // The amount it had none of, or the last one of one that changes, is the one asked next.
+  if (empty(amount) || !auto) amount = input.amount
   add("${app.called('transactions')}", { name: name, account: input.account, amount: input.amount, direction: direction, category: category, date: next > today() ? today() : next${multi ? ', currency: currency' : ''} })
   const from = next
   if (every == "Weekly") next = from + 7
@@ -200,17 +215,17 @@ export const finance: AppTemplate = {
 })`,
     });
     const firstAccount = accountNames[0];
-    for (const item of (answers.recurring as string[] | undefined) ?? []) {
-      if (!item.trim()) continue;
-      const one = recurringOf(item, app.today);
-      const category = categoryOf(one.name, categories);
+    for (const row of (answers.recurring as AnswerRow[] | undefined) ?? []) {
+      const one = recurringOf(row, app.today);
+      if (!one.name) continue;
+      const category = one.category && categories.includes(one.category) ? one.category : undefined;
       app.record('bills', {
         name: one.name,
         ...(one.amount !== undefined && { amount: one.amount }),
         direction: one.direction,
         every: one.every,
         next: one.next,
-        auto: true,
+        auto: !varies(one.name),
         ...(firstAccount && { account: firstAccount }),
         ...(category && { category }),
         ...(multi && { currency: app.money.main }),
@@ -226,7 +241,7 @@ export const finance: AppTemplate = {
         'Add what you spend with its amount and a category; the account is the last one used, the day today.',
         'Move money between your accounts with Transfer, as a card paid from the bank.',
         ...(budget ? ['Give a category its monthly limit to see it as a bar.'] : []),
-        `Add what comes again in ${app.called('bills')}: a salary or the rent is written by itself; one whose amount changes is in Today with Paid.`,
+        `Add what comes again in ${app.called('bills')}: a salary or the rent is written by itself; one whose amount changes is in Today with Paid. One with no amount is asked the first time.`,
       ],
       auto: [
         "An account's balance is its opening balance with what came in, less what went out, and what was moved to and from it.",

@@ -101,8 +101,10 @@ export interface Field {
   when?: Condition[];
   /** A text's or a name's box offers what the collection's other records hold in it as it is typed: a doctor written before. */
   suggest?: boolean;
-  /** A name that may be left empty, its rules writing it as the record is saved: a transaction's What, its category's name (design/more-apps.md 4.1). */
+  /** A name that may be left empty, its rules writing it as the record is saved: a transaction's Description, its category's name (design/more-apps.md 4.1). */
   optional?: boolean;
+  /** A line under it on the form saying what is written in it, where its name alone does not: "Left empty, the category's name". */
+  help?: string;
   /** A link picked on the form from chips of its records, the most used first: a transaction's category; a choice picked from its options side by side: Out, In, Transfer. */
   chips?: boolean;
   /** A link's target: the path of the collection its records come from. */
@@ -260,9 +262,9 @@ export interface CalendarSettings {
   /** The fields its rows in Today and Upcoming say after the collection, in place of its first person and first link. */
   words?: string[];
   /**
-   * A tick field: a record with it ticked has its `button` pressed by itself once its day has come,
+   * A tick field, or a formula that is true: a record with it so has its `button` pressed by itself once its day has come,
    * when the app finds it so, with the button's answers as they come (a salary or a rent paid
-   * automatically, design/more-apps.md 4.1).
+   * automatically once it has an amount, design/more-apps.md 4.1).
    */
   auto?: string;
 }
@@ -642,6 +644,7 @@ function readField(raw: unknown): Field | null {
   if (when.length > 0) field.when = when;
   if ((type === 'text' || type === 'name') && raw.suggest === true) field.suggest = true;
   if (type === 'name' && raw.optional === true) field.optional = true;
+  if (typeof raw.help === 'string' && raw.help.trim()) field.help = raw.help.trim();
   if ((type === 'link' || type === 'select') && raw.chips === true) field.chips = true;
   return field;
 }
@@ -879,7 +882,7 @@ function readCalendar(raw: unknown, fields: Field[]): CalendarSettings | null {
     upcoming: given.upcoming === 'today' ? 'today' : given.upcoming !== false,
     ...(repeat && { repeat }),
     ...(typeof given.button === 'string' && given.button.trim() && { button: given.button.trim() }),
-    ...(typeof given.auto === 'string' && fields.some((f) => f.key === cleanFieldKey(given.auto as string) && f.type === 'checkbox') && { auto: cleanFieldKey(given.auto) }),
+    ...(typeof given.auto === 'string' && fields.some((f) => f.key === cleanFieldKey(given.auto as string) && (f.type === 'checkbox' || f.type === 'formula')) && { auto: cleanFieldKey(given.auto) }),
     ...(Array.isArray(given.words) && { words: given.words.filter((k): k is string => typeof k === 'string' && fields.some((f) => f.key === cleanFieldKey(k))).map(cleanFieldKey) }),
   };
 }
@@ -932,6 +935,10 @@ export interface HomeTile {
   sub?: string;
   total?: boolean;
   totals?: string[];
+  /** Only the records with a value: the categories given a limit (design/more-apps.md 4.1). */
+  filled?: boolean;
+  /** Said in the box when no record has one: "Give a category a monthly limit to see it here". */
+  empty?: string;
 }
 
 function readHome(raw: unknown, fields: Field[]): HomeTile | undefined {
@@ -940,7 +947,8 @@ function readHome(raw: unknown, fields: Field[]): HomeTile | undefined {
   const value = known(raw.value);
   const sub = known(raw.sub);
   const totals = strings(raw.totals).map((k) => known(k)).filter((k): k is string => !!k);
-  const home: HomeTile = { ...(value && { value }), ...(sub && { sub }), ...(value && raw.total === true && { total: true }), ...(totals.length > 0 && { totals }) };
+  const empty = typeof raw.empty === 'string' && raw.empty.trim() ? raw.empty.trim() : undefined;
+  const home: HomeTile = { ...(value && { value }), ...(sub && { sub }), ...(value && raw.total === true && { total: true }), ...(totals.length > 0 && { totals }), ...(value && raw.filled === true && { filled: true }), ...(empty && { empty }) };
   return Object.keys(home).length > 0 ? home : undefined;
 }
 

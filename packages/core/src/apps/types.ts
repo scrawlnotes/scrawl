@@ -31,15 +31,35 @@ export type TemplateGroup = (typeof TEMPLATE_GROUPS)[Audience][number];
 /** The side a group is of. */
 export const audienceOf = (group: TemplateGroup): Audience => ((TEMPLATE_GROUPS.business as readonly string[]).includes(group) ? 'business' : 'personal');
 
-/** An answer: a choice's value, yes or no, the choices or the items of a list, a line of text. */
-export type Answer = string | boolean | string[];
+/** A row of a rows answer: a value for each of its question's columns, by key. */
+export interface AnswerRow {
+  [column: string]: string | number;
+}
+
+/** An answer: a choice's value, yes or no, the choices or the items of a list, a line of text, the rows of a table. */
+export type Answer = string | boolean | string[] | AnswerRow[];
 
 export interface Answers {
   [key: string]: Answer;
 }
 
-/** How a question is asked: one choice, yes or no, several choices, a list to change, a line of text. */
-export type QuestionKind = 'choice' | 'yesno' | 'multi' | 'list' | 'text';
+/** How a question is asked: one choice, yes or no, several choices, a list to change, a line of text, rows of a few fields each. */
+export type QuestionKind = 'choice' | 'yesno' | 'multi' | 'list' | 'text' | 'rows';
+
+/**
+ * A column of a rows question (design/more-apps.md 4.1): its key, what it is called, and what is
+ * written in it: a line, a number, one of its options, or a day of the month; the first one the
+ * row's name, a row without it left out.
+ */
+export interface QuestionColumn {
+  key: string;
+  label: MessageKey;
+  type: 'text' | 'number' | 'choice' | 'day';
+  /** A choice's options, as they are kept and shown. */
+  options?: string[];
+  /** Said in it while it is empty: "Amount". */
+  placeholder?: MessageKey;
+}
 
 /** What a question is asked from: the templates chosen, the template's answers so far. */
 export interface Asking {
@@ -68,6 +88,8 @@ export interface Question {
   help?: MessageKey;
   /** A list's button that adds an item: "Add a stage". */
   add?: MessageKey;
+  /** A rows question's columns. */
+  columns?: QuestionColumn[];
   /** What a list's items stand for, beside each, where something does: Won is done, the first warehouse the default. */
   hints?: (items: string[]) => (MessageKey | null)[];
 }

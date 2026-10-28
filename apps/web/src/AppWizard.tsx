@@ -6,6 +6,7 @@ import {
   AppProblems,
   apartProblem,
   type Answer,
+  type AnswerRow,
   type Answers,
   askedQuestions,
   type Audience,
@@ -15,6 +16,7 @@ import {
   localPath,
   PIECES,
   type Question,
+  type QuestionColumn,
   readAnswers,
   readCurrencies,
   spaceOf,
@@ -23,7 +25,7 @@ import {
   type TemplateId,
 } from '@scrawlnotes/core';
 import { locale, type MessageKey, t } from '@scrawlnotes/i18n';
-import { type DragEvent, type KeyboardEvent, useRef, useState } from 'react';
+import { type DragEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { deviceRegion, isPhone, loadAppSide, saveAppSide } from './device';
 import { Dialog, type FolderChoice, FolderField } from './dialogs';
 import { Icon, type IconName } from './Icon';
@@ -173,7 +175,7 @@ export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreat
 
   // Editing: the answers as they were, and the items of a list typed anew, each with its new name.
   const wasOf = (id: TemplateId): Answers => readAnswers(APP_TEMPLATES[id], chosenSet, editing?.templates.find((x) => x.id === id)?.answers ?? {}).answers;
-  const listOf = (value: Answer | undefined): string[] => (Array.isArray(value) ? value : []);
+  const listOf = (value: Answer | undefined): string[] => (Array.isArray(value) ? (value as string[]) : []);
   const fromOf = (id: TemplateId, key: string): (number | null)[] => origins[`${id}.${key}`] ?? listOf(wasOf(id)[key]).map((_, i) => i);
   const renamesOf = (id: TemplateId): { [question: string]: { [from: string]: string } } => {
     const out: { [question: string]: { [from: string]: string } } = {};
@@ -690,7 +692,7 @@ function QuestionsPage({ id, chosen, installed, answers, onAnswer, was, from, on
       {asked.map((q) => {
         const before = was?.[q.key] ?? q.default;
         const changed = !!was && JSON.stringify(answers[q.key] ?? q.default) !== JSON.stringify(before);
-        const origin = was && q.kind === 'list' && from ? { was: Array.isArray(before) ? before : [], from: from(q.key), items: typed?.(q.key) ?? (Array.isArray(before) ? before : []) } : undefined;
+        const origin = was && q.kind === 'list' && from ? { was: (Array.isArray(before) ? (before as string[]) : []), from: from(q.key), items: typed?.(q.key) ?? (Array.isArray(before) ? (before as string[]) : []) } : undefined;
         return (
         <div key={q.key} className={q.under && keys.has(q.under) ? 'na-q sub' : 'na-q'}>
           {q.because && chosen.has(q.because) && (
@@ -736,6 +738,7 @@ function wasSaid(q: Question, before: Answer, listChanges: number): string {
   if (q.kind === 'choice') return t('apps.was', { answer: label(String(before)) });
   if (q.kind === 'multi') return t('apps.was', { answer: listed((before as string[]).map(label)) });
   if (q.kind === 'list') return t('apps.listChanges', { count: Math.max(1, listChanges) });
+  if (q.kind === 'rows') return t('apps.listChanges', { count: Math.max(1, listChanges) });
   return t('apps.was', { answer: String(before) });
 }
 
@@ -773,7 +776,7 @@ function Control({ question: q, value, onChange, origin }: {
     );
   }
   if (q.kind === 'multi') {
-    const on = Array.isArray(value) ? value : [];
+    const on = (Array.isArray(value) ? (value as string[]) : []);
     return (
       <span className="na-seg many" role="group" aria-labelledby={label}>
         {options.map((o) => (
@@ -784,8 +787,79 @@ function Control({ question: q, value, onChange, origin }: {
       </span>
     );
   }
-  if (q.kind === 'list') return <ListControl question={q} items={origin?.items ?? (Array.isArray(value) ? value : [])} onChange={onChange} origin={origin} />;
+  if (q.kind === 'list') return <ListControl question={q} items={origin?.items ?? (Array.isArray(value) ? (value as string[]) : [])} onChange={onChange} origin={origin} />;
+  if (q.kind === 'rows') return <RowsControl question={q} rows={Array.isArray(value) ? (value as AnswerRow[]) : []} onChange={onChange} />;
   return <input aria-labelledby={label} value={typeof value === 'string' ? value : ''} onChange={(event) => onChange(event.target.value)} />;
+}
+
+/**
+ * The rows of a rows question (design/more-apps.md 4.1): a line each, a box for each of its
+ * question's columns, a line of text, a number, a choice or a day of the month; × takes a row away,
+ * a button adds one. A row left with no name is not kept.
+ */
+/** A column's width: the name takes what is left, a choice as wide as its longest option or its heading. */
+function widthOf(c: QuestionColumn): string {
+  if (c.type === 'text') return 'minmax(72px, 1fr)';
+  if (c.type === 'day') return '46px';
+  const longest = c.type === 'choice' ? Math.max(0, ...(c.options ?? []).map((o) => o.length)) : (c.placeholder ? t(c.placeholder) : '').length;
+  return `${Math.round(Math.max(t(c.label).length * 6.8, longest * 6.6) + (c.type === 'choice' ? 24 : 12))}px`;
+}
+
+function RowsControl({ question: q, rows, onChange }: { question: Question; rows: AnswerRow[]; onChange: (rows: AnswerRow[]) => void }) {
+  const columns = q.columns ?? [];
+  const set = (i: number, key: string, value: string) => onChange(rows.map((row, j) => (j === i ? { ...row, [key]: value } : row)));
+  const remove = (i: number) => onChange(rows.filter((_, j) => j !== i));
+  return (
+    <div className="na-rows" aria-labelledby={`q-${q.key}`} style={{ gridTemplateColumns: `${columns.map(widthOf).join(' ')} 22px` }}>
+      {columns.map((c) => (
+        <span key={c.key} className="h">
+          {t(c.label)}
+        </span>
+      ))}
+      <span className="h" />
+      {rows.map((row, i) => (
+        <div key={i} className="row">
+          {columns.map((c) => {
+            const v = row[c.key];
+            const label = `${t(c.label)}${typeof row[columns[0]!.key] === 'string' ? ` · ${row[columns[0]!.key]}` : ''}`;
+            // Its column's name over it on a phone, where the row is a card and has no heading.
+            return (
+              <label key={c.key} className="cell">
+                {c !== columns[0] && <span className="cap">{t(c.label)}</span>}
+                {c.type === 'choice' ? (
+                  <select aria-label={label} value={typeof v === 'string' ? v : ''} onChange={(event) => set(i, c.key, event.target.value)}>
+                    <option value="">–</option>
+                    {(c.options ?? []).map((o) => (
+                      <option key={o} value={o}>
+                        {o}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    aria-label={label}
+                    inputMode={c.type === 'text' ? undefined : 'numeric'}
+                    placeholder={t(c.placeholder ?? c.label)}
+                    value={v === undefined ? '' : String(v)}
+                    onChange={(event) => set(i, c.key, event.target.value)}
+                  />
+                )}
+              </label>
+            );
+          })}
+          <button type="button" className="x" aria-label={t('apps.removeItem', { item: String(row[columns[0]!.key] ?? '') })} title={t('apps.removeItem', { item: String(row[columns[0]!.key] ?? '') })} onClick={() => remove(i)}>
+            <Icon name="close" />
+          </button>
+        </div>
+      ))}
+      {q.add && (
+        <button type="button" className="na-add" onClick={() => onChange([...rows, {}])}>
+          <Icon name="plus" />
+          {t(q.add)}
+        </button>
+      )}
+    </div>
+  );
 }
 
 /**
@@ -814,10 +888,20 @@ function ListControl({ question: q, items, onChange, origin }: { question: Quest
     };
     change(move(items), from ? move(from) : undefined);
   };
-  const add = () => {
-    setFocus(items.length);
-    change([...items, ''], from ? [...from, null] : undefined);
+  // The box to type in next: one just added, or the one before one taken off with Backspace.
+  const boxes = useRef<(HTMLInputElement | null)[]>([]);
+  useEffect(() => {
+    if (focus === null) return;
+    boxes.current[focus]?.focus();
+    setFocus(null);
+  }, [focus, items]);
+  /** A new empty item, under the one at `after` (at the end with none), the keyboard in it. */
+  const add = (after = items.length - 1) => {
+    const at = after + 1;
+    change([...items.slice(0, at), '', ...items.slice(at)], from ? [...from.slice(0, at), null, ...from.slice(at)] : undefined);
+    setFocus(at);
   };
+  const remove = (i: number) => change(items.filter((_, j) => j !== i), from?.filter((_, j) => j !== i));
   /** Puts an item taken off back, after the last one that was before it. */
   const putBack = (was: number) => {
     const at = from!.reduce<number>((place, f, i) => (f !== null && f < was ? i + 1 : place), 0);
@@ -836,14 +920,25 @@ function ListControl({ question: q, items, onChange, origin }: { question: Quest
               ⋮⋮
             </span>
             <input
+              ref={(box) => {
+                boxes.current[i] = box;
+              }}
               value={item}
-              autoFocus={focus === i}
               aria-label={item || t(q.label)}
               onChange={(event) => change(items.map((x, j) => (j === i ? event.target.value : x)), from ?? undefined)}
+              // An item left empty is not kept: it goes as the keyboard leaves it.
+              onBlur={(event) => event.currentTarget.value === '' && items[i] === '' && remove(i)}
               onKeyDown={(event) => {
-                if (event.key !== 'Enter') return;
-                event.preventDefault();
-                add();
+                // Enter adds one under it; in an empty one it is done, and the empty one goes. Backspace in an empty one takes it off.
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  if (item.trim()) add(i);
+                  else event.currentTarget.blur();
+                } else if (event.key === 'Backspace' && item === '') {
+                  event.preventDefault();
+                  remove(i);
+                  setFocus(Math.max(0, i - 1));
+                }
               }}
             />
             {said ? <small className="was">{said}</small> : hint && <small>{t(hint)}</small>}
@@ -852,7 +947,7 @@ function ListControl({ question: q, items, onChange, origin }: { question: Quest
               className="x"
               aria-label={t('apps.removeItem', { item })}
               title={t('apps.removeItem', { item })}
-              onClick={() => change(items.filter((_, j) => j !== i), from?.filter((_, j) => j !== i))}
+              onClick={() => remove(i)}
             >
               <Icon name="close" />
             </button>
@@ -873,7 +968,7 @@ function ListControl({ question: q, items, onChange, origin }: { question: Quest
         ),
       )}
       {q.add && (
-        <button type="button" className="na-add" onClick={add}>
+        <button type="button" className="na-add" onClick={() => add()}>
           <Icon name="plus" />
           {t(q.add)}
         </button>

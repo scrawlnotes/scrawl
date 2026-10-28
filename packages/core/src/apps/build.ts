@@ -345,7 +345,7 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
       const now = answers.get(x.id)![key];
       const was = installed.get(x.id)![key];
       for (const [from, to] of Object.entries(names ?? {})) {
-        if (Array.isArray(was) && was.includes(from) && Array.isArray(now) && now.includes(to) && !now.includes(from)) renames.set(from, to);
+        if (Array.isArray(was) && (was as string[]).includes(from) && Array.isArray(now) && (now as string[]).includes(to) && !(now as string[]).includes(from)) renames.set(from, to);
       }
     }
   }
