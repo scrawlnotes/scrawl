@@ -1616,9 +1616,15 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
     if (!record || (dirty && !(await write()))) return;
     actions.pressButton(dir, record.id, button);
   };
-  // Nothing typed is lost without asking.
+  // A record there before, or a line already in the form, keeps what was typed as the window is left: no Save (as everywhere that saves on leaving).
+  const kept = !isNew || !!line?.editing;
+  // What was typed in a new one is not lost without asking.
   const leave = (then: () => void = onClose) => {
     if (!dirty) return then();
+    if (kept) {
+      void write().then((ok) => ok && then());
+      return;
+    }
     const typed = named && draft.values[named.key];
     actions.ask(t('collection.discardTitle'), t('collection.discardText', { name: quote(typeof typed === 'string' && typed.trim() ? typed.trim() : record ? recordTitle(record) : t('collection.newRecordShort')) }), then, t('collection.discard'));
   };
@@ -1838,12 +1844,15 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
           ) : (
             isNew && <span className="hint">{line ? t('collection.lineHint') : t('collection.savedIn', { collection: name })}</span>
           )}
-          <button type="button" onClick={() => leave()}>
+          {/* Cancel lets go of what was typed; a new one is made with its own button. */}
+          <button type="button" onClick={() => (kept ? onClose() : leave())}>
             {t('dialog.cancel')}
           </button>
-          <button type="button" className="primary" disabled={!isNew && !dirty} onClick={() => void save()}>
-            {line ? t(line.editing ? 'collection.save' : 'collection.addRowButton') : isNew ? t('collection.create') : t('collection.save')}
-          </button>
+          {!kept && (
+            <button type="button" className="primary" onClick={() => void save()}>
+              {line ? t('collection.addRowButton') : t('collection.create')}
+            </button>
+          )}
         </div>
       </section>
       {over && 'board' in over && overBoard && overCard && (

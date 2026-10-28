@@ -615,8 +615,8 @@ function missingText(schema: Schema, values: Entry['values']): string | null {
 /**
  * A record as a page, after the Phone collection views: its name written in place and its code,
  * buttons for its site, mail and phone, then a tab of its fields and notes and a tab for each
- * block of what links to it. What is changed is held until Save in the bar above; Cancel puts it
- * back. Leaving with something changed asks first, through `guards`.
+ * block of what links to it. What is changed is written as the page is left, through `guards`, or
+ * with Done in the bar above; Cancel puts it back.
  */
 export function PhoneRecordPage({ collection, record, today, actions, guards, onOpenCard }: {
   collection: Collection;
@@ -662,14 +662,14 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
     setDraft((d) => ({ ...d, values: { ...d.values, [key]: value } }));
   };
 
-  // Leaving with something changed asks first.
+  // Leaving with something changed writes it first, as the desktop's window does.
   const guardKey = `${dir}\u0000${record.id}`;
   useEffect(() => {
     if (!dirty) {
       guards.delete(guardKey);
       return;
     }
-    guards.set(guardKey, (then) => actions.ask(t('collection.discardTitle'), t('collection.discardText', { name: quote(title) }), then, t('collection.discard')));
+    guards.set(guardKey, (then) => void save().then((ok) => ok && then()));
   });
   useEffect(() => () => void guards.delete(guardKey), [guards, guardKey]);
 
@@ -748,7 +748,7 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
           </button>
           <span className="mb-mid">{title}</span>
           <button type="button" className="mb-tb" onMouseDown={(event) => event.preventDefault()} onClick={() => void save()}>
-            {t('collection.save')}
+            {t('phone.done')}
           </button>
         </div>
       )}
