@@ -44,13 +44,8 @@
 
 ## 6. Home, car and documents
 
-- Items (Warranties) ve Documents tek **Documents** ekranı; sihirbazda Documents, Cars, Home upkeep.
-- Type: ID, Passport, Driving licence, Insurance, Warranty, Other.
-- Her türde: Name, Type, Expires, Remind on (bitişten 30 gün önce). Number yok.
-- Warranty: Store, Bought. Insurance: Insurer.
-- Tablo Name, Type, Expires, Remind on ile açılır; Store, Bought, Insurer Columns'tan eklenir.
-- Fatura ve garanti belgesi notlara eklenir. Homes yalnız ev işleri için.
-- Önceden kurulmuş Home app'leri olduğu gibi kalır.
+- İlk kullanan Reminders: Every Custom olunca sayı ve birim alanları görünür (`design/more-apps.md` 4.2).
+- Belgeler türe ayrılmaz; önce düşünülen garanti ve sigorta türleri, Store, Bought, Insurer 28 Ekim'de kalktı.
 
 ## 7. Testler
 

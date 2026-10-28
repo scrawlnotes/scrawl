@@ -137,13 +137,16 @@ Kişi için kurulur; para birimi kişisel finansta sorulur.
 
 ### 4.2 Ev, araç ve belgeler (Money and home)
 
-- **Homes:** her ev bir kayıt (ad, adres); ev işleri tutulunca kurulur. Birden fazla ev olabilir.
-- **Documents:** süresi biten her şey, garantiler de: tür (ID, Passport, Driving licence, Insurance, Warranty, Other), bitiş, hatırlatma (bitişten 30 gün önce); türe göre alanlar (`design/shown-when.md`): Warranty'de mağaza ve alındığı gün, Insurance'ta sigorta şirketi. Fatura ve belge notlara eklenir. Numara yok, ayrı eşya listesi yok (28 Ekim).
-- **Vehicles:** her araba bir kayıt; plaka, km, sıradaki günü (işlerinin en yakını); penceresinde işleri. Günü geçen işi olan araba işaretlenir.
-- **Upkeep:** evin ve arabanın tekrarlayan işleri (kombi bakımı, muayene gibi), her biri bir eve ya da bir arabaya bağlı; aralık (Monthly, Quarterly, Every 6 months, Yearly, Every 2 years), son yapıldığı gün, sonraki gün. Done sonrakini yazar.
+28 Ekim, kullanıcının denemesinden baştan:
+
+- **Documents:** yalnız belgeler: kullanım kılavuzu, pasaport, poliçe, garanti belgesi. Ad, ait olduğu ev ya da araba (boş olabilir), bitiş günü (boş olabilir), hatırlatma (bitişten 30 gün önce). Dosya notlara eklenir. Tür, numara, mağaza yok.
+- **Reminders:** tekrar eden her iş, evde ve arabada: kombi bakımı, su arıtma filtresi, muayene, sigorta, servis, lastik. Ad, ait olduğu ev ya da araba, aralık, sonraki gün, son yapıldığı gün. Done son yapıldığı günü bugün yapar, sonrakini aralığa göre yazar; günü geçen işaretlenir.
+- **Aralık:** hazır kalıplar Weekly, Monthly, Every 3 months, Every 6 months, Yearly, Every 2 years; ve Custom: sayı ve birim (Days, Weeks, Months, Years), yalnız Custom seçilince görünür (`design/shown-when.md`). Km tutulmaz.
+- **Homes** ve **Cars:** her ev ve her araba bir kayıt; penceresinde kendi hatırlatmaları ve belgeleri. Arabanın sıradaki günü hatırlatmalarının en yakını, günü geçen hatırlatması olan araba işaretlenir.
 - Tek ev ya da tek araba varken boş bırakılan ev ya da araba kaydederken ona bağlanır.
-- **Takvim:** bitecek belgeler, biten garantiler, ev ve araba işleri; Today ve Upcoming'de.
-- **Sorular:** neleri tutuyorsunuz (çoklu: belgeler, arabalar, ev bakımı), evler (liste, Home), ev işleri (liste: kombi bakımı, duman dedektörü pilleri, klima filtreleri, su arıtma filtreleri 6 ayda bir), arabalar (liste, Car), arabanın işleri (liste: muayene 2 yılda bir, sigorta, bakım yılda bir, lastik 6 ayda bir). Hazır işler her ev ve her araba için ayrı kurulur; aralık işin adından okunur, söylemiyorsa yıllık (28 Ekim).
+- **Takvim:** bitecek belgeler ve hatırlatmalar Today ve Upcoming'de.
+- **Sorular:** neleri tutuyorsunuz (Documents, Cars, Home reminders), evler (Home), evdeki hatırlatmalar (kombi bakımı her yıl, duman dedektörü pilleri her yıl, klima filtreleri 3 ayda bir, su arıtma filtreleri 6 ayda bir), arabalar (Car), arabanın hatırlatmaları (muayene 2 yılda bir, sigorta, servis her yıl, lastik 6 ayda bir). Hazır hatırlatmalar her ev ve her araba için ayrı kurulur; aralık adından okunur: bir kalıp o kalıp, `every 10 days` gibisi Custom; söylemiyorsa yıllık.
+- Önceden kurulmuş Home app'leri olduğu gibi kalır.
 
 ### 4.3 Sağlık (Health)
 

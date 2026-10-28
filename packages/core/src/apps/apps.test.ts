@@ -451,39 +451,42 @@ describe('setting up an app', () => {
     expect(planApp({ name: '', currencies: ['USD'], templates: [{ id: 'projects' }] }, { found: again, ids }).app.currencies).toEqual(['EUR', 'TRY']);
   });
 
-  it('keeps homes and cars: each with its own jobs, how often from the job’s words', () => {
-    expect(['Boiler service yearly', 'Water purifier filters every 6 months', 'Tyre change twice a year', 'Inspection every 2 years', 'Filters quarterly', 'Plants monthly', 'Gutters'].map(jobOf)).toEqual([
+  it('keeps documents, and reminders for each home and car: how often from the reminder’s words, a ready one or Custom', () => {
+    expect(['Boiler service every year', 'Water purifier filters every 6 months', 'Tyre change twice a year', 'Inspection every 2 years', 'Filters every 3 months', 'Plants monthly', 'Bins weekly', 'Descale every 10 days', 'Oil every 18 months', 'Gutters'].map(jobOf)).toEqual([
       { name: 'Boiler service', every: 'Yearly' },
       { name: 'Water purifier filters', every: 'Every 6 months' },
       { name: 'Tyre change', every: 'Every 6 months' },
       { name: 'Inspection', every: 'Every 2 years' },
-      { name: 'Filters', every: 'Quarterly' },
+      { name: 'Filters', every: 'Every 3 months' },
       { name: 'Plants', every: 'Monthly' },
+      { name: 'Bins', every: 'Weekly' },
+      { name: 'Descale', every: 'Custom', interval: 10, unit: 'Days' },
+      { name: 'Oil', every: 'Custom', interval: 18, unit: 'Months' },
       { name: 'Gutters', every: 'Yearly' },
     ]);
-    const plan = planApp({ name: 'Atlas', currencies: ['TRY'], templates: [{ id: 'home', answers: { homes: ['Flat', 'Summer house'], cars: ['Golf', 'Vespa'], carJobs: ['Inspection every 2 years'] } }] }, { ids });
+    const plan = planApp({ name: 'Atlas', templates: [{ id: 'home', answers: { homes: ['Flat', 'Summer house'], cars: ['Golf', 'Vespa'], carJobs: ['Inspection every 2 years'] } }] }, { ids });
     const records = (dir: string) => plan.files.filter((f) => f.path.startsWith(`Atlas/${dir}/`) && !f.path.includes('/_'));
     expect(records('Homes')).toHaveLength(2);
-    expect(records('Vehicles')).toHaveLength(2);
-    // Four jobs at each home, one for each car: each linked to its own.
-    const jobs = records('Upkeep');
-    expect(jobs).toHaveLength(10);
-    expect(jobs.filter((f) => f.text.includes('Summer house'))).toHaveLength(4);
-    expect(jobs.filter((f) => f.text.includes('Vespa') && f.text.includes('Every 2 years'))).toHaveLength(1);
-    const upkeep = parseSchema(plan.files.find((f) => f.path === 'Atlas/Upkeep/_collection.json')!.text);
-    expect(upkeep.fields.map((f) => f.key)).toEqual(['name', 'home', 'vehicle', 'every', 'next', 'last']);
-    expect(upkeep.fields.find((f) => f.key === 'every')!.options).toEqual(['Monthly', 'Quarterly', 'Every 6 months', 'Yearly', 'Every 2 years']);
-    expect(parseSchema(plan.files.find((f) => f.path === 'Atlas/Vehicles/_collection.json')!.text).fields.map((f) => f.key)).toEqual(['name', 'plate', 'km', 'next']);
-    // Papers and warranties are one Documents, each type with its own fields.
-    const documents = parseSchema(plan.files.find((f) => f.path === 'Atlas/Documents/_collection.json')!.text);
-    expect(documents.fields.map((f) => [f.key, f.when?.[0]?.value ?? null])).toEqual([
-      ['name', null], ['type', null], ['store', ['Warranty']], ['bought', ['Warranty']], ['insurer', ['Insurance']], ['expires', null], ['remind', null],
+    expect(records('Cars')).toHaveLength(2);
+    // Four reminders at each home, one for each car: each linked to its own.
+    const reminders = records('Reminders');
+    expect(reminders).toHaveLength(10);
+    expect(reminders.filter((f) => f.text.includes('Summer house'))).toHaveLength(4);
+    expect(reminders.filter((f) => f.text.includes('Vespa') && f.text.includes('Every 2 years'))).toHaveLength(1);
+    const schema = (dir: string) => parseSchema(plan.files.find((f) => f.path === `Atlas/${dir}/_collection.json`)!.text);
+    // How often: a ready one, or Custom with how many of what, shown only then.
+    expect(schema('Reminders').fields.map((f) => [f.key, f.when?.[0]?.value ?? null])).toEqual([
+      ['name', null], ['home', null], ['car', null], ['next', null], ['every', null], ['interval', ['Custom']], ['unit', ['Custom']], ['remind', null], ['remind_on', null], ['last', null],
     ]);
-    expect(documents.fields.find((f) => f.key === 'type')!.options).toEqual(['ID', 'Passport', 'Driving licence', 'Insurance', 'Warranty', 'Other']);
-    expect(plan.created.some((c) => c.path === 'Atlas/Items')).toBe(false);
-    // Only the cars: no homes, and their jobs in Upkeep.
+    expect(schema('Reminders').fields.find((f) => f.key === 'every')!.options).toEqual(['Weekly', 'Monthly', 'Every 3 months', 'Every 6 months', 'Yearly', 'Every 2 years', 'Custom']);
+    expect(schema('Cars').fields.map((f) => f.key)).toEqual(['name', 'plate', 'next']);
+    // Documents are documents: a day they run out only when they do.
+    const documents = schema('Documents');
+    expect(documents.fields.map((f) => f.key)).toEqual(['name', 'home', 'car', 'expires', 'remind']);
+    expect(documents.fields.find((f) => f.key === 'expires')!.required).toBeUndefined();
+    // Only the cars: no homes, and their reminders.
     const cars = planApp({ name: 'Garage', templates: [{ id: 'home', answers: { keeps: ['vehicles'] } }] }, { ids });
-    expect(cars.created.map((c) => c.path)).toEqual(['Garage/Vehicles', 'Garage/Upkeep', 'Garage/About Garage.md']);
+    expect(cars.created.map((c) => c.path)).toEqual(['Garage/Cars', 'Garage/Reminders', 'Garage/About Garage.md']);
   });
 
   it('sets up a person’s templates in one app only with those they share data with', async () => {
