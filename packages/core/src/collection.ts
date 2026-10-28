@@ -138,7 +138,22 @@ export const NAME_KEY = 'name';
 export type LayoutItem =
   | { field: string }
   | { block: 'body' }
-  | { block: 'linked'; collection: string; sort?: string; dir?: 'desc'; style?: LinkedStyle; fields?: string[]; sums?: boolean; group?: string[]; lines?: boolean; edit?: string[] }
+  | {
+      block: 'linked';
+      collection: string;
+      sort?: string;
+      dir?: 'desc';
+      style?: LinkedStyle;
+      fields?: string[];
+      sums?: boolean;
+      group?: string[];
+      lines?: boolean;
+      edit?: string[];
+      /** A group's rows are alternatives, one of them picked: a meal's (design/meal-plans.md); "or" before the second on, a row not ticked not faint, a group picked or not. */
+      choose?: boolean;
+      /** With `choose`, the tick that sets a row apart from the alternatives, said beside it and not counted: eaten off the plan. */
+      apart?: string;
+    }
   | { block: 'cards' }
   | { block: 'subtasks' }
   /** The buttons of the collection's rules (`action(…)` in _rules.js). */
@@ -228,6 +243,8 @@ export interface RepeatSettings {
   days: string;
   /** The date field it comes from; without one, from today. */
   from?: string;
+  /** The date field it ends on, its last day; empty or without one, it goes on. */
+  until?: string;
   /** What closes a day: a record of `collection` (its path) whose `link` is the record and whose `day` is that day. */
   closedBy: { collection: string; link: string; day: string };
   /** The button that opens a new record of `closedBy` for the day. */
@@ -608,6 +625,8 @@ function readItem(raw: unknown): LayoutItem | null {
       ...(group.length > 0 && { group }),
       ...(typeof raw.lines === 'boolean' && { lines: raw.lines }),
       ...(changed.length > 0 && { edit: changed }),
+      ...(raw.choose === true && { choose: true }),
+      ...(raw.choose === true && typeof raw.apart === 'string' && { apart: cleanFieldKey(raw.apart) }),
     };
   }
   return null;
@@ -791,6 +810,7 @@ function readRepeat(raw: unknown, fields: Field[]): RepeatSettings | null {
   if (!isRecord(raw) || !isRecord(raw.closedBy)) return null;
   const days = typeof raw.days === 'string' ? fields.find((f) => f.key === cleanFieldKey(raw.days as string) && f.type === 'multi-select') : undefined;
   const from = typeof raw.from === 'string' ? fields.find((f) => f.key === cleanFieldKey(raw.from as string) && f.type === 'date') : undefined;
+  const until = typeof raw.until === 'string' ? fields.find((f) => f.key === cleanFieldKey(raw.until as string) && f.type === 'date') : undefined;
   const { collection, link, day } = raw.closedBy;
   if (!days || typeof collection !== 'string' || typeof link !== 'string' || typeof day !== 'string') return null;
   const skip = isRecord(raw.skip) && typeof raw.skip.label === 'string' && raw.skip.label.trim() ? raw.skip : null;
@@ -798,6 +818,7 @@ function readRepeat(raw: unknown, fields: Field[]): RepeatSettings | null {
   return {
     days: days.key,
     ...(from && { from: from.key }),
+    ...(until && { until: until.key }),
     closedBy: { collection: collection.replace(/^\/+|\/+$/g, ''), link: cleanFieldKey(link), day: cleanFieldKey(day) },
     ...(typeof raw.start === 'string' && raw.start.trim() && { start: raw.start.trim() }),
     ...(skip && { skip: { label: (skip.label as string).trim(), set: set as { [key: string]: FieldValue } } }),

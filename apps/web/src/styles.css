@@ -20243,3 +20243,22 @@ button.ppl:hover {
 .cal-t.skipped span {
   text-decoration: line-through;
 }
+
+/* A linked table whose groups are alternatives (design/meal-plans.md): or before the second on; a row set apart, eaten off the plan, says so. */
+.lor {
+  margin-right: 6px;
+  color: var(--sl-faint);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.lapart {
+  margin-left: 8px;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--sl-p2) 18%, transparent);
+  color: var(--sl-p2);
+  font-size: 10.5px;
+  font-weight: 400;
+  white-space: nowrap;
+}

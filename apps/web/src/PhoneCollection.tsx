@@ -988,13 +988,22 @@ export function LinkedTab({ block, dir, schema: own, record, today, actions, dra
   );
   // A table that ticks a row off where it is (its block's edit, a workout's items) has its tick at the start of each row.
   const tick = block.style === 'table' ? named.find((f) => f.type === 'checkbox' && block.edit?.includes(f.key)) : undefined;
-  const line = (r: Entry) => {
+  // A group's rows alternatives (design/meal-plans.md): "or" before the second on, one not ticked not faint; a row set apart says so.
+  const apartField = block.choose && block.apart ? schema.fields.find((f) => f.key === block.apart && f.type === 'checkbox') : undefined;
+  const isApart = (r: Entry) => !!apartField && r.values[apartField.key] === true;
+  const mine = (of: Entry[]) => of.filter((r) => !isApart(r));
+  const line = (r: Entry, of: Entry[] = rows) => {
     const amount = number ? fieldValueOf(r, number, schema, today) : undefined;
     const on = tick ? r.values[tick.key] === true : false;
+    const or = !!block.choose && !isApart(r) && mine(of).indexOf(r) > 0;
     const row = (
-      <button key={r.id} type="button" className={tick && !on ? 'mb-cr off' : 'mb-cr'} onClick={() => open(r)}>
+      <button key={r.id} type="button" className={tick && !on && !block.choose ? 'mb-cr off' : 'mb-cr'} onClick={() => open(r)}>
         <span className="tx">
-          <b>{recordTitle(r)}</b>
+          <b>
+            {or && <span className="lor">{t('collection.or')}</span>}
+            {recordTitle(r)}
+          </b>
+          {isApart(r) && <small className="lapart">{apartField!.label}</small>}
           <small>
             {r.name && r.code && <span className="key">{r.code}</span>}
             {shown(r).map((f) => (
@@ -1025,8 +1034,21 @@ export function LinkedTab({ block, dir, schema: own, record, today, actions, dra
   return (
     <div className="mb-rlist">
       {grouped
-        ? groups.flatMap((g) => [heading(g.key, g.label, tick ? t('phone.ofCount', { ticked: g.records.filter((r) => r.values[tick.key] === true).length, count: g.records.length }) : g.records.length), ...(g.groups ? g.groups.flatMap((s) => [heading(`${g.key}-${s.key}`, s.label, null, true), ...s.records.map(line)]) : g.records.map(line))])
-        : rows.map(line)}
+        ? groups.flatMap((g) => [
+            heading(
+              g.key,
+              g.label,
+              tick && block.choose
+                ? mine(g.records).some((r) => r.values[tick.key] === true)
+                  ? tick.label.toLowerCase()
+                  : t('collection.toChoose', { count: mine(g.records).length })
+                : tick
+                  ? t('phone.ofCount', { ticked: g.records.filter((r) => r.values[tick.key] === true).length, count: g.records.length })
+                  : g.records.length,
+            ),
+            ...(g.groups ? g.groups.flatMap((s) => [heading(`${g.key}-${s.key}`, s.label, null, true), ...s.records.map((r) => line(r, s.records))]) : g.records.map((r) => line(r, g.records))),
+          ])
+        : rows.map((r) => line(r))}
       {sums && (
         <div className="mb-sumrow">
           {t('phone.sumOf', { field: number!.label.toLowerCase() })}

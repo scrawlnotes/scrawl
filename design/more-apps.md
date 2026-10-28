@@ -159,6 +159,8 @@ Kişi için kurulur; para birimi kişisel finansta sorulur.
 
 ### 4.4 Tarifler ve yemek planı (Money and home)
 
+28 Ekim'den beri `design/meal-plans.md`: günlük yemek planının yerine beslenme programı (Plans) ve takibi (Days), tarife Link. İlk hâli:
+
 - **Recipes:** ad, tür, süre, kaç kişilik, etiketler; yapılışı gövdede.
 - **Ingredients:** tarif, malzeme, miktar.
 - **Meal plan:** gün, öğün (Breakfast, Lunch, Dinner), tarif.

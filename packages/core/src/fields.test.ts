@@ -101,4 +101,11 @@ describe('the Fields window', () => {
     expect(settled.fields.find((f) => f.key === 'amount')!.when).toEqual([{ field: 'type', op: 'is', value: ['Guarantee'] }]);
     expect(settled.fields.find((f) => f.key === 'own')!.when).toBeUndefined();
   });
+
+  it('keeps a linked table whose groups are alternatives, and the tick that sets a row apart (design/meal-plans.md)', () => {
+    const items = (block: object) => parseSchema(JSON.stringify({ version: 2, fields: [{ key: 'name', label: 'Name', type: 'name' }], layout: { columns: [{ items: [block] }] } })).layout!.columns[0]!.sections[0]!.items;
+    expect(items({ block: 'linked', collection: 'Day items', group: ['meal'], choose: true, apart: 'off_plan' })).toEqual([{ block: 'linked', collection: 'Day items', group: ['meal'], choose: true, apart: 'off_plan' }]);
+    // Apart only with choose.
+    expect(items({ block: 'linked', collection: 'Day items', apart: 'off_plan' })).toEqual([{ block: 'linked', collection: 'Day items' }]);
+  });
 });

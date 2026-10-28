@@ -9962,3 +9962,14 @@ body > .mb-lifted {
 .mb-rrow.late b {
   color: var(--sl-p1);
 }
+
+/* Alternatives on a phone: or before the second on; a row set apart says so under its name. */
+.mb-cr .lor {
+  margin-right: 6px;
+  color: var(--sl-faint);
+  font-weight: 400;
+}
+
+.mb-cr small.lapart {
+  color: var(--sl-p2);
+}

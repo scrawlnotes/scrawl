@@ -799,23 +799,55 @@ describe('apps', () => {
     expect(spent.map((t) => [t.name, t.values.amount, t.values.direction, (t.values.account as { name: string }).name])).toEqual([['Hotel', 200, 'Out', 'Bank account']]);
   });
 
-  it('plans meals from recipes and writes the shopping list; follows a job search up', async () => {
+  it('follows a plan to eat by, day by day, from recipes with their links, and writes the shopping list; follows a job search up', async () => {
     const { agent } = await world();
     await createTool(agent, { kind: 'app', name: 'Kitchen', templates: ['recipes'] });
-    const menemen = await saveRecordTool(agent, { collection: 'Kitchen/Recipes', values: { name: 'Menemen', time: 20, serves: 2 } });
+    const menemen = await saveRecordTool(agent, { collection: 'Kitchen/Recipes', values: { name: 'Menemen', link: 'https://example.com/menemen', time: 20, serves: 2 } });
+    expect(menemen.data.record.values.link).toBe('https://example.com/menemen');
     expect(menemen.data.record.problems).toEqual([{ kind: 'check', text: 'No ingredients yet' }]);
     await saveRecordTool(agent, { collection: 'Kitchen/Ingredients', values: { name: 'Eggs', recipe: 'Menemen', quantity: '4' } });
     await saveRecordTool(agent, { collection: 'Kitchen/Ingredients', values: { name: 'Tomatoes', recipe: 'Menemen', quantity: '3' } });
     await saveRecordTool(agent, { collection: 'Kitchen/Recipes', id: menemen.data.record.id, action: 'Add to shopping list' });
-    const meal = await saveRecordTool(agent, { collection: 'Kitchen/Meal plan', values: { date: '2026-10-24', meal: 'Breakfast', recipe: 'Menemen' } });
-    expect(meal.data.record.name).toBe('Menemen');
-    await saveRecordTool(agent, { collection: 'Kitchen/Meal plan', id: meal.data.record.id, action: 'Shop for the week' });
     expect((await recordsTool(agent, { collection: 'Kitchen/Shopping list', sort: { field: 'name' } })).data.records.map((i) => [i.name, i.values.quantity])).toEqual([
       ['Eggs', '4'],
-      ['Eggs', '4'],
-      ['Tomatoes', '3'],
       ['Tomatoes', '3'],
     ]);
+
+    // A plan: its items meal by meal, written as they are said; the ones of a meal alternatives, one of Wednesdays only.
+    await saveRecordTool(agent, { collection: 'Kitchen/Plans', values: { name: 'Akdeniz', from: '2026-10-19', until: '2026-10-25' } });
+    for (const values of [
+      { name: '2 yumurta, peynir', plan: 'Akdeniz', meal: 'Breakfast', order: 1 },
+      { name: 'Yulaf, süt, muz', plan: 'Akdeniz', meal: 'Breakfast', order: 2 },
+      { plan: 'Akdeniz', meal: 'Lunch', recipe: 'Menemen', order: 1 },
+      { name: 'Fırında balık', plan: 'Akdeniz', meal: 'Dinner', on: 'Wed', order: 1 },
+      { name: 'Tavuk sote', plan: 'Akdeniz', meal: 'Dinner', order: 2 },
+    ]) await saveRecordTool(agent, { collection: 'Kitchen/Plan items', values });
+    // The plan's days come till its last; those gone by unwritten too, late.
+    const planDays = (await dueRecordsTool(agent, { from: '2026-10-21', to: '2026-10-31' })).data.records as { start: string; record: { name: string } }[];
+    expect(planDays.filter((d) => d.record.name === 'Akdeniz').map((d) => d.start)).toEqual(['2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23', '2026-10-24', '2026-10-25']);
+    // Wednesday started: its items come, none ticked, the lunch named after its recipe.
+    const wed = await saveRecordTool(agent, { collection: 'Kitchen/Days', values: { day: '2026-10-21', plan: 'Akdeniz' } });
+    const items = (await recordsTool(agent, { collection: 'Kitchen/Day items', sort: { field: 'name' } })).data.records;
+    expect(items.map((i) => [i.name, i.values.meal, i.values.done])).toEqual([
+      ['2 yumurta, peynir', 'Breakfast', false],
+      ['Fırında balık', 'Dinner', false],
+      ['Menemen', 'Lunch', false],
+      ['Tavuk sote', 'Dinner', false],
+      ['Yulaf, süt, muz', 'Breakfast', false],
+    ]);
+    expect(wed.data.record.name).toBe('Akdeniz · 2026-10-21');
+    expect((await recordsTool(agent, { collection: 'Kitchen/Days' })).data.records[0]!.values).toMatchObject({ meals: 3, eaten: 0, summary: '0 of 3' });
+    // Ticked as eaten: both of the dinner's alternatives count as the one dinner; a cake off the plan.
+    for (const name of ['Yulaf, süt, muz', 'Fırında balık', 'Tavuk sote']) await saveRecordTool(agent, { collection: 'Kitchen/Day items', id: items.find((i) => i.name === name)!.id, values: { done: true } });
+    await saveRecordTool(agent, { collection: 'Kitchen/Day items', values: { name: 'Pasta', day_of: wed.data.record.name, meal: 'Snack', done: true } });
+    const day = (await recordsTool(agent, { collection: 'Kitchen/Days' })).data.records[0]!;
+    expect(day.values).toMatchObject({ summary: '2 of 3', off: 1 });
+    // Thursday: no fish.
+    await saveRecordTool(agent, { collection: 'Kitchen/Days', values: { day: '2026-10-22', plan: 'Akdeniz' } });
+    expect((await recordsTool(agent, { collection: 'Kitchen/Day items', where: [{ field: 'day', op: 'on', value: '2026-10-22' }] })).data.records.map((i) => i.name).sort()).toEqual(['2 yumurta, peynir', 'Menemen', 'Tavuk sote', 'Yulaf, süt, muz']);
+    // Skipped with meals ticked is marked.
+    const skipped = await saveRecordTool(agent, { collection: 'Kitchen/Days', id: day.id, values: { status: 'Skipped' } });
+    expect(skipped.data.record.problems).toEqual([{ kind: 'check', field: 'status', text: 'Skipped, but meals are ticked' }]);
 
     await createTool(agent, { kind: 'app', name: 'Jobs', templates: ['jobs'], currencies: ['TRY'] });
     await saveRecordTool(agent, { collection: 'Jobs/Companies', values: { name: 'Acme' } });

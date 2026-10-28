@@ -1041,7 +1041,27 @@ function LinkedTable({ block, source, dir, record, today, actions, drafts, hint,
   const tick = tickColumn && changes.has(tickColumn.key) ? tickColumn : undefined;
   const ticked = (r: Record) => r.values[tickColumn!.key] === true;
   const tickAll = (records: Record[], on: boolean) => records.filter((r) => ticked(r) !== on).forEach((r) => write(r, tick!, on));
-  const countOf = (of: Record[]) => (tickColumn && of.length > 0 ? t('collection.tickedOf', { ticked: of.filter(ticked).length, count: of.length }) : of.length);
+  // A group's rows alternatives (design/meal-plans.md): one ticked picks the group; a row set apart, eaten off the plan, is not one of them.
+  const apartField = block.choose && block.apart ? schema.fields.find((f) => f.key === block.apart && f.type === 'checkbox') : undefined;
+  const isApart = (r: Record) => !!apartField && r.values[apartField.key] === true;
+  const own = (of: Record[]) => of.filter((r) => !isApart(r));
+  const alternative = (r: Record, of: Record[]) => !!block.choose && !isApart(r) && own(of).indexOf(r) > 0;
+  const groupField = block.group?.[0] ? schema.fields.find((f) => f.key === block.group![0]) : undefined;
+  const countOf = (of: Record[]) => {
+    if (block.choose && tickColumn && of.length > 0) {
+      const mine = own(of);
+      return mine.some(ticked) ? tickColumn.label.toLowerCase() : t('collection.toChoose', { count: mine.length });
+    }
+    return tickColumn && of.length > 0 ? t('collection.tickedOf', { ticked: of.filter(ticked).length, count: of.length }) : of.length;
+  };
+  // The block's: how many of its groups are picked, and how many rows stand apart.
+  const blockCount = () => {
+    if (!(block.choose && tickColumn && groupField && rows.length > 0)) return countOf(rows);
+    const picking = groups.filter((g) => own(g.records).length > 0);
+    const picked = t('collection.ofGroups', { ticked: picking.filter((g) => own(g.records).some(ticked)).length, count: picking.length, group: groupField.label.toLowerCase() });
+    const apart = rows.filter(isApart).length;
+    return apart > 0 && apartField ? `${picked} · ${apart} ${apartField.label.toLowerCase()}` : picked;
+  };
   // + Add opens the row's window; + Add to a group starts it with the group's value.
   const startAdding = (group: { key: string; records: Record[] } | null) => {
     const first = block.group?.[0];
@@ -1065,10 +1085,10 @@ function LinkedTable({ block, source, dir, record, today, actions, drafts, hint,
       { icon: 'collection', title: recordTitle(r), sub: collectionName(source.dir) },
     );
   const span = columns.length + 1;
-  const row = (r: Record) => (
+  const row = (r: Record, of: Record[] = rows) => (
     <tr
       key={r.id}
-      className={['rec', isDraft.has(r.id) && 'draft', tickColumn && !ticked(r) && 'off'].filter(Boolean).join(' ')}
+      className={['rec', isDraft.has(r.id) && 'draft', tickColumn && !ticked(r) && !block.choose && 'off'].filter(Boolean).join(' ')}
       tabIndex={0}
       onClick={() => onOpen(source, r)}
       onContextMenu={(event) => rowMenu(event, r)}
@@ -1084,6 +1104,13 @@ function LinkedTable({ block, source, dir, record, today, actions, drafts, hint,
               ) : field.key === TITLE.key || (lines && isLink(value)) ? (
                 // A line's move or product is what the line is: its name, as the record's own.
                 <span className="ct name">{field.key === TITLE.key ? recordTitle(r) : recordLabel(value as Link)}</span>
+              ) : field.type === 'name' && block.choose ? (
+                // An alternative says so before it; a row apart says what sets it apart after it.
+                <span className="ct">
+                  {alternative(r, of) && <span className="lor">{t('collection.or')}</span>}
+                  <Cell field={asShown(field)} value={value} ctx={ctx} values={r.values} />
+                  {isApart(r) && <span className="lapart">{apartField!.label}</span>}
+                </span>
               ) : (
                 <Cell field={asShown(field)} value={value} ctx={ctx} values={r.values} />
               )}
@@ -1102,7 +1129,7 @@ function LinkedTable({ block, source, dir, record, today, actions, drafts, hint,
     <div className="blk ltable">
       <div className="blk-h">
         <span>{collectionName(block.collection)}</span>
-        <small>{countOf(rows)}</small>
+        <small>{blockCount()}</small>
       </div>
       <div className="ltable-scroll" hidden={rows.length === 0}>
         <table className="rtable" aria-label={collectionName(block.collection)}>
@@ -1121,7 +1148,7 @@ function LinkedTable({ block, source, dir, record, today, actions, drafts, hint,
           <tbody>
             {groups.map((g) =>
               !block.group?.length ? (
-                <Fragment key="all">{g.records.map(row)}</Fragment>
+                <Fragment key="all">{g.records.map((r) => row(r, g.records))}</Fragment>
               ) : (
                 <Fragment key={g.key || '-'}>
                   <tr className="tgrp">
@@ -1152,10 +1179,10 @@ function LinkedTable({ block, source, dir, record, today, actions, drafts, hint,
                               </div>
                             </td>
                           </tr>
-                          {s.records.map(row)}
+                          {s.records.map((r) => row(r, s.records))}
                         </Fragment>
                       ))
-                    : g.records.map(row)}
+                    : g.records.map((r) => row(r, g.records))}
                   <tr className="gadd">
                     <td colSpan={span}>
                       <button type="button" className="cadd" onClick={() => startAdding(g)}>

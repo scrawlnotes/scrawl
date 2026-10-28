@@ -274,8 +274,11 @@ export function repeatCalendar(collection: Collection, view: View, today: string
     const weekdays = new Set((Array.isArray(held) ? held : []).flatMap((v) => (typeof v === 'string' ? [weekdayOf(v, options.indexOf(v), options.length)] : [])).filter((w): w is number => w !== null));
     if (weekdays.size === 0) continue;
     const own = (repeat.from ? dateValue(record.values[repeat.from])?.slice(0, 10) : null) ?? today;
+    // A record with an end, a diet's last day, comes on none after it (design/meal-plans.md 4).
+    const ends = repeat.until ? dateValue(record.values[repeat.until])?.slice(0, 10) : undefined;
+    const last = ends && ends < until ? ends : until;
     const choice = choiceOf(record, colorField);
-    for (let day = own > start ? own : start; day <= until; day = addDays(day, 1)) {
+    for (let day = own > start ? own : start; day <= last; day = addDays(day, 1)) {
       if (!weekdays.has(weekdayOfDay(day))) continue;
       const by = closed.get(`${record.id}/${day}`);
       const state = by ? (skippedBy(by) ? 'skipped' : 'done') : day < today ? 'late' : 'open';
