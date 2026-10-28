@@ -2009,7 +2009,11 @@ export function App() {
       void session.addRecord(target.dir, { values: made }, { id, drafted: [] }).then((failed) => {
         if (failed) return setNotice(failed);
         const day = new Date(`${due.day}T00:00`).toLocaleDateString(locale(), { weekday: 'short', month: 'short', day: 'numeric' });
-        setShown({ text: t('repeat.skipped', { day, what: repeat.skip!.label }), undo: () => void session.trashRecord(target.dir, recordWith(target, id, made)), toast: true });
+        // With no Start its button is the day done: a habit says so by its name.
+        const text = repeat.start === false
+          ? due.day === today ? t('repeat.doneToday', { name: recordTitle(due.record) }) : t('repeat.doneOn', { name: recordTitle(due.record), day })
+          : t('repeat.skipped', { day, what: repeat.skip!.label });
+        setShown({ text, undo: () => void session.trashRecord(target.dir, recordWith(target, id, made)), toast: true });
       });
     },
     description: descriptionHost,
@@ -2133,6 +2137,15 @@ export function App() {
     // A program's day on its calendar, as in Today: Start, Didn't go, and the workout that closed it.
     startDay: (due) => taskActions.startDay?.(due),
     skipDay: (due) => taskActions.skipDay?.(due),
+    reopenDay: (day) => {
+      const target = day.closedBy ? collections[day.closedBy.collection] : undefined;
+      const record = target?.records.find((r) => r.id === day.closedBy!.id);
+      if (!target || !record) return;
+      void session.trashRecord(target.dir, record).then(() => {
+        const when = new Date(`${day.day}T00:00`).toLocaleDateString(locale(), { weekday: 'short', month: 'short', day: 'numeric' });
+        setShown({ text: t('repeat.reopened', { name: recordTitle(day.record), day: when }), undo: () => void session.addRecord(target.dir, { values: record.values, body: record.body }, { id: record.id, drafted: [] }), toast: true });
+      });
+    },
     openRecord: (dir, id) => taskActions.openRecord(dir, id),
     openNote: (path) => void session.open(path),
     // The desktop app hands an address to the system; in a browser it opens beside the app.

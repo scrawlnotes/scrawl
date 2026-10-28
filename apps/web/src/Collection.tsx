@@ -13,6 +13,8 @@ import {
   collectionOf,
   type ColumnWidths,
   type DueRecord,
+  addDays,
+  type RepeatDay,
   type Computer,
   computerFor,
   actionsOf,
@@ -114,13 +116,14 @@ import {
   type PointerEvent,
   type ReactNode,
   type RefObject,
+  type SyntheticEvent,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from 'react';
 import { CardPanel, type CardPanelActions } from './CardPanel';
-import { CalendarNav, CalendarViewDialog, calendarStatus, CollectionCalendar, firstRange, PhoneCollectionCalendar, repeatItems, useCalendarNav } from './CollectionCalendar';
+import { CalendarNav, CalendarViewDialog, calendarStatus, CollectionCalendar, DaysMonth, firstRange, PhoneCollectionCalendar, repeatItems, useCalendarNav } from './CollectionCalendar';
 import { boxKeys, Chip, choiceOptions, LIST_KEYS, MultiPicker, type Option, OptionList, Picker, useEscape } from './choices';
 import { fieldChoices, LabelsField } from './labels';
 import { FieldsDialog } from './Fields';
@@ -161,6 +164,8 @@ export interface CollectionActions {
   /** A repeating calendar's day (design/gym.md 4.3): Start opens the record that closes it, the other button writes it closed. */
   startDay?: (due: DueRecord) => void;
   skipDay?: (due: DueRecord) => void;
+  /** A day closed opened again: the record that closed it to the trash, with Undo (a habit's day ticked by mistake). */
+  reopenDay?: (day: RepeatDay) => void;
   /** Opens a record of another collection over the screen: the workout that closed a program's day. */
   openRecord?: (dir: string, id: string) => void;
   /** Opens the record's file as a note, in a tab. */
@@ -443,6 +448,18 @@ export function Cell({ field, value, ctx, values }: {
       >
         {text}
       </a>
+    );
+  }
+  // A percent as a bar, what it says beside it its caption's value (design/more-apps.md 4.9).
+  if (typeof value === 'number' && field.format?.bar) {
+    const caption = field.format.caption ? valueText(values?.[field.format.caption]) : '';
+    return (
+      <span className="pbar">
+        <span className="b">
+          <i style={{ width: `${Math.round(Math.max(0, Math.min(1, value)) * 100)}%` }} />
+        </span>
+        <small>{caption || formatNumber(value, field.format)}</small>
+      </span>
     );
   }
   if (typeof value === 'number') return <span className="num">{formatNumber(value, field.format, currencyOf(field.format, values))}</span>;
@@ -1819,6 +1836,20 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
         />
       );
     }
+    // A habit's month (design/more-apps.md 4.9): its days on its calendar that repeats, its streak over them.
+    if (layoutItem.block === 'days') {
+      const repeating = (schema.views ?? []).find((v) => v.kind === 'calendar' && v.calendar?.repeat);
+      if (!record || !repeating) return null;
+      const stats = (layoutItem.fields ?? []).flatMap((key) => {
+        const field = schema.fields.find((f) => f.key === key);
+        return field ? [{ label: field.label, value: valueText(computed[key] ?? null) || '–', ...(key === layoutItem.fields![0] && { hot: true }) }] : [];
+      });
+      return (
+        <div key={`days-${index}`} className="blk">
+          <DaysMonth collection={collection} record={record} view={repeating} stats={stats} today={today} actions={actions} />
+        </div>
+      );
+    }
     if (layoutItem.block === 'cards' && record) {
       return <CardsBlock key={`cards-${index}`} dir={dir} record={record} today={today} actions={actions} onOpen={(board, card) => setOver({ board, card })} />;
     }
@@ -1835,6 +1866,8 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
             today={today}
             menu={actions.menu}
             place="record"
+            {...(layoutItem.title && { title: layoutItem.title })}
+            {...(layoutItem.add && { add: layoutItem.add })}
           />
         </div>
       );
@@ -2221,7 +2254,7 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
   const sortOf = (sort: RecordSort | undefined) => (sort && fieldsByKey.has(sort.key) ? sort : firstSort);
   const state: TableState = view
     ? { conditions: view.conditions, sort: sortOf(view.sort), group: view.group ?? null, columns: view.columns ?? null, widths: view.widths ?? null, edit: view.edit ?? null }
-    : { conditions: adHoc, sort: sortOf(look?.sort), group: look?.group ?? null, columns: look?.columns ?? null, widths: look?.widths ?? null, edit: look?.edit ?? null };
+    : { conditions: adHoc, sort: sortOf(look?.sort), group: look?.group ?? null, columns: look?.columns ?? schema.columns ?? null, widths: look?.widths ?? null, edit: look?.edit ?? null };
   const allFields = useMemo(() => tableFields(collection), [collection]);
   // Columns not picked are every field but those shown only sometimes, a warranty's Store, which Columns adds (design/shown-when.md 6).
   const fields = state.columns ? [allFields[0]!, ...state.columns.map((k) => fieldsByKey.get(k)).filter((f): f is Field => !!f && f.key !== allFields[0]!.key)] : allFields.filter((f, i) => i === 0 || !f.when);
@@ -2252,6 +2285,18 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
   const shown = useMemo(() => sortRecords(matching, schema, state.sort, today), [matching, schema, state.sort, today]);
   const groups = useMemo(() => (state.group ? groupRecords(shown, schema, state.group, today, shownAs.get(state.group)) : null), [shown, schema, state.group, today, shownAs]);
   const groupField = state.group ? fieldsByKey.get(state.group) : undefined;
+
+  // A habit's last days (design/more-apps.md 4.9): its calendar that repeats keeps a strip of them
+  // in its tables, a box a day, after the name.
+  const stripView = useMemo(() => (schema.views ?? []).find((v) => v.kind === 'calendar' && v.calendar?.repeat?.strip) ?? null, [schema.views]);
+  const stripDays = useMemo(() => {
+    const n = stripView?.calendar?.repeat?.strip ?? 0;
+    return Array.from({ length: n }, (_, i) => addDays(today, i - n + 1));
+  }, [stripView, today]);
+  const stripItems = useMemo(() => {
+    const items = stripView ? repeatItems(rolled, rolled.records, stripView, stripDays, today, actions.collections(), true) : [];
+    return new Map(items.map((item) => [`${item.record.id}/${item.day}`, item]));
+  }, [stripView, rolled, stripDays, today, actions]);
 
   const calendarItems = useMemo(
     () =>
@@ -2386,9 +2431,59 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
       ],
       { icon: 'collection', title: recordTitle(record), sub: collectionName(dir) },
     );
+  // The strip's head: each day's weekday, today's last; a box: done ticked, today's ringed, one not
+  // the record's day faint; a click ticks a day or takes the tick off, the row's record staying shut.
+  const stripHead = stripView && (
+    <th key="days-strip" className="dstrip">
+      <div className="tc">
+        <span className="days">
+          {stripDays.map((day) => (
+            <i key={day}>{new Date(`${day}T00:00`).toLocaleDateString(locale(), { weekday: 'narrow' })}</i>
+          ))}
+        </span>
+      </div>
+    </th>
+  );
+  // A box is a span that acts as a button: on a phone the row it is in is a button itself.
+  const stripBoxes = (record: Record, days: string[]) => (
+    <span className="days">
+      {days.map((day) => {
+        const item = stripItems.get(`${record.id}/${day}`);
+        const done = item?.state === 'done' || item?.state === 'skipped';
+        const label = new Date(`${day}T00:00`).toLocaleDateString(locale(), { weekday: 'short', month: 'short', day: 'numeric' });
+        if (!item) return <i key={day} className={day === today ? 'off now' : 'off'} title={label} />;
+        const press = (event: SyntheticEvent) => {
+          event.stopPropagation();
+          if (done) actions.reopenDay?.(item);
+          else if (day <= today) actions.skipDay?.(item);
+        };
+        return (
+          <span
+            key={day}
+            role="button"
+            tabIndex={0}
+            className={[done && 'on', day === today && 'now'].filter(Boolean).join(' ') || undefined}
+            title={label}
+            aria-label={label}
+            aria-pressed={done}
+            onClick={press}
+            onKeyDown={(event) => (event.key === 'Enter' || event.key === ' ') && (event.preventDefault(), press(event))}
+          >
+            {done && <Icon name="check" />}
+          </span>
+        );
+      })}
+    </span>
+  );
+  const stripCell = (record: Record) =>
+    stripView && (
+      <td key="days-strip" className="dstrip">
+        <div className="tc">{stripBoxes(record, stripDays)}</div>
+      </td>
+    );
   // A record with several choices is in several groups: its row's key tells them apart. A click
   // on the row opens its record; ▸ at its start opens its lines under it.
-  const span = fields.length + 1;
+  const span = fields.length + 1 + (stripView ? 1 : 0);
   const row = (record: Record, group = '') => (
     <tr
       key={`${group}\u0000${record.id}`}
@@ -2398,7 +2493,7 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
       onContextMenu={(event) => rowMenu(event, record)}
       onKeyDown={(event) => rowKeys(event, () => openRecord(record.id))}
     >
-      {fields.map((field, i) => (
+      {fields.map((field, i) => [
         <td key={field.key} className={[cellClass(field, i), lit.on(record.id, field.key) && 'lit'].filter(Boolean).join(' ') || undefined}>
           {i === 0 && linesOn && (
             <button
@@ -2416,8 +2511,9 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
           <div className="tc" style={boxOf(field)} title={field.key === TITLE.key ? undefined : cutText(asShown(field), fieldValueOf(record, field, schema, today))}>
             {cellOf(record, field)}
           </div>
-        </td>
-      ))}
+        </td>,
+        i === 0 && stripCell(record),
+      ])}
       <td className="tend">
         <button type="button" className="rmore" title={t('collection.menu')} aria-label={t('collection.menu')} onClick={(event) => (event.stopPropagation(), rowMenu(event, record))}>
           ···
@@ -2453,11 +2549,12 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
   );
   const sumRow = (of: Record[], label: string, key: string) => (
     <tr key={key} className="sum">
-      {fields.map((field, i) => (
+      {fields.map((field, i) => [
         <td key={field.key} className={cellClass(field, i)}>
           {i === 0 ? <span className="ct">{label}</span> : sums[i] !== null ? sumText(field, columnSums(of, schema, field.key, today)) : null}
-        </td>
-      ))}
+        </td>,
+        i === 0 && stripView && <td key="days-strip" className="dstrip" />,
+      ])}
       <td className="tend" />
     </tr>
   );
@@ -2531,7 +2628,7 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
       <table className="rtable cview" aria-label={name}>
         <thead>
           <tr>
-            {fields.map(head)}
+            {fields.map((field, i) => [head(field, i), i === 0 && stripHead])}
             <th className="tend" />
           </tr>
         </thead>
@@ -2710,6 +2807,8 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
             else setOpen({ kind: 'new', values });
           }}
           onFields={() => setDesigning(true)}
+          // A habit's last five days on its row, in place of its value on the right.
+          {...(stripView && { strip: (record: Record) => stripBoxes(record, stripDays.slice(-5)) })}
           side={
             calendarView && (
               <div className="mb-seg" role="tablist">

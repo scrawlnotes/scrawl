@@ -25,9 +25,9 @@ export type FieldType = 'name' | 'code' | 'text' | 'number' | 'date' | 'time' | 
 export const FIELD_TYPES: readonly FieldType[] = ['name', 'code', 'text', 'number', 'date', 'time', 'select', 'multi-select', 'checkbox', 'url', 'email', 'phone', 'person', 'link', 'formula', 'lookup', 'rollup'];
 
 /** What a rollup does with what links to the record: counts it, adds it up, averages it, or takes its most or least. */
-export type RollupFn = 'count' | 'sum' | 'avg' | 'max' | 'min';
+export type RollupFn = 'count' | 'sum' | 'avg' | 'max' | 'min' | 'list';
 
-export const ROLLUP_FNS: readonly RollupFn[] = ['count', 'sum', 'avg', 'max', 'min'];
+export const ROLLUP_FNS: readonly RollupFn[] = ['count', 'sum', 'avg', 'max', 'min', 'list'];
 
 /**
  * A value worked out from what links to the record: the records of a collection or the cards of
@@ -63,6 +63,10 @@ export interface NumberFormat {
   currencyField?: string;
   /** 0 to 4; unset for as many as the number has, two at most, or the currency's own. */
   decimals?: number;
+  /** A percent shown as a bar in the table (design/more-apps.md 4.9): a goal's progress. */
+  bar?: true;
+  /** The field whose value the bar says beside it, "7 of 24 books"; else the percent. */
+  caption?: string;
 }
 
 export const FORMAT_STYLES: readonly NumberFormat['style'][] = ['number', 'currency', 'percent', 'duration'];
@@ -159,7 +163,10 @@ export type LayoutItem =
       instead?: string;
     }
   | { block: 'cards' }
-  | { block: 'subtasks' }
+  /** The record's subtasks; `title` and `add` call them by another name: a goal's Steps, Add step. */
+  | { block: 'subtasks'; title?: string; add?: string }
+  /** A record's month on its calendar that repeats, a day clicked done or not done; over it the values of `fields` (a habit's streak, design/more-apps.md 4.9). */
+  | { block: 'days'; fields?: string[] }
   /** The buttons of the collection's rules (`action(…)` in _rules.js). */
   | { block: 'actions' };
 
@@ -256,10 +263,16 @@ export interface RepeatSettings {
   until?: string;
   /** What closes a day: a record of `collection` (its path) whose `link` is the record and whose `day` is that day. */
   closedBy: { collection: string; link: string; day: string };
-  /** The button that opens a new record of `closedBy` for the day. */
-  start?: string;
+  /** The button that opens a new record of `closedBy` for the day; false for none, `skip` then the day's one button, the day done (a habit's Done). */
+  start?: string | false;
   /** The button that closes the day with a record of these values. */
   skip?: { label: string; set: { [key: string]: FieldValue } };
+  /** False: a day gone by with nothing closing it is not kept as late; it is gone (a habit's day missed). */
+  late?: false;
+  /** The number field saying how many days of a week are enough: once that many are closed, its other days that week do not come (a habit three times a week). */
+  perWeek?: string;
+  /** The collection's tables show its last so many days after the name, a box each, a click closing a day or opening it again (a habit's week, design/more-apps.md 4.9). */
+  strip?: number;
 }
 
 /** A saved way of looking at the records: a table, which records, in what order, grouped how, with which columns; or a calendar of them. */
@@ -316,6 +329,8 @@ export interface Schema {
   views?: View[];
   /** The view it opens on, by its id, until another is chosen on a device: an app's calendar. */
   defaultView?: string;
+  /** The plain table's columns after the first, until others are chosen on a device: a habit's streak, not its workings (design/more-apps.md 4.9). */
+  columns?: string[];
   /** The fields; their order is the order of the table's columns. */
   fields: Field[];
   /** The record screen; unset means one column of every field, then the body. */
@@ -567,7 +582,12 @@ function readField(raw: unknown): Field | null {
     field.collection = typeof raw.collection === 'string' ? raw.collection.replace(/^\/+|\/+$/g, '') : '';
     if (raw.many === true) field.many = true;
   }
-  if (type === 'formula') field.formula = typeof raw.formula === 'string' ? raw.formula : '';
+  if (type === 'formula') {
+    field.formula = typeof raw.formula === 'string' ? raw.formula : '';
+    // A formula giving words may color them as a choice's: a goal's On track and Behind.
+    const colors = readColors(raw.colors);
+    if (colors) field.colors = colors;
+  }
   if (type === 'date' && raw.time === true) field.time = true;
   if (type === 'rollup') {
     const r = isRecord(raw.rollup) ? raw.rollup : {};
@@ -613,13 +633,24 @@ function readFormat(raw: unknown): NumberFormat | undefined {
     else if (typeof raw.currency === 'string' && /^[A-Za-z]{3}$/.test(raw.currency.trim())) format.currency = raw.currency.trim().toUpperCase();
   }
   if (typeof raw.decimals === 'number' && Number.isInteger(raw.decimals) && raw.decimals >= 0 && raw.decimals <= 4) format.decimals = raw.decimals;
+  if (style === 'percent' && raw.bar === true) {
+    format.bar = true;
+    if (typeof raw.caption === 'string' && cleanFieldKey(raw.caption)) format.caption = cleanFieldKey(raw.caption);
+  }
   return format;
 }
 
 function readItem(raw: unknown): LayoutItem | null {
   if (!isRecord(raw)) return null;
   if (typeof raw.field === 'string') return { field: cleanFieldKey(raw.field) };
-  if (raw.block === 'body' || raw.block === 'cards' || raw.block === 'subtasks' || raw.block === 'actions') return { block: raw.block };
+  if (raw.block === 'subtasks') {
+    return { block: 'subtasks', ...(typeof raw.title === 'string' && raw.title.trim() && { title: raw.title.trim() }), ...(typeof raw.add === 'string' && raw.add.trim() && { add: raw.add.trim() }) };
+  }
+  if (raw.block === 'body' || raw.block === 'cards' || raw.block === 'actions') return { block: raw.block };
+  if (raw.block === 'days') {
+    const fields = strings(raw.fields).map(cleanFieldKey).filter(Boolean);
+    return { block: 'days', ...(fields.length > 0 && { fields }) };
+  }
   if (raw.block === 'linked' && typeof raw.collection === 'string') {
     const fields = strings(raw.fields).map(cleanFieldKey).filter(Boolean);
     const group = strings(raw.group).map(cleanFieldKey).filter(Boolean).slice(0, 2);
@@ -735,6 +766,8 @@ export function parseSchema(text: string): Schema {
   const views = readViews(data.views, fields);
   if (views.length > 0) schema.views = views;
   if (typeof data.defaultView === 'string' && views.some((v) => v.id === data.defaultView)) schema.defaultView = data.defaultView;
+  const columns = strings(data.columns).map(cleanFieldKey).filter((k) => fields.some((f) => f.key === k));
+  if (columns.length > 0) schema.columns = columns;
   return schema;
 }
 
@@ -834,6 +867,10 @@ function readRepeat(raw: unknown, fields: Field[]): RepeatSettings | null {
     ...(until && { until: until.key }),
     closedBy: { collection: collection.replace(/^\/+|\/+$/g, ''), link: cleanFieldKey(link), day: cleanFieldKey(day) },
     ...(typeof raw.start === 'string' && raw.start.trim() && { start: raw.start.trim() }),
+    ...(raw.start === false && { start: false as const }),
+    ...(raw.late === false && { late: false as const }),
+    ...(typeof raw.strip === 'number' && Number.isInteger(raw.strip) && raw.strip >= 1 && raw.strip <= 14 && { strip: raw.strip }),
+    ...(typeof raw.perWeek === 'string' && fields.some((f) => f.key === cleanFieldKey(raw.perWeek as string)) && { perWeek: cleanFieldKey(raw.perWeek as string) }),
     ...(skip && { skip: { label: (skip.label as string).trim(), set: set as { [key: string]: FieldValue } } }),
   };
 }

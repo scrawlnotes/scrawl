@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { atMinutes, calendarRecords, compareOnDay, dueRecords, layoutDay, minutesBetween, minutesOfDay, movedValues, startingValues, stretchedValues, weekDays, weekStart } from './calendar';
+import { atMinutes, calendarRecords, repeatCalendar, compareOnDay, dueRecords, layoutDay, minutesBetween, minutesOfDay, movedValues, startingValues, stretchedValues, weekDays, weekStart } from './calendar';
 import { calendarStarts, type Collection, evaluateFormula, parseSchema, type Record, serializeSchema, type View } from './collection';
 
 describe('the calendar', () => {
@@ -235,5 +235,25 @@ describe('days that repeat', () => {
     // Weekdays named in another language go by their place among seven, Monday first.
     const local = { ...gym, schema: { ...gym.schema, fields: gym.schema.fields.map((f) => (f.key === 'days' ? { ...f, options: ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'] } : f)) }, records: [record('Gym/Programs', 'p4', { days: ['Çar'] })] };
     expect(dueRecords([local], today, { until: '2026-10-28' }).map((d) => d.day)).toEqual(['2026-10-21', '2026-10-28']);
+  });
+
+  it('brings a habit to Today only: Done its one button, a day missed gone, a week of enough days done (design/more-apps.md 4.9)', () => {
+    // Wednesday 21 October 2026; Monday the 19th done, Tuesday missed.
+    const today = '2026-10-21';
+    const HABIT = { upcoming: 'today', repeat: { days: 'days', from: 'from', closedBy: { collection: 'Gym/Workouts', link: 'program', day: 'day' }, start: false, skip: { label: 'Done', set: {} }, late: false, perWeek: 'times' } };
+    const every = record('Gym/Programs', 'h1', { days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], from: '2026-10-01' });
+    const twice = record('Gym/Programs', 'h2', { days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], from: '2026-10-01', times: 2 });
+    const done = (id: string, day: string) => record('Gym/Workouts', `w-${id}-${day}`, { program: { id, name: id }, day });
+    const base = programs(HABIT, []);
+    const habits = { ...base, schema: parseSchema(JSON.stringify({ version: 2, fields: [...base.schema.fields, { key: 'times', label: 'Times', type: 'number' }], views: [{ id: 'days', name: 'Habit days', kind: 'calendar', calendar: HABIT, conditions: [] }] })), records: [every, twice] } as Collection;
+    expect(habits.schema.views![0]!.calendar!.repeat!).toMatchObject({ start: false, late: false, perWeek: 'times' });
+    const due = (closed: Record[]) => dueRecords([habits], today, { all: [habits, workouts(closed)], until: '2026-10-28' }).map((d) => [d.record.id, d.day, d.late ?? false]);
+    // Today only: no day missed, none to come.
+    expect(due([done('h1', '2026-10-19')])).toEqual([['h1', '2026-10-21', false], ['h2', '2026-10-21', false]]);
+    // Twice a week, done twice: not again this week.
+    expect(due([done('h2', '2026-10-19'), done('h2', '2026-10-20')])).toEqual([['h1', '2026-10-21', false]]);
+    // A day closed by Done is done, not skipped.
+    const days = repeatCalendar(habits, habits.schema.views![0]!, today, '2026-10-19', '2026-10-21', [habits, workouts([done('h1', '2026-10-19')])]);
+    expect(days.filter((d) => d.record.id === 'h1').map((d) => d.state)).toEqual(['done', 'late', 'open']);
   });
 });

@@ -110,6 +110,17 @@ describe('working with time', () => {
     expect(run('workdays(day(starts), next)', { starts: '2026-10-24', next: '2026-10-25' })).toBe(0);
     expect(run('workdays(day(starts), next)', { starts: '2026-10-23', next: '2026-11-02' })).toBe(7);
     expect(run('workdays(next, day(starts))', { starts: '2026-10-23', next: '2026-11-02' })).toBe(-7);
+    // A habit's run (design/more-apps.md 4.9), today Wednesday the 21st: today not done yet does not break it.
+    expect(run('streak(dates(next - 3, next))', { next: '2026-10-21' })).toBe(4);
+    expect(run('streak(dates(next - 3, next))', { next: '2026-10-20' })).toBe(4);
+    expect(run('streak(dates(next - 3, next))', { next: '2026-10-19' })).toBe(0);
+    expect(run('best(dates(next - 5, next))', { next: '2026-10-10' })).toBe(6);
+    // On its days only: Mondays and Wednesdays, the 19th and the 21st done, the 14th missed.
+    expect(run('streak(dates(next, next + 2), ["Mon", "Wed"])', { next: '2026-10-19' })).toBe(2);
+    // Weeks of two days: this week has two, the week before none.
+    expect(run('streak(dates(next, next + 1), [], 2)', { next: '2026-10-19' })).toBe(1);
+    expect(run('streak(dates(next - 7, next + 1), [], 2)', { next: '2026-10-19' })).toBe(2);
+    expect(run('week(next)', { next: '2026-10-21' })).toBe('2026-10-19');
     expect(run('workdays(day(starts), next)', { starts: '2026-01-01', next: '2026-12-31' })).toBe(261);
     expect(run('workdays(day(starts), next)', { starts: '2026-10-22' })).toBeNull();
   });

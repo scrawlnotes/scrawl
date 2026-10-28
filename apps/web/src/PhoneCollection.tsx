@@ -70,6 +70,7 @@ import {
 import { t } from '@scrawlnotes/i18n';
 import { type FormEvent, type MouseEvent, type PointerEvent, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Chip } from './choices';
+import { DaysMonth } from './CollectionCalendar';
 import { type CollectionActions, type Draft, differs, draftOf, excerpt, NotesBlock, recordLayout, savePreview, singularOf, usedValues, type ValueContext, withDrafts } from './Collection';
 import { fieldChoices, LabelSheet } from './labels';
 import { Icon, type IconName } from './Icon';
@@ -722,7 +723,11 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
   const items = layout.columns.flatMap((column) => column.sections.flatMap((section) => section.items));
   // What links here, each in a tab; the record's own subtasks are on the first, with its fields.
   const blocks = items.filter((item): item is LinkedBlock | { block: 'cards' } => 'block' in item && (item.block === 'linked' || item.block === 'cards'));
-  const hasSubtasks = items.some((item) => 'block' in item && item.block === 'subtasks');
+  const subtasksBlock = items.find((item): item is { block: 'subtasks'; title?: string; add?: string } => 'block' in item && item.block === 'subtasks');
+  const hasSubtasks = !!subtasksBlock;
+  // A habit's month (design/more-apps.md 4.9), under its fields.
+  const daysBlock = items.find((item): item is { block: 'days'; fields?: string[] } => 'block' in item && item.block === 'days');
+  const repeating = daysBlock ? (schema.views ?? []).find((v) => v.kind === 'calendar' && v.calendar?.repeat) : undefined;
   // What is worked out from what the page holds now; the rollups are the record's, from what links to it.
   const computer = computerFor(collection, actions.collections(), actions.boards(), today);
   // What the collection's rules will write in its own fields as it is saved: shown in their rows, said under them;
@@ -873,6 +878,21 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
               ))}
               {problemLines.length > 0 && <p className="mb-hint err">{problemLines.join(' ')}</p>}
             </div>
+            {daysBlock && repeating && (
+              <div className="mb-days">
+                <DaysMonth
+                  collection={collection}
+                  record={record}
+                  view={repeating}
+                  stats={(daysBlock.fields ?? []).flatMap((key, i) => {
+                    const field = schema.fields.find((f) => f.key === key);
+                    return field ? [{ label: field.label, value: valueText(computer.values(dir, record)[key] ?? null) || '–', ...(i === 0 && { hot: true }) }] : [];
+                  })}
+                  today={today}
+                  actions={actions}
+                />
+              </div>
+            )}
             <div className="mb-cap mb-cpad">{t('collection.body')}</div>
             <div className="mb-notes">
               <NotesBlock key={resets} home={collection.dir} text={draft.body} editor={actions.editor} attach={actions.attach} onChange={(body) => setDraft((d) => ({ ...d, body }))} />
@@ -888,6 +908,8 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
                 today={today}
                 menu={actions.menu}
                 place="record"
+                {...(subtasksBlock?.title && { title: subtasksBlock.title })}
+                {...(subtasksBlock?.add && { add: subtasksBlock.add })}
               />
             )}
           </>
@@ -1487,7 +1509,9 @@ function LineSheet({ source, block, dir, values, known, today, actions, onDone, 
  * three of the fields the view shows, on the right its number or its day. Grouped, each group has
  * its head with how many and the number added up. A view held opens its menu.
  */
-export function PhoneCollectionList({ name, count, schema, today, fields, records, shown, groups, groupField, closed, filtered, problems, query, views, view, onToggle, onQuery, onPickView, onViewMenu, onViewSheet, onOpen, onAdd, onFields, lines, side, body }: {
+export function PhoneCollectionList({ name, count, schema, today, fields, records, shown, groups, groupField, closed, filtered, problems, query, views, view, onToggle, onQuery, onPickView, onViewMenu, onViewSheet, onOpen, onAdd, onFields, lines, strip, side, body }: {
+  /** On each row's right, in place of a value: a habit's last days, a box each (design/more-apps.md 4.9). */
+  strip?: (record: Entry) => ReactNode;
   /** Beside the name: a calendar's Day and Month. */
   side?: ReactNode;
   /** In place of the list: a calendar. */
@@ -1553,8 +1577,11 @@ export function PhoneCollectionList({ name, count, schema, today, fields, record
             </small>
           )}
         </span>
-        {right && !isEmpty(at) && (
-          <span className={typeof at === 'number' ? 'rt num' : at === today ? 'rt today' : 'rt'}>{workedText(at ?? null, today, right, record.values)}</span>
+        {strip ? (
+          <span className="rt dstrip">{strip(record)}</span>
+        ) : (
+          right &&
+          !isEmpty(at) && <span className={typeof at === 'number' ? 'rt num' : at === today ? 'rt today' : 'rt'}>{workedText(at ?? null, today, right, record.values)}</span>
         )}
       </button>
     );

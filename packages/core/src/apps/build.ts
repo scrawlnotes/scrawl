@@ -165,6 +165,10 @@ class Draft implements AppDraft {
     if (opens) part.defaultView = view.id;
   }
 
+  tableColumns(role: string, keys: string[]) {
+    this.part(role, 'collection').columns = keys;
+  }
+
   rule(role: string, chunk: RuleChunk) {
     const part = this.part(role, 'collection');
     if (!part.rules.some((r) => r.kind === chunk.kind && r.name === chunk.name)) part.rules.push(chunk);
@@ -418,7 +422,7 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
       plan.created.push({ kind: part.kind, path: part.path });
       if (part.kind === 'collection') {
         const layout = layoutFor(part.fields, part.blocks, part.rules.some((r) => r.kind === 'action'));
-        const schema: Schema = { version: 2, template: matchingTemplate(role), ...(part.singular && { singular: part.singular }), role, ...(part.views.length > 0 && { views: part.views }), ...(part.defaultView && { defaultView: part.defaultView }), fields: part.fields, ...(layout && { layout }) };
+        const schema: Schema = { version: 2, template: matchingTemplate(role), ...(part.singular && { singular: part.singular }), role, ...(part.views.length > 0 && { views: part.views }), ...(part.defaultView && { defaultView: part.defaultView }), ...(part.columns && { columns: part.columns }), fields: part.fields, ...(layout && { layout }) };
         plan.dirs.push(part.path);
         file(join(part.path, COLLECTION_FILE), serializeSchema(schema));
         if (part.rules.length > 0) file(join(part.path, RULES_FILE), rulesText(partName(part), part.rules));

@@ -462,6 +462,7 @@ function blockWords(block: Block, collections: Collection[], buttons: string[]):
   if (block.block === 'cards') return [t('fields.cards'), t('fields.cardsMeta')];
   if (block.block === 'subtasks') return [t('subtasks.title'), t('fields.subtasksMeta')];
   if (block.block === 'actions') return [t('fields.buttons'), buttons.length > 0 ? buttons.join(', ') : t('fields.noButtons')];
+  if (block.block === 'days') return [t('fields.days'), t('fields.daysMeta')];
   const source = collections.find((c) => c.dir === block.collection);
   const style = linkedStyle(block, source);
   const shown = (block.fields ?? []).map((key) => source?.schema.fields.find((f) => f.key === key)?.label.toLowerCase() ?? key);

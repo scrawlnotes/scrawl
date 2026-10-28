@@ -3932,6 +3932,50 @@ p { margin: 0; max-width: 68ch; }
 .hl-sug .caret { display: inline-block; width: 1.5px; height: 13px; margin-left: 1px; vertical-align: -2px; background: var(--m-accent); }
 .hl-sug .cc-menu { width: 240px; }
 .hl-sug .cc-menu b { font-weight: 600; }
+/* Habits and goals (draft, Oct 28): ticked in Today, the week as a strip, goals that count themselves. */
+.ca-row.hb-hab { grid-template-columns: minmax(0, 1fr) 196px 92px 96px 84px; }
+.ca-row.hb-goal { grid-template-columns: minmax(0, 1fr) 230px 96px 96px; }
+.hb-days { display: flex; gap: 4px; }
+.hb-days i { display: grid; place-items: center; width: 24px; height: 24px; border: 1px solid var(--m-line); border-radius: 6px; color: var(--m-faint); font-size: 10px; font-style: normal; }
+.hb-days i.on { border-color: transparent; background: var(--m-accent); color: var(--m-on-accent); font-weight: 600; }
+.hb-days i.now { box-shadow: 0 0 0 1.5px var(--m-accent) inset; color: var(--m-fg); }
+.hb-days i.off { border-style: dashed; opacity: .45; }
+.ca-row.head .hb-days i { border: 0; background: none; box-shadow: none; color: var(--m-faint); }
+.hb-streak { color: var(--m-p2); font-weight: 600; }
+.hb-bar { display: flex; align-items: center; gap: 10px; }
+.hb-bar .b { flex: 1; height: 6px; border-radius: 3px; background: var(--m-line); overflow: hidden; }
+.hb-bar .b i { display: block; height: 100%; border-radius: 3px; background: var(--m-accent); }
+.hb-bar small { color: var(--m-dim); font-size: 11.5px; white-space: nowrap; }
+.hb-month { display: grid; grid-template-columns: repeat(7, 30px); gap: 5px; margin: 6px 0 14px; }
+.hb-month span { display: grid; place-items: center; height: 30px; border-radius: 7px; background: color-mix(in srgb, var(--m-line) 55%, transparent); color: var(--m-faint); font-size: 11px; }
+.hb-month span.h { height: 18px; background: none; }
+.hb-month span.on { background: var(--m-accent); color: var(--m-on-accent); font-weight: 600; }
+.hb-month span.off { background: none; opacity: .4; }
+.hb-month span.now { box-shadow: 0 0 0 1.5px var(--m-accent) inset; color: var(--m-fg); }
+.hb-month span.no { background: none; }
+.hb-stats { display: flex; gap: 22px; margin-bottom: 8px; }
+.hb-stats div { display: flex; flex-direction: column; }
+.hb-stats b { font-size: 20px; font-weight: 600; }
+.hb-stats small { color: var(--m-faint); font-size: 11px; }
+.hb-chips { display: flex; gap: 4px; }
+.hb-chips span { padding: 1px 7px; border: 1px solid var(--m-line); border-radius: 5px; color: var(--m-faint); font-size: 11.5px; }
+.hb-chips span.on { border-color: var(--m-accent); color: var(--m-fg); }
+.hb-upd { position: relative; }
+.hb-upd .cc-menu { position: absolute; left: 0; bottom: 34px; width: 230px; padding: 10px; gap: 8px; }
+.hb-upd .cc-menu .q { padding: 4px 8px; border: 1px solid var(--m-accent); border-radius: 5px; background: var(--m-bg); color: var(--m-fg); }
+.hb-upd .cc-menu .row { display: flex; justify-content: flex-end; gap: 6px; }
+.hb-stp { display: flex; align-items: center; gap: 8px; padding: 6px 2px; border-bottom: 1px solid var(--m-line); }
+.hb-stp .c { width: 15px; height: 15px; border: 1.5px solid var(--m-faint); border-radius: 50%; box-sizing: border-box; }
+.hb-stp.done .c { border-color: var(--m-accent); background: var(--m-accent); }
+.hb-stp.done .t { color: var(--m-faint); text-decoration: line-through; }
+.hb-stp .t { flex: 1; }
+.hb-stp .dt { color: var(--m-dim); font-size: 11.5px; }
+.mbs .hb-mrow { display: flex; align-items: center; gap: 10px; padding: 10px 14px; }
+.mbs .hb-mrow + .hb-mrow { border-top: 1px solid var(--m-line); }
+.mbs .hb-mrow .tx { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.mbs .hb-mrow .tx b { font-weight: 500; font-size: 15px; }
+.mbs .hb-mrow .tx small { color: var(--m-faint); font-size: 12.5px; }
+.mbs .hb-mrow .hb-days i { width: 18px; height: 18px; font-size: 9px; border-radius: 5px; }
 .ca-row.mp-plan { grid-template-columns: minmax(0, 1fr) 210px 96px 96px 70px 84px; }
 .ca-row.mp-day { grid-template-columns: 150px minmax(0, 1fr) 96px 100px 84px minmax(0, 1fr); }
 .ca-row.mp-today { background: color-mix(in srgb, var(--m-sel) 30%, transparent); }
@@ -4907,13 +4951,34 @@ p { margin: 0; max-width: 68ch; }
     <div class="scroller"><div class="mock dir-a"></div></div>
   </section>
 
+  <section class="dir" data-dir="habits">
+    <div class="brief">
+      <div>
+        <span class="letter">SCRAWL APPS · TASLAK</span>
+        <h2>Alışkanlıklar ve hedefler: Today'den tek tıkla</h2>
+        <p>Streaks, Loop Habit Tracker ve Strides gibi. <b>Habits</b>: ad ve sıklık (Every day, On some days, Times a week); her alışkanlık kendi gününde Today'e gelir, <b>Done</b> tek tıkla o günü yazar, Undo geri alır. Kaçan gün Overdue'ya düşmez. Haftada birkaç kez olan, haftanın sayısı dolana dek her gün gelir. Tabloda son 7 gün şerit: bir güne tıklamak o günü işaretler ya da kaldırır, unutulan gün böyle yazılır. Seri, en iyi seri ve son 30 gün kendiliğinden. Check-ins arkada, menüde yok. <b>Goals</b>: sayıyla (24 kitap, 5 kilo) ya da adımlarla; sayılı hedefte <b>Update</b> tek küçük pencereyle şimdiki değeri yazar; adımlı hedefte adımlar kaydın alt görevleri, tarihli olan Today ve Upcoming'e gelir, orada işaretlenir. İlerleme ve durum (On track, Behind, Done) hedef güne göre kendiliğinden; hedef günü Upcoming'de. Alışkanlıklar Upcoming'de görünmez.</p>
+        <ul class="traits"><li>Today'de Done</li><li>Undo</li><li>7 günlük şerit</li><li>seri</li><li>haftada N kez</li><li>Overdue yok</li><li>Update ile ilerleme</li><li>adımlar alt görev</li><li>durum hesaplanır</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Alışkanlık görünümü">
+        <button type="button" data-hbview="hbtoday">Today</button>
+        <button type="button" data-hbview="hbhabits">Habits</button>
+        <button type="button" data-hbview="hbhabit">Habit</button>
+        <button type="button" data-hbview="hbgoals">Goals</button>
+        <button type="button" data-hbview="hbgoal">Goal</button>
+        <button type="button" data-hbview="hbsteps">Goal: steps</button>
+        <button type="button" data-hbview="hbphone">Telefon</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
   <section class="dir" data-dir="health">
     <div class="brief">
       <div>
         <span class="letter">SCRAWL APPS · TASLAK</span>
         <h2>Sağlık: en az girişle</h2>
         <p>Medisafe, MyTherapy ve aile sağlık uygulamaları gibi. <b>Medicines</b>: ad, doz, günde kaç kez, kutudaki adet; bitiş günü kendiliğinden hesaplanır, bitmeden 5 gün önce Today'e gelir; <b>Refilled</b> sayacı yeniler. <b>Appointments</b>: doktor ve yer yazılır, daha önce yazılanlar yazarken öneri olarak çıkar; ayrı doktor kaydı yok; o gün Today'de; <b>Book follow-up</b> "6 ay sonra" diye sıradakini açar. <b>Check-ups</b>: diş, göz, yıllık kontrol, grip aşısı gibi tekrar edenler, her kişi için; Done sıradakini yazar. <b>Records</b>: tahlil, rapor, reçete, dosyası notlarda. Aile varsa her kayıtta kişi; tek kişiyken alan görünmez.</p>
-        <ul class="traits"><li>ilaç bitişi hesaplanır</li><li>Refilled</li><li>doktordan gelen yer</li><li>Book follow-up</li><li>tekrar eden kontroller</li><li>kişi başına</li><li>sonuçlar dosya</li><li>Today'de yalnız gerekenler</li></ul>
+        <ul class="traits"><li>ilaç bitişi hesaplanır</li><li>Refilled</li><li>önceki doktor önerilir</li><li>Book follow-up</li><li>tekrar eden kontroller</li><li>kişi başına</li><li>sonuçlar dosya</li><li>Today'de yalnız gerekenler</li></ul>
       </div>
       <span class="pick" role="group" aria-label="Sağlık görünümü">
         <button type="button" data-hlview="hltoday">Today</button>
@@ -15130,6 +15195,158 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderHl(sectionHl, b.dataset.hlview);
   });
   renderHl(sectionHl, 'hltoday');
+
+  // Habits and goals (draft, Oct 28): a habit is ticked from Today with one click, its week a strip
+  // in the table, a day forgotten ticked there; a goal counts itself, by a number or by its steps.
+  LC['On track'] = '#5cb87a'; LC.Behind = '#e0a040'; LC.Done = '#6aa5f0';
+  var HB_APP = 'Habits and goals';
+  var HB_MODS = ['Home', 'Habits', 'Goals'];
+  function hbTree() {
+    return '<div class="tree fxt">' + row({ label: 'Today', ct: 5 }) + row({ label: 'Upcoming', ct: 2 }) +
+      opRowT({ sp: true, open: true, label: 'Personal' }) +
+      ahRow(HB_APP, { on: true, icon: ICON.app }) + ahRow('Health', { icon: ICON.app }) + '</div>' + spFoot(null);
+  }
+  function hbWindow(kind, left, right, foot) {
+    var head = ICON.collection + '<span>' + kind + ' · ' + HB_APP + '</span><span class="open" title="Open in a tab">' + ICON.open + '</span><span class="more">···</span><span class="x">×</span>';
+    return '<div class="ovl center"><div class="rmod cc-rm' + (right ? '' : ' sw-rm') + '"><div class="cp-head">' + head + '</div>' +
+      '<div class="cc-cols"><div class="cc-col">' + left + '</div>' + (right ? '<div class="cc-col">' + right + '</div>' : '') + '</div>' +
+      '<div class="rm-foot">' + (foot || '<span class="st-btn">Cancel</span>') + '</div></div></div>';
+  }
+  // The last seven days, Thursday today: 1 done, 0 not, - not its day.
+  var HB_WEEK = ['F', 'S', 'S', 'M', 'T', 'W', 'T'];
+  function hbDays(marks) {
+    return '<span class="hb-days">' + marks.split('').map(function (m, i) {
+      return '<i class="' + (m === '1' ? 'on' : m === '-' ? 'off' : '') + (i === 6 ? ' now' : '') + '">' + (m === '1' ? '✓' : HB_WEEK[i]) + '</i>';
+    }).join('') + '</span>';
+  }
+  var HB_HABITS = [
+    ['Walk 30 minutes', 'Every day', '1111110', '12 days', '6 of 7', '90%'],
+    ['Read 20 pages', 'Every day', '1101111', '4 days', '6 of 7', '83%'],
+    ['Gym', '3 times a week', '0101000', '3 weeks', '2 of 3', '100%'],
+    ['Call mom', 'On Sun', '--1----', '6 weeks', '1 of 1', '100%'],
+    ['In bed by 23:00', 'Every day', '0110100', '–', '3 of 7', '52%']
+  ];
+  function hbHabits() {
+    var head = '<div class="ca-row hb-hab head"><span>Habit</span>' + hbDays('0000000').replace(/✓/g, '') + '<span>Streak</span><span>This week</span><span>30 days</span></div>';
+    var rows = HB_HABITS.map(function (h) {
+      return '<div class="ca-row hb-hab"><span class="tt">' + h[0] + '<small style="margin-left:8px;color:var(--m-faint);font-size:11.5px">' + h[1] + '</small></span>' + hbDays(h[2]) +
+        '<span class="' + (h[3] === '–' ? 'calc' : 'hb-streak') + '">' + (h[3] === '–' ? '–' : '🔥 ' + h[3]) + '</span><span>' + h[4] + '</span><span class="calc">' + h[5] + '</span></div>';
+    }).join('');
+    return '<div class="ah">' + ahTop(HB_APP, ICON.app, HB_MODS, 'Habits') + ahScreen(['All'], head, rows) + '</div>';
+  }
+  /** A habit: its name and how often; its month on the right, a day clicked ticks it or takes it off. */
+  function hbHabit() {
+    var left = ccProp('Name', 'Gym', { req: true }) +
+      ccProp('How often', 'Times a week', { dd: true }) + ccProp('Times a week', '3') +
+      ccProp('Notes', 'Pazartesi, çarşamba ya da cuma; hangisi olursa.', { body: true });
+    var days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map(function (d) { return '<span class="h">' + d + '</span>'; }).join('');
+    var done = { 1: 1, 3: 1, 6: 1, 8: 1, 10: 1, 12: 1, 15: 1, 17: 1, 19: 1, 20: 1, 22: 1, 24: 1, 26: 1 };
+    var cells = '<span class="no"></span><span class="no"></span><span class="no"></span>';
+    for (var d = 1; d <= 31; d++) cells += '<span class="' + (d > 29 ? 'off' : done[d] ? 'on' : '') + (d === 29 ? ' now' : '') + '">' + d + '</span>';
+    var right = '<div class="cc-blk"><div class="blk-h">October</div>' +
+      '<div class="hb-stats"><div><b class="hb-streak">🔥 3 weeks</b><small>Streak</small></div><div><b>5 weeks</b><small>Best</small></div><div><b>13</b><small>In 30 days</small></div></div>' +
+      '<div class="hb-month">' + days + cells + '</div></div>';
+    return hbWindow('Habits', left, right, '<span class="hint">Click a day to tick it or take it off</span><span class="st-btn">Cancel</span>');
+  }
+  var HB_GOALS = [
+    ['Read 24 books', 29, '7 of 24 books', 'Dec 31', 'Behind'],
+    ['Lose 5 kg', 60, '3 of 5 kg', 'Jan 15', 'On track'],
+    ['Run a half marathon', 40, '2 of 5 steps', 'Apr 12', 'On track'],
+    ['Save for the car', 100, '150,000 of 150,000 ₺', 'Oct 1', 'Done']
+  ];
+  function hbGoals() {
+    var head = '<div class="ca-row hb-goal head"><span>Goal</span><span>Progress</span><span class="sorted">By ↑</span><span>Status</span></div>';
+    var rows = HB_GOALS.map(function (g) {
+      return '<div class="ca-row hb-goal"><span class="tt">' + g[0] + '</span><span class="hb-bar"><span class="b"><i style="width:' + g[1] + '%"></i></span><small>' + g[2] + '</small></span><span class="dt">' + g[3] + '</span>' + lbl(g[4]) + '</div>';
+    }).join('');
+    return '<div class="ah">' + ahTop(HB_APP, ICON.app, HB_MODS, 'Goals') + ahScreen(['Open', 'All'], head, rows) + '</div>';
+  }
+  /** A goal by a number: where it started, where it should get, where it is; Update writes where it is now. */
+  function hbGoal() {
+    var left = ccProp('Name', 'Read 24 books', { req: true }) +
+      '<div class="cc-two">' + ccProp('Measure', '<span class="hb-chips"><span class="on">Number</span><span>Steps</span></span>') + ccProp('Unit', 'books') + '</div>' +
+      '<div class="cc-two">' + ccProp('Start', '0') + ccProp('Target', '24') + '</div>' +
+      '<div class="cc-two">' + ccProp('Since', 'Jan 1, 2026') + ccProp('By', 'Dec 31, 2026') + '</div>' +
+      '<div class="cc-two">' + ccProp('Now', '7') + ccProp('Progress', '<span class="calc">29% · ' + lbl('Behind') + ' 20 by now</span>') + '</div>' +
+      ccProp('Notes', 'Kütüphaneden ayda iki kitap.', { body: true });
+    var ask = saAsk('Update', 'Read 24 books: where it is now.', saQ('Now (books)', '8<span class="caret"></span>', { req: true, on: true }),
+      '<li>Now 7 → 8: 33%, 4 behind for Oct 29</li>', 'Update');
+    return hbWindow('Goals', left, '', '<span class="st-btn">Update</span><span class="hint">Where it is now; progress and status work themselves out</span><span class="st-btn">Cancel</span>') + ask;
+  }
+  /** A goal by its steps: the steps are the record's subtasks; one with a day comes to Today and Upcoming. */
+  function hbSteps() {
+    var left = ccProp('Name', 'Run a half marathon', { req: true }) +
+      ccProp('Measure', '<span class="hb-chips"><span>Number</span><span class="on">Steps</span></span>') +
+      '<div class="cc-two">' + ccProp('Since', 'Sep 1, 2026') + ccProp('By', 'Apr 12, 2027') + '</div>' +
+      ccProp('Progress', '<span class="calc">2 of 5 steps · ' + lbl('On track') + '</span>') +
+      ccProp('Notes', 'İstanbul Yarı Maratonu.', { body: true });
+    var steps = [['Buy running shoes', 'Sep 10', true], ['Run 5 km without stopping', 'Oct 15', true], ['Sign up for the race', 'Nov 20', false], ['Run 15 km', 'Feb 1', false], ['Race day', 'Apr 12', false]];
+    var right = '<div class="cc-blk"><div class="blk-h">Steps <small>5</small></div>' + steps.map(function (st) {
+      return '<div class="hb-stp' + (st[2] ? ' done' : '') + '"><span class="c"></span><span class="t">' + st[0] + '</span><span class="dt">' + st[1] + '</span></div>';
+    }).join('') + '<div class="cc-addrow">+ Add step</div></div>';
+    return hbWindow('Goals', left, right);
+  }
+  function hbRec(title, meta, btns) {
+    return '<div class="task c3-rec" style="--cc: #5cb87a"><span class="c3-rbar"></span><div><div class="tt">' + title + '</div>' +
+      '<div class="meta">' + meta + '</div>' + (btns ? '<div class="gy-acts">' + btns + '</div>' : '') + '</div></div>';
+  }
+  function hbToday() {
+    var done = '<span class="st-btn go">Done</span>';
+    var body = '<div class="tasksv"><div class="th"><b>Today</b><span class="c3-date">Thu, Oct 29</span><button type="button" class="add">Add task</button></div><div class="tl">' +
+      '<div class="sec">Today <small>5</small></div>' +
+      upTask({ t: 'Pay the rent', w: 'Inbox', p: 'p2' }) +
+      hbRec('Read 20 pages', '<span>' + ICON.collection + 'Habits</span><span class="hb-streak">🔥 4 days</span>', done) +
+      hbRec('Gym', '<span>' + ICON.collection + 'Habits</span><span>1 more this week</span>', done) +
+      hbRec('In bed by 23:00', '<span>' + ICON.collection + 'Habits</span><span>3 of 7 this week</span>', done) +
+      upTask({ t: 'Sign up for the race', w: 'Run a half marathon', p: '' }) +
+      '<div class="qa">+ Add task</div></div></div>';
+    return '<aside class="side">' + hbTree() + '</aside><section class="main"><div class="panes">' + pane(tab('tasks', 'Today', 'x', true) + '<div class="tab plus">+</div>', body) + '</div>' +
+      '<div class="status"><span>2 tasks · 3 records</span>' + syncStatus(false, null) + '</div></section>' +
+      '<div class="cd-toast">Walk 30 minutes: done today<span class="undo">Undo</span></div>';
+  }
+  function hbPhone() {
+    var today = mbPage(mbHead('Today', 'Thursday, Oct 29', true),
+      '<div class="gy-mcap">Today</div><div class="gy-mtoday">' +
+      '<div class="gy-mt">' + ICON.collection + '<span class="tx"><b>Read 20 pages</b><small>Habits · 🔥 4 days</small></span><span class="go">Done</span></div>' +
+      '<div class="gy-mt">' + ICON.collection + '<span class="tx"><b>Gym</b><small>Habits · 1 more this week</small></span><span class="go">Done</span></div>' +
+      '<div class="gy-mt">' + ICON.collection + '<span class="tx"><b>In bed by 23:00</b><small>Habits · 3 of 7 this week</small></span><span class="go">Done</span></div>' +
+      '<div class="gy-mt"><span class="rc"></span><span class="tx"><b>Sign up for the race</b><small>Run a half marathon</small></span></div></div>' +
+      '<div class="mb-toast undo"><span>Walk 30 minutes: done today</span><span class="u">Undo</span></div>');
+    var nav = '<div class="mb-nav"><span class="back">' + ICON.chevl + HB_APP + '</span><span class="acts"></span></div>';
+    var list = mbPage(nav + '<div class="mb-rhead"><h2>Habits</h2></div>',
+      '<div class="gy-mtoday">' + HB_HABITS.map(function (h) {
+        return '<div class="hb-mrow"><span class="tx"><b>' + h[0] + '</b><small>' + (h[3] === '–' ? h[1] : '🔥 ' + h[3] + ' · ' + h[1]) + '</small></span>' + hbDays(h[2].slice(2)).replace(/<i class="([^"]*)">[A-Z]<\/i>/g, '<i class="$1"></i>') + '</div>';
+      }).join('') + '</div>');
+    return mbPhone('Today: alışkanlık tek dokunuşla, Undo', today, mbTabs('today')) + mbPhone('Habits: son 5 gün, dokununca işaretlenir', list, '');
+  }
+  var HB_VIEWS = {
+    hbtoday: hbToday,
+    hbhabits: function () { return ahFrame(hbTree(), 'app', HB_APP, hbHabits(), '5 records'); },
+    hbhabit: function () { return ahFrame(hbTree(), 'app', HB_APP, hbHabits(), '5 records', hbHabit()); },
+    hbgoals: function () { return ahFrame(hbTree(), 'app', HB_APP, hbGoals(), '4 records · Open'); },
+    hbgoal: function () { return ahFrame(hbTree(), 'app', HB_APP, hbGoals(), '4 records · Open', hbGoal()); },
+    hbsteps: function () { return ahFrame(hbTree(), 'app', HB_APP, hbGoals(), '4 records · Open', hbSteps()); }
+  };
+  function renderHb(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (view === 'hbphone') {
+      mock.className = 'mock dir-a phones four mbs';
+      mock.innerHTML = hbPhone();
+    } else {
+      mock.className = 'mock dir-a' + (view === 'hbtoday' ? '' : ' wider');
+      mock.innerHTML = HB_VIEWS[view]();
+    }
+    section.querySelectorAll('.brief [data-hbview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.hbview === view));
+    });
+  }
+  var sectionHb = document.querySelector('.dir[data-dir="habits"]');
+  sectionHb.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-hbview]');
+    if (b) renderHb(sectionHb, b.dataset.hbview);
+  });
+  renderHb(sectionHb, 'hbtoday');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });

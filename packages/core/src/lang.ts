@@ -578,12 +578,14 @@ export function kindOfField(field: Field, scope: Scope, stack: string[] = []): K
       const r = field.rollup;
       if (!r || r.fn === 'count' || r.fn === 'sum' || r.fn === 'avg') return 'number';
       const source = scope.schemaOf?.(r.from)?.fields.find((f) => f.key === r.field);
-      if (!source) return 'any';
+      if (!source) return r.fn === 'list' ? { list: 'any' } : 'any';
       try {
         const kind = kindOfField(source, { ...scope, fields: scope.schemaOf?.(r.from)?.fields ?? [] }, [...stack, `${r.from}#${source.key}`]);
-        return kind === 'number' || kind === 'day' || kind === 'time' ? kind : 'any';
+        const one = kind === 'number' || kind === 'day' || kind === 'time' ? kind : 'any';
+        // All of them: a list of what each holds, a habit's days.
+        return r.fn === 'list' ? { list: one } : one;
       } catch {
-        return 'any';
+        return r.fn === 'list' ? { list: 'any' } : 'any';
       }
     }
     default:
@@ -654,6 +656,20 @@ const FNS: { [name: string]: FnSpec } = {
       return 'day';
     },
   },
+  // A habit's run (design/more-apps.md 4.9): of the days it was done, how many of its days in a row
+  // up to today, or weeks of enough days with a number a week; the longest run ever.
+  streak: { args: [1, 3], kind: (args, nodes) => runKind('streak', args, nodes) },
+  best: { args: [1, 3], kind: (args, nodes) => runKind('best', args, nodes) },
+  // The Monday of a day's week.
+  week: {
+    args: [1, 1],
+    kind: ([a], [n]) => {
+      need(DAYISH(a!), t('lang.fnDay', { fn: 'week' }), n!);
+      return 'day';
+    },
+  },
+  // A record's subtasks, all, or with true those done: a goal's steps.
+  steps: { args: [0, 1], kind: () => 'number' },
   // Every day from one to another, both in: a plan's days, written as records (design/meal-plans.md 2).
   dates: {
     args: [2, 2],
@@ -1209,6 +1225,8 @@ export interface Env {
   cardMember?(card: CardRef, key: string): RV;
   /** The parts visited so far, shared by everything one rule works out. */
   steps?: { n: number };
+  /** The record's subtasks: how many, and how many done. */
+  subtasks?(): { all: number; done: number };
 }
 
 /** The days of the week as weekday() gives them, from Sunday, as JS counts them. */
@@ -1402,6 +1420,73 @@ function workdays(a: Day, b: Day): number {
   return count;
 }
 
+/** The weekday of a day number, 0 Sunday to 6 Saturday: 1970-01-01, day 0, was a Thursday. */
+const weekdayOfN = (n: number) => (((n + 4) % 7) + 7) % 7;
+/** The Monday of a day number's week. */
+const mondayOf = (n: number) => n - ((weekdayOfN(n) + 6) % 7);
+
+/** What streak() and best() take: a list of days, the weekdays it comes on, how many days a week. */
+function runKind(fn: string, [a, b, c]: Kind[], [n, m, o]: Node[]): Kind {
+  need(a === 'any' || a === 'null' || (isList(a!) && DAYISH(a.list)), t('lang.fnDays', { fn }), n!);
+  if (b !== undefined) need(b === 'any' || b === 'null' || b === 'text' || isList(b), t('lang.fnWeekdays', { fn }), m!);
+  if (c !== undefined) need(NUMBERISH(c), t('lang.fnNumber', { fn }), o!);
+  return 'number';
+}
+
+/**
+ * A habit's run up to today, or its longest: `days` the days it was done, `on` the weekdays it comes
+ * on (all of them when none are named), `perWeek` a number of days a week enough for a week. Days:
+ * its days in a row, done, back from today, today counted only once it is done; days not its own
+ * neither count nor break it. Weeks: the weeks in a row, Monday to Sunday, with as many days done.
+ */
+function runOf(fn: string, days: Day[], on: RV, perWeek: RV, today: string): number {
+  const done = new Set(days.map((d) => d.n));
+  if (done.size === 0) return 0;
+  const now = (dayValue(today) as Day).n;
+  const first = Math.min(...done);
+  const per = typeof perWeek === 'number' && perWeek > 0 ? perWeek : null;
+  if (per) {
+    const enough = (w: number) => {
+      let count = 0;
+      for (let d = w; d < w + 7; d++) if (done.has(d)) count++;
+      return count >= per;
+    };
+    const thisWeek = mondayOf(now);
+    if (fn === 'best') {
+      let best = 0;
+      let run = 0;
+      for (let w = mondayOf(first); w <= thisWeek; w += 7) {
+        run = enough(w) ? run + 1 : 0;
+        best = Math.max(best, run);
+      }
+      return best;
+    }
+    let count = 0;
+    for (let w = enough(thisWeek) ? thisWeek : thisWeek - 7; w >= mondayOf(first) && enough(w); w -= 7) count++;
+    return count;
+  }
+  const names = (Array.isArray(on) ? on : [on]).filter((v): v is string => typeof v === 'string');
+  const weekdays = new Set(names.map((v) => WEEKDAYS.findIndex((w) => w.toLowerCase() === v.trim().slice(0, 3).toLowerCase())).filter((w) => w >= 0));
+  const its = (n: number) => weekdays.size === 0 || weekdays.has(weekdayOfN(n));
+  if (fn === 'best') {
+    let best = 0;
+    let run = 0;
+    for (let d = first; d <= now; d++) {
+      if (!its(d)) continue;
+      run = done.has(d) ? run + 1 : d === now ? run : 0;
+      best = Math.max(best, run);
+    }
+    return best;
+  }
+  let count = 0;
+  for (let d = done.has(now) ? now : now - 1; d >= first; d--) {
+    if (!its(d)) continue;
+    if (!done.has(d)) break;
+    count++;
+  }
+  return count;
+}
+
 /** This device's clock on `today`, for now() where none is given. */
 function nowOn(today: string): string {
   const d = new Date();
@@ -1430,6 +1515,13 @@ function call(fn: string, args: RV[], env: Env): RV {
       return a instanceof Day && b instanceof Day ? workdays(a, b) : null;
     case 'day':
       return a instanceof Day ? new Day(a.n) : null;
+    case 'streak':
+    case 'best':
+      return runOf(fn, daysIn([a ?? null]), args[1] ?? null, args[2] ?? null, env.today);
+    case 'week':
+      return a instanceof Day ? new Day(mondayOf(a.n)) : null;
+    case 'steps':
+      return (a === true ? env.subtasks?.().done : env.subtasks?.().all) ?? 0;
     case 'dates':
       // Ten years at most, so that a day written wrong does not run on.
       return a instanceof Day && b instanceof Day ? Array.from({ length: Math.max(0, Math.min(b.n - a.n + 1, 3660)) }, (_, i) => new Day(a.n + i)) : [];

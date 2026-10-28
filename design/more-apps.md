@@ -226,11 +226,17 @@ Kişi için kurulur; para birimi kişisel finansta sorulur.
 
 ### 4.9 Alışkanlıklar ve kişisel hedefler (Health)
 
-- **Habits:** ad, sıklık (Daily, Weekly), haftalık hedef; son 7 günde, bugün yapıldı mı.
-- **Check-ins:** alışkanlık, gün. Done today düğmesi bugünün kaydını yazar, bir gün bir kez.
-- **Goals:** ad, son gün, ilerleme, durum, not.
-- **Takvim:** hedeflerin son günleri.
-- **Sorular:** alışkanlıklarınız (liste, hazır), kişisel hedefler tutulsun mu.
+28 Ekim, "en az giriş, işin önünde engel yok" ölçütüyle baştan (Streaks, Loop Habit Tracker, Strides örnek). Mockup: `design/mockups.html` › Alışkanlıklar ve hedefler: Today'den tek tıkla.
+
+- **Habits:** ad, sıklık: Every day, On some days (günler, yalnız o seçilince), Times a week (kaç kez, yalnız o seçilince). Her alışkanlık kendi gününde Today'e gelir; **Done** tek tıkla o günün kaydını yazar, toast ve Undo. Kaçan gün Overdue'ya düşmez, birikmez. Haftada N kez olan, o haftanın sayısı dolana dek her gün gelir. Upcoming'de görünmez.
+- **Tabloda son 7 gün:** her gün bir kutu; yapılan işaretli, bugün çerçeveli, alışkanlığın günü olmayan soluk; tıklamak o günü işaretler ya da kaldırır (unutulan gün böyle yazılır). Yanında seri (🔥 12 days; haftada N kez olanda hafta), bu hafta (6 of 7) ve son 30 gün yüzdesi.
+- **Pencere:** solda ad ve sıklık; sağda ayın takvimi, günlere tıklanarak işaretlenir, üstünde seri, en iyi seri, 30 günde kaç kez.
+- **Check-ins:** alışkanlık ve gün; arkada tutulur, menüde yok. Today'deki Done, tablodaki ve penceredeki kutular bunu yazar ya da siler.
+- **Goals:** ölçüsüyle iki türlü. **Number:** Start, Target, Unit, Now; **Update** küçük pencerede şimdiki değeri sorar. **Steps:** adımlar kaydın alt görevleri, tarihli olan Today ve Upcoming'e gelir ve orada işaretlenir. Since (bugün) ve By. İlerleme (çubuk ve "7 of 24 books" ya da "2 of 5 steps") ve durum (On track, Behind, Done) kendiliğinden: Behind, Since'ten By'a geçen süreye göre olması gerekenin gerisinde. Hedef günü Upcoming'de; geçmiş ve bitmemiş hedef işaretlenir.
+- **Uygulamanın geri kalanıyla:** alışkanlık Today'de işaretlenir, Upcoming'de yok; hedef günü Upcoming'de; hedefin adımları alt görev olarak Today ve Upcoming'de. Chat için fırsat yok.
+- **Sorular:** alışkanlıklarınız, sıklığı sözünden okunur ("Walk 30 minutes" her gün, "Gym 3 times a week", "Call mom on Sunday"); kişisel hedefler tutulsun mu.
+- **Altyapı:** tekrar eden takvimde Start'sız tek düğmeyle kapanan gün (`start: false`, düğmesi `skip`), geçen günün late kalmaması (`late: false`), haftada N kez (`perWeek`, o hafta dolunca kalan günler gelmez); tabloda son N günün şeridi (görünümde `days`), pencerede ayın takvimi (`days` bloğu); kural dilinde `streak`, `best`, `week`, `steps`, `stepsDone`; yüzde alanı çubuk (`bar`, yanında `caption`), formül alanında renkli seçenekler (`colors`); koleksiyonun düz tablosuna varsayılan sütunlar (`columns`); alt görev bloğuna başka ad (`title`, `add`: Steps, Add step); şerit ve ayda alışkanlığın başlangıcından önceki gün de işaretlenir.
+- Önceden kurulmuş Habits and goals app'leri olduğu gibi kalır.
 
 ### 4.10 Spor ve antrenman (Health)
 

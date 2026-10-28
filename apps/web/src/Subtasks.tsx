@@ -32,6 +32,9 @@ export interface SubtasksProps {
   place: 'card' | 'record';
   /** On a phone, in a sheet's form, whose parts are set in from its edges already. */
   inSheet?: boolean;
+  /** What they are called where they are, and the line that adds one: a goal's Steps, + Add step. */
+  title?: string;
+  add?: string;
 }
 
 /** On a phone, a sheet opened for a subtask: its day or who it is given to. */
@@ -267,7 +270,7 @@ function DesktopSubtasks(props: SubtasksProps) {
         </div>
       ) : (
         <div className="blk-h">
-          <span>{t('subtasks.title')}</span>
+          <span>{props.title ?? t('subtasks.title')}</span>
           <Progress list={list} />
         </div>
       )}
@@ -282,7 +285,7 @@ function DesktopSubtasks(props: SubtasksProps) {
           />
         ) : (
           <button type="button" className="qa" onClick={() => setAdding(true)}>
-            {t('subtasks.addRow')}
+            {props.add ?? t('subtasks.addRow')}
           </button>
         )}
         {done.length > 0 && (
@@ -464,7 +467,7 @@ function PhoneSubtasks(props: SubtasksProps) {
   );
   return (
     <>
-      <div className={inSheet ? 'mb-cap' : 'mb-cap mb-cpad'}>{progress.total > 0 ? t('phone.subtasksDone', { done: progress.done, total: progress.total }) : t('subtasks.title')}</div>
+      <div className={inSheet ? 'mb-cap' : 'mb-cap mb-cpad'}>{props.title ? `${props.title}${progress.total > 0 ? ` · ${progress.done}/${progress.total}` : ''}` : progress.total > 0 ? t('phone.subtasksDone', { done: progress.done, total: progress.total }) : t('subtasks.title')}</div>
       {/* Set in from the page's edges as its fields are; a sheet's form is already. */}
       {inSheet ? group : <div className="mb-form mb-stk">{group}</div>}
       {picking?.what === 'date' && picked && (

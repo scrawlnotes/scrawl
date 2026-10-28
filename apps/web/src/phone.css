@@ -9994,3 +9994,8 @@ body > .mb-lifted {
   margin: 8px 0 2px;
   padding: 0;
 }
+
+/* A habit's month on its page (design/more-apps.md 4.9). */
+.mb-days {
+  padding: 4px 16px 14px;
+}

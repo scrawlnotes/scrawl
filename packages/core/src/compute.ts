@@ -87,6 +87,7 @@ export function valueFor(field: Field, v: RV): FieldValue {
 function aggregate(fn: RollupFn, values: RV[]): RV {
   const flat = values.flat(8);
   const numbers = flat.filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
+  if (fn === 'list') return flat.filter((v) => v !== null);
   if (fn === 'sum') return numbers.reduce((sum, n) => sum + n, 0);
   if (fn === 'avg') return numbers.length > 0 ? numbers.reduce((sum, n) => sum + n, 0) / numbers.length : null;
   if (numbers.length > 0) return fn === 'max' ? Math.max(...numbers) : Math.min(...numbers);
@@ -286,6 +287,7 @@ export class Computer {
         return field ? this.run(dir, record, field, draft) : null;
       },
       member: (ref, key) => this.member(ref, key),
+      subtasks: () => ({ all: record.subtasks?.length ?? 0, done: record.subtasks?.filter((s) => s.done).length ?? 0 }),
     };
   }
 
@@ -489,5 +491,7 @@ export function shownField(field: Field, scope: Scope, depth = 0): Field {
     kind = 'any';
   }
   const shown = typeOfKind(kind);
+  // Words with colors are shown as a choice: a chip each.
+  if (shown.type === 'text' && rest.colors) return { ...rest, type: 'select', options: Object.keys(rest.colors) };
   return { ...rest, type: shown.type, ...(shown.collection !== undefined && { collection: shown.collection }), ...(shown.many && { many: true }), ...(shown.type === 'multi-select' && { options: [] }) };
 }

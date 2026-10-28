@@ -2526,10 +2526,18 @@ export function RecordRow({ due, day, today, actions }: { due: DueRecord; day: s
   const repeat = due.day ? due.view.calendar?.repeat : undefined;
   // A program's day, today's or one gone by, is started or closed from its row; one to come only opens.
   const button = !repeat && due.view.calendar?.button;
+  // With no Start, the day's one button is its skip, done at once (a habit's Done).
+  const only = repeat?.start === false && repeat.skip;
   const buttons = button && actions.pressButton ? (
     <span className="racts">
       <button type="button" className="rstart" onClick={(event) => (event.stopPropagation(), actions.pressButton!(due, button))}>
         {button}
+      </button>
+    </span>
+  ) : only && due.day! <= today && actions.skipDay ? (
+    <span className="racts">
+      <button type="button" className="rstart" onClick={(event) => (event.stopPropagation(), actions.skipDay!(due))}>
+        {only.label}
       </button>
     </span>
   ) : repeat && due.day! <= today && (

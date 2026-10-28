@@ -140,6 +140,8 @@ export interface AppDraft extends Chosen {
   block(role: string, block: LayoutBlock): void;
   /** Adds a view to a collection as it is set up, once by its id, the one it opens on with `opens`; a collection there before keeps its own views. */
   view(role: string, view: View, opens?: boolean): void;
+  /** The plain table's columns after the first, by key. */
+  tableColumns(role: string, keys: string[]): void;
   /** Adds a rule to a collection's `_rules.js`, once by its name. */
   rule(role: string, chunk: RuleChunk): void;
   /** Adds a record to a collection as it is set up: a budget line, a warehouse. */
@@ -235,6 +237,8 @@ export interface CollectionPart {
   views: View[];
   /** The view it opens on, by its id. */
   defaultView?: string;
+  /** The plain table's columns after the first. */
+  columns?: string[];
   rules: RuleChunk[];
   /** The records it starts with. */
   records: { [key: string]: string | number | boolean | string[] }[];

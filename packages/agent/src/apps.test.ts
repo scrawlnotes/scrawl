@@ -939,17 +939,44 @@ describe('apps', () => {
     expect((await saveRecordTool(agent, { collection: 'Shelf/Quotes', values: { name: 'Fear is the mind-killer.', item: 'Dune', where: 'p. 8' } })).data.record.values.item).toMatchObject({ name: 'Dune' });
   });
 
-  it('ticks a habit once a day, and keeps workouts: a planned one done, sets and the best, the body since the first, a race', async () => {
+  it('ticks a habit in Today on its days, its streak worked out, and keeps workouts: a planned one done, sets and the best, the body since the first, a race', async () => {
     const { agent } = await world();
     // Habits and Sport share no data: two apps.
     await createTool(agent, { kind: 'app', name: 'Days', templates: ['habits'] });
     await createTool(agent, { kind: 'app', name: 'Me', templates: ['sport'], answers: { sport: { body: true, races: true } } });
+    // How often each is, read from its words.
+    const habits = (await recordsTool(agent, { collection: 'Days/Habits', sort: { field: 'name' } })).data.records;
+    expect(habits.map((h) => [h.name, h.values.often, h.values.times ?? null, (h.values.days as string[]).length])).toEqual([
+      ['Call mom', 'On some days', null, 1],
+      ['Gym', 'Times a week', 3, 7],
+      ['In bed by 23:00', 'Every day', null, 7],
+      ['Read 20 pages', 'Every day', null, 7],
+      ['Walk 30 minutes', 'Every day', null, 7],
+    ]);
+    // Wednesday 21 October: a habit done is a day in Check-ins; three days in a row a streak of three.
+    for (const day of ['2026-10-19', '2026-10-20', '2026-10-21']) await saveRecordTool(agent, { collection: 'Days/Check-ins', values: { habit: 'Walk 30 minutes', day } });
+    for (const day of ['2026-10-19', '2026-10-20']) await saveRecordTool(agent, { collection: 'Days/Check-ins', values: { habit: 'Gym', day } });
     const walk = (await recordsTool(agent, { collection: 'Days/Habits', where: [{ field: 'name', op: 'is', value: 'Walk 30 minutes' }] })).data.records[0]!;
-    const ticked = await saveRecordTool(agent, { collection: 'Days/Habits', id: walk.id, action: 'Done today' });
-    expect(ticked.data.record.values).toMatchObject({ today: 1, last_7: 1 });
-    expect((await refusal(saveRecordTool(agent, { collection: 'Days/Habits', id: walk.id, action: 'Done today' }))).message).toMatch(/Done today already/);
-    const late = await saveRecordTool(agent, { collection: 'Days/Goals', values: { name: 'Learn to swim', due: '2026-09-30' } });
-    expect(late.data.record.problems).toEqual([{ kind: 'check', field: 'due', text: 'Past its day' }]);
+    expect(walk.values).toMatchObject({ streak: 3, best: 3, streak_text: '🔥 3 days', this_week: '3 of 7', today_says: '🔥 3 days' });
+    // Today has the habits of the day not done: Walk is done, Call mom is on Sundays; Gym says what is left this week.
+    const due = (await dueRecordsTool(agent, { from: '2026-10-21', to: '2026-10-21' })).data.records as { record: { name: string; values: { today_says: string } } }[];
+    expect(due.map((d) => [d.record.name, d.record.values.today_says]).sort()).toEqual([
+      ['Gym', '1 more this week'],
+      ['In bed by 23:00', '0 of 7 this week'],
+      ['Read 20 pages', '0 of 7 this week'],
+    ]);
+    // A third time this week: Gym does not come again till Monday.
+    await saveRecordTool(agent, { collection: 'Days/Check-ins', values: { habit: 'Gym', day: '2026-10-21' } });
+    const after = (await dueRecordsTool(agent, { from: '2026-10-21', to: '2026-10-21' })).data.records as { record: { name: string } }[];
+    expect(after.map((d) => d.record.name)).not.toContain('Gym');
+    // A goal by a number: behind for its day, on track once updated.
+    const books = await saveRecordTool(agent, { collection: 'Days/Goals', values: { name: 'Read 24 books', unit: 'books', target: 24, now: 7, since: '2026-01-01', by: '2026-12-31' } });
+    expect(books.data.record.values).toMatchObject({ shown: '7 of 24 books', status: 'Behind' });
+    const updated = await saveRecordTool(agent, { collection: 'Days/Goals', id: books.data.record.id, action: 'Update', input: { now: 20 } });
+    expect(updated.data.record.values).toMatchObject({ now: 20, shown: '20 of 24 books', status: 'On track' });
+    const late = await saveRecordTool(agent, { collection: 'Days/Goals', values: { name: 'Learn to swim', measure: 'Steps', by: '2026-09-30' } });
+    expect(late.data.record.problems).toEqual([{ kind: 'check', field: 'by', text: 'Past its day' }]);
+    expect(late.data.record.values).toMatchObject({ shown: '0 of 0 steps', progress: 0 });
 
     const planned = await saveRecordTool(agent, { collection: 'Me/Plan', values: { date: '2026-10-22', type: 'Run', minutes: 45 } });
     expect(planned.data.record.name).toBe('Run');

@@ -71,6 +71,69 @@ const shiftMonth = (month: string, by: number) => {
   return `${first.getFullYear()}-${String(first.getMonth() + 1).padStart(2, '0')}`;
 };
 
+/**
+ * A record's month on its calendar that repeats (design/more-apps.md 4.9): a box a day, Monday
+ * first; a day done filled, today ringed, one not its day faint; a day gone by or today clicked is
+ * done, one done clicked is not. Over it the values it is given, a habit's streak and best.
+ */
+export function DaysMonth({ collection, record, view, stats, today, actions }: {
+  collection: Collection;
+  record: Record;
+  view: View;
+  stats: { label: string; value: string; hot?: boolean }[];
+  today: string;
+  actions: CollectionActions;
+}) {
+  const [month, setMonth] = useState(today.slice(0, 7));
+  const days = monthDays(month);
+  const items = new Map(repeatItems(collection, [record], view, days, today, actions.collections(), true).map((item) => [item.day, item]));
+  const head = days.slice(0, 7).map((day) => toDate(day).toLocaleDateString(locale(), { weekday: 'narrow' }));
+  return (
+    <div className="dmonth">
+      {stats.length > 0 && (
+        <div className="dstats">
+          {stats.map((s) => (
+            <div key={s.label}>
+              <b className={s.hot ? 'hot' : undefined}>{s.value}</b>
+              <small>{s.label}</small>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="dnav">
+        <button type="button" className="ghost" aria-label={t('calendar.previous.month')} title={t('calendar.previous.month')} onClick={() => setMonth(shiftMonth(month, -1))}>
+          <Icon name="back" />
+        </button>
+        <b>{toDate(`${month}-01`).toLocaleDateString(locale(), { month: 'long', year: 'numeric' })}</b>
+        <button type="button" className="ghost" aria-label={t('calendar.next.month')} title={t('calendar.next.month')} onClick={() => setMonth(shiftMonth(month, 1))}>
+          <Icon name="chevron" />
+        </button>
+      </div>
+      <div className="dgrid">
+        {head.map((d, i) => (
+          <span key={`h${i}`} className="h">
+            {d}
+          </span>
+        ))}
+        {days.map((day) => {
+          const n = Number(day.slice(8));
+          if (day.slice(0, 7) !== month) return <span key={day} className="no" />;
+          const item = items.get(day);
+          const done = item?.state === 'done' || item?.state === 'skipped';
+          const now = day === today ? ' now' : '';
+          if (!item || day > today) return <span key={day} className={(item ? 'later' : 'off') + now}>{n}</span>;
+          const label = toDate(day).toLocaleDateString(locale(), { weekday: 'short', month: 'short', day: 'numeric' });
+          return (
+            <button key={day} type="button" className={(done ? 'on' : '') + now} title={label} aria-label={label} aria-pressed={done} onClick={() => (done ? actions.reopenDay?.(item) : actions.skipDay?.(item))}>
+              {n}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /** A calendar's range, kept for `key` on this device, and the day it shows, today at first. */
 export function useCalendarNav(key: string, initial: CalendarRange, today: string): CalendarNavState {
   const [range, setRange] = useState<CalendarRange>(() => storedRanges()[key] ?? initial);
@@ -305,8 +368,8 @@ export function CollectionCalendar({ collection, records, view, nav, today, acti
 const shownDays = (nav: CalendarNavState) => (nav.range === 'month' ? monthDays(nav.month) : nav.days);
 
 /** A repeating calendar's days among `days` (design/gym.md 4.3), each as it went. */
-export const repeatItems = (collection: Collection, records: Record[], view: View, days: string[], today: string, all: Collection[]): RepeatDay[] =>
-  repeatCalendar({ ...collection, records }, { ...view, conditions: [] }, today, days[0]!, days[days.length - 1]!, all);
+export const repeatItems = (collection: Collection, records: Record[], view: View, days: string[], today: string, all: Collection[], anyDay = false): RepeatDay[] =>
+  repeatCalendar({ ...collection, records }, { ...view, conditions: [] }, today, days[0]!, days[days.length - 1]!, all, anyDay);
 
 /**
  * What a repeating calendar's day does when it is clicked: a day closed opens the record that
@@ -320,8 +383,9 @@ export function repeatPress(event: MouseEvent, item: RepeatDay, today: string, a
   actions.menu(
     event,
     [
-      { label: repeat.start ?? t('repeat.start'), icon: 'play', run: () => actions.startDay?.(item) },
-      ...(repeat.skip ? [{ label: repeat.skip.label, run: () => actions.skipDay?.(item) }] : []),
+      // With no Start its one button is the day done.
+      ...(repeat.start === false ? [] : [{ label: repeat.start ?? t('repeat.start'), icon: 'play' as const, run: () => actions.startDay?.(item) }]),
+      ...(repeat.skip ? [{ label: repeat.skip.label, ...(repeat.start === false && { icon: 'play' as const }), run: () => actions.skipDay?.(item) }] : []),
       { label: t('collection.open'), run: () => onOpen(item.record.id), apart: true },
     ],
     { icon: 'calendar', title: recordLabel(item.record) || t('collection.untitled'), sub: whenWords(item.day) },

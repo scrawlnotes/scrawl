@@ -194,6 +194,8 @@ export function dueRecords(collections: readonly Collection[], today: string, { 
       if (view.kind !== 'calendar' || !view.calendar?.upcoming) continue;
       if (view.calendar.repeat) {
         for (const item of repeatDays(collection, view, today, until, all)) {
+          // One for Today only brings its days up to today, not those to come (a habit).
+          if (view.calendar.upcoming === 'today' && item.day! > today) continue;
           const key = `${collection.dir}/${item.record.id}/${item.day}`;
           if (seen.has(key)) continue;
           seen.add(key);
@@ -254,10 +256,11 @@ export interface RepeatDay extends DueRecord {
 
 /**
  * The days a repeating record comes on, closed or not, from `start` to `until`: each record that
- * matches the view's conditions, on each weekday it holds, from its own day (else today). What a
- * repeating calendar shows on its days.
+ * matches the view's conditions, on each weekday it holds, from its own day (else today); with
+ * `anyDay`, from `start`, a day before it began ticked as well (a habit's strip, design/more-apps.md
+ * 4.9). What a repeating calendar shows on its days.
  */
-export function repeatCalendar(collection: Collection, view: View, today: string, start: string, until: string, all: readonly Collection[]): RepeatDay[] {
+export function repeatCalendar(collection: Collection, view: View, today: string, start: string, until: string, all: readonly Collection[], anyDay = false): RepeatDay[] {
   const repeat = view.calendar?.repeat;
   if (!repeat) return [];
   const { schema } = collection;
@@ -271,14 +274,15 @@ export function repeatCalendar(collection: Collection, view: View, today: string
     const held = r.values[repeat.closedBy.link];
     for (const link of Array.isArray(held) ? held : [held]) if (day && link && typeof link === 'object' && 'id' in link && !closed.has(`${link.id}/${day}`)) closed.set(`${link.id}/${day}`, r);
   }
-  const skippedBy = (r: Record) => !!repeat.skip && Object.entries(repeat.skip.set).every(([key, value]) => JSON.stringify(r.values[key] ?? null) === JSON.stringify(value));
+  // With no Start its one button closes the day done: nothing it writes is a day skipped.
+  const skippedBy = (r: Record) => repeat.start !== false && !!repeat.skip && Object.entries(repeat.skip.set).every(([key, value]) => JSON.stringify(r.values[key] ?? null) === JSON.stringify(value));
   const out: RepeatDay[] = [];
   for (const record of collection.records) {
     if (!matchesConditions(record, schema, view.conditions, today)) continue;
     const held = record.values[repeat.days];
     const weekdays = new Set((Array.isArray(held) ? held : []).flatMap((v) => (typeof v === 'string' ? [weekdayOf(v, options.indexOf(v), options.length)] : [])).filter((w): w is number => w !== null));
     if (weekdays.size === 0) continue;
-    const own = (repeat.from ? dateValue(record.values[repeat.from])?.slice(0, 10) : null) ?? today;
+    const own = anyDay ? start : ((repeat.from ? dateValue(record.values[repeat.from])?.slice(0, 10) : null) ?? today);
     // A record with an end, a diet's last day, comes on none after it (design/meal-plans.md 4).
     const ends = repeat.until ? dateValue(record.values[repeat.until])?.slice(0, 10) : undefined;
     const last = ends && ends < until ? ends : until;
@@ -297,13 +301,30 @@ export function repeatCalendar(collection: Collection, view: View, today: string
   return out;
 }
 
+/** The Monday of a day's week. */
+export const weekOf = (day: string) => addDays(day, -((weekdayOfDay(day) + 6) % 7));
+
 /**
  * The days a calendar that repeats brings to Today and Upcoming (design/gym.md 4.3): its days not
- * closed, from each record's own day to `until`; those before today are late, however many.
+ * closed, from each record's own day to `until`; those before today are late, however many, unless
+ * its repeat keeps none late (a habit's day missed is gone). With `perWeek`, a week that has as many
+ * days closed as the record's number brings none of its other days (design/more-apps.md 4.9).
  */
 export function repeatDays(collection: Collection, view: View, today: string, until: string, all: readonly Collection[]): DueRecord[] {
-  return repeatCalendar(collection, view, today, '0000-01-01', until, all)
-    .filter((each) => each.state === 'open' || each.state === 'late')
+  const repeat = view.calendar?.repeat;
+  const days = repeatCalendar(collection, view, today, repeat?.late === false || repeat?.perWeek ? weekOf(today) : '0000-01-01', until, all);
+  const enough = (record: Record) => {
+    const n = repeat?.perWeek ? record.values[repeat.perWeek] : null;
+    return typeof n === 'number' && n > 0 ? n : null;
+  };
+  const closedIn = new Map<string, number>();
+  for (const each of days) if (each.state === 'done' || each.state === 'skipped') closedIn.set(`${each.record.id}/${weekOf(each.day)}`, (closedIn.get(`${each.record.id}/${weekOf(each.day)}`) ?? 0) + 1);
+  return days
+    .filter((each) => each.state === 'open' || (each.state === 'late' && repeat?.late !== false))
+    .filter((each) => {
+      const n = enough(each.record);
+      return n === null || (closedIn.get(`${each.record.id}/${weekOf(each.day)}`) ?? 0) < n;
+    })
     .map(({ state: _state, closedBy: _closedBy, ...due }) => due);
 }
 
