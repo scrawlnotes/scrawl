@@ -42,7 +42,7 @@ import { Sheet } from './sheets';
 const SIDES = (['business', 'personal'] as const).filter((side) => TEMPLATE_IDS.some((id) => audienceOf(APP_TEMPLATES[id].group) === side));
 
 /** The kind of a piece as an icon. */
-const PIECE_ICON: Record<string, IconName> = { collection: 'collection', board: 'board', folder: 'folder', note: 'note' };
+const PIECE_ICON: Record<string, IconName> = { collection: 'collection', board: 'board', folder: 'folder', note: 'note', app: 'app' };
 
 /** A list in words, as this language joins it: "Companies and Products". */
 const listed = (items: string[]) => new Intl.ListFormat(locale(), { type: 'conjunction' }).format(items);
@@ -69,7 +69,7 @@ export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreat
   folder: string;
   /** Templates added to an app set up before (Add to app): its `_app.json`. Its templates are shown faint, its name and currencies are not asked. */
   adding?: AppFile;
-  /** An app whose answers are changed (Edit app, design/edit-app.md): its templates' questions with the answers they have, then what changes. */
+  /** An app whose answers are changed (Edit app, design/edit-app.md): its name, place and currencies, its templates' questions with the answers they have, then what changes. */
   editing?: AppFile;
   /** The plan of what was chosen; throws AppProblems for what is wrong with it. */
   onPlan: (input: AppInput, place: FolderChoice) => Promise<AppPlan>;
@@ -88,7 +88,7 @@ export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreat
   const [chosen, setChosen] = useState<TemplateId[]>([]);
   // An app of no template (design/app-home.md 5.5): named, and its folder made, nothing else asked.
   const [blank, setBlank] = useState(false);
-  const [name, setName] = useState('');
+  const [name, setName] = useState(editing?.name ?? '');
   // The name is its templates' names until one is typed, at a free name where it is made: a business's
   // short, CRM, Sales and Stock; a person's whole, Personal finance, Habits and goals 2.
   const [nameTyped, setNameTyped] = useState(false);
@@ -99,8 +99,12 @@ export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreat
     for (let i = 2; taken(free); i++) free = `${base} ${i}`;
     return free;
   };
-  const [place, setPlace] = useState<FolderChoice>(() => ({ folder: folders.includes(folder) ? folder : (folders[0] ?? ''), create: false }));
-  const [currencies, setCurrencies] = useState<string[]>(() => [localCurrency()]);
+  // Editing, the app's folder is `folder`: its place is the folder it is in.
+  const [place, setPlace] = useState<FolderChoice>(() => {
+    const at = editing ? folder.split('/').slice(0, -1).join('/') : folder;
+    return { folder: folders.includes(at) ? at : (folders[0] ?? ''), create: false };
+  });
+  const [currencies, setCurrencies] = useState<string[]>(() => (editing?.currencies.length ? editing.currencies : [localCurrency()]));
   // An app's own templates are read with the answers they were set up with.
   const [given, setGiven] = useState<Partial<Record<TemplateId, Answers>>>(() => Object.fromEntries((app?.templates ?? []).map((x) => [x.id, x.answers])));
   // Editing, where each item of a list answer came from: its place in the list as it was, null for one added.
@@ -119,9 +123,9 @@ export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreat
   // Its currencies are asked when what is chosen holds money: added to an app, only when the app has none yet.
   // Editing, the app's templates that ask something, in their order.
   const edited = editing ? TEMPLATE_IDS.filter((id) => installed.has(id) && askedQuestions(APP_TEMPLATES[id], chosenSet, answersOf(id)).length > 0) : [];
-  const money = (editing ? edited : chosen).some((id) => APP_TEMPLATES[id].money(answersOf(id))) && (!app || app.currencies.length === 0);
+  const money = (editing ? [...installed] : chosen).some((id) => APP_TEMPLATES[id].money(answersOf(id))) && (!app || !!editing || app.currencies.length === 0);
   const steps: Step[] = editing
-    ? [...(money ? (['app'] as const) : []), ...edited, 'summary']
+    ? ['app', ...edited, 'summary']
     : adding
       ? ['templates', ...(money ? (['app'] as const) : []), ...chosen, 'summary']
       : blank
@@ -129,7 +133,7 @@ export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreat
         : ['templates', 'app', ...chosen, 'summary'];
   const step = steps[Math.min(at, steps.length - 1)]!;
   const stepLabel = (s: Step) =>
-    s === 'templates' ? t('apps.step.templates') : s === 'app' ? t(app ? 'apps.currencies' : 'apps.step.app') : s === 'summary' ? t(editing ? 'apps.step.changes' : 'apps.step.summary') : t(APP_TEMPLATES[s].name);
+    s === 'templates' ? t('apps.step.templates') : s === 'app' ? t(adding ? 'apps.currencies' : 'apps.step.app') : s === 'summary' ? t(editing ? 'apps.step.changes' : 'apps.step.summary') : t(APP_TEMPLATES[s].name);
   // A phone's back button says where it goes in a word.
   const backLabel = (s: Step) => (s === 'templates' || s === 'app' || s === 'summary' ? stepLabel(s) : t(APP_TEMPLATES[s].short));
 
@@ -202,7 +206,7 @@ export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreat
 
   const input = (): AppInput =>
     editing
-      ? { name: editing.name, currencies, templates: edited.map((id) => ({ id, answers: answersOf(id), renames: renamesOf(id) })) }
+      ? { name, currencies, templates: edited.map((id) => ({ id, answers: answersOf(id), renames: renamesOf(id) })) }
       : blank
         ? { name, currencies: [], templates: [], menu: { modules: [{ name: '', screens: [] }] } }
         : { name: adding?.name ?? name, currencies, templates: chosen.map((id) => ({ id, answers: answersOf(id) })) };
@@ -275,7 +279,7 @@ export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreat
   };
   // A person's templates chosen apart from each other, a tick taken off between them: said, and not set up.
   const apart = step === 'templates' && !blank && chosen.length > 0 ? apartProblem(chosen, installed) : null;
-  const ready = step === 'templates' ? (chosen.length > 0 && !apart) || blank : step === 'app' ? (!!app || name.trim() !== '') && (!money || currencies.length > 0) : step === 'summary' ? !!plan && !plan.blocked?.length && !plan.edit?.same : true;
+  const ready = step === 'templates' ? (chosen.length > 0 && !apart) || blank : step === 'app' ? (!!adding || name.trim() !== '') && (!money || currencies.length > 0) : step === 'summary' ? !!plan && !plan.blocked?.length && !plan.edit?.same : true;
   const title = editing ? t('apps.edit', { name: editing.name }) : adding ? t('apps.addTo', { name: adding.name }) : t('apps.title');
   const go = editing ? t('apps.save') : adding ? t('apps.add') : t('apps.create');
 
@@ -319,14 +323,15 @@ export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreat
         <AppPage
           phone={phone}
           side={shownSide}
-          adding={!!app}
+          adding={!!adding}
           name={name}
           onName={(value) => {
             setName(value);
             setNameTyped(true);
             setProblems([]);
           }}
-          folders={folders}
+          // Editing, not into itself.
+          folders={editing ? folders.filter((f) => f !== folder && !f.startsWith(`${folder}/`)) : folders}
           place={place}
           onPlace={(to) => {
             setPlace(to);

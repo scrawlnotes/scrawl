@@ -10,6 +10,7 @@ import {
   type AppFile,
   type AppInput,
   type AppPlan,
+  aboutName,
   AppProblems,
   findApp,
   installApp,
@@ -358,7 +359,7 @@ import {
   toggleStrike,
   type TransactionSpec,
 } from '@scrawlnotes/editor';
-import { appPathOf, appTab, boardPathOf, CHAT, collectionPathOf, collectionTab, FILES, filterOf, filterTab, folderOf, isBoardPath, isKeysPath, isNote, isTaskListPath, keysPathOf, listOf, pathOf, QUICK, spaceOfTab, tabOf, TODAY, TRASH, UPCOMING } from './items';
+import { appPathOf, appTab, boardPathOf, CHAT, collectionPathOf, collectionTab, FILES, filterOf, filterTab, folderLabel, folderOf, isBoardPath, isKeysPath, isNote, isTaskListPath, keysPathOf, listOf, pathOf, QUICK, spaceOfTab, tabOf, TODAY, TRASH, UPCOMING } from './items';
 import { JobQueue } from './jobs';
 import { type OpeningMeasure, openingMeasure, seconds } from './opening';
 import welcomeComputer from './welcome.md?raw';
@@ -4456,16 +4457,55 @@ export class Session {
    * design/edit-app.md): what is added, changed in place, taken off and kept. Its records are read,
    * for a choice or a record renamed to be followed. Writes nothing.
    */
-  async planEditApp(folder: string, templates: AppInput['templates'], currencies?: AppInput['currencies']): Promise<AppPlan> {
+  async planEditApp(folder: string, input: AppInput, place: { folder: string; create: boolean }): Promise<AppPlan> {
     const { fs, local } = this.at(folder);
     const found = await findApp(fs, local, { records: true });
     if (!found) throw new AppProblems([t('apps.notApp')]);
-    return planApp({ name: found.app.name, templates, currencies }, { found, keepBlocked: true, edit: true });
+    const moveTo = place.create || place.folder !== dirname(folder) ? folderLabel(place.folder) : undefined;
+    return planApp(input, { found, keepBlocked: true, edit: true, moveTo });
   }
 
-  /** Changes an app's answers as planned, as Add to app writes: Undo puts every file back as it was. */
-  installEditApp(plan: AppPlan, folder: string): Promise<{ undo: () => Promise<void> } | { error: string }> {
-    return this.installAddToApp(plan, folder);
+  /**
+   * Changes an app's answers as planned, as Add to app writes; then names it anew, its folder and
+   * its About note, and moves it where it was put. Undo puts it back where it was, then every file
+   * as it was.
+   */
+  async installEditApp(plan: AppPlan, folder: string, place: { folder: string; create: boolean }): Promise<{ undo: () => Promise<void>; folder: string } | { error: string }> {
+    const done = await this.installAddToApp(plan, folder);
+    if ('error' in done) return done;
+    let at = folder;
+    const back: (() => Promise<unknown>)[] = [];
+    const was = plan.edit?.renamed;
+    if (was) {
+      const about = joinPath(folder, `${aboutName(was)}.md`);
+      const aboutTo = this.nodeAt(about) ? await this.renamed(about, aboutName(plan.app.name)) : null;
+      if (aboutTo && 'path' in aboutTo) back.push(() => this.renamed(aboutTo.path.replace(folder, at), aboutName(was)));
+      const moved = await this.renamed(folder, plan.app.name);
+      if ('error' in moved) return moved;
+      at = moved.path;
+      back.push(async () => (at = ((await this.renamed(at, basename(folder))) as { path?: string }).path ?? at));
+    }
+    if (place.create || place.folder !== dirname(folder)) {
+      let into = place.folder;
+      if (place.create) {
+        const { fs, space, local } = this.at(place.folder);
+        into = inSpace(space, await createFolder(fs, local));
+        await this.madeNow([into]);
+        // The folder made for it goes with Undo.
+        back.push(() => this.trashFolder(into));
+      }
+      const from = dirname(at);
+      await this.move(at, into);
+      at = joinPath(into, basename(at));
+      back.push(async () => (await this.move(at, from), (at = joinPath(from, basename(at)))));
+    }
+    return {
+      folder: at,
+      undo: async () => {
+        for (const step of back.reverse()) await step();
+        await done.undo();
+      },
+    };
   }
 
   /**

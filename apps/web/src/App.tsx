@@ -3680,9 +3680,9 @@ export function App() {
           folders={everyFolder(tree, spaces)}
           folder={dialog.folder}
           editing={dialog.app}
-          onPlan={(input) => session.planEditApp(dialog.folder, input.templates, input.currencies)}
-          onCreate={async (plan) => {
-            const done = await session.installEditApp(plan, dialog.folder);
+          onPlan={(input, place) => session.planEditApp(dialog.folder, input, place)}
+          onCreate={async (plan, place) => {
+            const done = await session.installEditApp(plan, dialog.folder, place);
             if ('error' in done) return done.error;
             setDialog(null);
             setShown({ text: t('apps.edited', { name: plan.app.name, what: editCounts(plan) }), undo: () => void done.undo(), toast: true });

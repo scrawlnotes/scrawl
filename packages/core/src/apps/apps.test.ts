@@ -865,6 +865,38 @@ describe('editing an app', () => {
     planApp({ name: '', templates }, { found: (await findApp(fs, 'Atlas', { records: true }))!, ids, edit: true });
   const said = (items: { name: string; what: string }[]) => items.map((i) => `${i.name}: ${i.what}`);
 
+  it('changes the currencies and the name: amounts shown in the new one, a field the person changed kept, a second one filling the records in', async () => {
+    const fs = new MemoryFs();
+    await installApp(fs, planApp({ name: 'Atlas', currencies: ['USD'], templates: [{ id: 'finance' }] }, { ids }));
+    const schemaOf = async (path: string) => parseSchema(await fs.readText(`Atlas/${path}/_collection.json`));
+    // The person changes the opening balance's field: it is theirs.
+    const accounts = JSON.parse(await fs.readText('Atlas/Accounts/_collection.json'));
+    accounts.fields.find((f: { key: string }) => f.key === 'opening').label = 'Start';
+    await fs.writeText('Atlas/Accounts/_collection.json', JSON.stringify(accounts, null, 2));
+    const editTo = async (currencies: string[], name = 'Atlas') => planApp({ name, currencies, templates: [] }, { found: (await findApp(fs, 'Atlas', { records: true }))!, ids, edit: true });
+
+    const tl = await editTo(['TRY']);
+    expect(said(tl.edit!.changed)).toEqual(['Atlas: in TRY, was USD; amounts are not converted']);
+    await installApp(fs, tl);
+    expect((await schemaOf('Transactions')).fields.find((f) => f.key === 'amount')!.format).toMatchObject({ currency: 'TRY' });
+    expect((await schemaOf('Categories')).fields.find((f) => f.key === 'shown')!.formula).toContain('₺');
+    expect((await schemaOf('Accounts')).fields.find((f) => f.key === 'opening')).toMatchObject({ label: 'Start', format: { currency: 'USD' } });
+    expect(JSON.parse(await fs.readText('Atlas/_app.json')).currencies).toEqual(['TRY']);
+    expect((await editTo(['TRY'])).edit!.same).toBe(true);
+
+    await installApp(fs, await editTo(['TRY', 'EUR']));
+    expect((await schemaOf('Accounts')).fields.map((f) => f.key)).toContain('currency');
+    const bank = await loadCollection(fs, 'Atlas/Accounts');
+    expect(bank.records.map((r) => r.values.currency)).toEqual(['TRY', 'TRY', 'TRY']);
+
+    const named = await editTo(['TRY', 'EUR'], 'Money');
+    expect(named.edit!.renamed).toBe('Atlas');
+    expect(said(named.edit!.changed)).toEqual(['Money: was Atlas; its folder and About note take the new name']);
+    await installApp(fs, named);
+    expect(await fs.readText('Atlas/About Atlas.md')).toMatch(/^# About Money/);
+    expect(JSON.parse(await fs.readText('Atlas/_app.json')).name).toBe('Money');
+  });
+
   it('renames a stage with its cards, adds one, takes off an empty one and keeps one a deal is in', async () => {
     const fs = new MemoryFs();
     await installApp(fs, planApp({ name: 'Atlas', currencies: ['TRY'], templates: [{ id: 'crm' }] }, { ids }));

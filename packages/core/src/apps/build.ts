@@ -273,6 +273,8 @@ export interface PlanOptions {
   keepBlocked?: boolean;
   /** The templates given are the app's own, their answers changed (Edit app, design/edit-app.md); `found` should hold its records. */
   edit?: boolean;
+  /** Editing, the folder the app is moved to, as it is said: the plan says so. */
+  moveTo?: string;
 }
 
 /**
@@ -280,10 +282,11 @@ export interface PlanOptions {
  * AppProblems for what was given wrong: a template that is not one or is there already, a
  * question that is not one or an answer that is not, the name, the currencies.
  */
-export function planApp(input: AppInput, { parent = '', found, ids, taken = new Set(), keepBlocked = false, edit = false, today = dayIn(new Date()) }: PlanOptions = {}): AppPlan {
+export function planApp(input: AppInput, { parent = '', found, ids, taken = new Set(), keepBlocked = false, edit = false, moveTo, today = dayIn(new Date()) }: PlanOptions = {}): AppPlan {
   const problems: string[] = [];
   if (edit && !found) throw new Error('An app is edited where it is found');
-  const title = found ? found.app.name : fileNameOf(input.name ?? '').replace(/\s+/g, ' ').trim();
+  // Editing, the name given is the app's new one (design/edit-app.md 3).
+  const title = found && !edit ? found.app.name : fileNameOf(input.name?.trim() || found?.app.name || '').replace(/\s+/g, ' ').trim();
   if (!title || title.startsWith('.') || title.startsWith('_')) problems.push(t('apps.needsName'));
   const folder = found ? found.folder : join(parent, title);
   if (!found && title && taken.has(folder.toLowerCase())) problems.push(t('apps.nameTaken', { name: title }));
@@ -352,14 +355,20 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
   const all = withImplied(answers);
   const base = withImplied(installed);
 
-  // An app keeps the currencies it has; one with none takes those given when a template added to it holds money.
-  const currencies = found?.app.currencies.length ? found.app.currencies : readCurrencies(input.currencies ?? []);
+  // An app keeps the currencies it has; one with none takes those given when a template added to it holds money;
+  // editing, those given are its own from now on.
+  const currencies = found?.app.currencies.length && !(edit && Array.isArray(input.currencies) && input.currencies.length > 0) ? found.app.currencies : readCurrencies(input.currencies ?? []);
   if (currencies === null) problems.push(t('apps.currencyCodes'));
   else if (currencies.length === 0 && [...all].some(([id, a]) => TEMPLATES[id].money(a))) problems.push(t('apps.needsCurrencies'));
   if (problems.length > 0) throw new AppProblems(problems);
   const money: Money = { currencies: currencies!, main: currencies![0] ?? '', multi: currencies!.length > 1 };
-  // Every answer as it was: nothing to write.
-  if (edit && changedIds.length === 0) {
+  // What the app was set up with: its currencies, its name.
+  const had = found?.app.currencies ?? [];
+  const oldMoney: Money = found ? { currencies: had, main: had[0] ?? '', multi: had.length > 1 } : money;
+  const moneyChanged = edit && !same(had, money.currencies);
+  const renamed = edit && title !== found!.app.name;
+  // Every answer, the currencies and the name as they were, and where it is: nothing to write.
+  if (edit && changedIds.length === 0 && !moneyChanged && !renamed && !moveTo) {
     return { folder, app: found!.app, dirs: [], files: [], created: [], changed: [], added: [], notes: [], templates: [], edit: { same: true, templates: [], changed: [], takenOff: [], kept: [] } };
   }
 
@@ -381,7 +390,7 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
   // A piece only the old answers bring, and no longer there, is given a path for them to be worked out with.
   const baseRoles = rolesOf(base);
   for (const role of baseRoles) if (!paths.has(role)) paths.set(role, freePath(folder, fileNameOf(piecesNamed(base)(role).name), piecesNamed(base)(role).kind === 'board' ? BOARD_EXT : '', new Set(names)));
-  const before = found ? new Draft(title, money, today, base, paths, baseRoles) : null;
+  const before = found ? new Draft(title, oldMoney, today, base, paths, baseRoles) : null;
   before?.run();
 
   const newId = ids ?? (() => crypto.randomUUID());
@@ -483,10 +492,18 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
       // wrote, when nobody changed it. What the person changed or added stays.
       let choices = 0;
       const rewritten: Field[] = [];
+      const inCurrency: Field[] = [];
       for (const field of part.fields) {
         const before = old?.fields.find((o) => o.key === field.key);
         const there = data.fields.find((f) => f.key === field.key);
         if (!before || !there || there.type !== field.type) continue;
+        // The currencies changed: a field as the template wrote it is written as it is now, its amounts in the new one.
+        if (moneyChanged && !same(field, before) && same(there, before)) {
+          for (const key of Object.keys(there)) delete (there as unknown as { [key: string]: unknown })[key];
+          Object.assign(there, structuredClone(field));
+          inCurrency.push(there);
+          continue;
+        }
         if ((field.type === 'select' || field.type === 'multi-select') && field.options) {
           const options = [...(there.options ?? [])];
           const fresh = field.options.filter((o) => !(before.options ?? []).includes(o) && !options.includes(o));
@@ -525,14 +542,14 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
       // A record an edit renames (Main warehouse to Depot) is not set up again under its new name.
       const renamedTo = (name: string) => [...renames].some(([from, to]) => to.toLowerCase() === name && was.names.includes(from.toLowerCase()));
       const seeded = part.records.filter((r) => !old?.records.some((o) => same(o, r)) && !was.names.includes(String(r.name ?? '').toLowerCase()) && !renamedTo(String(r.name ?? '').toLowerCase()));
-      if (put.length > 0 || newBlocks.length > 0 || choices > 0 || rewritten.length > 0 || (actions && !layout)) file(join(part.path, COLLECTION_FILE), serializeSchema(data), was.text);
+      if (put.length > 0 || newBlocks.length > 0 || choices > 0 || rewritten.length > 0 || inCurrency.length > 0 || (actions && !layout)) file(join(part.path, COLLECTION_FILE), serializeSchema(data), was.text);
       if (rules.length > 0) {
         const text = was.rules?.trim() ? `${was.rules.replace(/\s*$/, '')}\n\n${rules.map((r) => r.src).join('\n\n')}\n` : rulesText(partName(part), rules);
         file(join(part.path, RULES_FILE), text, was.rules);
       }
       seeds(part, data, seeded);
       final.set(part.path, data);
-      checks.push({ part, fields: [...put, ...rewritten], rules });
+      checks.push({ part, fields: [...put, ...rewritten, ...inCurrency], rules });
       if (put.length > 0) added.push(t('apps.addedFields', { count: put.length }));
       if (choices > 0) added.push(t('apps.addedChoices', { count: choices }));
       if (rewritten.length > 0) added.push(t('apps.changedFormulas', { count: rewritten.length }));
@@ -577,8 +594,13 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
 
   // Editing, what the old answers brought and the new do not: settings go, the data stays (design/edit-app.md 2).
   if (edit) {
-    plan.edit = { same: false, templates: changedIds, changed: [], takenOff: [], kept: [] };
-    editPieces({ found: found!, before: before!, after, renames, schemas: final as Map<string, Schema>, plan, file, newId });
+    plan.edit = { same: false, templates: changedIds, changed: [], takenOff: [], kept: [], ...(renamed && { renamed: found!.app.name }) };
+    if (renamed) plan.edit.changed.push({ kind: 'app', name: title, what: t('apps.edit.renamed', { name: found!.app.name }) });
+    if (moveTo) plan.edit.changed.push({ kind: 'app', name: title, what: t('apps.edit.moved', { folder: moveTo }) });
+    if (moneyChanged) plan.edit.changed.push({ kind: 'app', name: title, what: t('apps.edit.currencies', { from: had.join(', '), to: money.currencies.join(', ') }) });
+    // A second currency: the records there before are in the one the app had.
+    const fill = moneyChanged && money.multi && !oldMoney.multi ? oldMoney.main : undefined;
+    editPieces({ found: found!, before: before!, after, renames, schemas: final as Map<string, Schema>, plan, file, newId, fill });
   }
 
   // The About note: whole for a new app; for an app set up before, the new templates' sections at its end.
@@ -589,6 +611,12 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
       plan.added.push({ kind: 'note', name: basename(found.about.path).replace(/\.md$/, ''), what: t('apps.aboutSection') });
     }
     if (edit) editAbout(found.about, changedIds, before!, after, plan, file);
+    // Named anew, its heading too; the session gives its file the new name.
+    if (renamed) {
+      const now = plan.files.find((f) => f.path === found.about!.path)?.text ?? found.about.text;
+      const next = now.replace(`# ${aboutName(found.app.name)}`, `# ${aboutName(title)}`);
+      if (next !== now) file(found.about.path, next, found.about.text);
+    }
   } else if (!edit) {
     const path = freePath(folder, fileNameOf(aboutName(title)), '.md', names);
     plan.created.push({ kind: 'note', path });
@@ -636,6 +664,8 @@ interface EditContext {
   plan: AppPlan;
   file: (path: string, text: string, was?: string | null) => void;
   newId: () => string;
+  /** A second currency added: the currency the records there before are in. */
+  fill?: string;
 }
 
 /** A rename in words, with what follows it when something does: "Proposal is now Quote; its 4 cards follow". */
@@ -653,7 +683,7 @@ const withoutRule = (text: string, src: string) => `${text.replace(src, '').repl
  * typed anew is renamed with what holds it, one gone is taken off where nothing holds it; a record
  * set up by an answer and typed anew is renamed, with the links to it. Fields and records stay.
  */
-function editPieces({ found, before, after, renames, schemas, plan, file, newId }: EditContext) {
+function editPieces({ found, before, after, renames, schemas, plan, file, newId, fill }: EditContext) {
   const edit = plan.edit!;
   // What a file is now: as the plan writes it, else as it is.
   const textOf = (path: string, was: string | null) => plan.files.find((f) => f.path === path)?.text ?? was;
@@ -821,6 +851,14 @@ function editPieces({ found, before, after, renames, schemas, plan, file, newId 
         if (JSON.stringify(next) !== JSON.stringify(value)) values = { ...values, [key]: next as CollectionRecord['values'][string] };
       }
       if (values !== r.record.values) Object.assign(r, { record: { ...r.record, values }, changed: true });
+    }
+  }
+  // A currency field new to a collection: its records are in the currency the app had.
+  if (fill) {
+    for (const r of records) {
+      const piece = [...found.pieces.values()].find((p) => p.path === r.dir);
+      const lacked = piece?.kind === 'collection' && !(JSON.parse(piece.text) as Schema).fields?.some((f) => f.key === 'currency');
+      if (lacked && schemas.get(r.dir)?.fields.some((f) => f.key === 'currency') && !r.record.values.currency) Object.assign(r, { record: { ...r.record, values: { ...r.record.values, currency: fill } }, changed: true });
     }
   }
   for (const r of records) if (r.changed && schemas.has(r.dir)) file(r.record.path, serializeRecord(r.record, schemas.get(r.dir)!), r.text);

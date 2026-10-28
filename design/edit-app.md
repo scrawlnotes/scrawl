@@ -34,8 +34,10 @@ Bir cevap değişince yeni cevapla kurulacak olanla bugün kurulu olan karşıla
 
 - **Yeri:** app klasörünün ··· menüsünde, Add to app…'in altında **Edit app…**. Yalnız `_app.json` olan klasörde görünür. Telefonda klasörün action sheet'inde aynı yerde.
 - **Pencere:** sihirbazın kendisi, başlığı "Edit Spare parts".
-  - Adımlar: kurulu her şablonun soru sayfası, sonra **Changes**. Şablonlar adımı yok, şablon eklemek Add to app'in işi.
-  - App başına sorulanlardan yalnız para birimleri değişir: eklenir, ana para birimi değişir. Ad klasörün adıdır, Rename ile değişir.
+  - Adımlar: önce **App** sayfası, app kurarkenki gibi bugünkü değerleriyle: Name, In ve (para tutan app'te) Currencies; sonra kurulu her şablonun soru sayfası, sonra **Changes**. Şablonlar adımı yok, şablon eklemek Add to app'in işi.
+  - Name app'in adını, klasörünü ve tanıtım notunu ("About …") birlikte değiştirir; In klasörü taşır, yeni klasör de açılabilir. Linkler izler.
+  - Currencies: ana para birimi değişir, ikinci bir birim eklenir ya da çıkar. Tutarlar çevrilmez; alanların biçimi, toplamları ve işareti yazan formüller yeni birimle yazılır, kişinin değiştirdiği alan kalır. İkinci birim eklenince kayıtlara Currency alanı gelir, eski kayıtlar eski ana birimle dolar.
+  - Changes'te bunların her biri app'in satırıyla Changed altında; Undo hepsini geri alır, açılan klasör çöpe gider.
 - **Sorular:** bugünkü cevaplarla gelir. Değiştirilen sorunun başında küçük bir nokta, yanında eski cevabı ("was Yes") görünür. Liste cevabında yeniden adlanan öğe eski adını ("was Proposal"), eklenen "new" der; kaldırılan üstü çizili kalır, **Put back** ile döner; sorunun yanında kaç değişiklik olduğu ("3 changes"). Başka şablona bağlı soru bugünkü gibi nedeniyle gelir.
 - **Changes sayfası:** Add to app'in özeti gibi, en çok dört bölüm; yalnız dolu olanlar görünür:
   - **Added:** eklenecekler.

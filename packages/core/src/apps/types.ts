@@ -333,7 +333,7 @@ export interface AppPlan {
 
 /** A piece and what changing answers does to it, in plain words: "Deals", "Proposal is now Quote; its 4 cards follow". */
 export interface EditItem {
-  kind: Part['kind'] | 'note';
+  kind: Part['kind'] | 'note' | 'app';
   name: string;
   what: string;
 }
@@ -350,6 +350,8 @@ export interface AppEdit {
   takenOff: EditItem[];
   /** What stays, and why: the data, and a setting the person changed. */
   kept: EditItem[];
+  /** The app's name before, when it is named anew: its folder and its About note take the new one. */
+  renamed?: string;
 }
 
 /** What a template sets up, as the wizard's summary says it. */
