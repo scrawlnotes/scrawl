@@ -6,6 +6,7 @@ import {
   type CollectionTemplate,
   defaultProblem,
   type Field,
+  type HomeTile,
   formulaProblem,
   type Layout,
   type LayoutBlock,
@@ -169,6 +170,14 @@ class Draft implements AppDraft {
     this.part(role, 'collection').columns = keys;
   }
 
+  homeTile(role: string, tile: HomeTile) {
+    this.part(role, 'collection').home = tile;
+  }
+
+  formOrder(role: string, keys: string[]) {
+    this.part(role, 'collection').order = keys;
+  }
+
   rule(role: string, chunk: RuleChunk) {
     const part = this.part(role, 'collection');
     if (!part.rules.some((r) => r.kind === chunk.kind && r.name === chunk.name)) part.rules.push(chunk);
@@ -239,9 +248,11 @@ function withImplied(answers: ReadonlyMap<TemplateId, Answers>): Map<TemplateId,
 }
 
 /** A collection's record screen: its fields and its buttons on the left, then its notes; what links to it on the right. */
-function layoutFor(fields: readonly Field[], blocks: readonly LayoutBlock[], actions: boolean): Layout | undefined {
-  if (blocks.length === 0 && !actions) return undefined;
-  const left: LayoutItem[] = [...fields.map((f) => ({ field: f.key })), ...(actions ? [{ block: 'actions' as const }] : []), { block: 'body' }];
+function layoutFor(fields: readonly Field[], blocks: readonly LayoutBlock[], actions: boolean, order?: readonly string[]): Layout | undefined {
+  if (blocks.length === 0 && !actions && !order) return undefined;
+  const rank = (f: Field) => (order?.includes(f.key) ? order.indexOf(f.key) : (order?.length ?? 0));
+  const ordered = order ? fields.slice().sort((a, b) => rank(a) - rank(b)) : fields;
+  const left: LayoutItem[] = [...ordered.map((f) => ({ field: f.key })), ...(actions ? [{ block: 'actions' as const }] : []), { block: 'body' }];
   return { columns: blocks.length > 0 ? [{ width: 1, sections: [{ items: left }] }, { width: 2, sections: [{ items: [...blocks] }] }] : [{ sections: [{ items: left }] }] };
 }
 
@@ -421,8 +432,8 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
       // A piece of its own, written whole.
       plan.created.push({ kind: part.kind, path: part.path });
       if (part.kind === 'collection') {
-        const layout = layoutFor(part.fields, part.blocks, part.rules.some((r) => r.kind === 'action'));
-        const schema: Schema = { version: 2, template: matchingTemplate(role), ...(part.singular && { singular: part.singular }), role, ...(part.views.length > 0 && { views: part.views }), ...(part.defaultView && { defaultView: part.defaultView }), ...(part.columns && { columns: part.columns }), fields: part.fields, ...(layout && { layout }) };
+        const layout = layoutFor(part.fields, part.blocks, part.rules.some((r) => r.kind === 'action'), part.order);
+        const schema: Schema = { version: 2, template: matchingTemplate(role), ...(part.singular && { singular: part.singular }), role, ...(part.views.length > 0 && { views: part.views }), ...(part.defaultView && { defaultView: part.defaultView }), ...(part.columns && { columns: part.columns }), ...(part.home && { home: part.home }), fields: part.fields, ...(layout && { layout }) };
         plan.dirs.push(part.path);
         file(join(part.path, COLLECTION_FILE), serializeSchema(schema));
         if (part.rules.length > 0) file(join(part.path, RULES_FILE), rulesText(partName(part), part.rules));

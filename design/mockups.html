@@ -3976,6 +3976,60 @@ p { margin: 0; max-width: 68ch; }
 .mbs .hb-mrow .tx b { font-weight: 500; font-size: 15px; }
 .mbs .hb-mrow .tx small { color: var(--m-faint); font-size: 12.5px; }
 .mbs .hb-mrow .hb-days i { width: 18px; height: 18px; font-size: 9px; border-radius: 5px; }
+/* Personal finance (draft, Oct 28): amount first, a month at a glance, what comes again written by itself. */
+.ca-row.pf-tx { grid-template-columns: minmax(0, 1fr) 150px 130px 110px; }
+.ca-row.pf-acc { grid-template-columns: minmax(0, 1fr) 100px 130px; }
+.ca-row.pf-bud { grid-template-columns: minmax(0, 1fr) 260px 100px 90px; }
+.ca-row.pf-rec { grid-template-columns: minmax(0, 1fr) 110px 150px 100px 130px 60px; }
+.ca-row.pf-day { padding: 12px 8px 5px; border-bottom: 0; color: var(--m-faint); font-size: 11px; letter-spacing: .05em; text-transform: uppercase; }
+.ca-row.pf-day .num { color: var(--m-dim); letter-spacing: 0; text-transform: none; }
+.ca-row.pf-sum { border-bottom: 0; border-top: 1px solid var(--m-line); color: var(--m-dim); font-weight: 600; }
+.pf-in { color: #5cb87a; }
+.pf-out { color: var(--m-fg); }
+.pf-mv { color: var(--m-dim); }
+.pf-neg { color: var(--m-p1); }
+.pf-auto { display: inline-flex; align-items: center; gap: 5px; color: var(--m-dim); font-size: 11.5px; }
+.pf-auto i { width: 7px; height: 7px; border-radius: 50%; background: #5cb87a; }
+.pf-auto.off i { background: none; border: 1.5px solid var(--m-faint); width: 5px; height: 5px; }
+.pf-totals { display: flex; gap: 26px; margin: 2px 0 10px; }
+.pf-totals div { display: flex; flex-direction: column; }
+.pf-totals small { color: var(--m-faint); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; }
+.pf-totals b { font-size: 19px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pf-home { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.pf-home .ah-card { min-height: 0; }
+.pf-hr { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-top: 1px solid var(--m-line); font-size: 12.5px; }
+.pf-hr:first-of-type { border-top: 0; }
+.pf-hr .t { flex: 1; min-width: 0; }
+.pf-hr .n { font-variant-numeric: tabular-nums; }
+.pf-hr .hb-bar { flex: 1.4; }
+.pf-amt { display: flex; align-items: baseline; gap: 4px; padding: 8px 10px; border: 1px solid var(--m-accent); border-radius: 7px; background: var(--m-bg); font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pf-amt .cur { color: var(--m-faint); font-size: 18px; font-weight: 500; }
+.pf-amt .caret { display: inline-block; width: 2px; height: 24px; margin-left: 1px; vertical-align: -3px; background: var(--m-accent); }
+.pf-seg { display: inline-flex; padding: 2px; border: 1px solid var(--m-line); border-radius: 7px; }
+.pf-seg span { padding: 3px 14px; border-radius: 5px; color: var(--m-dim); font-size: 12.5px; }
+.pf-seg span.on { background: var(--m-sel); color: var(--m-fg); font-weight: 600; }
+.pf-cats { display: flex; flex-wrap: wrap; gap: 6px; }
+.pf-cats span { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--m-line); border-radius: 14px; color: var(--m-dim); font-size: 12px; }
+.pf-cats span i { width: 8px; height: 8px; border-radius: 50%; background: var(--pc); }
+.pf-cats span.on { border-color: var(--pc); background: color-mix(in srgb, var(--pc) 18%, transparent); color: var(--m-fg); }
+.pf-cats span.more { border-style: dashed; }
+.pf-last { margin-left: 6px; color: var(--m-faint); font-size: 11px; }
+.pf-ph { color: var(--m-faint); }
+.mbs .pf-mamt { padding: 18px 16px 10px; text-align: center; font-size: 38px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.mbs .pf-mamt .cur { color: var(--m-faint); font-size: 26px; }
+.mbs .pf-mseg { display: flex; justify-content: center; margin-bottom: 12px; }
+.mbs .pf-mseg .pf-seg span { padding: 6px 18px; font-size: 14px; }
+.mbs .pf-mcats { display: flex; flex-wrap: wrap; gap: 7px; padding: 4px 16px 12px; }
+.mbs .pf-mcats span { display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; border: 1px solid var(--m-line); border-radius: 18px; color: var(--m-dim); font-size: 14px; }
+.mbs .pf-mcats span i { width: 9px; height: 9px; border-radius: 50%; background: var(--pc); }
+.mbs .pf-mcats span.on { border-color: var(--pc); background: color-mix(in srgb, var(--pc) 18%, transparent); color: var(--m-fg); }
+.mbs .pf-mrow { display: flex; align-items: center; gap: 10px; padding: 10px 14px; }
+.mbs .pf-mrow + .pf-mrow { border-top: 1px solid var(--m-line); }
+.mbs .pf-mrow .tx { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.mbs .pf-mrow .tx b { font-weight: 500; font-size: 15px; }
+.mbs .pf-mrow .tx small { color: var(--m-faint); font-size: 12.5px; }
+.mbs .pf-mrow .n { font-size: 15px; font-variant-numeric: tabular-nums; }
+.mbs .pf-mday { display: flex; justify-content: space-between; padding: 14px 16px 4px; color: var(--m-faint); font-size: 12px; letter-spacing: .05em; text-transform: uppercase; }
 .ca-row.mp-plan { grid-template-columns: minmax(0, 1fr) 210px 96px 96px 70px 84px; }
 .ca-row.mp-day { grid-template-columns: 150px minmax(0, 1fr) 96px 100px 84px minmax(0, 1fr); }
 .ca-row.mp-today { background: color-mix(in srgb, var(--m-sel) 30%, transparent); }
@@ -4946,6 +5000,30 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-ahview="ahedit">Edit menu</button>
         <button type="button" data-ahview="ahfields">Fields: satırlar</button>
         <button type="button" data-ahview="ahphone">Telefon</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="finance">
+    <div class="brief">
+      <div>
+        <span class="letter">SCRAWL APPS · TASLAK</span>
+        <h2>Kişisel finans: tutar önce, ay bir bakışta</h2>
+        <p>Spendee, Wallet, Money Manager, YNAB ve Monarch gibi. <b>Transactions</b> ana ekran: bu ay günlere göre, her günün toplamı, ayın gelir, gider ve neti. Ekleme tutarla başlar; Out, In ya da Transfer; kategori çipten, en çok kullanılan önde; hesap son kullanılan, gün bugün; What isteğe bağlı, boşsa kategorinin adı. <b>Accounts</b>: bakiyeler ve toplam; aktarım iki hesabı da doğru etkiler. <b>Categories</b>: Spending ya da Income; bütçe çubuğu, durum On track, Close, Over. <b>Recurring</b>: maaş, kira, aidat gibi her ay aynı olanlar günü gelince kendiliğinden yazılır, Today'de görünür, Undo ile geri alınır; tutarı değişenler (elektrik) Today'de Paid ile, ödenmezse Overdue'da. Tutar penceresinden değişir; eklenir, silinir. Kurulumda düzenli gelir ve giderler sözünden okunur. <b>Home</b>: ayın toplamları, bakiyeler, bütçe, yaklaşan ödemeler.</p>
+        <ul class="traits"><li>tutar önce</li><li>kategori çipleri</li><li>son kullanılan hesap</li><li>Transfer</li><li>günlere göre ay</li><li>bütçe çubuğu</li><li>düzenli olan kendiliğinden</li><li>Today'de Paid</li><li>kurulumda düzenliler</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Finans görünümü">
+        <button type="button" data-pfview="pfhome">Home</button>
+        <button type="button" data-pfview="pftoday">Today</button>
+        <button type="button" data-pfview="pftx">Transactions</button>
+        <button type="button" data-pfview="pfadd">Add</button>
+        <button type="button" data-pfview="pfaccounts">Accounts</button>
+        <button type="button" data-pfview="pfbudget">Categories</button>
+        <button type="button" data-pfview="pfrec">Recurring</button>
+        <button type="button" data-pfview="pfrent">Rent</button>
+        <button type="button" data-pfview="pfsetup">Setup</button>
+        <button type="button" data-pfview="pfphone">Telefon</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -15347,6 +15425,202 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderHb(sectionHb, b.dataset.hbview);
   });
   renderHb(sectionHb, 'hbtoday');
+
+  // Personal finance (draft, Oct 28): an amount and a tap to spend, the month at a glance, what comes
+  // again (salary, rent) written by itself on its day, a budget as bars.
+  var PF_APP = 'Personal finance';
+  var PF_MODS = ['Home', 'Transactions', 'Accounts', 'Categories', 'Recurring'];
+  var PF_CAT = { Groceries: '#5cb87a', 'Eating out': '#e0a040', Coffee: '#b07a4a', Transport: '#6aa5f0', Fuel: '#4a8ad0', Rent: '#b48ef0', Utilities: '#8a8fa0', Subscriptions: '#d06a9a', Fun: '#e06a6a', Health: '#3fb8a8', Salary: '#5cb87a', Transfer: '#8a8fa0', Clothes: '#c79a4a' };
+  Object.keys(PF_CAT).forEach(function (k) { LC[k] = PF_CAT[k]; });
+  LC.Close = '#e0a040'; LC.Over = '#e06a6a'; LC.Spending = '#8a8fa0'; LC.Income = '#5cb87a';
+  function pfTree() {
+    return '<div class="tree fxt">' + row({ label: 'Today', ct: 3 }) + row({ label: 'Upcoming', ct: 4 }) +
+      opRowT({ sp: true, open: true, label: 'Personal' }) +
+      ahRow(PF_APP, { on: true, icon: ICON.app }) + ahRow('Habits and goals', { icon: ICON.app }) + '</div>' + spFoot(null);
+  }
+  function pfWindow(kind, left, right, foot, head) {
+    var top = ICON.collection + '<span>' + (head || kind + ' · ' + PF_APP) + '</span><span class="open" title="Open in a tab">' + ICON.open + '</span><span class="more">···</span><span class="x">×</span>';
+    return '<div class="ovl center"><div class="rmod cc-rm' + (right ? '' : ' sw-rm') + '"><div class="cp-head">' + top + '</div>' +
+      '<div class="cc-cols"><div class="cc-col">' + left + '</div>' + (right ? '<div class="cc-col">' + right + '</div>' : '') + '</div>' +
+      '<div class="rm-foot">' + (foot || '<span class="st-btn">Cancel</span>') + '</div></div></div>';
+  }
+  function pfMoney(n, sign) {
+    var a = Math.abs(n).toLocaleString('tr-TR');
+    return (sign && n > 0 ? '+' : n < 0 ? '−' : '') + '₺' + a;
+  }
+  function pfAmt(n, kind) { return '<span class="num ' + (kind === 'in' ? 'pf-in' : kind === 'mv' ? 'pf-mv' : 'pf-out') + '">' + (kind === 'mv' ? '₺' + Math.abs(n).toLocaleString('tr-TR') : pfMoney(n, true)) + '</span>'; }
+  function pfBar(share, text, over) {
+    return '<span class="hb-bar"><span class="b"><i style="width:' + Math.min(100, share) + '%' + (over ? ';background:var(--m-p1)' : '') + '"></i></span><small>' + text + '</small></span>';
+  }
+  var PF_DAYS = [
+    ['Thu, Oct 29', -1325, [['Migros', 'Groceries', 'Credit card', -1240], ['Coffee', 'Coffee', 'Cash', -85]]],
+    ['Wed, Oct 28', -640, [['Eating out', 'Eating out', 'Credit card', -640], ['Credit card payment', 'Transfer', 'Bank account → Credit card', 5000, 'mv']]],
+    ['Mon, Oct 26', -1580, [['Fuel', 'Fuel', 'Credit card', -1580]]],
+    ['Thu, Oct 15', 50000, [['Salary', 'Salary', 'Bank account', 50000, 'in', true]]],
+    ['Mon, Oct 12', -230, [['Netflix', 'Subscriptions', 'Credit card', -230, '', true]]],
+    ['Thu, Oct 1', -20000, [['Rent', 'Rent', 'Bank account', -20000, '', true]]]
+  ];
+  function pfTx() {
+    var head = '<div class="ca-row pf-tx head"><span>What</span><span>Category</span><span>Account</span><span class="num">Amount</span></div>';
+    var rows = PF_DAYS.map(function (d) {
+      return '<div class="ca-row pf-tx pf-day"><span>' + d[0] + '</span><span></span><span></span><span class="num">' + pfMoney(d[1], true) + '</span></div>' +
+        d[2].map(function (t) {
+          return '<div class="ca-row pf-tx"><span class="tt">' + t[0] + (t[5] ? '<span class="pf-auto" style="margin-left:8px"><i></i>Recurring</span>' : '') + '</span>' + lbl(t[1]) + '<span class="calc">' + t[2] + '</span>' + pfAmt(t[3], t[4] || (t[3] > 0 ? 'in' : 'out')) + '</div>';
+        }).join('');
+    }).join('');
+    var totals = '<div class="pf-totals"><div><small>In</small><b class="pf-in">+₺50.000</b></div><div><small>Out</small><b>−₺23.775</b></div><div><small>Net</small><b>+₺26.225</b></div></div>';
+    return '<div class="ah">' + ahTop(PF_APP, ICON.app, PF_MODS, 'Transactions') + ahScreen(['This month', 'All'], totals + head, rows) + '</div>';
+  }
+  /** Adding: the amount first, Out, In or Transfer, a category tapped; the account the last one used, the day today. */
+  function pfAdd() {
+    var cats = [['Groceries', true], ['Eating out'], ['Coffee'], ['Transport'], ['Fuel'], ['Fun'], ['Subscriptions'], ['Health'], ['Clothes']].map(function (c) {
+      return '<span' + (c[1] ? ' class="on"' : '') + ' style="--pc:' + PF_CAT[c[0]] + '"><i></i>' + c[0] + '</span>';
+    }).join('') + '<span class="more">+ 14 more</span>';
+    var left = ccProp('Amount', '<span class="pf-amt"><span class="cur">₺</span>1.240<span class="caret"></span></span>', { req: true }) +
+      ccProp('', '<span class="pf-seg"><span class="on">Out</span><span>In</span><span>Transfer</span></span>') +
+      ccProp('Category', '<span class="pf-cats">' + cats + '</span>') +
+      '<div class="cc-two">' + ccProp('Account', 'Credit card<span class="pf-last">last used</span>', { dd: true }) + ccProp('Date', 'Today') + '</div>' +
+      ccProp('What', '<span class="pf-ph">Groceries</span>') +
+      ccProp('Notes', '', { body: true });
+    return pfWindow('', left, '', '<span class="hint">Saved in Transactions</span><span class="st-btn">Cancel</span><span class="st-btn go">Create</span>', 'New transaction');
+  }
+  var PF_ACCOUNTS = [['Bank account', 'Bank', 42350], ['Credit card', 'Card', -8420], ['Cash', 'Cash', 1200], ['Savings', 'Savings', 120000]];
+  function pfAccounts() {
+    LC.Bank = '#6aa5f0'; LC.Card = '#b48ef0'; LC.Cash = '#5cb87a'; LC.Savings = '#3fb8a8';
+    var head = '<div class="ca-row pf-acc head"><span>Account</span><span>Type</span><span class="num">Balance</span></div>';
+    var rows = PF_ACCOUNTS.map(function (a) {
+      return '<div class="ca-row pf-acc"><span class="tt">' + a[0] + '</span>' + lbl(a[1]) + '<span class="num' + (a[2] < 0 ? ' pf-neg' : '') + '">' + pfMoney(a[2]) + '</span></div>';
+    }).join('') + '<div class="ca-row pf-acc pf-sum"><span>Total</span><span></span><span class="num">₺155.130</span></div>';
+    return '<div class="ah">' + ahTop(PF_APP, ICON.app, PF_MODS, 'Accounts') + ahScreen(['All'], head, rows) + '</div>';
+  }
+  var PF_BUDGET = [['Groceries', 3200, 5000], ['Eating out', 2850, 3000], ['Transport', 1900, 1500], ['Fuel', 1580, 2500], ['Coffee', 640, 800], ['Fun', 1100, 2000], ['Subscriptions', 230, 400]];
+  function pfStatus(spent, limit) { return spent > limit ? 'Over' : spent / limit >= 0.9 ? 'Close' : 'On track'; }
+  function pfBudget() {
+    var head = '<div class="ca-row pf-bud head"><span>Category</span><span>This month</span><span class="num">Left</span><span>Status</span></div>';
+    var rows = PF_BUDGET.map(function (b) {
+      var st = pfStatus(b[1], b[2]);
+      return '<div class="ca-row pf-bud"><span class="tt">' + b[0] + '</span>' + pfBar(Math.round(b[1] / b[2] * 100), pfMoney(b[1]) + ' of ' + pfMoney(b[2]), st === 'Over') + '<span class="num' + (b[1] > b[2] ? ' pf-neg' : '') + '">' + pfMoney(b[2] - b[1]) + '</span>' + lbl(st) + '</div>';
+    }).join('');
+    return '<div class="ah">' + ahTop(PF_APP, ICON.app, PF_MODS, 'Categories') + ahScreen(['Budget', 'All'], head, rows) + '</div>';
+  }
+  var PF_REC = [
+    ['Salary', 50000, 'Monthly · 15th', 'Nov 15', 'Bank account', true],
+    ['Rent', -20000, 'Monthly · 1st', 'Nov 1', 'Bank account', true],
+    ['Building fee', -1500, 'Monthly · 5th', 'Nov 5', 'Bank account', true],
+    ['Internet', -450, 'Monthly · 5th', 'Nov 5', 'Credit card', true],
+    ['Netflix', -230, 'Monthly · 12th', 'Nov 12', 'Credit card', true],
+    ['Electricity', -900, 'Monthly · 20th', 'Oct 20', 'Bank account', false, 'late'],
+    ['Car insurance', -14000, 'Yearly', 'Mar 3', 'Credit card', false]
+  ];
+  function pfRec() {
+    var head = '<div class="ca-row pf-rec head"><span>Name</span><span class="num">Amount</span><span>Every</span><span class="sorted">Next ↑</span><span>Account</span><span>Auto</span></div>';
+    var rows = PF_REC.map(function (r) {
+      return '<div class="ca-row pf-rec"><span class="tt">' + r[0] + '</span>' + pfAmt(r[1], r[1] > 0 ? 'in' : 'out') + '<span class="calc">' + r[2] + '</span><span class="dt' + (r[6] ? ' hl-late' : '') + '">' + r[3] + '</span><span class="calc">' + r[4] + '</span><span class="pf-auto' + (r[5] ? '' : ' off') + '"><i></i>' + (r[5] ? 'Yes' : 'No') + '</span></div>';
+    }).join('') + '<div class="cc-addrow">+ Add row</div>';
+    return '<div class="ah">' + ahTop(PF_APP, ICON.app, PF_MODS, 'Recurring') + ahScreen(['All'], head, rows) + '</div>';
+  }
+  /** A recurring one: its amount changed here, from the next one on; Delete in its ···. */
+  function pfRent() {
+    var left = ccProp('Name', 'Rent', { req: true }) +
+      '<div class="cc-two">' + ccProp('Amount', '<span style="font-variant-numeric:tabular-nums">₺22.000</span>', { req: true }) + ccProp('', '<span class="pf-seg"><span class="on">Out</span><span>In</span></span>') + '</div>' +
+      '<div class="cc-two">' + ccProp('Every', 'Monthly', { dd: true }) + ccProp('Next', 'Nov 1, 2026') + '</div>' +
+      '<div class="cc-two">' + ccProp('Account', 'Bank account', { dd: true }) + ccProp('Category', lbl('Rent'), { dd: true }) + '</div>' +
+      ccProp('Paid automatically', '<span class="pf-auto"><i></i>Yes · written on its day</span>') +
+      ccProp('Notes', 'Kira Ocak\'ta zamlanıyor.', { body: true });
+    var right = '<div class="cc-blk"><div class="blk-h">Written <small>3</small></div>' +
+      '<div class="cc-row md head"><span></span><span>Day</span><span>Amount</span></div>' +
+      [['Oct 1', -20000], ['Sep 1', -20000], ['Aug 1', -20000]].map(function (w) { return '<div class="cc-row md"><span class="go"></span><span class="nm"><span class="t">' + w[0] + '</span></span>' + pfAmt(w[1], 'out') + '</div>'; }).join('') + '</div>';
+    var menu = '<div class="cc-menu" style="right:8px;left:auto;top:34px;width:150px"><span>Open in a tab</span><span style="color:var(--m-p1)">Delete</span></div>';
+    return pfWindow('Recurring', left, right, '<span class="hint">From Nov 1 it is written as ₺22.000; those written before stay as they are</span><span class="st-btn">Cancel</span>') .replace('<span class="more">···</span>', '<span class="more" style="position:relative">···' + menu + '</span>');
+  }
+  function pfRecRow(color, title, meta, btns) {
+    return '<div class="task c3-rec" style="--cc: ' + color + '"><span class="c3-rbar"></span><div><div class="tt">' + title + '</div>' +
+      '<div class="meta">' + meta + '</div>' + (btns ? '<div class="gy-acts">' + btns + '</div>' : '') + '</div></div>';
+  }
+  function pfToday() {
+    var body = '<div class="tasksv"><div class="th"><b>Today</b><span class="c3-date">Thu, Oct 29</span><button type="button" class="add">Add task</button></div><div class="tl">' +
+      '<div class="sec">Overdue <small>1</small></div>' +
+      pfRecRow('#8a8fa0', 'Electricity', '<span class="late">Oct 20</span><span>' + ICON.collection + 'Recurring</span><span>about ₺900 · Bank account</span>', '<span class="st-btn go">Paid</span>') +
+      '<div class="sec">Today <small>3</small></div>' +
+      upTask({ t: 'Call the plumber', w: 'Inbox', p: '' }) +
+      pfRecRow('#d06a9a', 'Phone bill', '<span>' + ICON.collection + 'Recurring</span><span>about ₺350 · Credit card</span>', '<span class="st-btn go">Paid</span>') +
+      pfRecRow('#5cb87a', 'Gym membership', '<span>' + ICON.collection + 'Recurring</span><span class="pf-auto"><i></i>−₺1.200 written · Credit card</span>') +
+      '<div class="qa">+ Add task</div></div></div>';
+    return '<aside class="side">' + pfTree() + '</aside><section class="main"><div class="panes">' + pane(tab('tasks', 'Today', 'x', true) + '<div class="tab plus">+</div>', body) + '</div>' +
+      '<div class="status"><span>1 task · 3 records</span>' + syncStatus(false, null) + '</div></section>' +
+      '<div class="cd-toast">Gym membership: −₺1.200 written automatically<span class="undo">Undo</span></div>';
+  }
+  function pfHome() {
+    var month = '<div class="ah-card"><h4>' + ICON.collection + 'October<small>Transactions</small></h4>' +
+      '<div class="pf-totals" style="margin:6px 0 4px"><div><small>In</small><b class="pf-in">+₺50.000</b></div><div><small>Out</small><b>−₺23.775</b></div><div><small>Net</small><b>+₺26.225</b></div></div>' +
+      '<div class="pf-hr"><span class="t calc">Spent most on</span><span class="n">Rent ₺20.000</span></div><div class="pf-hr"><span class="t calc">Then</span><span class="n">Groceries ₺3.200</span></div></div>';
+    var accounts = '<div class="ah-card"><h4>' + ICON.collection + 'Accounts<small>₺155.130</small></h4>' +
+      PF_ACCOUNTS.map(function (a) { return '<div class="pf-hr"><span class="t">' + a[0] + '</span><span class="n' + (a[2] < 0 ? ' pf-neg' : '') + '">' + pfMoney(a[2]) + '</span></div>'; }).join('') + '</div>';
+    var budget = '<div class="ah-card"><h4>' + ICON.collection + 'Budget<small>1 over</small></h4>' +
+      PF_BUDGET.slice(0, 4).map(function (b) { return '<div class="pf-hr"><span class="t">' + b[0] + '</span>' + pfBar(Math.round(b[1] / b[2] * 100), pfMoney(b[1]) + ' of ' + pfMoney(b[2]), b[1] > b[2]) + '</div>'; }).join('') + '</div>';
+    var coming = '<div class="ah-card"><h4>' + ICON.collection + 'Coming up<small>Recurring</small></h4>' +
+      [['Rent', 'Nov 1', -20000], ['Building fee', 'Nov 5', -1500], ['Internet', 'Nov 5', -450], ['Salary', 'Nov 15', 50000]].map(function (c) { return '<div class="pf-hr"><span class="t">' + c[0] + '<span class="calc" style="margin-left:8px">' + c[1] + '</span></span><span class="n ' + (c[2] > 0 ? 'pf-in' : '') + '">' + pfMoney(c[2], true) + '</span></div>'; }).join('') + '</div>';
+    var today = '<div class="ah-cap">Today <small>2</small></div><div class="ah-today">' +
+      ahTr('#8a8fa0', 'Electricity', '<span class="late">Oct 20</span> · Recurring · about ₺900', '<span class="st-btn go" style="margin-left:auto">Paid</span>') +
+      ahTr('#d06a9a', 'Phone bill', 'Recurring · about ₺350', '<span class="st-btn go" style="margin-left:auto">Paid</span>') + '</div>';
+    return '<div class="ah">' + ahTop(PF_APP, ICON.app, PF_MODS, 'Home') + '<div class="ah-home">' + today + '<div class="ah-cap">This month</div><div class="pf-home">' + month + accounts + budget + '</div><div class="pf-home" style="margin-top:12px">' + coming + '</div></div></div>';
+  }
+  /** Setting it up: what comes again, read from its words; each set to write itself, its account the first. */
+  function pfSetup() {
+    var page = '<p class="na-lead">Every answer is ready; change only what is different for you.</p><div class="na-qs">' +
+      naQ('Your accounts', naList([['Bank account', 'Bank'], ['Credit card', 'Card'], ['Cash', 'Cash']], 'Add an account')) +
+      naQ('What comes in and goes out every time the same', naList([['Salary 50,000 on the 15th', 'In · monthly'], ['Rent 20,000 on the 1st', 'Out · monthly'], ['Building fee 1,500 on the 5th', 'Out · monthly'], ['Netflix 230 on the 12th', 'Out · monthly'], ['Car insurance 14,000 yearly on Mar 3', 'Out · yearly', true]], 'Add one'), { help: 'An amount and a day in its words; written by itself on its day into the first account. Change or delete any later in Recurring.' }) +
+      naQ('Keep a monthly budget?', naSeg(['Yes', 'No'], 'Yes')) + '</div>';
+    var bg = '<aside class="side">' + pfTree() + '</aside><section class="main"><div class="panes">' + pane(tab('tasks', 'Today', 'x', true), '<div class="tasksv"></div>') + '</div><div class="status"><span></span>' + syncStatus(false, null) + '</div></section>';
+    return bg + naWindow(2, page, PF_APP + ' · 3 questions');
+  }
+  function pfPhone() {
+    var cats = [['Groceries', true], ['Eating out'], ['Coffee'], ['Transport'], ['Fuel'], ['Fun'], ['Health']].map(function (c) {
+      return '<span' + (c[1] ? ' class="on"' : '') + ' style="--pc:' + PF_CAT[c[0]] + '"><i></i>' + c[0] + '</span>';
+    }).join('') + '<span style="--pc:var(--m-faint);border-style:dashed">More</span>';
+    var add = mbPage('<div class="mb-nav"><span class="back">Cancel</span><b>New transaction</b><span class="acts" style="color:var(--m-accent);font-weight:600">Add</span></div>',
+      '<div class="pf-mamt"><span class="cur">₺</span>1.240</div><div class="pf-mseg"><span class="pf-seg"><span class="on">Out</span><span>In</span><span>Transfer</span></span></div>' +
+      '<div class="pf-mcats">' + cats + '</div>' +
+      '<div class="mb-form"><div class="mb-group wide">' + mbVal('Account', 'Credit card') + mbVal('Date', 'Today', { cls: 'date' }) + mbVal('What', '<span class="pf-ph">Groceries</span>', { text: true }) + '</div></div>');
+    var list = mbPage('<div class="mb-nav"><span class="back">' + ICON.chevl + PF_APP + '</span><span class="acts"></span></div><div class="mb-rhead"><h2>Transactions</h2><small>October · In +₺50.000 · Out −₺23.775</small></div>',
+      PF_DAYS.slice(0, 3).map(function (d) {
+        return '<div class="pf-mday"><span>' + d[0] + '</span><span>' + pfMoney(d[1], true) + '</span></div><div class="gy-mtoday">' + d[2].map(function (t) {
+          return '<div class="pf-mrow"><span class="tx"><b>' + t[0] + '</b><small>' + t[1] + ' · ' + t[2] + '</small></span><span class="n ' + (t[4] === 'mv' ? 'pf-mv' : t[3] > 0 ? 'pf-in' : '') + '">' + (t[4] === 'mv' ? '₺' + t[3].toLocaleString('tr-TR') : pfMoney(t[3], true)) + '</span></div>';
+        }).join('') + '</div>';
+      }).join('') + '<div class="mb-fab">' + ICON.plus + '</div>');
+    return mbPhone('Ekleme: tutar, bir dokunuş, Add', add, '') + mbPhone('Transactions: günlere göre bu ay', list, '');
+  }
+  var PF_VIEWS = {
+    pfhome: function () { return ahFrame(pfTree(), 'app', PF_APP, pfHome(), '4 screens'); },
+    pftoday: pfToday,
+    pftx: function () { return ahFrame(pfTree(), 'app', PF_APP, pfTx(), '9 records · This month'); },
+    pfadd: function () { return ahFrame(pfTree(), 'app', PF_APP, pfTx(), '9 records · This month', pfAdd()); },
+    pfaccounts: function () { return ahFrame(pfTree(), 'app', PF_APP, pfAccounts(), '4 records'); },
+    pfbudget: function () { return ahFrame(pfTree(), 'app', PF_APP, pfBudget(), '7 records · Budget'); },
+    pfrec: function () { return ahFrame(pfTree(), 'app', PF_APP, pfRec(), '7 records'); },
+    pfrent: function () { return ahFrame(pfTree(), 'app', PF_APP, pfRec(), '7 records', pfRent()); },
+    pfsetup: pfSetup
+  };
+  function renderPf(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (view === 'pfphone') {
+      mock.className = 'mock dir-a phones four mbs';
+      mock.innerHTML = pfPhone();
+    } else {
+      mock.className = 'mock dir-a' + (view === 'pftoday' || view === 'pfsetup' ? '' : ' wider');
+      mock.innerHTML = PF_VIEWS[view]();
+    }
+    section.querySelectorAll('.brief [data-pfview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.pfview === view));
+    });
+  }
+  var sectionPf = document.querySelector('.dir[data-dir="finance"]');
+  sectionPf.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-pfview]');
+    if (b) renderPf(sectionPf, b.dataset.pfview);
+  });
+  renderPf(sectionPf, 'pfhome');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });

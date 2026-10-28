@@ -1,6 +1,6 @@
 import type { MessageKey } from '@scrawlnotes/i18n';
 import type { ColumnKind } from '../board';
-import type { Field, LayoutBlock, NumberFormat, View } from '../collection';
+import type { Field, HomeTile, LayoutBlock, NumberFormat, View } from '../collection';
 import type { PieceInfo } from './pieces';
 
 // An app is a folder of collections, boards, notes and rules set up from ready templates that
@@ -142,6 +142,10 @@ export interface AppDraft extends Chosen {
   view(role: string, view: View, opens?: boolean): void;
   /** The plain table's columns after the first, by key. */
   tableColumns(role: string, keys: string[]): void;
+  /** What the collection's box on the app's Home says: a value beside each record, a total, sums. */
+  homeTile(role: string, tile: HomeTile): void;
+  /** The record window's fields in this order, by key, the others after them; the table keeps the fields' order. */
+  formOrder(role: string, keys: string[]): void;
   /** Adds a rule to a collection's `_rules.js`, once by its name. */
   rule(role: string, chunk: RuleChunk): void;
   /** Adds a record to a collection as it is set up: a budget line, a warehouse. */
@@ -239,6 +243,10 @@ export interface CollectionPart {
   defaultView?: string;
   /** The plain table's columns after the first. */
   columns?: string[];
+  /** What its box on the app's Home says. */
+  home?: HomeTile;
+  /** Its window's fields in this order, the others after them: a transaction's amount first. */
+  order?: string[];
   rules: RuleChunk[];
   /** The records it starts with. */
   records: { [key: string]: string | number | boolean | string[] }[];

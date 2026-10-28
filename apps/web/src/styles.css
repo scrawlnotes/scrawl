@@ -19315,6 +19315,51 @@ button.ppl:hover {
   white-space: nowrap;
 }
 
+/* A box that says values (design/more-apps.md 4.1): a month's sums, a value beside each record. */
+.app-tile .sums {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 22px;
+}
+
+.app-tile .sums > span {
+  display: flex;
+  flex-direction: column;
+}
+
+.app-tile .sums small {
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.app-tile .sums b .num {
+  font-size: 20px;
+}
+
+.app-tile .rs.vals > span {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.app-tile .rs.vals .t {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-tile .rs.vals .t small {
+  margin-left: 8px;
+  color: var(--sl-faint);
+}
+
+.app-tile .rs.vals .pbar {
+  flex: 1.4;
+}
+
 .app-notes {
   display: flex;
   flex-direction: column;
@@ -20285,6 +20330,71 @@ button.ppl:hover {
 .rtable .ttext:focus {
   border-color: var(--sl-accent);
   outline: none;
+}
+
+/* A choice of a few side by side: Out, In, Transfer (design/more-apps.md 4.1). */
+.segs {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 2px;
+  border: 1px solid var(--sl-line);
+  border-radius: 7px;
+}
+
+.segs > button {
+  padding: 3px 14px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--sl-dim);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.segs > button.on {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+  font-weight: 600;
+}
+
+/* A link picked from chips: a transaction's category (design/more-apps.md 4.1). */
+.lchips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.lchips > button {
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: none;
+  cursor: pointer;
+  opacity: 0.72;
+}
+
+.lchips > button .lbl {
+  padding: 3px 10px;
+  border-radius: 13px;
+}
+
+.lchips > button:hover {
+  opacity: 1;
+}
+
+.lchips > button.on {
+  border-color: currentColor;
+  opacity: 1;
+}
+
+.lchips > button.more {
+  padding: 3px 10px;
+  border: 1px dashed var(--sl-line);
+  color: var(--sl-dim);
+  font: inherit;
+  font-size: 12px;
+  opacity: 1;
 }
 
 /* A percent as a bar, with what it says beside it: a goal's progress (design/more-apps.md 4.9). */

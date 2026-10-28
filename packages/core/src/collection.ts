@@ -43,6 +43,8 @@ export interface Rollup {
   open?: boolean;
   /** Only those records or cards that meet these conditions, as the Filter window's: the transactions whose direction is Out. */
   where?: Condition[];
+  /** The one link field of those records it goes through, when they have more than one to here: a transfer's To account, apart from its account (design/more-apps.md 4.1). */
+  via?: string;
 }
 
 /** A field of the record a link field points at, shown as a field of this one: a transaction's customer, through its project. */
@@ -99,6 +101,10 @@ export interface Field {
   when?: Condition[];
   /** A text's or a name's box offers what the collection's other records hold in it as it is typed: a doctor written before. */
   suggest?: boolean;
+  /** A name that may be left empty, its rules writing it as the record is saved: a transaction's What, its category's name (design/more-apps.md 4.1). */
+  optional?: boolean;
+  /** A link picked on the form from chips of its records, the most used first: a transaction's category; a choice picked from its options side by side: Out, In, Transfer. */
+  chips?: boolean;
   /** A link's target: the path of the collection its records come from. */
   collection?: string;
   /** A link that holds several records. */
@@ -253,6 +259,12 @@ export interface CalendarSettings {
   button?: string;
   /** The fields its rows in Today and Upcoming say after the collection, in place of its first person and first link. */
   words?: string[];
+  /**
+   * A tick field: a record with it ticked has its `button` pressed by itself once its day has come,
+   * when the app finds it so, with the button's answers as they come (a salary or a rent paid
+   * automatically, design/more-apps.md 4.1).
+   */
+  auto?: string;
 }
 
 /**
@@ -337,6 +349,8 @@ export interface Schema {
   defaultView?: string;
   /** The plain table's columns after the first, until others are chosen on a device: a habit's streak, not its workings (design/more-apps.md 4.9). */
   columns?: string[];
+  /** What its box on its app's Home says (design/more-apps.md 4.1). */
+  home?: HomeTile;
   /** The fields; their order is the order of the table's columns. */
   fields: Field[];
   /** The record screen; unset means one column of every field, then the body. */
@@ -606,6 +620,7 @@ function readField(raw: unknown): Field | null {
       ...(key && fn !== 'count' && { field: key }),
       ...(r.open === true && { open: true }),
       ...(where.length > 0 && { where }),
+      ...(typeof r.via === 'string' && cleanFieldKey(r.via) && { via: cleanFieldKey(r.via) }),
     };
   }
   if (type === 'lookup') {
@@ -626,6 +641,8 @@ function readField(raw: unknown): Field | null {
   const when = (Array.isArray(raw.when) ? raw.when : []).map((c) => readCondition(c)).filter((c): c is Condition => c !== null && c.field !== key);
   if (when.length > 0) field.when = when;
   if ((type === 'text' || type === 'name') && raw.suggest === true) field.suggest = true;
+  if (type === 'name' && raw.optional === true) field.optional = true;
+  if ((type === 'link' || type === 'select') && raw.chips === true) field.chips = true;
   return field;
 }
 
@@ -781,6 +798,8 @@ export function parseSchema(text: string): Schema {
   if (typeof data.defaultView === 'string' && views.some((v) => v.id === data.defaultView)) schema.defaultView = data.defaultView;
   const columns = strings(data.columns).map(cleanFieldKey).filter((k) => fields.some((f) => f.key === k));
   if (columns.length > 0) schema.columns = columns;
+  const home = readHome(data.home, fields);
+  if (home) schema.home = home;
   return schema;
 }
 
@@ -860,6 +879,7 @@ function readCalendar(raw: unknown, fields: Field[]): CalendarSettings | null {
     upcoming: given.upcoming === 'today' ? 'today' : given.upcoming !== false,
     ...(repeat && { repeat }),
     ...(typeof given.button === 'string' && given.button.trim() && { button: given.button.trim() }),
+    ...(typeof given.auto === 'string' && fields.some((f) => f.key === cleanFieldKey(given.auto as string) && f.type === 'checkbox') && { auto: cleanFieldKey(given.auto) }),
     ...(Array.isArray(given.words) && { words: given.words.filter((k): k is string => typeof k === 'string' && fields.some((f) => f.key === cleanFieldKey(k))).map(cleanFieldKey) }),
   };
 }
@@ -899,6 +919,29 @@ export function removeView(schema: Schema, id: string): Schema {
   const views = (schema.views ?? []).filter((v) => v.id !== id);
   const { views: _old, defaultView, ...rest } = schema;
   return views.length > 0 ? { ...rest, views, ...(defaultView && defaultView !== id && { defaultView }) } : rest;
+}
+
+/**
+ * A collection's box on its app's Home: beside each of its first records the value of `value`, and
+ * `sub` faint after its name; in place of its count the sum of `value` with `total`, or the sums
+ * of `totals`, each with its label (an account's balance and all of them; a month's in, out and
+ * net). Of the records of the view it opens on.
+ */
+export interface HomeTile {
+  value?: string;
+  sub?: string;
+  total?: boolean;
+  totals?: string[];
+}
+
+function readHome(raw: unknown, fields: Field[]): HomeTile | undefined {
+  if (!isRecord(raw)) return undefined;
+  const known = (key: unknown) => (typeof key === 'string' && fields.some((f) => f.key === cleanFieldKey(key)) ? cleanFieldKey(key) : undefined);
+  const value = known(raw.value);
+  const sub = known(raw.sub);
+  const totals = strings(raw.totals).map((k) => known(k)).filter((k): k is string => !!k);
+  const home: HomeTile = { ...(value && { value }), ...(sub && { sub }), ...(value && raw.total === true && { total: true }), ...(totals.length > 0 && { totals }) };
+  return Object.keys(home).length > 0 ? home : undefined;
 }
 
 export function serializeSchema(schema: Schema): string {
@@ -1954,7 +1997,7 @@ export function shownOnForm(field: Pick<Field, 'when'>, record: Pick<Record, 'va
 /** The fields a record leaves empty that it cannot, by key: the name, when the schema has one, and the fields that are required and shown. */
 export function missingFields(values: Record['values'], schema: Schema): string[] {
   return schema.fields
-    .filter((f) => (f.type === 'name' || (f.required && shownOnForm(f, { values }, schema))) && (typeof values[f.key] === 'string' ? !(values[f.key] as string).trim() : isEmpty(values[f.key])))
+    .filter((f) => ((f.type === 'name' && !f.optional) || (f.required && shownOnForm(f, { values }, schema))) && (typeof values[f.key] === 'string' ? !(values[f.key] as string).trim() : isEmpty(values[f.key])))
     .map((f) => f.key);
 }
 

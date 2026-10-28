@@ -9999,3 +9999,17 @@ body > .mb-lifted {
 .mb-days {
   padding: 4px 16px 14px;
 }
+
+/* A link picked from chips on a phone (design/more-apps.md 4.1): the label over its chips. */
+.mb-fr.mb-chipsrow {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding-top: 10px;
+  padding-bottom: 12px;
+}
+
+.mb-chipsrow .lchips .lbl {
+  padding: 6px 12px;
+  font-size: 14px;
+}

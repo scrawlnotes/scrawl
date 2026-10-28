@@ -695,6 +695,15 @@ const FNS: { [name: string]: FnSpec } = {
     },
   },
   me: { args: [0, 0], notInFormula: true, kind: () => 'text' },
+  // For a default: what the record made last holds in the field, by its day field (design/more-apps.md 4.1).
+  last: {
+    args: [1, 1],
+    notInFormula: true,
+    kind: ([by], [b]) => {
+      need(by === 'text' || by === 'any', t('lang.fnLast'), b!);
+      return 'any';
+    },
+  },
   next: {
     args: [1, 2],
     notInFormula: true,
@@ -1215,6 +1224,8 @@ export interface Env {
   me?: string;
   /** The next number with a prefix, in so many digits at least: one more than the highest the field has in the collection. */
   next?(prefix: string, digits: number): string;
+  /** For a default: the field's value in the record whose day field `by` is the latest, the one used last (a transaction's account). */
+  last?(by: string): RV;
   /** In a rule: a name given a value before; undefined when it is not one. */
   local?(name: string): RV | undefined;
   /** In a rule: the record itself. */
@@ -1531,6 +1542,8 @@ function call(fn: string, args: RV[], env: Env): RV {
       return a instanceof Day ? (b instanceof Clock ? new Day(a.n, b.m) : new Day(a.n)) : null;
     case 'me':
       return env.me ?? null;
+    case 'last':
+      return typeof a === 'string' && env.last ? env.last(a) : null;
     case 'next': {
       if (typeof a !== 'string' || !env.next) return null;
       const digits = typeof b === 'number' ? Math.max(1, Math.min(12, Math.trunc(b))) : 1;

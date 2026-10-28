@@ -124,7 +124,7 @@ interface DraftField {
   collection: string;
   many: boolean;
   formula: string;
-  rollup: { from: string; fn: RollupFn; field: string; open: boolean; where: Condition[] };
+  rollup: { from: string; fn: RollupFn; field: string; open: boolean; where: Condition[]; via?: string };
   lookup: { link: string; field: string };
   /** A default given as the field's own value (Today and Me among them), or as a formula. */
   defaultMode: 'value' | 'formula';
@@ -135,6 +135,8 @@ interface DraftField {
   time: boolean;
   /** A text that offers what was written in it before. */
   suggest: boolean;
+  /** A link picked from chips. */
+  chips: boolean;
   /** Shown on the record's form only when these hold (design/shown-when.md). */
   when: Condition[];
   fresh: boolean;
@@ -251,17 +253,19 @@ function draftFields(fields: Field[]): DraftField[] {
       key: f.key,
       label: f.label,
       type: f.type,
-      required: !!f.required,
+      // A name is required unless it says it may be left empty.
+      required: f.type === 'name' ? !f.optional : !!f.required,
       choices: (f.options ?? []).map((name) => ({ id: newId(), name, was: name, color: f.colors?.[name] })),
       collection: f.collection ?? '',
       many: !!f.many,
       formula: f.formula ?? '',
-      rollup: { from: f.rollup?.from ?? '', fn: f.rollup?.fn ?? 'count', field: f.rollup?.field ?? '', open: !!f.rollup?.open, where: f.rollup?.where ?? [] },
+      rollup: { from: f.rollup?.from ?? '', fn: f.rollup?.fn ?? 'count', field: f.rollup?.field ?? '', open: !!f.rollup?.open, where: f.rollup?.where ?? [], ...(f.rollup?.via && { via: f.rollup.via }) },
       lookup: { link: f.lookup?.link ?? '', field: f.lookup?.field ?? '' },
       ...draftDefault(f),
       format: f.format ?? null,
       time: !!f.time,
       suggest: !!f.suggest,
+      chips: !!f.chips,
       when: f.when ?? [],
       fresh: false,
     }),
@@ -287,6 +291,7 @@ const freshField = (fields: DraftField[]): DraftField => ({
   format: null,
   time: false,
   suggest: false,
+  chips: false,
   when: [],
   fresh: true,
 });
@@ -320,6 +325,8 @@ function toField(f: DraftField): Field {
         ...(f.rollup.fn !== 'count' && f.rollup.field && { field: f.rollup.field }),
         ...(f.rollup.open && f.rollup.from.endsWith(BOARD_EXT) && { open: true }),
         ...(f.rollup.where.some(isComplete) && { where: f.rollup.where.filter(isComplete) }),
+        // The link it goes through is kept as the schema gave it; the window does not change it.
+        ...(f.rollup.via && { via: f.rollup.via }),
       },
     }),
     ...(f.type === 'lookup' && { lookup: { link: f.lookup.link, field: f.lookup.field } }),
@@ -327,6 +334,8 @@ function toField(f: DraftField): Field {
     ...(f.format && (f.type === 'number' || isComputed(f.type)) && { format: f.format }),
     ...(f.time && f.type === 'date' && { time: true }),
     ...(f.suggest && (f.type === 'text' || f.type === 'name') && { suggest: true }),
+    ...(f.type === 'name' && !f.required && { optional: true }),
+    ...(f.chips && (f.type === 'link' || f.type === 'select') && { chips: true }),
     ...(f.when.some(isComplete) && { when: f.when.filter(isComplete) }),
   };
 }
@@ -741,7 +750,7 @@ function FieldEditor({ field, fields, collections, types, sources = [], schemaOf
     const taken = new Set(fields.filter((f) => f.id !== field.id).map((f) => f.key));
     onChange({ label, key: keyFor(label, taken) });
   };
-  const retype = (type: FieldType) => onChange({ type, ...(type === 'name' && { required: false }) });
+  const retype = (type: FieldType) => onChange({ type, ...(type === 'name' && { required: true }) });
   const targets: Option[] = collections.filter((c) => isLinkable(c.schema)).map((c) => ({ value: c.dir, label: collectionLabel(c.dir), chip: false }));
   if (field.collection && !targets.some((o) => o.value === field.collection)) targets.push({ value: field.collection, label: collectionLabel(field.collection), chip: false });
   // What a formula gives and reads, or what is wrong with it.
@@ -791,9 +800,15 @@ function FieldEditor({ field, fields, collections, types, sources = [], schemaOf
       </div>
       <div className="fe-row">
         {!isComputed(field.type) && (
-          <label className="fcheck" title={field.type === 'name' ? t('fields.nameRequired') : undefined}>
-            <input type="checkbox" checked={field.type === 'name' || field.required} disabled={field.type === 'name'} onChange={(event) => onChange({ required: event.target.checked })} />
+          <label className="fcheck" title={field.type === 'name' && !field.required ? t('fields.nameOptional') : undefined}>
+            <input type="checkbox" checked={field.required} onChange={(event) => onChange({ required: event.target.checked })} />
             {t('fields.required')}
+          </label>
+        )}
+        {(field.type === 'link' || field.type === 'select') && (
+          <label className="fcheck" title={t('fields.chipsHint')}>
+            <input type="checkbox" checked={field.chips} onChange={(event) => onChange({ chips: event.target.checked })} />
+            {t('fields.chips')}
           </label>
         )}
         {(field.type === 'text' || field.type === 'name') && (

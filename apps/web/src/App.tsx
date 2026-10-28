@@ -43,6 +43,7 @@ import {
   cardRef,
   type CollectionTemplate,
   recordTitle,
+  valueText,
   RuleStop,
   isLinkable,
   collectionCsv,
@@ -1937,6 +1938,34 @@ export function App() {
       { all, until: addDays(today, 13) },
     );
   }, [collections, boards, today]);
+  // A calendar's button that presses itself (design/more-apps.md 4.1): a recurring one paid
+  // automatically, its day come or gone by, pressed once as the app finds it so; what it wrote is
+  // said with Undo. One that stops stays in Today with its button.
+  const autoPressed = useRef(new Set<string>());
+  useEffect(() => {
+    for (const due of dueRecordsNow) {
+      const calendar = due.view.calendar;
+      if (!calendar?.auto || !calendar.button || due.record.values[calendar.auto] !== true || due.start.slice(0, 10) > today) continue;
+      const key = `${due.collection}/${due.record.id}/${due.start}`;
+      if (autoPressed.current.has(key)) continue;
+      autoPressed.current.add(key);
+      const run = session.planButton(due.collection, due.record.id, calendar.button);
+      if (run instanceof RuleStop) {
+        buttonStopped(calendar.button, run);
+        continue;
+      }
+      void session.runButton(run).then(
+        (undo) => {
+          // What its row says (its amount), else what the button did.
+          const said = (calendar.words ?? []).map((key) => valueText(due.record.values[key] ?? null)).filter(Boolean).join(' · ');
+          setShown({ text: said ? t('calendar.autoWrote', { name: recordTitle(due.record), said }) : t('calendar.autoRan', { name: recordTitle(due.record), done: run.done }), undo: () => void undo(), toast: true });
+        },
+        (error: unknown) => buttonStopped(calendar.button!, new RuleStop(error instanceof Error ? error.message : t('error.record'), 0)),
+      );
+    }
+    // Pressed as the records come in Today; the session and the notices do not change what is due.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dueRecordsNow, today]);
   // An app's tab (design/app-home.md 5): its folder is read first.
   const appPath = active ? appPathOf(active) : null;
   const nodeOf = (path: string) => [tree, ...spaces.map((each) => each.tree)].map((nodes) => findNode(nodes, path)).find((node) => node !== undefined);

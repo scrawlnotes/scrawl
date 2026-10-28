@@ -49,7 +49,7 @@ const MOST: { [id in TemplateId]: Answers } = {
   field: { technicians: ['Ali', 'Veli'], contracts: true, stock: true, invoice: true },
   consulting: { time: true, deadlines: true, customers: 'people', payments: true },
   association: { dues: 'monthly', donations: true, campaigns: true, payments: true },
-  finance: { bills: true },
+  finance: { recurring: ['Salary 50,000 on the 15th', 'Rent 20,000 on the 1st'], budget: true },
   home: { jobs: ['Gutters cleaned yearly'] },
   health: { for: 'family', family: ['Ayşe', 'Can'], medications: true },
   recipes: { shopping: true },
@@ -83,7 +83,7 @@ const LEAST: { [id in TemplateId]: Answers } = {
   field: { jobs: [], contracts: false, stock: false, invoice: false },
   consulting: { models: [], time: false, deadlines: false, payments: false },
   association: { dues: 'none', types: [], donations: false },
-  finance: { accounts: [], categories: [], bills: false },
+  finance: { accounts: [], recurring: [], budget: false },
   home: { keeps: [] },
   health: { for: 'me', medications: false },
   recipes: { meals: [], shopping: false },
@@ -641,9 +641,16 @@ describe('apps', () => {
     expect((await recordsTool(agent, { collection: 'Club/Payments', where: [{ field: 'name', op: 'is', value: 'Can Demir · 2026-10-21' }] })).data.records[0]!.values).toMatchObject({ amount: 5000, status: 'Paid', budget_line: expect.objectContaining({ name: 'Donations' }) });
   });
 
-  it('keeps personal money: balances from the transactions, a category over its limit, a bill paid with what it asks left to its defaults', async () => {
+  it('keeps personal money: what comes again read at setup, a transaction by its amount and category, a transfer, a budget, one paid with what it asks left to its defaults', async () => {
     const { agent } = await world();
-    await createTool(agent, { kind: 'app', name: 'Money', templates: ['finance'], currencies: ['TRY'] });
+    // Wednesday 21 October: a salary on the 15th is next on November 15th, the rent on the 1st on November 1st.
+    await createTool(agent, { kind: 'app', name: 'Money', templates: ['finance'], answers: { finance: { recurring: ['Salary 50,000 on the 15th', 'Rent 20,000 on the 1st', 'Car insurance 14,000 yearly on Mar 3'] } }, currencies: ['TRY'] });
+    const recurring = (await recordsTool(agent, { collection: 'Money/Recurring', sort: { field: 'next' } })).data.records;
+    expect(recurring.map((r) => [r.name, r.values.amount, r.values.direction, r.values.every, r.values.next, r.values.auto, (r.values.account as { name: string }).name, (r.values.category as { name: string } | undefined)?.name ?? null])).toEqual([
+      ['Rent', 20000, 'Out', 'Monthly', '2026-11-01', true, 'Bank account', 'Rent'],
+      ['Salary', 50000, 'In', 'Monthly', '2026-11-15', true, 'Bank account', 'Salary'],
+      ['Car insurance', 14000, 'Out', 'Yearly', '2027-03-03', true, 'Bank account', 'Insurance'],
+    ]);
     const accounts = (await recordsTool(agent, { collection: 'Money/Accounts', sort: { field: 'name' } })).data.records;
     expect(accounts.map((a) => [a.name, a.values.type])).toEqual([
       ['Bank account', 'Bank'],
@@ -651,20 +658,28 @@ describe('apps', () => {
       ['Credit card', 'Card'],
     ]);
     await saveRecordTool(agent, { collection: 'Money/Accounts', id: accounts[0]!.id, values: { opening: 10000 } });
+    // An amount and a category: its name is the category's; the account is the one used last.
+    const market = await saveRecordTool(agent, { collection: 'Money/Transactions', values: { account: 'Credit card', amount: 1500, category: 'Groceries' } });
+    expect(market.data.record.name).toBe('Groceries');
+    const coffee = await saveRecordTool(agent, { collection: 'Money/Transactions', values: { amount: 85, category: 'Coffee' } });
+    expect(coffee.data.record.values.account).toMatchObject({ name: 'Credit card' });
+    // A card paid from the bank: out of one, into the other.
+    await saveRecordTool(agent, { collection: 'Money/Transactions', values: { amount: 1000, direction: 'Transfer', account: 'Bank account', to: 'Credit card' } });
+    const balance = async (name: string) => (await recordsTool(agent, { collection: 'Money/Accounts', where: [{ field: 'name', op: 'is', value: name }] })).data.records[0]!.values.balance;
+    expect([await balance('Bank account'), await balance('Credit card')]).toEqual([9000, -585]);
+    // The budget: a bar of what is spent of the limit, and how it stands.
     const groceries = (await recordsTool(agent, { collection: 'Money/Categories', where: [{ field: 'name', op: 'is', value: 'Groceries' }] })).data.records[0]!;
-    await saveRecordTool(agent, { collection: 'Money/Categories', id: groceries.id, values: { limit: 1000 } });
-    await saveRecordTool(agent, { collection: 'Money/Transactions', values: { name: 'Market', account: 'Bank account', amount: 1500, category: 'Groceries' } });
-    expect((await recordsTool(agent, { collection: 'Money/Accounts', where: [{ field: 'name', op: 'is', value: 'Bank account' }] })).data.records[0]!.values.balance).toBe(8500);
-    const over = (await recordsTool(agent, { collection: 'Money/Categories', where: [{ field: 'name', op: 'is', value: 'Groceries' }] })).data.records[0]!;
-    expect([over.values.spent, over.values.left, over.problems]).toEqual([1500, -500, [{ kind: 'check', field: 'spent', text: 'Over its limit by 500' }]]);
-
-    const bill = await saveRecordTool(agent, { collection: 'Money/Bills', values: { name: 'Internet', amount: 400, due: '2026-10-15', account: 'Bank account', category: 'Bills' } });
-    expect(bill.data.record.problems).toEqual([{ kind: 'check', field: 'due', text: 'Past its due day: press Paid once it is paid' }]);
-    const paid = await saveRecordTool(agent, { collection: 'Money/Bills', id: bill.data.record.id, action: 'Paid' });
-    expect(paid.data.record.values.due).toBe('2026-11-15');
-    expect(paid.data.record.problems).toBeUndefined();
-    const spent = (await recordsTool(agent, { collection: 'Money/Transactions', where: [{ field: 'name', op: 'is', value: 'Internet' }] })).data.records[0]!.values;
-    expect(spent).toMatchObject({ amount: 400, direction: 'Out', account: expect.objectContaining({ name: 'Bank account' }), category: expect.objectContaining({ name: 'Bills' }), date: '2026-10-21' });
+    const limited = await saveRecordTool(agent, { collection: 'Money/Categories', id: groceries.id, values: { limit: 1600 } });
+    expect(limited.data.record.values).toMatchObject({ spent: 1500, left: 100, shown: '₺1500 of ₺1600', status: 'Close' });
+    // One whose amount changes, past its day: Paid writes it on its day and moves it a month on.
+    const power = await saveRecordTool(agent, { collection: 'Money/Recurring', values: { name: 'Electricity', amount: 900, next: '2026-10-20', account: 'Bank account', category: 'Utilities', auto: false } });
+    expect(power.data.record.values.says).toBe('about −₺900 · Bank account');
+    const due = (await dueRecordsTool(agent, { from: '2026-10-21', to: '2026-10-21' })).data.records as { record: { name: string }; late?: boolean }[];
+    expect(due.map((d) => [d.record.name, !!d.late])).toEqual([['Electricity', true]]);
+    const paid = await saveRecordTool(agent, { collection: 'Money/Recurring', id: power.data.record.id, action: 'Paid', input: { amount: 940 } });
+    expect(paid.data.record.values.next).toBe('2026-11-20');
+    const written = (await recordsTool(agent, { collection: 'Money/Transactions', where: [{ field: 'name', op: 'is', value: 'Electricity' }] })).data.records[0]!.values;
+    expect(written).toMatchObject({ amount: 940, direction: 'Out', account: expect.objectContaining({ name: 'Bank account' }), category: expect.objectContaining({ name: 'Utilities' }), date: '2026-10-20', recurring: expect.objectContaining({ name: 'Electricity' }) });
   });
 
   it('keeps the home: reminders at home and for the car, each done planned again as often as it is, a document with no day it runs out', async () => {

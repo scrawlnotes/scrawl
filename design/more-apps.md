@@ -127,13 +127,19 @@ Kişi için kurulur; para birimi kişisel finansta sorulur.
 
 ### 4.1 Kişisel finans (Money and home)
 
-- **Accounts:** ad, tür (Bank, Card, Cash, Savings), açılış bakiyesi, bakiye (açılış + girenler − çıkanlar).
-- **Transactions:** hesap, gün, tutar, yön (In, Out), kategori, not; "bu ay mı" (formül).
-- **Categories:** ad, aylık sınır, bu ay harcanan, kalan.
-- **Bills and subscriptions:** ad, tutar, dönem, sonraki son gün, otomatik ödeme mi. Paid düğmesi harcamayı yazar ve son günü bir dönem ileri alır.
-- **Kontroller:** sınırı aşan kategori; son günü geçmiş fatura.
-- **Takvim:** faturalar, Today ve Upcoming'de.
-- **Sorular:** para birimi, hesaplarınız (liste), kategoriler (liste, hazır), faturalar tutulsun mu.
+28 Ekim, en az giriş ölçütüyle baştan (Spendee, Wallet, Money Manager, YNAB, Monarch örnek). Mockup: `design/mockups.html` › Kişisel finans: tutar önce, ay bir bakışta.
+
+- **Transactions (ana ekran):** ekleme tutarla başlar; Out, In ya da Transfer; kategori çiplerden, en çok kullanılan önde; hesap son kullanılan, gün bugün; What isteğe bağlı, boşsa kategorinin adı. Transfer "To" hesabını sorar, birinden düşer ötekine ekler. Tablo bu ayla açılır, günlere göre gruplu, her günün toplamı; ayın gelir, gider ve neti üstte. Tutar işaretli ve renkli. Formda "This month" ve "Bill" yok.
+- **Accounts:** tabloda ad, tür, bakiye ve toplam; açılış bakiyesi yalnız pencerede. Aktarım iki hesabı da doğru etkiler. Borçlu kart kırmızı.
+- **Categories:** Spending ya da Income. Bütçe görünümünde harcama kategorileri: "₺3.200 of ₺5.000" çubuğu, kalan, durum On track, Close (%90'dan çok), Over.
+- **Recurring (Bills yerine):** ad, tutar, Out ya da In, sıklık (Weekly, Monthly, Every 3 months, Every 6 months, Yearly; Custom), sonraki gün, hesap, kategori, Paid automatically (varsayılan açık). Kendiliğinden olan günü gelince işlemini kendisi yazar ve bir sonraki döneme geçer; yazılan işlem o gün Today'de görünür, toast ve Undo. Tutarı değişen (elektrik) Today'de Paid ile, tutarı sorar; ödenmezse Overdue'da kalır. Tutar penceresinden değişir, sonrakiler yeni tutarla yazılır, öncekiler kalır; eklenir, silinir. Penceresinde yazılan işlemleri.
+- **Home:** Today şeridi; ayın geliri, gideri, neti ve en çok harcanan; hesap bakiyeleri ve toplamı; bütçe çubukları; yaklaşan düzenli kayıtlar.
+- **Hazır veri:** yaklaşık 20 harcama kategorisi ve Salary, Freelance, Other income; hesaplar sihirbazdan.
+- **Sorular:** hesaplar; her seferinde aynı gelen ve giden (liste, sözünden okunur: "Salary 50,000 on the 15th", "Rent 20,000 on the 1st", "Car insurance 14,000 yearly on Mar 3"; kategori addan tahmin, hesap ilk hesap); aylık bütçe tutulsun mu.
+- **Telefon:** büyük tutar, Out/In/Transfer, kategori çipleri, Add; işlemler günlere göre.
+- **Uygulamanın geri kalanıyla:** Today'de Paid ve kendiliğinden yazılanlar, Overdue'da ödenmeyen; Upcoming'de yaklaşan düzenliler; Shared expenses kişinin payını yazmaya devam eder.
+- **Altyapı:** ad alanı isteğe bağlı (`optional`, kural doldurur); varsayılan `=last()` (son kayıttaki değer); bağ alanı formda çip (`chips`, en çok kullanılan önde); rollup'ta tek bağ (`via`); takvimde kendiliğinden basılan düğme (`auto`: bir tik alanı; uygulama açılınca günü gelmiş olanlar bir kez); Home kartında değer (parçanın `home` ayarı) ve ay toplamları.
+- Önceden kurulmuş Personal finance app'leri olduğu gibi kalır.
 
 ### 4.2 Ev, araç ve belgeler (Money and home)
 

@@ -8,15 +8,22 @@ import {
   type Card,
   type Collection,
   computerFor,
+  dayInToday,
+  isEmpty,
   type DueRecord,
   matchesConditions,
   recordProblems,
+  type Field,
+  type FieldValue,
+  type Record as CollectionRecord,
   recordTitle,
   screenKey,
+  shownField,
   sortRecords,
 } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { type MouseEvent, type ReactNode, useMemo } from 'react';
+import { Cell, type ValueContext } from './Collection';
 import { Icon, type IconName } from './Icon';
 import { CardRow, RecordRow, recordKey, splitDueCards, type TaskActions } from './Tasks';
 
@@ -36,6 +43,9 @@ interface Count {
 interface Glance {
   count: Count;
   first: string[];
+  /** With the collection's Home setting: its first records with a value each, and sums in place of the count. */
+  rows?: { name: string; sub: { field: Field; value: FieldValue } | null; value: { field: Field; value: FieldValue } | null; values: CollectionRecord['values'] }[];
+  sums?: { field: Field; value: number; values: CollectionRecord['values'] }[];
 }
 
 /** A screen's count and its first records: a collection by the view it opens on, a board by its open cards, a folder by its notes; none for a note. */
@@ -63,9 +73,25 @@ function glanceOf(screen: AppScreen, collections: Record<string, Collection>, bo
   const shown = view ? rolled.records.filter((r) => matchesConditions(r, schema, view.conditions, today)) : rolled.records;
   const sorted = view?.sort ? sortRecords(shown, schema, view.sort, today) : shown;
   const check = collection.records.filter((r) => recordProblems(r, schema).length + computer.checks(collection.dir, r).length > 0).length;
-  return {
+  const glance: Glance = {
     count: { text: view ? t('app.inView', { count: shown.length, view: view.name.toLowerCase() }) : String(shown.length), check },
     first: sorted.slice(0, 4).map(recordTitle),
+  };
+  // A box that says values (design/more-apps.md 4.1): a balance beside each account and their total, a month's sums.
+  const home = schema.home;
+  if (!home) return glance;
+  const scope = { fields: schema.fields, schemaOf: (path: string) => collections[path]?.schema };
+  const shownAs = (key: string | undefined) => {
+    const field = key ? schema.fields.find((f) => f.key === key) : undefined;
+    return field ? shownField(field, scope) : null;
+  };
+  const value = shownAs(home.value);
+  const sub = shownAs(home.sub);
+  const sum = (field: Field) => ({ field, value: shown.reduce((n, r) => n + (typeof r.values[field.key] === 'number' ? (r.values[field.key] as number) : 0), 0), values: shown[0]?.values ?? {} });
+  return {
+    ...glance,
+    rows: sorted.slice(0, 4).map((r) => ({ name: recordTitle(r), value: value ? { field: value, value: r.values[value.key] ?? null } : null, sub: sub ? { field: sub, value: r.values[sub.key] ?? null } : null, values: r.values })),
+    ...(home.totals ? { sums: home.totals.map((key) => shownAs(key)).filter((f): f is Field => !!f).map(sum) } : value && home.total ? { sums: [sum(value)] } : {}),
   };
 }
 
@@ -173,8 +199,11 @@ function AppHome({ modules, shows, collections, boards, notes, today, due, actio
   const own = Object.fromEntries(Object.entries(boards).filter(([path]) => modules.some((m) => m.screens.some((s) => s.path === path))));
   const cards = splitDueCards(own, today);
   const dueCards = [...cards.overdue, ...cards.today];
-  const records = [...due.filter((d) => d.late), ...due.filter((d) => !d.late && (d.day ?? today) === today)];
+  // Today's: a repeating day today, or a record whose day is today or that began before and goes on.
+  const records = [...due.filter((d) => d.late), ...due.filter((d) => !d.late && (d.day ?? dayInToday(d, today)) === today)];
   const count = (s: AppScreen) => glances.get(screenKey(s))?.count;
+  // Values in a box are shown as the table shows them; nothing in one opens elsewhere.
+  const tileCtx: ValueContext = { records: (dir) => collections[dir]?.records ?? null, collection: (dir) => collections[dir] ?? null, openLink: () => undefined };
   const checks = (s: AppScreen) => {
     const n = count(s)?.check ?? 0;
     return n > 0 && <span className="warn">{t('collection.toCheck', { count: n })}</span>;
@@ -222,14 +251,46 @@ function AppHome({ modules, shows, collections, boards, notes, today, due, actio
                     <Icon name={screenIcon(s)} />
                     {s.name}
                   </span>
-                  <b>{glance?.count.text ?? '–'}</b>
-                  {checks(s)}
-                  {glance && glance.first.length > 0 && (
-                    <span className="rs">
-                      {glance.first.map((line, i) => (
-                        <span key={i}>{line}</span>
+                  {glance?.sums ? (
+                    <span className="sums">
+                      {glance.sums.map((each) => (
+                        <span key={each.field.key}>
+                          {glance.sums!.length > 1 && <small>{each.field.label}</small>}
+                          <b>
+                            <Cell field={each.field} value={each.value} ctx={tileCtx} values={each.values} />
+                          </b>
+                        </span>
                       ))}
                     </span>
+                  ) : (
+                    <b>{glance?.count.text ?? '–'}</b>
+                  )}
+                  {checks(s)}
+                  {glance?.rows && glance.rows.length > 0 ? (
+                    <span className="rs vals">
+                      {glance.rows.map((row, i) => (
+                        <span key={i}>
+                          <span className="t">
+                            {row.name}
+                            {row.sub && !isEmpty(row.sub.value) && (
+                              <small>
+                                <Cell field={row.sub.field} value={row.sub.value} ctx={tileCtx} values={row.values} />
+                              </small>
+                            )}
+                          </span>
+                          {row.value && <Cell field={row.value.field} value={row.value.value} ctx={tileCtx} values={row.values} />}
+                        </span>
+                      ))}
+                    </span>
+                  ) : (
+                    glance &&
+                    glance.first.length > 0 && (
+                      <span className="rs">
+                        {glance.first.map((line, i) => (
+                          <span key={i}>{line}</span>
+                        ))}
+                      </span>
+                    )
                   )}
                 </button>
               );
@@ -289,7 +350,8 @@ export function PhoneAppHome({ modules, shows, collections, boards, notes, today
   const own = Object.fromEntries(Object.entries(boards).filter(([path]) => modules.some((m) => m.screens.some((s) => s.path === path))));
   const cards = splitDueCards(own, today);
   const dueCards = [...cards.overdue, ...cards.today];
-  const records = [...due.filter((d) => d.late), ...due.filter((d) => !d.late && (d.day ?? today) === today)];
+  // Today's: a repeating day today, or a record whose day is today or that began before and goes on.
+  const records = [...due.filter((d) => d.late), ...due.filter((d) => !d.late && (d.day ?? dayInToday(d, today)) === today)];
   const row = (s: AppScreen) => {
     const glance = glances.get(screenKey(s));
     return (

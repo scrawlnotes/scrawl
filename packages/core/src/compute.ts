@@ -188,7 +188,17 @@ export class Computer {
     const node = formulaNode(given.slice(1));
     if (!node) return null;
     try {
-      const env: Env = { ...this.env(collection.dir, made, true), ...(me && { me }), next: (prefix, digits) => nextNumber(collection.records.map((r) => r.values[field.key]), prefix, digits) };
+      const env: Env = {
+        ...this.env(collection.dir, made, true),
+        ...(me && { me }),
+        next: (prefix, digits) => nextNumber(collection.records.map((r) => r.values[field.key]), prefix, digits),
+        // The value of the record whose day is the latest, of those that hold one.
+        last: (by) => {
+          const held = collection.records.filter((r) => !isEmpty(r.values[field.key]) && typeof r.values[by] === 'string');
+          const latest = held.reduce<Record | null>((a, b) => (!a || (b.values[by] as string) > (a.values[by] as string) ? b : a), null);
+          return latest ? toRuntime(field, latest.values[field.key]) : null;
+        },
+      };
       return valueFor(field, evaluate(node, env));
     } catch {
       return null;
@@ -360,7 +370,7 @@ export class Computer {
     }
     const collection = this.dirs.get(r.from);
     if (!collection) return null;
-    let records = this.linking(collection, dir, record);
+    let records = this.linking(collection, dir, record, r.via);
     if (where.length > 0) records = records.filter((rec) => where.every((c) => matchesCondition({ values: this.values(collection.dir, rec) }, collection.schema, c, this.today)));
     if (r.fn === 'count') return records.length;
     const source = collection.schema.fields.find((f) => f.key === r.field);
@@ -368,12 +378,12 @@ export class Computer {
   }
 
   /** The records of `source` that link to `record` of the collection at `dir`, found through an index made once. */
-  private linking(source: Collection, dir: string, record: Pick<Record, 'id' | 'name'>): Record[] {
-    const key = `${source.dir}\u0000${dir}`;
+  private linking(source: Collection, dir: string, record: Pick<Record, 'id' | 'name'>, via?: string): Record[] {
+    const key = `${source.dir}\u0000${dir}\u0000${via ?? ''}`;
     let index = this.index.get(key);
     if (!index) {
       index = new Map();
-      const fields = linkFieldsTo(source.schema, dir);
+      const fields = linkFieldsTo(source.schema, dir).filter((f) => !via || f.key === via);
       for (const r of source.records) {
         for (const f of fields) {
           const value = r.values[f.key];

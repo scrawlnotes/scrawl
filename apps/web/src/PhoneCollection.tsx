@@ -71,7 +71,7 @@ import { t } from '@scrawlnotes/i18n';
 import { type FormEvent, type MouseEvent, type PointerEvent, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Chip } from './choices';
 import { DaysMonth } from './CollectionCalendar';
-import { type CollectionActions, type Draft, differs, draftOf, excerpt, NotesBlock, recordLayout, savePreview, singularOf, usedValues, type ValueContext, withDrafts } from './Collection';
+import { type CollectionActions, type Draft, differs, draftOf, excerpt, LinkChips, NotesBlock, recordLayout, savePreview, singularOf, usedValues, type ValueContext, withDrafts } from './Collection';
 import { fieldChoices, LabelSheet } from './labels';
 import { Icon, type IconName } from './Icon';
 import { Subtasks } from './Subtasks';
@@ -266,7 +266,7 @@ function FieldRow({ field, value, values, worked, changed, bad, autoFocus, today
   const label = (
     <span className="fl">
       {field.label}
-      {(field.required || field.type === 'name') && <i className="req">*</i>}
+      {(field.required || (field.type === 'name' && !field.optional)) && <i className="req">*</i>}
     </span>
   );
   switch (field.type) {
@@ -286,9 +286,35 @@ function FieldRow({ field, value, values, worked, changed, bad, autoFocus, today
           <span className={value === true ? 'mb-sw on' : 'mb-sw'} />
         </button>
       );
-    case 'select':
-    case 'multi-select':
     case 'link':
+      // A link picked from chips: on the form, a chip each, the most used first (design/more-apps.md 4.1).
+      if (field.chips) {
+        return (
+          <div className={classes + ' mb-chipsrow'}>
+            {label}
+            <LinkChips field={field} value={isLink(value) || Array.isArray(value) ? (value as Link | Link[]) : null} ctx={ctx} onChange={onChange} />
+          </div>
+        );
+      }
+    // falls through
+    case 'select':
+      // A choice of a few side by side: Out, In, Transfer.
+      if (field.type === 'select' && field.chips) {
+        return (
+          <div className={classes}>
+            {label}
+            <span className="segs" role="radiogroup" aria-label={field.label}>
+              {(field.options ?? []).map((option) => (
+                <button key={option} type="button" role="radio" aria-checked={value === option} className={value === option ? 'on' : undefined} onClick={() => onChange(option)}>
+                  {option}
+                </button>
+              ))}
+            </span>
+          </div>
+        );
+      }
+    // falls through
+    case 'multi-select':
     case 'date':
     case 'time':
     case 'person': {

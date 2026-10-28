@@ -393,7 +393,12 @@ export interface ValueContext {
 /** The words a multi-select holds across records or cards, those held most first. */
 export function usedValues(values: unknown[]): string[] {
   const counts = new Map<string, number>();
-  for (const value of values) for (const each of Array.isArray(value) ? value : [value]) if (typeof each === 'string' && each.trim()) counts.set(each.trim(), (counts.get(each.trim()) ?? 0) + 1);
+  for (const value of values) {
+    for (const held of Array.isArray(value) ? value : [value]) {
+      const each = isLink(held) ? held.name : held;
+      if (typeof each === 'string' && each.trim()) counts.set(each.trim(), (counts.get(each.trim()) ?? 0) + 1);
+    }
+  }
   return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([word]) => word);
 }
 
@@ -585,6 +590,44 @@ function ChoicesField({ id, field, value, used, onChange }: { id: string; field:
       onCreate={() => undefined}
       onChange={onChange}
     />
+  );
+}
+
+/** How many of a link's records show as chips before "+ more". */
+const CHIPS_SHOWN = 9;
+
+/**
+ * A link picked from chips (design/more-apps.md 4.1): its collection's records, the most used in
+ * this collection first, a few and "+ more" for the rest; a click picks one, again takes it off.
+ */
+export function LinkChips({ field, value, ctx, onChange }: { field: Field; value: Link | Link[] | null; ctx: ValueContext; onChange: (value: Link | Link[] | null) => void }) {
+  const [all, setAll] = useState(false);
+  const target = field.collection ? (ctx.records(field.collection) ?? []) : [];
+  const used = ctx.used?.(field) ?? [];
+  const rank = (name: string) => (used.includes(name) ? used.indexOf(name) : used.length);
+  // The most used first, the others by name.
+  const sorted = target.slice().sort((a, b) => rank(a.name) - rank(b.name) || a.name.localeCompare(b.name));
+  const links = (Array.isArray(value) ? value : value ? [value] : []).filter(isLink);
+  const chosen = new Set(links.map((l) => l.id));
+  // A chosen one far down the list shows too.
+  const shown = all ? sorted : [...sorted.slice(0, CHIPS_SHOWN), ...sorted.slice(CHIPS_SHOWN).filter((r) => chosen.has(r.id))];
+  const pick = (record: Record) => {
+    if (chosen.has(record.id)) return onChange(field.many ? links.filter((l) => l.id !== record.id) : null);
+    onChange(field.many ? [...links, linkTo(record)] : linkTo(record));
+  };
+  return (
+    <span className="lchips" role="group" aria-label={field.label}>
+      {shown.map((record) => (
+        <button key={record.id} type="button" className={chosen.has(record.id) ? 'on' : undefined} aria-pressed={chosen.has(record.id)} onClick={() => pick(record)}>
+          <Chip text={recordLabel(record)} />
+        </button>
+      ))}
+      {!all && sorted.length > shown.length && (
+        <button type="button" className="more" onClick={() => setAll(true)}>
+          {t('collection.moreChips', { count: sorted.length - shown.length })}
+        </button>
+      )}
+    </span>
   );
 }
 
@@ -793,8 +836,21 @@ export function FieldInput({ field, value, autoFocus, ctx, currency, onChange, o
   const id = `field-${field.key}`;
   switch (field.type) {
     case 'link':
+      if (field.chips) return <LinkChips field={field} value={isLink(value) || Array.isArray(value) ? (value as Link | Link[]) : null} ctx={ctx} onChange={onChange} />;
       return <LinkField field={field} value={isLink(value) || Array.isArray(value) ? (value as Link | Link[]) : null} autoFocus={autoFocus} ctx={ctx} onChange={onChange} />;
     case 'select':
+      // A choice of a few side by side, one click picking it: Out, In, Transfer (design/more-apps.md 4.1).
+      if (field.chips) {
+        return (
+          <span className="segs" role="radiogroup" aria-label={field.label}>
+            {(field.options ?? []).map((option) => (
+              <button key={option} type="button" role="radio" aria-checked={value === option} className={value === option ? 'on' : undefined} onClick={() => onChange(option)}>
+                {option}
+              </button>
+            ))}
+          </span>
+        );
+      }
       return <SelectField field={field} value={typeof value === 'string' && value ? value : null} onChange={onChange} />;
     case 'multi-select':
       return <ChoicesField id={id} field={field} value={Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []} used={ctx.used?.(field) ?? []} onChange={onChange} />;
@@ -1764,7 +1820,7 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
       <div key={`${key}-${index}`} className={problem ? 'prop bad' : 'prop'}>
         <label className="pl" htmlFor={`field-${field.key}`}>
           {field.label}
-          {(field.required || field.type === 'name') && <i title={t('collection.required')}>*</i>}
+          {(field.required || (field.type === 'name' && !field.optional)) && <i title={t('collection.required')}>*</i>}
         </label>
         <div className={will ? 'pe will' : 'pe'}>
           <FieldInput
