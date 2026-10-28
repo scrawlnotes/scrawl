@@ -80,6 +80,7 @@ export function fieldOut(field: Field) {
     ...(field.lookup && { lookup: field.lookup }),
     ...(field.default !== undefined && { default: field.default }),
     ...(field.format && { format: field.format }),
+    ...(field.when && { when: field.when }),
   };
 }
 

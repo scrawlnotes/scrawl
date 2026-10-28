@@ -56,6 +56,7 @@ import {
   type RecordGroup,
   type RecordSort,
   type Schema,
+  shownOnForm,
   sortRecords,
   type Task,
   templateNamed,
@@ -674,7 +675,6 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
 
   const layout = recordLayout(schema, dir, false, actions);
   const items = layout.columns.flatMap((column) => column.sections.flatMap((section) => section.items));
-  const rows = formFields(schema, items.filter((item): item is { field: string } => 'field' in item)).filter((f) => f.type !== 'name' && f.type !== 'code');
   // What links here, each in a tab; the record's own subtasks are on the first, with its fields.
   const blocks = items.filter((item): item is LinkedBlock | { block: 'cards' } => 'block' in item && (item.block === 'linked' || item.block === 'cards'));
   const hasSubtasks = items.some((item) => 'block' in item && item.block === 'subtasks');
@@ -685,6 +685,8 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
   const willWrite = savePreview(collection, record, draft.values, actions, today);
   const willValues = willWrite.length > 0 ? { ...draft.values, ...Object.fromEntries(willWrite.map((w) => [w.key, w.value])) } : draft.values;
   const rollups = computer.draft(dir, record, willValues);
+  // Not those whose Shown when does not hold as the page is now (design/shown-when.md).
+  const rows = formFields(schema, items.filter((item): item is { field: string } => 'field' in item)).filter((f) => f.type !== 'name' && f.type !== 'code' && shownOnForm(f, { values: willValues }, schema, today));
   // What does not fit the schema, and the checks of the collection's rules the record fails as the page holds it.
   const found = [...recordProblems({ values: willValues, extra: record.extra }, schema), ...computer.checks(dir, record, willValues)];
   const problems = new Set(found.map((p) => p.field));
@@ -1149,7 +1151,10 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
   // What is worked out shows when it says something: a total of its lines, not an empty or a zero.
   const worked = computer.draft(dir, { id: newId, name: '', path: '' }, draft.values);
   const fields = formFields(schema, items.filter((item): item is { field: string } => 'field' in item)).filter(
-    (f) => (f.type !== 'rollup' || counted.has(f.rollup?.from ?? '')) && !(f.type === 'formula' && (isEmpty(worked[f.key] ?? null) || worked[f.key] === 0 || worked[f.key] === false)),
+    (f) =>
+      (f.type !== 'rollup' || counted.has(f.rollup?.from ?? '')) &&
+      !(f.type === 'formula' && (isEmpty(worked[f.key] ?? null) || worked[f.key] === 0 || worked[f.key] === false)) &&
+      shownOnForm(f, { values: draft.values }, schema, today),
   );
   const title = t('collection.newOne', { singular: singularOf(schema) });
   const typedName = nameField(schema);

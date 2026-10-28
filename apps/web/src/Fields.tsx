@@ -133,6 +133,8 @@ interface DraftField {
   format: NumberFormat | null;
   /** A date that may hold a time too. */
   time: boolean;
+  /** Shown on the record's form only when these hold (design/shown-when.md). */
+  when: Condition[];
   fresh: boolean;
 }
 
@@ -257,6 +259,7 @@ function draftFields(fields: Field[]): DraftField[] {
       ...draftDefault(f),
       format: f.format ?? null,
       time: !!f.time,
+      when: f.when ?? [],
       fresh: false,
     }),
   );
@@ -280,6 +283,7 @@ const freshField = (fields: DraftField[]): DraftField => ({
   defaultFormula: '',
   format: null,
   time: false,
+  when: [],
   fresh: true,
 });
 
@@ -318,8 +322,13 @@ function toField(f: DraftField): Field {
     ...(defaultOf(f) !== undefined && { default: defaultOf(f) }),
     ...(f.format && (f.type === 'number' || isComputed(f.type)) && { format: f.format }),
     ...(f.time && f.type === 'date' && { time: true }),
+    ...(f.when.some(isComplete) && { when: f.when.filter(isComplete) }),
   };
 }
+
+/** The fields a field's Shown when can ask of: a choice, a tick, a link or a text of the same record, not itself. */
+const WHEN_TYPES: readonly FieldType[] = ['select', 'multi-select', 'checkbox', 'link', 'text'];
+const askable = (field: DraftField, fields: DraftField[]) => fields.filter((f) => f.id !== field.id && WHEN_TYPES.includes(f.type)).map(toField);
 
 /** The draft as a schema, on top of `base` (its template, singular name and views). */
 function toSchema(draft: Draft, base: Schema): Schema {
@@ -886,10 +895,60 @@ function FieldEditor({ field, fields, collections, types, sources = [], schemaOf
         </>
       )}
       {preview && !isComputed(field.type) && <DefaultRow field={field} fields={fields} schemaOf={schemaOf} preview={preview} onChange={onChange} />}
+      {preview && field.type !== 'name' && <WhenRow field={field} fields={fields} records={recordsOf} onChange={onChange} />}
       {numeric && <FormatRow field={field} fields={fields} onChange={onChange} />}
       {field.type === 'rollup' && rollNote && <p className="fi-note">{rollNote}</p>}
       {mixed && <p className="fi-note warn">{mixed}</p>}
     </div>
+  );
+}
+
+/**
+ * A field's Shown when (design/shown-when.md 2): the conditions of the record's other fields it is
+ * on the form with, all of them; what it does, and that what is written in it stays.
+ */
+function WhenRow({ field, fields, records, onChange }: {
+  field: DraftField;
+  fields: DraftField[];
+  records: (dir: string) => Record[] | null;
+  onChange: (patch: Partial<DraftField>) => void;
+}) {
+  const asked = askable(field, fields);
+  const keys = new Set(asked.map((f) => f.key));
+  // A condition on a field gone, or one it cannot ask of, is said and goes on Save.
+  const shown = field.when.filter((c) => keys.has(c.field));
+  const gone = field.when.filter((c) => !keys.has(c.field));
+  const setWhen = (when: Condition[]) => onChange({ when: [...when, ...gone] });
+  const first = asked[0];
+  if (!first && field.when.length === 0) return null;
+  const words = conditionsWords(shown, asked);
+  const name = field.label.trim() || t('fields.fieldName');
+  return (
+    <>
+      <div className="fe-row top">
+        <span className="fe-name">{t('fields.shownWhen')}</span>
+        <div className="fe-where">
+          {shown.map((condition, i) => (
+            <ConditionRow
+              key={i}
+              schema={{ fields: asked }}
+              condition={condition}
+              records={records}
+              onChange={(next) => setWhen(shown.map((c, j) => (j === i ? next : c)))}
+              onRemove={() => setWhen(shown.filter((_, j) => j !== i))}
+            />
+          ))}
+          {first && (
+            <button type="button" className="cond-add" onClick={() => setWhen([...shown, { field: first.key, op: opsFor(first.type)[0]! }])}>
+              {t('collection.addCondition')}
+            </button>
+          )}
+        </div>
+      </div>
+      {words && <p className="fi-note">{t('fields.shownWhenNote', { field: name, conditions: words })}</p>}
+      {words && <p className="fi-note">{t('fields.shownWhenKeeps', { field: name })}</p>}
+      {gone.length > 0 && <p className="fi-note bad">{t('fields.shownWhenGone', { fields: listed(gone.map((c) => c.field)) })}</p>}
+    </>
   );
 }
 
@@ -1647,6 +1706,7 @@ export function FieldsDialog({ collection, actions, onClose }: { collection: Col
             {(field.required || field.type === 'name') && <i title={t('collection.required')}>*</i>}
           </span>
           <small>{off ? t('fields.offRecord') : typeWords(field)}</small>
+          {!off && field.when.some(isComplete) && <span className="fwhen">{conditionsWords(field.when, askable(field, draft.fields))}</span>}
           <button
             type="button"
             className="feye"

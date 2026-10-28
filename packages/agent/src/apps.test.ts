@@ -667,7 +667,7 @@ describe('apps', () => {
     expect(spent).toMatchObject({ amount: 400, direction: 'Out', account: expect.objectContaining({ name: 'Bank account' }), category: expect.objectContaining({ name: 'Bills' }), date: '2026-10-21' });
   });
 
-  it('keeps the home: its jobs and the car’s, each done planned again, a thing of the only home, a paper a month before it runs out', async () => {
+  it('keeps the home: its jobs and the car’s, each done planned again, a job of the only home, a paper or a warranty a month before it runs out', async () => {
     const { agent } = await world();
     await createTool(agent, { kind: 'app', name: 'Home', templates: ['home'], currencies: ['TRY'] });
     const jobs = (await recordsTool(agent, { collection: 'Home/Upkeep', sort: { field: 'name' } })).data.records;
@@ -693,14 +693,17 @@ describe('apps', () => {
     const car = (await recordsTool(agent, { collection: 'Home/Vehicles' })).data.records[0]!;
     expect(car.values.next).toBe('2026-10-20');
     expect(car.problems).toEqual([{ kind: 'check', field: 'next', text: 'A job is past its day' }]);
-    // With one home, a thing or a job saved with none is that home's; a car's job stays the car's.
-    const tv = await saveRecordTool(agent, { collection: 'Home/Items', values: { name: 'TV', warranty: '2027-05-01' } });
-    expect(tv.data.record.values.home).toMatchObject({ name: 'Home' });
+    // With one home, a job saved with none is that home's; a car's job stays the car's.
     expect((await saveRecordTool(agent, { collection: 'Home/Upkeep', values: { name: 'Gutters' } })).data.record.values.home).toMatchObject({ name: 'Home' });
     const tyres = await saveRecordTool(agent, { collection: 'Home/Upkeep', values: { name: 'Wash', vehicle: 'Car' } });
     expect(tyres.data.record.values.home).toBeUndefined();
     const passport = await saveRecordTool(agent, { collection: 'Home/Documents', values: { name: 'Passport', type: 'Passport', expires: '2026-12-15' } });
     expect(passport.data.record.values.remind).toBe('2026-11-15');
+    // A warranty is a document: its store shown for it only, the tools saying so; written all the same.
+    const tv = await saveRecordTool(agent, { collection: 'Home/Documents', values: { name: 'Samsung TV', type: 'Warranty', store: 'Teknosa', expires: '2027-05-01' } });
+    expect(tv.data.record.values).toMatchObject({ store: 'Teknosa', remind: '2027-04-01' });
+    const fields = JSON.parse((await readTool(agent, { path: 'Home/Documents/_collection.json', part: 'fields' })).text) as { key: string; when?: unknown }[];
+    expect(fields.find((f) => f.key === 'store')!.when).toEqual([{ field: 'type', op: 'is', value: ['Warranty'] }]);
     const due = (await dueRecordsTool(agent, { from: '2026-10-21', to: '2026-12-31' })).data.records as { start: string; record: { name: string } }[];
     expect(due.map((d) => [d.record.name, d.start])).toEqual([['Passport', '2026-11-15']]);
     // Only cars kept: a job saved with no car is the only car's.

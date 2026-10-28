@@ -474,6 +474,13 @@ describe('setting up an app', () => {
     expect(upkeep.fields.map((f) => f.key)).toEqual(['name', 'home', 'vehicle', 'every', 'next', 'last']);
     expect(upkeep.fields.find((f) => f.key === 'every')!.options).toEqual(['Monthly', 'Quarterly', 'Every 6 months', 'Yearly', 'Every 2 years']);
     expect(parseSchema(plan.files.find((f) => f.path === 'Atlas/Vehicles/_collection.json')!.text).fields.map((f) => f.key)).toEqual(['name', 'plate', 'km', 'next']);
+    // Papers and warranties are one Documents, each type with its own fields.
+    const documents = parseSchema(plan.files.find((f) => f.path === 'Atlas/Documents/_collection.json')!.text);
+    expect(documents.fields.map((f) => [f.key, f.when?.[0]?.value ?? null])).toEqual([
+      ['name', null], ['type', null], ['store', ['Warranty']], ['bought', ['Warranty']], ['insurer', ['Insurance']], ['expires', null], ['remind', null],
+    ]);
+    expect(documents.fields.find((f) => f.key === 'type')!.options).toEqual(['ID', 'Passport', 'Driving licence', 'Insurance', 'Warranty', 'Other']);
+    expect(plan.created.some((c) => c.path === 'Atlas/Items')).toBe(false);
     // Only the cars: no homes, and their jobs in Upkeep.
     const cars = planApp({ name: 'Garage', templates: [{ id: 'home', answers: { keeps: ['vehicles'] } }] }, { ids });
     expect(cars.created.map((c) => c.path)).toEqual(['Garage/Vehicles', 'Garage/Upkeep', 'Garage/About Garage.md']);

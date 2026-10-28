@@ -1,5 +1,6 @@
 import {
   cleanFieldKey,
+  type Condition,
   type Field,
   type FieldValue,
   type Layout,
@@ -50,18 +51,32 @@ export function renameChoices(values: Record['values'], renames: ChoiceRenames):
   return out;
 }
 
+/** A condition with its choices renamed. */
+function renamedCondition(condition: Condition, renames: ChoiceRenames): Condition {
+  const names = renames[condition.field];
+  if (!names || condition.value === undefined || typeof condition.value === 'number') return condition;
+  return { ...condition, value: renamed(condition.value, names) as string | string[] };
+}
+
 /** The views of a schema with renamed choices in their conditions. */
 export function renameInViews(schema: Schema, renames: ChoiceRenames): Schema {
   if (!schema.views) return schema;
-  const views = schema.views.map((view) => ({
-    ...view,
-    conditions: view.conditions.map((condition) => {
-      const names = renames[condition.field];
-      if (!names || condition.value === undefined || typeof condition.value === 'number') return condition;
-      return { ...condition, value: renamed(condition.value, names) as string | string[] };
-    }),
-  }));
+  const views = schema.views.map((view) => ({ ...view, conditions: view.conditions.map((c) => renamedCondition(c, renames)) }));
   return { ...schema, views };
+}
+
+/**
+ * The fields' Shown when as kept (design/shown-when.md 4): a condition on a field gone goes with it,
+ * one on a choice renamed follows it.
+ */
+function settleWhen(fields: Field[], renames: ChoiceRenames): Field[] {
+  const keys = new Set(fields.map((f) => f.key));
+  return fields.map((f) => {
+    if (!f.when) return f;
+    const when = f.when.filter((c) => keys.has(c.field)).map((c) => renamedCondition(c, renames));
+    const { when: _when, ...rest } = f;
+    return when.length > 0 ? { ...rest, when } : rest;
+  });
 }
 
 /** The keys of the fields a layout places, in the order the screen reads them: column by column, top to bottom. */
@@ -96,7 +111,7 @@ export function settleSchema(schema: Schema, linked: LayoutBlock[] = [], renames
   const layout = settleLayout(schema.layout ?? defaultLayout(schema.fields, linked));
   const order = readingOrder(layout);
   const rank = (f: Field) => (order.includes(f.key) ? order.indexOf(f.key) : order.length);
-  const fields = schema.fields.map((f, i) => ({ f, i })).sort((a, b) => rank(a.f) - rank(b.f) || a.i - b.i).map(({ f }) => f);
+  const fields = settleWhen(schema.fields.map((f, i) => ({ f, i })).sort((a, b) => rank(a.f) - rank(b.f) || a.i - b.i).map(({ f }) => f), renames);
   const same = JSON.stringify(layout) === JSON.stringify(settleLayout(defaultLayout(fields, linked)));
   const { layout: _layout, ...rest } = renameInViews(schema, renames);
   return parseSchema(serializeSchema({ ...rest, fields, ...(!same && { layout }) }));

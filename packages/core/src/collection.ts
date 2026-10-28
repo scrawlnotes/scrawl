@@ -88,6 +88,11 @@ export interface Field {
   /** The color of each choice that has one, by the choice; the others are colored by their text. */
   colors?: { [option: string]: OptionColor };
   required?: boolean;
+  /**
+   * Shown on the record's form only when these hold, all of them (design/shown-when.md): Store when
+   * Type is Warranty. Its value stays when it is not shown; the table and the files keep it.
+   */
+  when?: Condition[];
   /** A link's target: the path of the collection its records come from. */
   collection?: string;
   /** A link that holds several records. */
@@ -565,6 +570,9 @@ function readField(raw: unknown): Field | null {
     const format = readFormat(raw.format);
     if (format) field.format = format;
   }
+  // A condition on a field gone stays as it was written: the field is shown, Fields says it is broken.
+  const when = (Array.isArray(raw.when) ? raw.when : []).map((c) => readCondition(c)).filter((c): c is Condition => c !== null && c.field !== key);
+  if (when.length > 0) field.when = when;
   return field;
 }
 
@@ -1851,10 +1859,18 @@ export function linkedValues(schema: Schema, dir: string, record: Record, from: 
   return values;
 }
 
-/** The fields a record leaves empty that it cannot, by key: the name, when the schema has one, and the fields that are required. */
+/**
+ * Whether a field is on the record's form: with no condition, or when all of its conditions hold
+ * (design/shown-when.md). A condition on a field the schema does not have holds, so the field shows.
+ */
+export function shownOnForm(field: Pick<Field, 'when'>, record: Pick<Record, 'values'>, schema: Pick<Schema, 'fields'>, today = ''): boolean {
+  return !field.when || field.when.every((c) => matchesCondition(record, schema, c, today));
+}
+
+/** The fields a record leaves empty that it cannot, by key: the name, when the schema has one, and the fields that are required and shown. */
 export function missingFields(values: Record['values'], schema: Schema): string[] {
   return schema.fields
-    .filter((f) => (f.type === 'name' || f.required) && (typeof values[f.key] === 'string' ? !(values[f.key] as string).trim() : isEmpty(values[f.key])))
+    .filter((f) => (f.type === 'name' || (f.required && shownOnForm(f, { values }, schema))) && (typeof values[f.key] === 'string' ? !(values[f.key] as string).trim() : isEmpty(values[f.key])))
     .map((f) => f.key);
 }
 
@@ -1879,7 +1895,7 @@ export function recordProblems(record: Pick<Record, 'values' | 'extra'>, schema:
     if (isComputed(field.type)) continue;
     const value = record.values[field.key];
     if (isEmpty(value) && field.key in record.extra) problems.push({ field: field.key, kind: 'mismatch' });
-    else if ((field.type === 'name' || field.required) && (typeof value === 'string' ? !value.trim() : isEmpty(value))) problems.push({ field: field.key, kind: 'missing' });
+    else if ((field.type === 'name' || (field.required && shownOnForm(field, record, schema))) && (typeof value === 'string' ? !value.trim() : isEmpty(value))) problems.push({ field: field.key, kind: 'missing' });
     else if (field.type === 'select' && typeof value === 'string' && value && !(field.options ?? []).includes(value)) problems.push({ field: field.key, kind: 'choice' });
   }
   return problems;

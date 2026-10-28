@@ -96,6 +96,7 @@ import {
   type Record,
   type RecordPatch,
   type RecordSort,
+  shownOnForm,
   sortRecords,
   type Subtask,
   TODAY,
@@ -1597,7 +1598,8 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
   const recordWide = problems.filter((p) => !p.field || !fields.has(p.field));
   const item = (key: string, index: number): ReactNode => {
     const field = fields.get(key);
-    if (!field || offForm.has(key)) return null;
+    // Nor one whose Shown when does not hold as the form is now: Store but for a warranty (design/shown-when.md).
+    if (!field || offForm.has(key) || !shownOnForm(field, { values: toBe }, schema, today)) return null;
     // What is worked out is shown, not typed; a new record's only when it says something: what its lines add up to, a total.
     const problem = problems.find((p) => p.field === field.key);
     if (isComputed(field.type)) {
@@ -2092,7 +2094,8 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
     ? { conditions: view.conditions, sort: sortOf(view.sort), group: view.group ?? null, columns: view.columns ?? null, widths: view.widths ?? null, edit: view.edit ?? null }
     : { conditions: adHoc, sort: sortOf(look?.sort), group: look?.group ?? null, columns: look?.columns ?? null, widths: look?.widths ?? null, edit: look?.edit ?? null };
   const allFields = useMemo(() => tableFields(collection), [collection]);
-  const fields = state.columns ? [allFields[0]!, ...state.columns.map((k) => fieldsByKey.get(k)).filter((f): f is Field => !!f && f.key !== allFields[0]!.key)] : allFields;
+  // Columns not picked are every field but those shown only sometimes, a warranty's Store, which Columns adds (design/shown-when.md 6).
+  const fields = state.columns ? [allFields[0]!, ...state.columns.map((k) => fieldsByKey.get(k)).filter((f): f is Field => !!f && f.key !== allFields[0]!.key)] : allFields.filter((f, i) => i === 0 || !f.when);
   const sortField = fieldsByKey.get(state.sort.key);
   const applied = state.conditions.filter(isComplete);
   const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink, used: (field) => usedValues(collection.records.map((r) => r.values[field.key])) };

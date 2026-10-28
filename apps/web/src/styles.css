@@ -19788,6 +19788,24 @@ button.ppl:hover {
   opacity: 0.5;
 }
 
+/* A field shown only when its conditions hold says them beside its type (design/shown-when.md). */
+.fitem:has(.fwhen) {
+  grid-template-columns: 10px minmax(0, 1fr) auto auto auto;
+}
+
+.fitem .fwhen {
+  overflow: hidden;
+  max-width: 220px;
+  padding: 0 7px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--sl-accent) 14%, transparent);
+  color: var(--sl-accent);
+  font-size: 11px;
+  line-height: 18px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 /* A tick in a table, a list or a form's worked-out value, as the Gym mockup draws it: a box with a
    faint edge, filled and marked when ticked; the same as a group's tick. */
 .tick.cbx {

@@ -2282,6 +2282,9 @@ p { margin: 0; max-width: 68ch; }
 .fi-note code { font: 11px var(--m-mono); font-variant-ligatures: none; color: var(--m-dim); }
 .fi-note.bad code { color: inherit; }
 .fe-row.top { align-items: flex-start; }
+.fe .fe-row.top > .fe-name { padding-top: 2px; line-height: 1.35; }
+.fitem.sw-has { grid-template-columns: 10px minmax(0, 1fr) auto auto; }
+.fitem.sw-has .sw-when { margin-left: 0; }
 .fe-row.top > .fe-name { padding-top: 6px; }
 .fe .fe-row > .fe-name { width: 64px; }
 .ca-where { display: flex; flex: 1; flex-direction: column; gap: 5px; min-width: 0; }
@@ -3910,6 +3913,20 @@ p { margin: 0; max-width: 68ch; }
 .ah-tile small .warn { color: var(--m-p2); }
 .ca-row.ah-ord { grid-template-columns: 18px 84px minmax(0, 1fr) 84px 76px 70px 96px; }
 .ca-row.ah-prog { grid-template-columns: 18px minmax(0, 1fr) 160px 80px 70px 100px; }
+/* Shown when (draft, Oct 28): a field on the form only when another holds a value. */
+.ca-row.sw-doc { grid-template-columns: minmax(0, 1fr) 130px 110px 110px; }
+.fitem .sw-when { margin-left: 6px; padding: 0 6px; border-radius: 9px; background: color-mix(in srgb, var(--m-accent) 14%, transparent); color: var(--m-accent); font-size: 10.5px; line-height: 16px; white-space: nowrap; }
+.fe-row.top { align-items: flex-start; }
+.sw-conds { display: flex; flex: 1; flex-direction: column; gap: 6px; min-width: 0; }
+.sw-conds .fcond .lnkc { display: inline-flex; align-items: center; gap: 4px; }
+.sw-conds .fcond .lnkc .x { font-size: 10px; }
+.rmod.cc-rm.sw-rm { width: 560px; }
+.sw-rm .cc-cols { grid-template-columns: minmax(0, 1fr); }
+.sw-rm .cc-col { gap: 12px; }
+.sw-rm .cc-prop.hot .box { border-color: var(--m-accent); }
+.sw-rm .att { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border: 1px solid var(--m-line); border-radius: 5px; color: var(--m-dim); font-size: 12px; }
+.mock .sw-rm .att svg { width: 13px; height: 13px; }
+.mb-fr.sw-new::after { content: ''; position: absolute; top: 12px; bottom: 12px; left: 0; width: 3px; border-radius: 2px; background: var(--m-accent); }
 .ca-row .tg { display: flex; color: var(--m-faint); }
 .mock .ca-row .tg svg { width: 14px; height: 14px; }
 .ca-row.open { background: color-mix(in srgb, var(--m-sel) 30%, transparent); border-bottom-color: transparent; }
@@ -4857,6 +4874,25 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-ahview="ahedit">Edit menu</button>
         <button type="button" data-ahview="ahfields">Fields: satırlar</button>
         <button type="button" data-ahview="ahphone">Telefon</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="shownwhen">
+    <div class="brief">
+      <div>
+        <span class="letter">KOLEKSİYON · TASLAK</span>
+        <h2>Türe göre alanlar: Shown when</h2>
+        <p>Bir alan, başka bir alan bir değeri tutunca formda görünür. Fields'ta alanı açınca <b>Shown when</b> satırı: alan, <i>is</i> ve değerler; birden fazla koşul hepsi tutunca. Koşulu olan alan listede küçük bir etiketle görünür. Kayıt penceresinde ve telefonda Type değişince alanlar hemen açılır ya da kapanır. Gizlenen alanın değeri silinmez, tabloda ve dosyada durur. Bütün koleksiyonlarda kullanılır; ilk kullanan Home, car and documents: Warranties ve Documents tek ekran, garanti bir belge türü; Number yok. Warranty'de Store ve Bought, Insurance'ta Insurer. Tablo Name, Type, Expires, Remind on ile açılır; ötekiler Columns'tan eklenir.</p>
+        <ul class="traits"><li>Fields'ta Shown when</li><li>listede etiket</li><li>türe göre form</li><li>değer silinmez</li><li>tablo sade</li><li>telefonda da</li><li>bütün koleksiyonlarda</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Shown when görünümü">
+        <button type="button" data-swview="swfields">Fields: Store</button>
+        <button type="button" data-swview="swwarranty">Warranty</button>
+        <button type="button" data-swview="swpassport">Passport</button>
+        <button type="button" data-swview="swtable">Documents</button>
+        <button type="button" data-swview="swphone">Telefon</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -14647,6 +14683,104 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderAh(sectionAh, b.dataset.ahview);
   });
   renderAh(sectionAh, 'ahhome');
+
+  // Shown when (draft, Oct 28): a field on the form only when another holds a value. Home, car and
+  // documents is the first to use it: one Documents screen, a warranty a type of document, Store and
+  // Bought for a warranty, Insurer for an insurance; the table opens with the fields every type has.
+  ['ID', 'Passport', 'Driving licence', 'Insurance', 'Warranty', 'Other'].forEach(function (s, i) { LC[s] = ['#6aa5f0', '#b48ef0', '#4cc4b4', '#f0a54a', '#5cb87a', 'var(--m-dim)'][i]; });
+  var SW_APP = 'Home, car and documents';
+  var SW_MODS = ['Home', 'Documents', 'Vehicles', 'Upkeep', 'Homes'];
+  var SW_DOCS = [
+    ['Passport', 'Passport', 'Aug 3, 2027', 'Jul 4, 2027'],
+    ['Driving licence', 'Driving licence', 'Jan 15, 2029', 'Dec 16, 2028'],
+    ['Samsung TV', 'Warranty', 'Mar 12, 2027', 'Feb 10, 2027'],
+    ['Dishwasher', 'Warranty', 'Nov 20, 2026', 'Oct 21, 2026', true],
+    ['Home insurance', 'Insurance', 'Jun 1, 2027', 'May 2, 2027'],
+    ['ID card', 'ID', 'Sep 9, 2031', 'Aug 10, 2031']
+  ];
+  function swTree() {
+    return '<div class="tree fxt">' + row({ label: 'Today', ct: 2 }) + row({ label: 'Upcoming', ct: 6 }) +
+      opRowT({ sp: true, open: true, label: 'Personal' }) +
+      ahRow(SW_APP, { on: true }) + ahRow('Gym', { icon: ICON.rise }) +
+      opRowT({ d: 1, icon: 'notes', label: 'Reading list' }) + '</div>' + spFoot(null);
+  }
+  /** Documents as a table: the fields every type has; Store, Bought and Insurer are under Columns. */
+  function swTable() {
+    var head = '<div class="ca-row sw-doc head"><span class="sorted">Name ↑</span><span>Type</span><span>Expires</span><span>Remind on</span></div>';
+    var rows = SW_DOCS.map(function (d) {
+      return '<div class="ca-row sw-doc"><span class="tt">' + d[0] + '</span>' + lbl(d[1]) + '<span class="dt">' + d[2] + '</span><span class="dt' + (d[4] ? ' late' : '') + '">' + d[3] + '</span></div>';
+    }).join('');
+    return '<div class="ah">' + ahTop(SW_APP, ICON.app, SW_MODS, 'Documents') + ahScreen(['All', 'Calendar'], head, rows) + '</div>';
+  }
+  /** A document's window: the fields every type has, and those its type shows. */
+  function swRecord(o) {
+    var head = ICON.collection + '<span>Documents · ' + SW_APP + '</span><span class="open" title="Open in a tab">' + ICON.open + '</span><span class="more">···</span><span class="x">×</span>';
+    var left = ccProp('Name', o.name, { req: true }) + ccProp('Type', lbl(o.type), { dd: true }) + (o.extra || '') +
+      '<div class="cc-two">' + ccProp('Expires', o.expires, { req: true }) + ccProp('Remind on', '<span class="calc">' + o.remind + '</span>') + '</div>' +
+      ccProp('Notes', o.notes, { body: true });
+    return '<div class="ovl center"><div class="rmod cc-rm sw-rm"><div class="cp-head">' + head + '</div><div class="cc-cols"><div class="cc-col">' + left + '</div></div>' +
+      '<div class="rm-foot"><span class="st-btn">Cancel</span><span class="st-btn go">Save</span></div></div></div>';
+  }
+  var SW_WARRANTY = swRecord({
+    name: 'Samsung TV', type: 'Warranty', expires: 'Mar 12, 2027', remind: 'Feb 10, 2027',
+    extra: '<div class="cc-two">' + ccProp('Store', 'Teknosa').replace('cc-prop', 'cc-prop hot') + ccProp('Bought', 'Mar 12, 2025').replace('cc-prop', 'cc-prop hot') + '</div>',
+    notes: '<span class="att">' + ICON.notes + 'Invoice.pdf</span><span class="att">' + ICON.notes + 'Warranty card.jpg</span>'
+  });
+  var SW_PASSPORT = swRecord({ name: 'Passport', type: 'Passport', expires: 'Aug 3, 2027', remind: 'Jul 4, 2027', notes: 'Add a note…' });
+  /** Fields of Documents, Store open: shown when Type is Warranty; Bought and Insurer with theirs. */
+  function swFields() {
+    var add = '<div class="fadd">+ Add</div>';
+    function when(label, type, cond) { return cbFld(label, type).replace('class="fitem"', 'class="fitem sw-has"').replace('</small></div>', '</small><span class="sw-when">' + cond + '</span></div>'); }
+    var store = cbOpen('Store', 'Text', 'store',
+      '<div class="fe-row top"><span class="fe-name">Shown when</span><div class="sw-conds">' +
+        '<div class="fcond"><span class="in sel">Type<span class="dd">▾</span></span><span class="in sel">is<span class="dd">▾</span></span><span class="in"><span class="lnkc">Warranty <span class="x">×</span></span></span><span class="x">×</span></div>' +
+        '<div class="fcond-add">+ Add condition</div></div></div>' +
+      '<p class="fi-note">Store is on the form only when Type is <u>Warranty</u>. With more than one condition, all of them.</p>' +
+      '<p class="fi-note">When Type changes, what is written in Store stays: in the table, the files and when Type is Warranty again.</p>', { req: true });
+    var screen = cbCol(1, '<div class="fsec">' + cbFld('Name', 'name', true) + cbFld('Type', 'select') + store +
+      when('Bought', 'date', 'Type is Warranty') + when('Insurer', 'text', 'Type is Insurance') +
+      cbFld('Expires', 'date', true) + cbFld('Remind on', 'formula') + cbBlk('Notes', 'the body: receipts, cards, a photo') + add + '</div>');
+    return cbWindow('Documents', 'design', cbCanvas(screen), '<span class="hint">Saved in ' + SW_APP + '/Documents/_collection.json · an agent can edit it too</span><span class="st-btn">Cancel</span><span class="st-btn go">Save</span>').replace('class="fdlg"', 'class="fdlg narrow"').replace('Documents · ' + CA_SPACE, 'Documents · ' + SW_APP);
+  }
+  /** On a phone: a new document, Warranty showing Store and Bought; Insurance showing Insurer. */
+  function swPhone() {
+    var nav = function (mid) { return '<div class="mb-nav"><span class="tb plain">Cancel</span><span class="mid">' + mid + '</span><span class="acts"><span class="tb">Save</span></span></div>'; };
+    function form(rows) { return '<div class="mb-form" style="padding-top: 8px"><div class="mb-group wide">' + rows + '</div></div>'; }
+    var hot = function (html) { return html.replace('class="mb-fr', 'class="mb-fr sw-new'); };
+    var warranty = mbPage(nav('New document'), form(mbVal('Name', 'Samsung TV', { text: true, cls: 'typing' }) + mbVal('Type', lbl('Warranty')) +
+      hot(mbVal('Store', 'Teknosa', { text: true, cls: 'typing' })) + hot(mbVal('Bought', 'Mar 12, 2025', { cls: 'date' })) + mbVal('Expires', 'Mar 12, 2027', { cls: 'date' })) +
+      '<div class="mb-sec">Notes</div><div class="mb-form"><div class="mb-group wide">' + mbVal('Invoice.pdf', '', { text: true }) + '</div></div>');
+    var insurance = mbPage(nav('New document'), form(mbVal('Name', 'Home insurance', { text: true, cls: 'typing' }) + mbVal('Type', lbl('Insurance')) +
+      hot(mbVal('Insurer', 'Anadolu Sigorta', { text: true, cls: 'typing' })) + mbVal('Expires', 'Jun 1, 2027', { cls: 'date' })));
+    var passport = mbPage(nav('New document'), form(mbVal('Name', 'Passport', { text: true, cls: 'typing' }) + mbVal('Type', lbl('Passport')) + mbVal('Expires', 'Aug 3, 2027', { cls: 'date' })));
+    return mbPhone('Warranty: Store ve Bought', warranty, '') + mbPhone('Insurance: Insurer', insurance, '') + mbPhone('Passport: yalnız ortak alanlar', passport, '');
+  }
+  var SW_VIEWS = {
+    swfields: function () { return ahFrame(swTree(), 'app', SW_APP, swTable(), '6 records · Sorted by Name', swFields()); },
+    swwarranty: function () { return ahFrame(swTree(), 'app', SW_APP, swTable(), '6 records · Sorted by Name', SW_WARRANTY); },
+    swpassport: function () { return ahFrame(swTree(), 'app', SW_APP, swTable(), '6 records · Sorted by Name', SW_PASSPORT); },
+    swtable: function () { return ahFrame(swTree(), 'app', SW_APP, swTable(), '6 records · Sorted by Name'); }
+  };
+  function renderSw(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (view === 'swphone') {
+      mock.className = 'mock dir-a phones four mbs';
+      mock.innerHTML = swPhone();
+    } else {
+      mock.className = 'mock dir-a wider';
+      mock.innerHTML = SW_VIEWS[view]();
+    }
+    section.querySelectorAll('.brief [data-swview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.swview === view));
+    });
+  }
+  var sectionSw = document.querySelector('.dir[data-dir="shownwhen"]');
+  sectionSw.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-swview]');
+    if (b) renderSw(sectionSw, b.dataset.swview);
+  });
+  renderSw(sectionSw, 'swfields');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });

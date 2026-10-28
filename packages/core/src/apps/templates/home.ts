@@ -2,12 +2,13 @@ import type { MessageKey } from '@scrawlnotes/i18n';
 import { calendar, day, formula, link, nameField, number, rollup, select, text } from '../pieces';
 import type { AppTemplate } from '../types';
 
-// Home, car and documents (design/more-apps.md 4.2): your homes and the things in them with their
-// warranties, the papers that run out, your cars, and what is done again and again at home and for
-// each car, a job each in Upkeep. Each comes to Today and Upcoming on its day; Done plans a job's
-// next time.
+// Home, car and documents (design/more-apps.md 4.2): what runs out, papers and warranties alike,
+// each type with its own fields (design/shown-when.md 6); your homes and cars, and what is done again
+// and again at each home and for each car, a job each in Upkeep. Each comes to Today and Upcoming on
+// its day; Done plans a job's next time.
 
-const KEEPS = ['items', 'documents', 'vehicles', 'upkeep'];
+const KEEPS = ['documents', 'vehicles', 'upkeep'];
+const TYPES = ['ID', 'Passport', 'Driving licence', 'Insurance', 'Warranty', 'Other'];
 const HOMES = ['Home'];
 const JOBS = ['Boiler service yearly', 'Smoke alarm batteries yearly', 'Air conditioner filters quarterly', 'Water purifier filters every 6 months'];
 const CARS = ['Car'];
@@ -40,10 +41,10 @@ const listOf = (answer: unknown, fallback: string[]) => ((answer as string[] | u
 
 const keepsOf = (answers: { keeps?: unknown }) => (Array.isArray(answers.keeps) ? (answers.keeps as string[]) : KEEPS);
 
-/** What is kept, in its order: none chosen, the things you own. */
+/** What is kept, in its order: none chosen, the documents. */
 const keptOf = (answers: { keeps?: unknown }) => {
   const chosen = KEEPS.filter((k) => keepsOf(answers).includes(k));
-  return chosen.length > 0 ? chosen : ['items'];
+  return chosen.length > 0 ? chosen : ['documents'];
 };
 
 export const home: AppTemplate = {
@@ -61,7 +62,7 @@ export const home: AppTemplate = {
       kind: 'list',
       label: 'apps.home.homes',
       default: HOMES,
-      when: ({ answers }) => keepsOf(answers).includes('items') || keepsOf(answers).includes('upkeep'),
+      when: ({ answers }) => keepsOf(answers).includes('upkeep'),
       under: 'keeps',
       help: 'apps.home.homesHelp',
       add: 'apps.home.addHome',
@@ -70,27 +71,26 @@ export const home: AppTemplate = {
     { key: 'cars', kind: 'list', label: 'apps.home.cars', default: CARS, when: ({ answers }) => keepsOf(answers).includes('vehicles'), under: 'keeps', help: 'apps.home.carsHelp', add: 'apps.home.addCar' },
     { key: 'carJobs', kind: 'list', label: 'apps.home.carJobs', default: CAR_JOBS, when: ({ answers }) => keepsOf(answers).includes('vehicles'), under: 'keeps', help: 'apps.home.carJobsHelp', add: 'apps.home.addJob' },
   ],
-  money: (answers) => keptOf(answers).includes('items'),
+  money: () => false,
   pieces: (answers) => {
     const keeps = keptOf(answers);
-    // The things and the jobs at home are kept by their home; a car's jobs are in Upkeep too.
+    // The jobs at home are kept by their home; a car's jobs are in Upkeep too.
     return [
-      ...(keeps.includes('items') || keeps.includes('upkeep') ? ['homes'] : []),
+      ...(keeps.includes('upkeep') ? ['homes'] : []),
       ...keeps.filter((k) => k !== 'upkeep'),
       ...(keeps.includes('upkeep') || keeps.includes('vehicles') ? ['upkeep'] : []),
     ];
   },
-  menu: ['items', 'documents', 'vehicles', 'upkeep', 'homes'],
+  menu: ['documents', 'vehicles', 'upkeep', 'homes'],
   build(app, answers) {
     const homes = app.hasPiece('homes');
-    const items = app.hasPiece('items');
     const documents = app.hasPiece('documents');
     const vehicles = app.hasPiece('vehicles');
     const upkeep = app.hasPiece('upkeep');
     const homeJobs = keptOf(answers).includes('upkeep');
     const homeNames = listOf(answers.homes, HOMES);
     const carNames = listOf(answers.cars, CARS);
-    // With one home, a thing or a job saved with none is that home's.
+    // With one home, a job saved with none is that home's.
     const onlyHome = () => `const homes = find("${app.called('homes')}")\n    if (homes.length == 1) home = homes[0]`;
 
     if (homes) {
@@ -98,22 +98,14 @@ export const home: AppTemplate = {
       app.field('homes', text('address', 'Address'));
       for (const name of homeNames) app.record('homes', { name });
     }
-    if (items) {
-      app.field('items', nameField());
-      if (homes) app.field('items', link('home', 'Home', app.path('homes')));
-      app.field('items', text('room', 'Room'));
-      app.field('items', day('bought', 'Bought'));
-      app.field('items', number('price', 'Price', { format: app.format(false) }));
-      app.field('items', day('warranty', 'Warranty until'));
-      app.view('items', { ...calendar({ start: 'warranty', upcoming: true }), name: 'Warranties' });
-      app.rule('items', { kind: 'check', name: 'Warranty over', src: 'check("warranty", () => empty(warranty) || warranty >= today(), "Its warranty is over")' });
-      if (homes) app.rule('items', { kind: 'onSave', name: 'The only home', src: `onSave("The only home", () => {\n  if (empty(home)) {\n    ${onlyHome()}\n  }\n})` });
-      if (homes) app.block('homes', { block: 'linked', collection: app.path('items'), style: 'table', fields: ['room', 'warranty'], sort: 'name' });
-    }
     if (documents) {
       app.field('documents', nameField());
-      app.field('documents', select('type', 'Type', ['ID', 'Passport', 'Driving licence', 'Insurance', 'Other'], { ID: 'blue', Passport: 'purple', 'Driving licence': 'teal', Insurance: 'orange', Other: 'gray' }));
-      app.field('documents', text('number', 'No'));
+      app.field('documents', select('type', 'Type', TYPES, { ID: 'blue', Passport: 'purple', 'Driving licence': 'teal', Insurance: 'orange', Warranty: 'green', Other: 'gray' }));
+      // A warranty's store and day bought, an insurance's insurer: on the form for that type only.
+      const of = (type: string) => ({ when: [{ field: 'type', op: 'is' as const, value: [type] }] });
+      app.field('documents', { ...text('store', 'Store'), ...of('Warranty') });
+      app.field('documents', { ...day('bought', 'Bought'), ...of('Warranty') });
+      app.field('documents', { ...text('insurer', 'Insurer'), ...of('Insurance') });
       app.field('documents', { ...day('expires', 'Expires'), required: true });
       // A month before it runs out, to have time to renew it.
       app.field('documents', formula('remind', 'Remind on', 'expires - 30'));
@@ -165,8 +157,7 @@ export const home: AppTemplate = {
     }
 
     const kept = [
-      items && `the things you own${homeNames.length > 1 ? ' in each home' : ''} and their warranties`,
-      documents && 'the papers that run out',
+      documents && 'papers and warranties that run out',
       vehicles && (carNames.length > 1 ? 'your cars and their jobs' : 'your car and its jobs'),
       homeJobs && 'what is done at home again and again',
     ].filter(Boolean) as string[];
@@ -174,26 +165,23 @@ export const home: AppTemplate = {
     app.about({
       title: 'Home, car and documents',
       what: `${said[0]!.toUpperCase()}${said.slice(1)}, each in Today and Upcoming on its day.`,
-      pieces: ['homes', 'items', 'documents', 'vehicles', 'upkeep'].filter((r) => app.hasPiece(r)),
+      pieces: ['homes', 'documents', 'vehicles', 'upkeep'].filter((r) => app.hasPiece(r)),
       glance: [
-        ...(items ? ['Warranties that end, in Upcoming'] : []),
-        ...(documents ? ['A month before a paper runs out'] : []),
+        ...(documents ? ['A month before a paper or a warranty runs out'] : []),
         ...(upkeep ? ['The jobs at home and for the car, in Upcoming', 'Done plans a job’s next time'] : []),
       ],
       how: [
-        ...(homes ? [`Each home is in ${app.called('homes')}; add another there, and give a thing or a job its home.`] : []),
-        ...(items ? ['Add what you buy, with its price and until when its warranty runs; put its receipt in its notes.'] : []),
-        ...(documents ? ['Add each paper with when it runs out.'] : []),
+        ...(homes ? [`Each home is in ${app.called('homes')}; add another there, and give a job its home.`] : []),
+        ...(documents ? ['Add each paper with when it runs out; a warranty as a document of its own type, with where it was bought, its receipt and card in its notes.'] : []),
         ...(vehicles ? [`Each car is in ${app.called('vehicles')}, with its jobs in its window: give each its next day.`] : []),
         ...(homeJobs ? ['Give each job at home its next day.'] : []),
         ...(upkeep ? ['Press Done when a job is done.'] : []),
       ],
       auto: [
-        ...(items ? ['A warranty comes to Upcoming on its last day; one that is over is marked.'] : []),
-        ...(documents ? ['A paper comes to Today and Upcoming a month before it runs out; one that ran out is marked.'] : []),
+        ...(documents ? ['A paper or a warranty comes to Today and Upcoming a month before it runs out; one that ran out is marked.', 'A warranty asks for its store and the day it was bought, an insurance for its insurer.'] : []),
         ...(upkeep ? ['A job comes to Today and Upcoming on its next day; one past its day is marked.', 'Done writes today as its last time, and its next time a month, a quarter, six months, a year or two years on.'] : []),
         ...(vehicles ? ['A car shows the first of its jobs’ days, and is marked when a job is past its day.'] : []),
-        ...(homes ? ['With one home, a thing or a job saved with no home is that home’s.'] : []),
+        ...(homes ? ['With one home, a job saved with no home is that home’s.'] : []),
       ],
       work: ['Where the papers and the receipts are kept.', ...(upkeep ? ['Who does what at home and for the car.'] : [])],
     });
