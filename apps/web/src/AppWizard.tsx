@@ -87,10 +87,11 @@ export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreat
   // An app of no template (design/app-home.md 5.5): named, and its folder made, nothing else asked.
   const [blank, setBlank] = useState(false);
   const [name, setName] = useState('');
-  // The name is its templates' short names until one is typed, at a free name where it is made: Gym, CRM, Sales and Stock, Gym 2.
+  // The name is its templates' names until one is typed, at a free name where it is made: a business's
+  // short, CRM, Sales and Stock; a person's whole, Personal finance, Habits and goals 2.
   const [nameTyped, setNameTyped] = useState(false);
   const freeName = (folder: string) => {
-    const base = listed(chosen.map((id) => t(APP_TEMPLATES[id].short)));
+    const base = listed(chosen.map((id) => t(audienceOf(APP_TEMPLATES[id].group) === 'personal' ? APP_TEMPLATES[id].name : APP_TEMPLATES[id].short)));
     const taken = (n: string) => folders.some((f) => f.toLowerCase() === (folder ? `${folder}/${n}` : n).toLowerCase());
     let free = base;
     for (let i = 2; taken(free); i++) free = `${base} ${i}`;
