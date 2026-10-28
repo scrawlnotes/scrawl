@@ -1874,12 +1874,16 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
     }
     return null;
   };
-  const columns = layout.columns.map((column, c) => (
+  // A block with conditions is there only while the form's values meet them; a column left with
+  // nothing in it goes, and the window is as narrow as one column (a goal by a number has no steps).
+  const here = (layoutItem: LayoutItem) => 'field' in layoutItem || shownOnForm(layoutItem, { values: draft.values }, schema, today);
+  const shownColumns = layout.columns.map((column, c) => ({ column, c })).filter(({ column, c }) => c === fieldColumn || column.sections.some((s) => s.items.some(here)));
+  const columns = shownColumns.map(({ column, c }) => (
     <div key={c} className="rm-col" style={{ flex: column.width ?? 1 }}>
       {column.sections.map((section, s) => (
         <section key={s} className="rm-sec">
           {section.title && <h3>{section.title}</h3>}
-          {section.items.map(entry)}
+          {section.items.filter(here).map(entry)}
         </section>
       ))}
       {/* Fields the layout does not place are shown after the others, so that none is lost. */}
@@ -1901,7 +1905,7 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
 
   return (
     <div ref={backdrop} className="backdrop card-backdrop" onMouseDown={(event) => event.target === event.currentTarget && leave()}>
-      <section ref={panel} className={layout.columns.length > 1 ? 'rmod wide' : 'rmod'} role="dialog" aria-label={isNew ? title : recordTitle(record)} tabIndex={-1}>
+      <section ref={panel} className={shownColumns.length > 1 ? 'rmod wide' : 'rmod'} role="dialog" aria-label={isNew ? title : recordTitle(record)} tabIndex={-1}>
         <div className="cp-head">
           <Icon name="collection" />
           {record?.code && <span className="key">{record.code}</span>}

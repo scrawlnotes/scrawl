@@ -114,7 +114,7 @@ export const habits: AppTemplate = {
       app.field('personal-goals', formula('progress', 'Progress', 'measure == "Steps" ? (steps() == 0 ? 0 : steps(true) / steps()) : empty(target) || target == start ? 0 : min(1, max(0, ((empty(now) ? start : now) - start) / (target - start)))', { style: 'percent', bar: true, caption: 'shown' }));
       app.field('personal-goals', formula('expected', 'By now', 'empty(by) || by <= since ? null : min(1, max(0, (today() - since) / (by - since)))', PERCENT));
       app.field('personal-goals', { ...formula('status', 'Status', 'progress >= 1 ? "Done" : empty(expected) || progress >= expected - 0.05 ? "On track" : "Behind"'), colors: { 'On track': 'green', Behind: 'orange', Done: 'blue' } });
-      app.block('personal-goals', { block: 'subtasks', title: 'Steps', add: 'Add step' });
+      app.block('personal-goals', { block: 'subtasks', title: 'Steps', add: 'Add step', when: [{ field: 'measure', op: 'is', value: ['Steps'] }] });
       const open = [{ field: 'status', op: 'is-not' as const, value: ['Done'] }];
       app.view('personal-goals', { id: 'open', name: 'Open', conditions: open, sort: { key: 'by', dir: 'asc' }, columns: ['progress', 'by', 'status'] }, true);
       app.tableColumns('personal-goals', ['progress', 'by', 'status']);

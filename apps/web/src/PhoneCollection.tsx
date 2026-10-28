@@ -720,7 +720,8 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
   useEffect(() => () => void guards.delete(guardKey), [guards, guardKey]);
 
   const layout = recordLayout(schema, dir, false, actions);
-  const items = layout.columns.flatMap((column) => column.sections.flatMap((section) => section.items));
+  // A block with conditions is there only while the page's values meet them: a goal's steps for a goal by its steps.
+  const items = layout.columns.flatMap((column) => column.sections.flatMap((section) => section.items)).filter((item) => 'field' in item || shownOnForm(item, { values: draft.values }, schema, today));
   // What links here, each in a tab; the record's own subtasks are on the first, with its fields.
   const blocks = items.filter((item): item is LinkedBlock | { block: 'cards' } => 'block' in item && (item.block === 'linked' || item.block === 'cards'));
   const subtasksBlock = items.find((item): item is { block: 'subtasks'; title?: string; add?: string } => 'block' in item && item.block === 'subtasks');

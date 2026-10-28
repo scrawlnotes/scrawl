@@ -61,6 +61,14 @@ describe('the Fields window', () => {
     expect(parseSchema(serializeSchema(settled))).toEqual(settled);
   });
 
+  it('keeps a block that is there only when its conditions hold', () => {
+    const schema = parseSchema(JSON.stringify({ version: 2, fields: [{ key: 'name', type: 'name' }, { key: 'measure', type: 'select', options: ['Number', 'Steps'] }], layout: { columns: [{ items: [{ field: 'name' }] }, { items: [{ block: 'subtasks', title: 'Steps', when: [{ field: 'measure', op: 'is', value: ['Steps'] }, { op: 'nope' }] }] }] } }));
+    const steps = schema.layout!.columns[1]!.sections[0]!.items[0]!;
+    expect(steps).toEqual({ block: 'subtasks', title: 'Steps', when: [{ field: 'measure', op: 'is', value: ['Steps'] }] });
+    expect(shownOnForm(steps as { when?: never }, { values: { measure: 'Steps' } }, schema)).toBe(true);
+    expect(shownOnForm(steps as { when?: never }, { values: { measure: 'Number' } }, schema)).toBe(false);
+  });
+
   it('keeps a text that suggests what was written; on another type it is nothing', () => {
     const schema = parseSchema(JSON.stringify({ version: 2, fields: [{ key: 'doctor', label: 'Doctor', type: 'text', suggest: true }, { key: 'box', label: 'Box', type: 'number', suggest: true }] }));
     expect(schema.fields.map((f) => f.suggest)).toEqual([true, undefined]);

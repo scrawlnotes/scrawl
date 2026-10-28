@@ -141,8 +141,14 @@ export const NAME_KEY = 'name';
  * link here, cards and tasks, or the record's own subtasks. Linked records are a list or a timeline, sorted by a field (a
  * timeline by its day, newest first), a list's rows showing the fields named.
  */
-export type LayoutItem =
-  | { field: string }
+export type LayoutItem = { field: string } | (LayoutBlockKind & { when?: Condition[] });
+
+/**
+ * A block of the record screen. Any of them may have `when`, as a field's: it is there only while
+ * the record's values meet those conditions, all of them (a goal's steps for a goal by its steps,
+ * design/more-apps.md 4.9); a column all of whose blocks are away is away too.
+ */
+type LayoutBlockKind =
   | { block: 'body' }
   | {
       block: 'linked';
@@ -643,6 +649,13 @@ function readFormat(raw: unknown): NumberFormat | undefined {
 function readItem(raw: unknown): LayoutItem | null {
   if (!isRecord(raw)) return null;
   if (typeof raw.field === 'string') return { field: cleanFieldKey(raw.field) };
+  const block = readBlock(raw);
+  if (!block) return null;
+  const when = (Array.isArray(raw.when) ? raw.when : []).map((c) => readCondition(c)).filter((c): c is Condition => c !== null);
+  return when.length > 0 ? { ...block, when } : block;
+}
+
+function readBlock(raw: { [key: string]: unknown }): LayoutBlockKind | null {
   if (raw.block === 'subtasks') {
     return { block: 'subtasks', ...(typeof raw.title === 'string' && raw.title.trim() && { title: raw.title.trim() }), ...(typeof raw.add === 'string' && raw.add.trim() && { add: raw.add.trim() }) };
   }
