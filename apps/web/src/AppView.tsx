@@ -48,6 +48,10 @@ interface Glance {
   sums?: { field: Field; value: number; values: CollectionRecord['values'] }[];
   /** Said when it has no rows to show: "Give a category a monthly limit to see it here". */
   empty?: string;
+  /** Its first record alone, large, its line under it: the next trip (design/more-apps.md 4.5). */
+  big?: boolean;
+  /** No box on Home: the packing list. */
+  off?: boolean;
 }
 
 /** A screen's count and its first records: a collection by the view it opens on, a board by its open cards, a folder by its notes; none for a note. */
@@ -82,6 +86,7 @@ function glanceOf(screen: AppScreen, collections: Record<string, Collection>, bo
   // A box that says values (design/more-apps.md 4.1): a balance beside each account and their total, a month's sums.
   const home = schema.home;
   if (!home) return glance;
+  if (home.off) return { ...glance, off: true };
   const scope = { fields: schema.fields, schemaOf: (path: string) => collections[path]?.schema };
   const shownAs = (key: string | undefined) => {
     const field = key ? schema.fields.find((f) => f.key === key) : undefined;
@@ -95,7 +100,8 @@ function glanceOf(screen: AppScreen, collections: Record<string, Collection>, bo
   return {
     ...glance,
     ...(listed.length === 0 && home.empty && { first: [], empty: home.empty }),
-    rows: listed.slice(0, 4).map((r) => ({ name: recordTitle(r), value: value ? { field: value, value: r.values[value.key] ?? null } : null, sub: sub ? { field: sub, value: r.values[sub.key] ?? null } : null, values: r.values })),
+    ...(home.first && { big: true }),
+    rows: listed.slice(0, home.first ? 1 : 4).map((r) => ({ name: recordTitle(r), value: value ? { field: value, value: r.values[value.key] ?? null } : null, sub: sub ? { field: sub, value: r.values[sub.key] ?? null } : null, values: r.values })),
     ...(home.totals ? { sums: home.totals.map((key) => shownAs(key)).filter((f): f is Field => !!f).map(sum) } : value && home.total ? { sums: [sum(value)] } : {}),
   };
 }
@@ -250,6 +256,7 @@ function AppHome({ modules, shows, collections, boards, notes, today, due, actio
           <div className="app-tiles">
             {modules[0]!.screens.map((s) => {
               const glance = glances.get(screenKey(s));
+              if (glance?.off) return null;
               return (
                 <button key={screenKey(s)} type="button" className="app-tile" onClick={(event) => onPick(event, modules[0]!, s)}>
                   <span className="h">
@@ -271,7 +278,18 @@ function AppHome({ modules, shows, collections, boards, notes, today, due, actio
                     <b>{glance?.count.text ?? '–'}</b>
                   )}
                   {checks(s)}
-                  {glance?.rows && glance.rows.length > 0 ? (
+                  {glance?.big && glance.rows?.[0] ? (
+                    <span className="big">
+                      <b>{glance.rows[0].name}</b>
+                      <small>
+                        {[glance.rows[0].sub, glance.rows[0].value].filter((v): v is NonNullable<typeof v> => !!v && !isEmpty(v.value)).map((v, i) => (
+                          <span key={i}>
+                            <Cell field={v.field} value={v.value} ctx={tileCtx} values={glance.rows![0]!.values} />
+                          </span>
+                        ))}
+                      </small>
+                    </span>
+                  ) : glance?.rows && glance.rows.length > 0 ? (
                     <span className="rs vals">
                       {glance.rows.map((row, i) => (
                         <span key={i}>

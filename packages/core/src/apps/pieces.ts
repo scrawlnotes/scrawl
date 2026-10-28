@@ -99,13 +99,13 @@ export const PIECES: { [role: string]: PieceInfo } = {
   'plan-items': { kind: 'collection', name: 'Plan items', singular: 'item', about: 'what to eat at each meal of a plan, the ones of a meal its alternatives.', lines: ['meal-plans'], hidden: ['order'] },
   'meal-days': { kind: 'collection', name: 'Days', singular: 'day', about: 'each day of a plan, written as the plan is saved: what to eat, what was eaten or had instead.', hidden: ['name', 'has_1', 'has_2', 'has_3', 'has_4', 'has_5', 'has_6', 'has_7', 'has_8', 'ate_1', 'ate_2', 'ate_3', 'ate_4', 'ate_5', 'ate_6', 'ate_7', 'ate_8', 'chg_1', 'chg_2', 'chg_3', 'chg_4', 'chg_5', 'chg_6', 'chg_7', 'chg_8', 'meals', 'eaten', 'changed', 'ahead'] },
   'day-items': { kind: 'collection', name: 'Day items', singular: 'item', about: 'what to eat on a day, ticked when eaten, or what was had instead.', lines: ['meal-days'], hidden: ['order', 'day'] },
-  trips: { kind: 'collection', name: 'Trips', singular: 'trip', about: 'each trip: where to, from when to when, and what it costs each day.', hidden: ['coming', 'when', 'pack_said', 'days_left', 'to_settle', 'to_pack', 'members'] },
+  trips: { kind: 'collection', name: 'Trips', singular: 'trip', about: 'each trip: where to, from when to when, and what it costs each day.', hidden: ['coming', 'when', 'dates', 'next_said', 'left_said', 'pack_said', 'spent', 'left', 'days_left', 'per_day', 'each', 'to_settle', 'to_pack', 'members'] },
   bookings: { kind: 'collection', name: 'Bookings', singular: 'booking', about: 'the flights, hotels, trains, cars and events of each trip, with their times.', lines: ['trips'], hidden: ['said'] },
-  places: { kind: 'collection', name: 'Places', singular: 'place', about: 'what to see on each trip, on which day, and whether you went.', lines: ['trips'] },
+  places: { kind: 'collection', name: 'Places', singular: 'place', about: 'what to see on each trip, on which day, and whether you went.', lines: ['trips'], hidden: ['weekday'] },
   packing: { kind: 'collection', name: 'Packing', singular: 'thing', about: 'what to take on each trip, and whether it is packed.', lines: ['trips'] },
   'packing-list': { kind: 'collection', name: 'Packing list', singular: 'thing', about: 'what you take on a trip, each with the kinds of trip it is taken on: every trip, abroad, flying, a beach.' },
-  spending: { kind: 'collection', name: 'Expenses', singular: 'expense', about: 'what was spent, on a trip or in a group, and on what.', hidden: ['booking', 'writes', 'says', 'weights', 'shared'] },
-  groups: { kind: 'collection', name: 'Groups', singular: 'group', about: 'each group whose expenses are shared: a flat, a team, a family.', hidden: ['to_settle'] },
+  spending: { kind: 'collection', name: 'Expenses', singular: 'expense', about: 'what was spent, on a trip or in a group, and on what.', hidden: ['booking', 'between', 'total', 'this_month', 'writes', 'says', 'weights', 'shared'] },
+  groups: { kind: 'collection', name: 'Groups', singular: 'group', about: 'each group whose expenses are shared: a flat, a team, a family.', hidden: ['to_settle', 'said', 'members', 'each', 'total', 'month'] },
   'group-members': { kind: 'collection', name: 'Members', singular: 'member', about: 'the people of each group, with what each paid, what each owes, and their balance.', lines: ['groups', 'trips'] },
   shares: { kind: 'collection', name: 'Shares', singular: 'share', about: "each one's part of each expense, and each payment made between them.", lines: ['spending'] },
   settlements: { kind: 'collection', name: 'Settlements', singular: 'settlement', about: 'who pays whom how much to settle up, and whether it is paid.', lines: ['groups', 'trips'], hidden: ['said'] },
@@ -199,6 +199,15 @@ export const currencyField = (app: AppDraft): Field =>
     Object.fromEntries(app.money.currencies.map((c) => [c, 'gray' as const])),
     app.money.main,
   );
+
+/** The sign of a currency as a person reads it: ₺, $, €. */
+export function symbolOf(currency: string): string {
+  try {
+    return new Intl.NumberFormat('en', { style: 'currency', currency, currencyDisplay: 'narrowSymbol' }).formatToParts(0).find((p) => p.type === 'currency')?.value ?? currency;
+  } catch {
+    return currency;
+  }
+}
 
 /** A rollup's condition keeping money to the main currency, where the records it adds up hold their own: a budget is in one. */
 export const inMain = (app: AppDraft): Condition[] => (app.money.multi ? [{ field: 'currency', op: 'is', value: [app.money.main] }] : []);

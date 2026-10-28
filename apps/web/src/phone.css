@@ -4814,6 +4814,40 @@ body > .mb-lifted {
   opacity: 0.6;
 }
 
+.mb-rhead .mb-rsub {
+  display: block;
+  margin-top: 3px;
+  color: var(--sl-faint);
+  font-size: 14px;
+}
+
+/* A block with a look, days, a checklist, a split, as the desktop shows it. */
+.mb-look {
+  padding: 4px 16px 12px;
+}
+
+/* Its tab and the + button say what the heading says. */
+.mb-rpage .mb-look .blk-h {
+  display: none;
+}
+
+.mb-look .look-days .tx b,
+.mb-look .look-check .lc-name,
+.mb-look .look-split .nm {
+  font-size: 15px;
+}
+
+.mb-look .look-days .tx small,
+.mb-look .look-days .ld-day,
+.mb-look .look-check .lc-group {
+  font-size: 13px;
+}
+
+.mb-look .look-check .lc-row,
+.mb-look .look-split .ls-p {
+  min-height: 44px;
+}
+
 .mb-qacts {
   display: flex;
   gap: 10px;

@@ -37,7 +37,9 @@ Bir app şablonu önerirken, var olanı düzeltirken ya da bunun için bir skill
 ## Piyasadaki uygulamalar
 
 - Her şablonda benzer uygulamalara bakılır (en az iki üç tane): işi nasıl en kısa yoldan yaptırıyorlar, neyi kendiliğinden yapıyorlar, ana ekranlarında ne var.
-- Öneride hangi uygulamalardan ne alındığı söylenir.
+- Bakmak, ekranlarını gerçekten açmaktır: mağaza sayfasındaki ekran görüntüleri, yardım sayfaları, tanıtım videoları. Bilinenden ya da adından yola çıkılmaz; açılamayan ekran için öneri yapılmaz, açılamadığı söylenir.
+- Her ekran piyasadaki karşılığıyla öğe öğe karşılaştırılır: orada hangi alanlar, düğmeler, listeler var; bizde fazlası ne.
+- Öneride hangi uygulamanın hangi ekranından ne alındığı söylenir.
 
 ## Uygulamanın geri kalanıyla
 
@@ -68,6 +70,10 @@ Scrawl'ın elindeki parçalarla doğru ekran kurulamıyorsa altyapı genişletil
 - Sayılar sayı, süreler süredir; "2–3 min" gibi metin değer olmaz. Değerler okunur biçimde yazılır ("7 of 24 books"); durumlar renkli çip.
 - Hesaplanan alanlar formda kutusuz ya da gizli; yeni kayıtta boşken görünmez.
 - Gereksiz ya da ne olduğu anlaşılmayan alan olmaz (odalar, "No" gibi). Türe göre değişen alanlar türe göre görünür.
+- Ekranda görünen her alan, sütun, blok ve düğme için "kullanıcı bunu görünce ne yapar?" diye sorulur; cevabı olmayan çıkar.
+- Hesap için arkada tutulan kayıtlar (paylar, check-in'ler, öğünler) ekranda tablo olarak görünmez; işin yapıldığı yerde görünür: kişinin yanında payı. Onları elle eklemenin yolu ("+ Add line" ile "New share") olmaz.
+- Teknik ad yerine cümle: "Rate" değil "1 EUR = 37,10 ₺", üç ayrı Spent, Left, Per day kutusu değil "₺31.400 harcandı · günde ₺5.720 kaldı".
+- Kuralların yaptığı iş bildirimde kural adıyla değil okunur bir cümleyle söylenir.
 - Adlar kullanıcının anlayacağı kelimelerdir (Upkeep değil Reminders, What değil Description). Alanın ya da düğmenin adı tek başına yetmiyorsa altına kısa bir açıklama yazılır: içine ne yazılır, boş kalırsa ne olur ("Left empty, its category's name").
 - Bir iş yapılınca toast ve Undo çıkar.
 - Okunamayan değer sessizce atlanmaz; neden hatalı olduğu görünür.

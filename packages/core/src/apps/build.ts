@@ -155,7 +155,7 @@ class Draft implements AppDraft {
     if (!part.fields.some((f) => f.key === field.key)) part.fields.push(field);
   }
 
-  block(role: string, block: LayoutBlock) {
+  block(role: string, block: LayoutBlock & { column?: number }) {
     const part = this.part(role, 'collection');
     if (!part.blocks.some((b) => same(b, block))) part.blocks.push(block);
   }
@@ -176,6 +176,19 @@ class Draft implements AppDraft {
 
   formOrder(role: string, keys: string[]) {
     this.part(role, 'collection').order = keys;
+  }
+
+  place(role: string, key: string, column: number) {
+    const part = this.part(role, 'collection');
+    part.places = { ...part.places, [key]: column };
+  }
+
+  head(role: string, sub: string) {
+    this.part(role, 'collection').head = { sub };
+  }
+
+  notes(role: string, notes: 'attach' | false) {
+    this.part(role, 'collection').notes = notes;
   }
 
   rule(role: string, chunk: RuleChunk) {
@@ -248,18 +261,36 @@ function withImplied(answers: ReadonlyMap<TemplateId, Answers>): Map<TemplateId,
 }
 
 /** A collection's record screen: its fields and its buttons on the left, then its notes; what links to it on the right. */
-function layoutFor(fields: readonly Field[], blocks: readonly LayoutBlock[], actions: boolean, order?: readonly string[]): Layout | undefined {
-  if (blocks.length === 0 && !actions && !order) return undefined;
+/** Where a template puts things on a record's window: a field or a block in a column of its own, its notes. */
+interface LayoutHints {
+  /** Fields at the top of another column than the first, by key: a trip's kind over its packing. */
+  places?: { [key: string]: number };
+  /** The notes: kept, only what is attached (a receipt), or none. */
+  notes?: 'attach' | false;
+}
+
+/**
+ * A collection's record screen: its fields and its buttons on the left, then its notes; what links
+ * to it on the right, each block in the column its template gives it (`column`, from 1), else in
+ * one column, or two once there are five.
+ */
+function layoutFor(fields: readonly Field[], blocks: readonly (LayoutBlock & { column?: number })[], actions: boolean, order?: readonly string[], hints: LayoutHints = {}): Layout | undefined {
+  if (blocks.length === 0 && !actions && !order && !hints.places && hints.notes === undefined) return undefined;
   const rank = (f: Field) => (order?.includes(f.key) ? order.indexOf(f.key) : (order?.length ?? 0));
   const ordered = order ? fields.slice().sort((a, b) => rank(a) - rank(b)) : fields;
-  const left: LayoutItem[] = [...ordered.map((f) => ({ field: f.key })), ...(actions ? [{ block: 'actions' as const }] : []), { block: 'body' }];
-  if (blocks.length === 0) return { columns: [{ sections: [{ items: left }] }] };
-  // Five blocks or more, a trip's bookings, places, packing, expenses and to-dos: in two columns beside the fields.
-  if (blocks.length >= 5) {
-    const half = Math.ceil(blocks.length / 2);
-    return { columns: [{ width: 1, sections: [{ items: left }] }, { width: 1, sections: [{ items: blocks.slice(0, half) }] }, { width: 1, sections: [{ items: blocks.slice(half) }] }] };
-  }
-  return { columns: [{ width: 1, sections: [{ items: left }] }, { width: 2, sections: [{ items: [...blocks] }] }] };
+  const placed = hints.places ?? {};
+  const notes: LayoutItem[] = hints.notes === false ? [] : hints.notes === 'attach' ? [{ block: 'body', attach: true }] : [{ block: 'body' }];
+  const strip = ({ column: _, ...block }: LayoutBlock & { column?: number }) => block as LayoutBlock;
+  const given = blocks.some((b) => b.column !== undefined) || Object.keys(placed).length > 0;
+  const columnOf = (b: { column?: number }, i: number) => (b.column ?? (given ? 2 : blocks.length >= 5 && i >= Math.ceil(blocks.length / 2) ? 3 : 2));
+  const count = Math.max(1, ...blocks.map(columnOf), ...Object.values(placed));
+  const items: LayoutItem[][] = Array.from({ length: count }, () => []);
+  items[0]!.push(...ordered.filter((f) => !((placed[f.key] ?? 1) > 1)).map((f) => ({ field: f.key })), ...(actions ? [{ block: 'actions' as const }] : []));
+  for (const [key, column] of Object.entries(placed)) if (column > 1 && fields.some((f) => f.key === key)) items[column - 1]!.push({ field: key });
+  blocks.forEach((b, i) => items[columnOf(b, i) - 1]!.push(strip(b)));
+  items[0]!.push(...notes);
+  if (count === 1) return { columns: [{ sections: [{ items: items[0]! }] }] };
+  return { columns: items.map((list, i) => ({ width: count === 2 && i === 1 ? 2 : 1, sections: [{ items: list }] })) };
 }
 
 const rulesText = (name: string, chunks: readonly RuleChunk[]) => `// What ${name} checks and does, as the app set it up; change it as you need.\n\n${chunks.map((c) => c.src).join('\n\n')}\n`;
@@ -447,8 +478,8 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
       // A piece of its own, written whole.
       plan.created.push({ kind: part.kind, path: part.path });
       if (part.kind === 'collection') {
-        const layout = layoutFor(part.fields, part.blocks, part.rules.some((r) => r.kind === 'action'), part.order);
-        const schema: Schema = { version: 2, template: matchingTemplate(role), ...(part.singular && { singular: part.singular }), role, ...(part.views.length > 0 && { views: part.views }), ...(part.defaultView && { defaultView: part.defaultView }), ...(part.columns && { columns: part.columns }), ...(part.home && { home: part.home }), fields: part.fields, ...(layout && { layout }) };
+        const layout = layoutFor(part.fields, part.blocks, part.rules.some((r) => r.kind === 'action'), part.order, { ...(part.places && { places: part.places }), ...(part.notes !== undefined && { notes: part.notes }) });
+        const schema: Schema = { version: 2, template: matchingTemplate(role), ...(part.singular && { singular: part.singular }), role, ...(part.views.length > 0 && { views: part.views }), ...(part.defaultView && { defaultView: part.defaultView }), ...(part.columns && { columns: part.columns }), ...(part.home && { home: part.home }), ...(part.head && { head: part.head }), fields: part.fields, ...(layout && { layout }) };
         plan.dirs.push(part.path);
         file(join(part.path, COLLECTION_FILE), serializeSchema(schema));
         if (part.rules.length > 0) file(join(part.path, RULES_FILE), rulesText(partName(part), part.rules));

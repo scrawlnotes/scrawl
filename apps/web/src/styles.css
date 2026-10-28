@@ -20708,3 +20708,317 @@ button.ppl:hover {
   flex: 1;
   font-size: 12px;
 }
+
+/* A record's window with a head (design/more-apps.md 4.5): its name as the title, a line under it. */
+.rm-head {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 14px;
+}
+
+.rm-title {
+  padding: 2px 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: none;
+  color: var(--sl-fg);
+  font: inherit;
+  font-size: 19px;
+  font-weight: 600;
+}
+
+.rm-title:focus {
+  border-bottom-color: var(--sl-accent);
+  outline: none;
+}
+
+.rm-head small {
+  color: var(--sl-dim);
+  font-size: 12.5px;
+}
+
+/* One field before another on its line: an expense's currency before its amount. */
+.pe.beside {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pe.beside > :first-child {
+  flex: none;
+  width: auto;
+}
+
+.pe.beside > :nth-child(2) {
+  flex: 1;
+}
+
+/* A rate as a sentence: 1 EUR = 37,10 ₺. */
+.prate .rate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--sl-dim);
+  font-size: 12.5px;
+}
+
+.prate .rate input {
+  width: 96px;
+}
+
+/* Notes that keep only what is attached: no box until something is. */
+.prop-body.only .rm-notes[hidden] {
+  display: none;
+}
+
+/* Linked records day by day, as TripIt shows a trip. */
+.look-days .ld-day {
+  padding: 10px 0 3px;
+  color: var(--sl-dim);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.look-days .ld-row {
+  display: grid;
+  grid-template-columns: 44px 24px minmax(0, 1fr);
+  gap: 0 8px;
+  align-items: start;
+  width: 100%;
+  height: auto;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  color: var(--sl-fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.look-days .ld-row:hover .tx b {
+  text-decoration: underline;
+}
+
+.look-days .tm {
+  padding-top: 2px;
+  color: var(--sl-dim);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.look-days .ic {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: hsl(var(--lh, 214) var(--ls, 60%) 55% / 0.2);
+  font-size: 12px;
+}
+
+.look-days .tx b {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.look-days .tx .said {
+  color: var(--sl-dim);
+  font-weight: 400;
+}
+
+.look-days .tx small {
+  display: block;
+  color: var(--sl-faint);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+/* Linked records as a checklist, as PackPoint has a packing list. */
+.look-check .lc-group {
+  padding: 9px 0 2px;
+  color: var(--sl-faint);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.look-check .lc-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--sl-line);
+  font-size: 13px;
+}
+
+.look-check .lc-name {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--sl-fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.look-check .lc-row.done .lc-name {
+  color: var(--sl-faint);
+  text-decoration: line-through;
+}
+
+.look-check .lc-meta {
+  color: var(--sl-faint);
+  font-size: 12px;
+}
+
+.look-check .lc-num {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--sl-sel);
+  color: var(--sl-dim);
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.lc-tick {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1.5px solid var(--sl-faint);
+  border-radius: 50%;
+  background: none;
+  color: var(--sl-bg);
+  cursor: pointer;
+}
+
+.lc-tick.on {
+  border-color: var(--sl-accent);
+  background: var(--sl-accent);
+}
+
+.lc-tick svg {
+  width: 11px;
+  height: 11px;
+  stroke-width: 2.6;
+}
+
+/* Who it is for, as Tricount adds an expense: each with a tick and their share. */
+.look-split .ls-people {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--sl-line);
+  border-radius: 8px;
+}
+
+.look-split .ls-p {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  font-size: 13px;
+}
+
+.look-split .ls-p + .ls-p {
+  border-top: 1px solid var(--sl-line);
+}
+
+.look-split .ls-p .nm {
+  flex: 1;
+}
+
+.look-split .ls-p .nm small {
+  margin-left: 6px;
+  color: var(--sl-faint);
+  font-size: 11px;
+}
+
+.look-split .ls-p.off .nm {
+  color: var(--sl-faint);
+}
+
+.look-split .n {
+  font-variant-numeric: tabular-nums;
+}
+
+.look-split .ls-in {
+  width: 92px;
+  text-align: right;
+}
+
+.look-split .ls-parts {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 64px;
+}
+
+.look-split .ls-parts small {
+  color: var(--sl-faint);
+  font-size: 11px;
+}
+
+.look-split .ls-step {
+  display: inline-flex;
+  border: 1px solid var(--sl-line);
+  border-radius: 6px;
+}
+
+.look-split .ls-step button {
+  padding: 1px 10px;
+  border: 0;
+  background: none;
+  color: var(--sl-dim);
+  font: inherit;
+  cursor: pointer;
+}
+
+.look-split .ls-step button + button {
+  border-left: 1px solid var(--sl-line);
+}
+
+.look-split .ls-tot {
+  display: flex;
+  justify-content: space-between;
+  padding: 7px 10px;
+  border-top: 1px solid var(--sl-line);
+  color: var(--sl-dim);
+  font-size: 12px;
+}
+
+.look-split .ls-tot.bad b {
+  color: #f0706a;
+}
+
+/* A box of its first record alone, large: the next trip (design/more-apps.md 4.5). */
+.app-tile .big {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.app-tile .big b {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.app-tile .big small {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  color: var(--sl-dim);
+  font-size: 12.5px;
+}

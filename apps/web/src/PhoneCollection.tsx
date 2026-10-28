@@ -36,6 +36,7 @@ import {
   groupLinked,
   linkedValues,
   linesBlocks,
+  fieldLabel,
   linkFieldsTo,
   localPath,
   newRecordId,
@@ -71,7 +72,7 @@ import { t } from '@scrawlnotes/i18n';
 import { type FormEvent, type MouseEvent, type PointerEvent, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Chip } from './choices';
 import { DaysMonth } from './CollectionCalendar';
-import { choicesOf, type CollectionActions, type Draft, differs, draftOf, excerpt, LinkChips, NotesBlock, recordLayout, savePreview, singularOf, usedValues, type ValueContext, withDrafts } from './Collection';
+import { choicesOf, type CollectionActions, type Draft, differs, draftOf, excerpt, LinkChips, type LinkedDrafts, LinkedTable, NotesBlock, recordLayout, savePreview, singularOf, usedValues, type ValueContext, withDrafts } from './Collection';
 import { fieldChoices, LabelSheet } from './labels';
 import { Icon, type IconName } from './Icon';
 import { Subtasks } from './Subtasks';
@@ -429,7 +430,7 @@ function FieldRows({ schema, fields, values, rollups, original, problems, firstF
       {fields.map((field) => [
         <FieldRow
           key={field.key}
-          field={field}
+          field={field.rate ? { ...field, label: `1 ${valueText(values[field.rate.field] ?? null)} in ${field.rate.main}` } : field.labelBy ? { ...field, label: fieldLabel(field, values) } : field}
           value={values[field.key] ?? null}
           values={values}
           worked={isComputed(field.type) ? (rollups[field.key] ?? null) : null}
@@ -769,6 +770,10 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
   useEffect(() => () => void guards.delete(guardKey), [guards, guardKey]);
 
   const layout = recordLayout(schema, dir, false, actions);
+  // Notes that are only what is attached, a receipt: no box to write in until something is.
+  const attachOnly = layout.columns.some((c) => c.sections.some((s) => s.items.some((i) => 'block' in i && i.block === 'body' && i.attach)));
+  // No notes where the window has none, as on the desktop: a trip.
+  const hasNotes = layout.columns.some((c) => c.sections.some((s) => s.items.some((i) => 'block' in i && i.block === 'body')));
   // A block with conditions is there only while the page's values meet them: a goal's steps for a goal by its steps.
   const items = layout.columns.flatMap((column) => column.sections.flatMap((section) => section.items)).filter((item) => 'field' in item || shownOnForm(item, { values: draft.values }, schema, today));
   // What links here, each in a tab; the record's own subtasks are on the first, with its fields.
@@ -806,7 +811,7 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
   const tabOf = (block: LinkedBlock | { block: 'cards' }) => {
     if (block.block === 'cards') return { label: t('phone.cardsTab'), count: linkedCards(boards, dir, record).length + recordTasks(actions.tasks(), dir, record.id).length };
     const source = actions.collection(block.collection);
-    return { label: collectionName(block.collection), count: source ? linkedRecords(source, dir, record).length : null };
+    return { label: block.title ?? collectionName(block.collection), count: source ? linkedRecords(source, dir, record).length : null };
   };
   const shownBlock = tab > 0 ? blocks[tab - 1] : undefined;
   const source = shownBlock?.block === 'linked' ? actions.collection(shownBlock.collection) : null;
@@ -855,6 +860,7 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
       <div className="mb-rbody">
         <div className="mb-rhead">
           {named ? <NameBox value={typedName} label={named.label} used={named.suggest ? (ctx.used?.(named) ?? []) : undefined} onChange={(text) => setValue(named.key, text)} /> : <h2>{title}</h2>}
+          {schema.head && !isEmpty(rollups[schema.head.sub] ?? null) && <small className="mb-rsub">{valueText(rollups[schema.head.sub] ?? null)}</small>}
           {codeField && (
             <button type="button" className={isEmpty(draft.values[codeField.key]) ? 'code none' : 'code'} onClick={() => setPicking(codeField)}>
               {valueText(draft.values[codeField.key] ?? null) || codeField.label}
@@ -943,10 +949,10 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
                 />
               </div>
             )}
-            <div className="mb-cap mb-cpad">{t('collection.body')}</div>
-            <div className="mb-notes">
-              <NotesBlock key={resets} home={collection.dir} text={draft.body} editor={actions.editor} attach={actions.attach} onChange={(body) => setDraft((d) => ({ ...d, body }))} />
-            </div>
+            {hasNotes && !attachOnly && <div className="mb-cap mb-cpad">{t('collection.body')}</div>}
+            {hasNotes && <div className="mb-notes">
+              <NotesBlock key={resets} home={collection.dir} text={draft.body} editor={actions.editor} attach={actions.attach} onChange={(body) => setDraft((d) => ({ ...d, body }))} only={attachOnly} />
+            </div>}
             {hasSubtasks && (
               <Subtasks
                 list={draft.subtasks}
@@ -964,7 +970,22 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
             )}
           </>
         )}
-        {shownBlock?.block === 'linked' && <LinkedTab block={shownBlock} dir={dir} schema={schema} record={record} today={today} actions={actions} />}
+        {shownBlock?.block === 'linked' && source && shownBlock.look && (
+          <div className="mb-look">
+            <LinkedTable
+              block={shownBlock}
+              source={source}
+              dir={dir}
+              record={record}
+              today={today}
+              actions={actions}
+              parent={{ values: { ...rollups, ...draft.values }, set: setValue }}
+              onOpen={(of, row) => actions.show?.(of.dir, row.id)}
+              onAdd={(of, given) => actions.create?.(of.dir, given)}
+            />
+          </div>
+        )}
+        {shownBlock?.block === 'linked' && !shownBlock.look && <LinkedTab block={shownBlock} dir={dir} schema={schema} record={record} today={today} actions={actions} />}
         {shownBlock?.block === 'cards' && <CardsTab dir={dir} record={record} today={today} actions={actions} onOpenCard={onOpenCard} />}
       </div>
       {source && actions.create && (
@@ -1282,7 +1303,8 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
   // A new workout starts at its program, its list open: the field an onChange watches, when it is a choice to pick from a list, not one of chips on the form, and the one field it watches.
   const from = useMemo(() => changesOf(collection.rules).filter((c) => c.fields.length === 1).map((c) => schema.fields.find((f) => f.key === c.field)).find((f): f is Field => !!f && (f.type === 'link' || f.type === 'select') && !f.chips) ?? null, [collection.rules, schema]);
   useEffect(() => {
-    if (from && isEmpty(values?.[from.key] ?? null)) setPicking(from);
+    // Not one that has its value by its default: an expense's currency.
+    if (from && isEmpty(original.values[from.key] ?? null)) setPicking(from);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const busy = useRef(false);
@@ -1291,6 +1313,8 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
   const checked = computer.checks(dir, recordWith(collection, newId, draft.values), draft.values);
   const layout = recordLayout(schema, dir, true, actions);
   const items = layout.columns.flatMap((column) => column.sections.flatMap((section) => section.items));
+  const attachOnly = items.some((i) => 'block' in i && i.block === 'body' && i.attach);
+  const hasNotes = items.some((i) => 'block' in i && i.block === 'body');
   // Nothing links to it yet but its lines: its other rollups have nothing to work out.
   const counted = new Set(lineBlocks.map(({ source }) => localPath(source.dir)));
   // What is worked out shows when it says something: a total of its lines, not an empty or a zero.
@@ -1375,6 +1399,19 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
           {lineBlocks.map(({ block, source }) => {
             const rows = drafted.flatMap((c) => (c.kind === 'add' && c.dir === localPath(source.dir) ? [c] : []));
             const self = { id: newId, name: typedName ? valueText(draft.values[typedName.key] ?? null) : '', code: '' };
+            if (block.look === 'split') {
+              const splitDrafts: LinkedDrafts = {
+                rows: () => rows.map((c) => recordWith(source, c.id, c.values)),
+                write: (_of, rowId, given) => setDrafted((now) => now.map((c) => (c.kind === 'add' && c.id === rowId ? { ...c, values: { ...c.values, ...given } } : c))),
+                add: () => undefined,
+                remove: (_of, rowId) => setDrafted((now) => now.filter((c) => !(c.kind === 'add' && c.id === rowId))),
+              };
+              return (
+                <div key={block.collection} className="mb-look">
+                  <LinkedTable block={block} source={source} dir={dir} record={{ ...self, path: '', values: draft.values, extra: {}, body: '' }} today={today} actions={actions} drafts={splitDrafts} parent={{ values: { ...worked, ...draft.values }, set: setValue }} onOpen={() => undefined} onAdd={() => undefined} />
+                </div>
+              );
+            }
             return (
               <div key={block.collection} className="mb-newlines">
                 <div className="mb-cap">
@@ -1412,10 +1449,10 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
               </div>
             );
           })}
-          <div className="mb-cap">{t('collection.body')}</div>
-          <div className="mb-notes in-sheet">
-            <NotesBlock home={collection.dir} text={draft.body} editor={actions.editor} attach={actions.attach} onChange={(body) => setDraft((d) => ({ ...d, body }))} />
-          </div>
+          {hasNotes && !attachOnly && <div className="mb-cap">{t('collection.body')}</div>}
+          {hasNotes && <div className="mb-notes in-sheet">
+            <NotesBlock home={collection.dir} text={draft.body} editor={actions.editor} attach={actions.attach} onChange={(body) => setDraft((d) => ({ ...d, body }))} only={attachOnly} />
+          </div>}
           {items.some((item) => 'block' in item && item.block === 'subtasks') && (
             <Subtasks
               list={draft.subtasks}
@@ -1687,7 +1724,7 @@ export function PhoneCollectionList({ name, count, schema, today, fields, record
             <button type="button" role="tab" aria-selected={!view} className={view ? 'mb-view' : 'mb-view on'} onClick={() => onPickView(null)}>
               {t('collection.all')}
             </button>
-            {views.map((v) => (
+            {views.filter((v) => !v.hidden || view?.id === v.id).map((v) => (
               <button key={v.id} type="button" role="tab" aria-selected={view?.id === v.id} className={view?.id === v.id ? 'mb-view on' : 'mb-view'} onClick={() => onPickView(v.id)} {...hold(() => onViewMenu(v))}>
                 {v.kind === 'calendar' && <Icon name="calendar" />}
                 {v.name}

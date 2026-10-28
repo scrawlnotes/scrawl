@@ -65,7 +65,7 @@ const MOST: { [id in TemplateId]: Answers } = {
   health: { for: 'family', family: ['Ayşe', 'Can'], medications: true },
   recipes: { shopping: true },
   travel: {},
-  split: { people: ['Ayşe', 'Can', 'Deniz'], methods: 'all', abroad: true, finance: true },
+  split: { people: ['Ayşe', 'Can', 'Deniz'], methods: 'all', finance: true },
   jobs: {},
   people: { anniversaries: true, often: true },
   reading: { progress: true, goal: '24', quotes: true, lending: true, releases: true },
@@ -99,7 +99,7 @@ const LEAST: { [id in TemplateId]: Answers } = {
   health: { for: 'me', medications: false },
   recipes: { meals: [], shopping: false },
   travel: { keeps: [] },
-  split: { people: [], methods: 'equal', abroad: false, finance: false },
+  split: { people: [], methods: 'equal', finance: false },
   jobs: { stages: [] },
   people: { anniversaries: false, often: false },
   reading: { types: [], services: [], progress: false, goal: 'none', quotes: false, lending: false, releases: false },
@@ -396,7 +396,19 @@ describe('setting up an app', () => {
     expect(collections).not.toContain('Away/Groups');
     expect(collections.filter((p) => p.startsWith('Away/Expenses'))).toEqual(['Away/Expenses']);
     const expenses = parseSchema(trip.files.find((f) => f.path === 'Away/Expenses/_collection.json')!.text);
-    expect(expenses.fields.map((f) => f.key)).toEqual(expect.arrayContaining(['trip', 'payer', 'between', 'total', 'category']));
+    expect(expenses.fields.map((f) => f.key)).toEqual(expect.arrayContaining(['trip', 'payer', 'between', 'total', 'booking']));
+    // An expense's window in one column, its people with their shares under its fields; a trip's in three, headed by its days.
+    const items = (s: typeof expenses) => s.layout!.columns.map((c) => c.sections.flatMap((x) => x.items));
+    expect(items(expenses)).toHaveLength(1);
+    expect(items(expenses)[0]).toContainEqual(expect.objectContaining({ block: 'linked', look: 'split', pick: 'between' }));
+    const trips = parseSchema(trip.files.find((f) => f.path === 'Away/Trips/_collection.json')!.text);
+    expect(trips.head).toEqual({ sub: 'dates' });
+    const off = hiddenOnForm(trips);
+    expect(items(trips).map((c) => c.filter((i) => !('field' in i) || (!off.has(i.field) && i.field !== 'name')).map((i) => ('field' in i ? i.field : 'collection' in i ? i.collection.split('/').pop() : i.block)))).toEqual([
+      ['destination', 'first', 'last', 'budget', 'money', 'actions', 'subtasks'],
+      ['Bookings', 'Places'],
+      ['kind', 'Packing', 'Expenses', 'Members', 'Settlements'],
+    ]);
     expect(trip.files.find((f) => f.path === 'Away/Trips/_rules.js')!.text).toContain('action("Settle up"');
   });
 

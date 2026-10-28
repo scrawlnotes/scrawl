@@ -1,4 +1,4 @@
-import { calendar, checkbox, currencyField, day, formula, inMain, link, nameField, number, rollup, select } from '../pieces';
+import { calendar, checkbox, currencyField, day, formula, inMain, link, nameField, number, rollup, select, symbolOf } from '../pieces';
 import type { AnswerRow, AppTemplate } from '../types';
 import { EVERY, UNITS } from './home';
 
@@ -51,14 +51,6 @@ export function recurringOf(row: AnswerRow, today: string): { name: string; amou
   return { name, ...(amount !== undefined && { amount }), direction: row.direction === 'In' ? 'In' : 'Out', every, next, ...(category && { category }) };
 }
 
-/** The sign of a currency as a person reads it: ₺, $, €. */
-function symbolOf(currency: string): string {
-  try {
-    return new Intl.NumberFormat('en', { style: 'currency', currency, currencyDisplay: 'narrowSymbol' }).formatToParts(0).find((p) => p.type === 'currency')?.value ?? currency;
-  } catch {
-    return currency;
-  }
-}
 
 export const finance: AppTemplate = {
   id: 'finance',

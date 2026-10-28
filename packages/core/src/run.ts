@@ -712,9 +712,14 @@ function withValues(collection: Pick<Collection, 'schema'>, record: Record, valu
 
 /** How many of a collection's records, said: "3 budget lines", "1 budget line" (its singular), "1 record". */
 function countOf(collection: Collection | undefined, dir: string, count: number): string {
-  if (count === 1) return t('run.one', { what: collection?.schema.singular ?? t('run.record') });
-  return t('run.many', { count, what: collectionName(dir).toLowerCase() });
+  const singular = collection?.schema.singular;
+  if (count === 1) return t('run.one', { what: singular ?? t('run.record') });
+  // Many of its records by their word, things for a packing list's, else by the collection's name.
+  return t('run.many', { count, what: singular ? pluralOf(singular) : collectionName(dir).toLowerCase() });
 }
+
+/** An English word for many: things, entries, boxes. */
+const pluralOf = (word: string) => (/[^aeiou]y$/.test(word) ? `${word.slice(0, -1)}ies` : /(s|sh|ch|x|z)$/.test(word) ? `${word}es` : `${word}s`);
 
 const listed = (names: string[]) => (names.length > 5 ? `${names.slice(0, 5).join(', ')}, …` : names.join(', '));
 
@@ -838,15 +843,10 @@ export function planWords(plan: Plan, space: Words): { ask: AskLine[]; done: str
   return { ask, done: done.length > 0 ? `${plan.action}: ${done.join(', ')}` : t('run.nothingDone', { name: plan.action }) };
 }
 
-/** What a record's onSaves did elsewhere, for the toast after it is saved: "Kickoff card: 1 card added to Projects board"; empty when nothing. */
+/** What a record's onSaves did elsewhere, for the toast after it is saved: "1 card added to Projects board"; empty when nothing. */
 export function savedWords(after: Plan, space: Words): string {
-  return bysOf(after.changes)
-    .map((by) => {
-      const { past } = phrases(after.changes.filter((c) => c.by === by), after, space);
-      return past.length > 0 ? `${by}: ${past.join(', ')}` : '';
-    })
-    .filter(Boolean)
-    .join(' · ');
+  // What was done, not the names of the rules that did it: "32 things added · 3 members added".
+  return phrases(after.changes, after, space).past.join(' · ');
 }
 
 // ---------- writing a plan ----------

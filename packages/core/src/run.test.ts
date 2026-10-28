@@ -224,7 +224,7 @@ describe('what runs on save', () => {
     expect(run.set).toEqual({ start: 'Started' });
     expect(run.after.changes).toMatchObject([{ kind: 'card', board: 'Atlas/Projects board.board.json', by: 'Kickoff card', card: { title: 'Antalya Hotel kickoff', column: 'acc' } }]);
     expect(run.stops).toEqual([]);
-    expect(savedWords(run.after, s)).toBe('Kickoff card: 1 card added to Projects board');
+    expect(savedWords(run.after, s)).toBe('1 card added to Projects board');
     // Saved again while Active: old says it was, so nothing runs.
     const again = planSave('Atlas/Projects', { ...p1, values: { ...p1.values, status: 'Active' } }, { ...p1, values: { ...p1.values, status: 'Active' } }, s);
     expect(again.after.changes).toEqual([]);

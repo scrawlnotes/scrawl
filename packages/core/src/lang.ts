@@ -745,6 +745,21 @@ const FNS: { [name: string]: FnSpec } = {
       return 'number';
     },
   },
+  // A day's number in its month and its month's name, for a trip's "12–16 Nov" (design/more-apps.md 4.5).
+  monthday: {
+    args: [1, 1],
+    kind: ([a], [n]) => {
+      need(DAYISH(a!), t('lang.fnDay', { fn: 'monthday' }), n!);
+      return 'number';
+    },
+  },
+  monthname: {
+    args: [1, 1],
+    kind: ([a], [n]) => {
+      need(DAYISH(a!), t('lang.fnDay', { fn: 'monthname' }), n!);
+      return 'text';
+    },
+  },
   weekday: {
     args: [1, 1],
     kind: ([a], [n]) => {
@@ -1241,6 +1256,9 @@ export interface Env {
   subtasks?(): { all: number; done: number };
 }
 
+/** The months as monthname() gives them. */
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
 /** The days of the week as weekday() gives them, from Sunday, as JS counts them. */
 export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 
@@ -1576,6 +1594,12 @@ function call(fn: string, args: RV[], env: Env): RV {
       if (!(a instanceof Day)) return null;
       const [y, m] = a.toString().split('-').map(Number) as [number, number];
       return fn === 'year' ? y : m;
+    }
+    case 'monthday':
+    case 'monthname': {
+      if (!(a instanceof Day)) return null;
+      const [, m, d] = a.toString().slice(0, 10).split('-').map(Number) as [number, number, number];
+      return fn === 'monthday' ? d : MONTH_NAMES[m - 1]!;
     }
     case 'weekday': {
       // The day of the week as a choice of days is written: Mon, Tue … Sun.

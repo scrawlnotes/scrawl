@@ -133,9 +133,12 @@ export function menuEditOf(app: AppFile, folder: string, pieces: readonly AppPie
 
 /** The modules of an app's menu as its tab shows them: the screens not hidden; a module with none is left out. */
 export function menuOf(app: AppFile, folder: string, pieces: readonly AppPiece[], lines: ReadonlyMap<string, string> = new Map()): AppModule[] {
-  return menuEditOf(app, folder, pieces, lines)
+  const modules = menuEditOf(app, folder, pieces, lines)
     .modules.map((m) => ({ ...m, screens: m.screens.filter((s) => !s.hidden).map(({ hidden: _hidden, ...s }) => s) }))
     .filter((m) => m.screens.length > 0);
+  if (app.menu) return modules;
+  // A template's module all of whose screens another before it has, Shared expenses' with Travel, is not one of its own.
+  return modules.filter((m, i) => !m.screens.every((s) => modules.slice(0, i).some((o) => o.screens.some((x) => x.path === s.path))));
 }
 
 /** The collections and boards in an app's folder in no module of its menu, lines left out: Edit menu's "In the folder, not in a menu". */

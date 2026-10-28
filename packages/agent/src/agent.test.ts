@@ -868,7 +868,7 @@ describe('tried by hand', () => {
     });
     const made = await saveRecordTool(agent, { collection: 'Projects', values: { name: 'Antalya Hotel', status: 'Active' } });
     expect(made.data.record.values.started).toBe('2026-10-15');
-    expect(made.data.onSave?.did).toBe('Kickoff card: 1 card added to Projects board');
+    expect(made.data.onSave?.did).toBe('1 card added to Projects board');
     expect(made.data.onSave?.stopped).toEqual([expect.stringMatching(/^Broken stopped on line 8 of the rules: .*saved as given/)]);
     expect((await loadBoard(fs, board)).cards.map((c) => c.title)).toEqual(['Antalya Hotel kickoff']);
     // Saved again while Active: old says it was, so no second card.

@@ -4080,6 +4080,92 @@ p { margin: 0; max-width: 68ch; }
 .mbs .sh-mpay .tx small { color: var(--m-faint); font-size: 12.5px; }
 .mbs .sh-mpay .go { padding: 5px 12px; border-radius: 7px; background: var(--m-accent); color: var(--m-on-accent); font-size: 13px; font-weight: 600; }
 .mbs .sh-mlab { padding: 6px 16px 2px; color: var(--m-faint); font-size: 12px; letter-spacing: .05em; text-transform: uppercase; }
+/* Travel and Shared expenses, again (Oct 28): screens as Tricount, Splitwise, TripIt, Wanderlog and PackPoint have them. */
+.x2-title { display: flex; gap: 8px; }
+.x2-title .cc-prop { flex: 1; }
+.x2-ib { display: grid; place-items: center; width: 34px; border: 1px solid var(--m-line); border-radius: 7px; color: var(--m-dim); }
+.mock .x2-ib svg { width: 15px; height: 15px; }
+.x2-amt { display: flex; gap: 8px; align-items: stretch; }
+.x2-cur { display: flex; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid var(--m-line); border-radius: 7px; color: var(--m-fg); font-weight: 600; }
+.x2-cur .dd { color: var(--m-faint); font-size: 10px; }
+.x2-amt .pf-amt { flex: 1; }
+.x2-rate { margin-top: -4px; color: var(--m-dim); font-size: 12px; }
+.x2-rate b { color: var(--m-fg); font-weight: 600; }
+.x2-rate span { color: var(--m-faint); }
+.x2-people { display: flex; flex-direction: column; border: 1px solid var(--m-line); border-radius: 8px; }
+.x2-p { display: flex; align-items: center; gap: 10px; padding: 7px 10px; font-size: 13px; }
+.x2-p + .x2-p { border-top: 1px solid var(--m-line); }
+.x2-p .nm { flex: 1; }
+.x2-p .nm small { margin-left: 6px; color: var(--m-faint); font-size: 11px; }
+.x2-p .n { font-variant-numeric: tabular-nums; }
+.x2-p.off .nm, .x2-p.off .n { color: var(--m-faint); }
+.x2-tick { display: grid; place-items: center; width: 18px; height: 18px; border: 1.5px solid var(--m-faint); border-radius: 50%; box-sizing: border-box; color: var(--m-on-accent); }
+.x2-tick.on { border-color: var(--m-accent); background: var(--m-accent); }
+.mock .x2-tick svg { width: 11px; height: 11px; stroke-width: 2.6; }
+.x2-parts { display: flex; flex-direction: column; align-items: flex-end; min-width: 64px; }
+.x2-parts b { font-size: 13px; font-weight: 600; }
+.x2-parts small { color: var(--m-faint); font-size: 11px; }
+.x2-step { display: inline-flex; border: 1px solid var(--m-line); border-radius: 6px; }
+.x2-step span { padding: 1px 9px; color: var(--m-dim); }
+.x2-step span + span { border-left: 1px solid var(--m-line); }
+.x2-in { width: 86px; padding: 3px 8px; border: 1px solid var(--m-line); border-radius: 5px; background: var(--m-bg); text-align: right; font-variant-numeric: tabular-nums; }
+.x2-in.on { border-color: var(--m-accent); }
+.x2-tot { display: flex; justify-content: space-between; padding: 7px 10px; border-top: 1px solid var(--m-line); color: var(--m-dim); font-size: 12px; }
+.x2-tot.bad b { color: var(--m-p1); }
+.x2-tot.ok b { color: #5cb87a; }
+.x2-check { display: flex; align-items: center; gap: 8px; color: var(--m-dim); font-size: 12.5px; }
+.x2-check i { width: 14px; height: 14px; border: 1.5px solid var(--m-faint); border-radius: 3px; box-sizing: border-box; }
+.x2-head { display: flex; flex-direction: column; gap: 2px; padding: 14px 20px 0; }
+.x2-head b { font-size: 19px; font-weight: 600; }
+.x2-head small { color: var(--m-dim); font-size: 12.5px; }
+.x2-sec { display: flex; align-items: center; gap: 8px; padding-bottom: 5px; border-bottom: 1px solid var(--m-line); color: var(--m-faint); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; }
+.x2-sec .r { margin-left: auto; color: var(--m-accent); font-size: 12px; letter-spacing: 0; text-transform: none; }
+.x2-sec small { color: var(--m-dim); font-size: 11px; letter-spacing: 0; text-transform: none; }
+.x2-day { padding: 9px 0 3px; color: var(--m-dim); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.x2-tl { display: grid; grid-template-columns: 46px 22px minmax(0, 1fr); gap: 0 8px; align-items: start; padding: 6px 0; }
+.x2-tl .tm { color: var(--m-dim); font-size: 12px; font-variant-numeric: tabular-nums; padding-top: 1px; }
+.x2-tl .ic { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: color-mix(in srgb, var(--tc) 22%, transparent); font-size: 11px; }
+.x2-tl .tx b { display: block; font-size: 13px; font-weight: 500; }
+.x2-tl .tx small { display: block; color: var(--m-faint); font-size: 11.5px; line-height: 1.4; }
+.x2-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--m-line); font-size: 13px; }
+.x2-row .tx { flex: 1; min-width: 0; }
+.x2-row .tx small { display: block; color: var(--m-faint); font-size: 11.5px; }
+.x2-row .n { font-variant-numeric: tabular-nums; }
+.x2-row.done .tx { color: var(--m-faint); text-decoration: line-through; }
+.x2-num { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--m-sel); color: var(--m-dim); font-size: 10.5px; font-weight: 600; }
+.x2-kinds { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 0 2px; }
+.x2-kind { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border: 1px solid var(--m-line); border-radius: 14px; color: var(--m-dim); font-size: 12px; }
+.x2-kind.on { border-color: var(--m-accent); background: color-mix(in srgb, var(--m-accent) 16%, transparent); color: var(--m-fg); }
+.x2-grp { padding: 8px 0 2px; color: var(--m-faint); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+.x2-sum { display: flex; flex-direction: column; gap: 6px; }
+.x2-sum small { color: var(--m-dim); font-size: 12px; }
+.x2-cols { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.15fr) minmax(0, 1fr); gap: 26px; padding: 14px 20px 18px; }
+.x2-cols > div { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.x2-blk { display: flex; flex-direction: column; }
+.x2-bal { font-variant-numeric: tabular-nums; font-weight: 600; }
+.x2-seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.x2-seg span { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border: 1px solid var(--m-line); border-radius: 7px; color: var(--m-dim); font-size: 12.5px; }
+.x2-seg span.on { border-color: var(--m-accent); background: color-mix(in srgb, var(--m-accent) 16%, transparent); color: var(--m-fg); font-weight: 600; }
+.x2-pair { display: flex; align-items: center; gap: 8px; }
+.x2-pair .box { flex: 1; }
+.x2-pair .ar { color: var(--m-faint); }
+.ca-row.x2-trip { grid-template-columns: minmax(0, 1fr) 220px 120px 100px; }
+.ca-row.x2-exp { grid-template-columns: minmax(0, 1fr) 140px 110px; }
+.ca-row.x2-pk { grid-template-columns: 320px minmax(0, 1fr); }
+.mbs .x2-mp { display: flex; align-items: center; gap: 12px; padding: 11px 14px; font-size: 15px; }
+.mbs .x2-mp + .x2-mp { border-top: 1px solid var(--m-line); }
+.mbs .x2-mp .nm { flex: 1; }
+.mbs .x2-mp .x2-tick { width: 22px; height: 22px; }
+.mbs .x2-mrow { display: flex; gap: 10px; padding: 0 16px 10px; }
+.mbs .x2-mrow > div { flex: 1; padding: 9px 12px; border-radius: 9px; background: var(--m-side); }
+.mbs .x2-mrow small { display: block; color: var(--m-faint); font-size: 11.5px; }
+.mbs .x2-mrow b { font-size: 15px; font-weight: 500; }
+.mbs .x2-mtl { display: grid; grid-template-columns: 48px 26px minmax(0, 1fr); gap: 0 10px; padding: 9px 14px; }
+.mbs .x2-mtl .tm { color: var(--m-dim); font-size: 13px; }
+.mbs .x2-mtl .ic { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: color-mix(in srgb, var(--tc) 22%, transparent); font-size: 13px; }
+.mbs .x2-mtl b { display: block; font-size: 15px; font-weight: 500; }
+.mbs .x2-mtl small { display: block; color: var(--m-faint); font-size: 12.5px; }
+.mbs .x2-mday { padding: 14px 16px 4px; color: var(--m-faint); font-size: 12px; letter-spacing: .05em; text-transform: uppercase; }
 .ca-row.mp-plan { grid-template-columns: minmax(0, 1fr) 210px 96px 96px 70px 84px; }
 .ca-row.mp-day { grid-template-columns: 150px minmax(0, 1fr) 96px 100px 84px minmax(0, 1fr); }
 .ca-row.mp-today { background: color-mix(in srgb, var(--m-sel) 30%, transparent); }
@@ -5082,20 +5168,21 @@ p { margin: 0; max-width: 68ch; }
   <section class="dir" data-dir="travel">
     <div class="brief">
       <div>
-        <span class="letter">SCRAWL APPS · TASLAK</span>
-        <h2>Seyahat: rezervasyonlar saatiyle, valiz hazır, para gün gün</h2>
-        <p>TripIt, Wanderlog, PackPoint ve TravelSpend gibi. <b>Trips</b>: nereye ve günler; ad boşsa "Rome · Nov 2026". Gezinin türü (Abroad, Flying, Beach, Cold, Work) valiz listesini getirir. Budget, Spent, Left ve kalan günlere düşen <b>Per day left</b>. Pencerede rezervasyonlar saat sırasıyla, yerler günlere göre, valiz, harcamalar ve <b>To do</b> (vize, sigorta; tarihli olan Today'e gelir). <b>Bookings</b>: türe göre alanlar (uçuşta numara, From, To; otelde adres); ad boşsa türünden ve yerinden; tutarı olan kendi harcamasını yazar, çift sayılmaz; Today'de saatiyle. <b>Packing list</b>: 60 kadar hazır madde, her biri her gezide ya da bir türde; yeni gezide kendiliğinden gelir. <b>Expenses</b>: tutar önce, kategori çipleri, gezi bugünü içine alan; yabancı parada kur o birimde son kullanılan. Shared expenses ile gezi grup olur, rezervasyonda Paid by sorulur.</p>
-        <ul class="traits"><li>ad kendiliğinden</li><li>gezinin türü</li><li>Per day left</li><li>türe göre rezervasyon</li><li>rezervasyon harcama olur</li><li>hazır valiz listesi</li><li>To do</li><li>son kur</li><li>Today'de saatiyle</li></ul>
+        <span class="letter">SCRAWL APPS · TASLAK 2</span>
+        <h2>Seyahat: TripIt, Wanderlog ve PackPoint'in ekranlarından</h2>
+        <p>Mağaza ekranlarına bakılarak yeniden. <b>Gezi</b>: başlıkta ad ve "12–16 Kas · 5 gün · 14 gün sonra" (TripIt); solda nereye, günler, bütçe ve tek satır "harcandı · günde kaldı", To do; ortada rezervasyonlar gün başlıklarıyla akış, otel giriş ve çıkış gününde (TripIt), numaralı gidilecek yerler (Wanderlog); sağda valiz: gezinin türü simgeli çipler, gruplara göre yuvarlak tik, "20 of 32" (PackPoint), harcamalar. <b>Rezervasyon</b> türe göre: uçuşta uçuş no, nereden → nereye, kalkış ve iniş, onay, koltuk, ücret; otelde adı, adres, giriş ve çıkış. <b>Harcama</b>: ne için, tutar ve birim, yabancı birimde "1 EUR = 37,10 ₺", gün. Ad, Notes, Rate, Category, tablolar ve sekme kalabalığı yok.</p>
+        <ul class="traits"><li>gün gün rezervasyon</li><li>otel iki günde</li><li>numaralı yerler</li><li>valiz yuvarlak tikli</li><li>türü simgeli çip</li><li>bütçe tek satır</li><li>türe göre rezervasyon</li><li>kur cümleyle</li></ul>
       </div>
       <span class="pick" role="group" aria-label="Seyahat görünümü">
+        <button type="button" data-trview="trtrip">Gezi</button>
+        <button type="button" data-trview="trtogether">Gezi, Shared ile</button>
+        <button type="button" data-trview="trbooking">Uçuş</button>
+        <button type="button" data-trview="trhotel">Otel</button>
+        <button type="button" data-trview="trexp">Harcama</button>
+        <button type="button" data-trview="trtrips">Geziler</button>
+        <button type="button" data-trview="trpack">Valiz listesi</button>
         <button type="button" data-trview="trhome">Home</button>
         <button type="button" data-trview="trtoday">Today</button>
-        <button type="button" data-trview="trtrips">Trips</button>
-        <button type="button" data-trview="trtrip">Rome</button>
-        <button type="button" data-trview="trbooking">New booking</button>
-        <button type="button" data-trview="trexp">New expense</button>
-        <button type="button" data-trview="trpack">Packing list</button>
-        <button type="button" data-trview="trtogether">Shared ile</button>
         <button type="button" data-trview="trphone">Telefon</button>
       </span>
     </div>
@@ -5105,17 +5192,18 @@ p { margin: 0; max-width: 68ch; }
   <section class="dir" data-dir="split">
     <div class="brief">
       <div>
-        <span class="letter">SCRAWL APPS · TASLAK</span>
-        <h2>Paylaşılan harcamalar: tutar, kim ödedi, kimin için</h2>
-        <p>Splitwise, Tricount ve Settle Up gibi. <b>Expenses</b> ana ekran. Ekleme tutarla başlar; <b>Paid by</b> çiplerden (son ödeyen önde), <b>For whom</b> çiplerden (hepsi seçili), yalnız o grubun kişileri. Herkesin payı formda anında görünür; By amounts'ta tutar, By shares'te pay sayısı orada yazılır, toplam tutmazsa söylenir; tek Create. Description boşsa kategorinin adı, grup son kullanılan. <b>Repeats</b> (Monthly) olan kira gibi gider her ay kendiliğinden yazılır, Undo ile. <b>Groups</b>: kişiler bakiyeleriyle ve <b>Who pays whom</b>, her satırda <b>Paid</b>; Settle up kalır. Settlements menüde yok. <b>Home</b>: her grubun harcaması ve ödenecekler.</p>
-        <ul class="traits"><li>tutar önce</li><li>Paid by çipleri</li><li>For whom hepsi seçili</li><li>paylar formda</li><li>yalnız grubun kişileri</li><li>aylık gider kendiliğinden</li><li>Who pays whom</li><li>Paid düğmesi</li></ul>
+        <span class="letter">SCRAWL APPS · TASLAK 2</span>
+        <h2>Paylaşılan harcamalar: Tricount ve Splitwise'ın ekranlarından</h2>
+        <p>Mağaza ekranlarına bakılarak yeniden. <b>Harcama</b> Tricount'un Add Expense'i gibi: başlık ve fiş, tutar ve birim, kim ödedi ve ne zaman yan yana, sonra "Eşit · Tutarla · Payla" ve grubun her kişisi bir satır: yuvarlak tik, payı; Payla'da "2x" ve −/+, Tutarla'da tutar kişinin yanında, toplam tutmazsa "₺100 missing". Kira için tek işaret: her ay. <b>Grup</b>: kişiler bakiyeleriyle (yeşil, kırmızı), kim kime ödeyecek tikli, Settle up, harcamalar "Ayşe paid" ile. Shares tablosu, Paid ve Comes to, Rate, Category, Notes, "+ Add line" yok.</p>
+        <ul class="traits"><li>Tricount'un formu</li><li>kişinin yanında payı</li><li>parça −/+</li><li>tutar kişinin yanında</li><li>eksik söylenir</li><li>bakiyeler renkli</li><li>kim kime tikli</li></ul>
       </div>
       <span class="pick" role="group" aria-label="Paylaşılan harcama görünümü">
+        <button type="button" data-shview="shadd">Harcama</button>
+        <button type="button" data-shview="shparts">Payla</button>
+        <button type="button" data-shview="shamounts">Tutarla</button>
+        <button type="button" data-shview="shgroup">Grup</button>
+        <button type="button" data-shview="shexp">Harcamalar</button>
         <button type="button" data-shview="shhome">Home</button>
-        <button type="button" data-shview="shexp">Expenses</button>
-        <button type="button" data-shview="shadd">New expense</button>
-        <button type="button" data-shview="shamounts">By amounts</button>
-        <button type="button" data-shview="shgroup">Group</button>
         <button type="button" data-shview="shphone">Telefon</button>
       </span>
     </div>
@@ -15715,185 +15803,171 @@ p { margin: 0; max-width: 68ch; }
   });
   renderPf(sectionPf, 'pfhome');
 
-  // Travel (draft, Oct 28): a trip named by itself, its bookings by time and by kind, its packing
-  // list ready from the person's own, its money per day left; with Shared expenses a trip is a group.
+  // Travel (draft, Oct 28, again): a trip as TripIt, Wanderlog and PackPoint show one; its bookings
+  // day by day, its places, its packing ticked, its money in one line.
   var TR_APP = 'Travel';
   var TR_MODS = ['Home', 'Trips', 'Expenses', 'Packing list'];
-  var TR_CAT = { Transport: '#6aa5f0', Stay: '#b48ef0', Food: '#e0a040', Activities: '#d06a9a', Shopping: '#3fb8a8', Other: '#8a8fa0' };
-  Object.keys(TR_CAT).forEach(function (k) { LC[k] = TR_CAT[k]; });
-  LC.Flight = '#6aa5f0'; LC.Hotel = '#b48ef0'; LC.Train = '#3fb8a8'; LC.Car = '#e0a040'; LC.Event = '#d06a9a';
-  LC.Documents = '#6aa5f0'; LC.Electronics = '#b48ef0'; LC.Clothes = '#e0a040'; LC.Toiletries = '#3fb8a8'; LC.Health = '#e06a6a';
+  var X2_TICK = '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  var X2_CLIP = '<svg viewBox="0 0 24 24"><path d="M16.5 7.5l-7.8 7.8a2.2 2.2 0 0 0 3.1 3.1l8-8a4 4 0 0 0-5.7-5.7l-8.2 8.2a5.8 5.8 0 0 0 8.2 8.2l6.4-6.4"/></svg>';
+  function x2Tick(on) { return '<span class="x2-tick' + (on ? ' on' : '') + '">' + (on ? X2_TICK : '') + '</span>'; }
   function trTree(on) {
     return '<div class="tree fxt">' + row({ label: 'Today', ct: 3, on: on === 'today' }) + row({ label: 'Upcoming', ct: 6 }) +
       opRowT({ sp: true, open: true, label: 'Personal' }) +
       ahRow(TR_APP, { on: on !== 'today', icon: ICON.globe }) + ahRow('Shared expenses', { icon: ICON.share }) + ahRow('Personal finance', { icon: ICON.app }) + '</div>' + spFoot(null);
   }
-  /** A trip's window in three columns: its fields, then its blocks in two. */
-  function trWindow(left, mid, right, foot, head) {
-    return pfWindow('', left, mid, foot, head).replace('<div class="cc-cols">', '<div class="cc-cols tr-cols">').replace('</div></div><div class="rm-foot">', '</div><div class="cc-col">' + right + '</div></div><div class="rm-foot">');
-  }
-  /** A worked-out value: no box, it is not typed. */
-  function trCalc(label, value, cls) { return '<div class="cc-prop"><span class="pl">' + label + '</span><span class="tr-cv' + (cls ? ' ' + cls : '') + '">' + value + '</span></div>'; }
-  function trChips(items, on) { return '<span class="tr-when">' + items.map(function (i) { return '<span class="tr-chip' + (on.indexOf(i) >= 0 ? ' on' : '') + '">' + i + '</span>'; }).join('') + '</span>'; }
-  function trCats(cats, on) {
-    return '<span class="pf-cats">' + cats.map(function (c) { return '<span' + (c === on ? ' class="on"' : '') + ' style="--pc:' + (TR_CAT[c] || '#8a8fa0') + '"><i></i>' + c + '</span>'; }).join('') + '</span>';
+  /** A window with no side: its fields one under another, as Tricount's Add Expense. */
+  function x2Window(head, body, foot) {
+    var top = ICON.collection + '<span>' + head + '</span><span class="x">×</span>';
+    return '<div class="ovl center"><div class="rmod cc-rm sw-rm"><div class="cp-head">' + top + '</div>' +
+      '<div class="cc-cols"><div class="cc-col">' + body + '</div></div>' +
+      '<div class="rm-foot">' + foot + '</div></div></div>';
   }
   var TR_TRIPS = [
-    ['Rome · Nov 2026', 'Nov 12 – 16', 'in 14 days', 60000, 31400, '₺5.720 a day', '34 to pack'],
-    ['Berlin · Mar 2027', 'Mar 5 – 8', 'in 4 months', 40000, 0, '', ''],
-    ['Cappadocia · Aug 2026', 'Aug 3 – 6', '', 25000, 26900, '', ''],
-    ['Izmir · Jun 2026', 'Jun 19 – 21', '', 15000, 12350, '', '']
+    ['Rome · Nov 2026', '12–16 Nov · 5 days · in 14 days', '₺28.600 left', '12 to pack'],
+    ['Berlin · Mar 2027', '5–8 Mar · 4 days · in 4 months', '₺40.000 left', ''],
+    ['Japan', 'No days yet', '', ''],
+    ['Cappadocia · Aug 2026', '3–6 Aug · 4 days', '₺1.900 over', ''],
+    ['Izmir · Jun 2026', '19–21 Jun · 3 days', '₺2.650 left', '']
   ];
   function trTrips() {
-    var head = '<div class="ca-row tr-trip head"><span>Trip</span><span>Days</span><span class="num">Budget</span><span class="num">Spent</span><span class="num">Left</span><span class="num">Per day left</span><span>To pack</span></div>';
+    var head = '<div class="ca-row x2-trip head"><span>Trip</span><span>When</span><span class="num">Budget</span><span>Packing</span></div>';
     var rows = TR_TRIPS.map(function (t) {
-      var left = t[3] - t[4];
-      return '<div class="ca-row tr-trip"><span class="tt">' + t[0] + '</span><span class="dt">' + t[1] + (t[2] ? '<span class="calc" style="margin-left:6px">' + t[2] + '</span>' : '') + '</span><span class="num">' + pfMoney(t[3]) + '</span><span class="num">' + pfMoney(t[4]) + '</span>' +
-        '<span class="num' + (left < 0 ? ' pf-neg' : '') + '">' + pfMoney(left) + '</span><span class="num calc">' + (t[5] || '–') + '</span><span class="calc">' + (t[6] || '') + '</span></div>';
+      return '<div class="ca-row x2-trip"><span class="tt">' + t[0] + '</span><span class="calc">' + t[1] + '</span><span class="num' + (/over/.test(t[2]) ? ' pf-neg' : '') + '">' + t[2] + '</span><span class="calc">' + t[3] + '</span></div>';
     }).join('');
-    return '<div class="ah">' + ahTop(TR_APP, ICON.globe, TR_MODS, 'Trips') + ahScreen(['All', 'Coming'], head, rows) + '</div>';
+    return '<div class="ah">' + ahTop(TR_APP, ICON.globe, TR_MODS, 'Trips') + ahScreen(['Coming', 'All'], head, rows) + '</div>';
   }
-  var TR_BOOKINGS = [
-    ['Nov 12 · 08:45', 'Flight', 'TK1325 · IST → FCO', 9800, 'Ayşe'],
-    ['Nov 12 · 15:00', 'Hotel', 'Hotel Artemide · Via Nazionale 22', 18200, 'Can'],
-    ['Nov 14 · 10:00', 'Event', 'Vatican Museums', 1400, 'Ayşe'],
-    ['Nov 16 · 19:30', 'Flight', 'TK1326 · FCO → IST', 0, '']
+  /** The bookings day by day, as TripIt: a time, what kind, what and the one line that matters; a hotel on its first and its last day. */
+  var TR_TL = [
+    ['Thu, 12 Nov', [['08:45', '✈', '#6aa5f0', 'IST → FCO', 'TK1325 · arrives 10:50 · Confirmation XK7Q2P · Seat 14C'], ['15:00', '🏨', '#b48ef0', 'Hotel Artemide · check in', 'Via Nazionale 22 · Confirmation 88231']]],
+    ['Sat, 14 Nov', [['10:00', '🎟', '#d06a9a', 'Vatican Museums', 'Viale Vaticano · 2 tickets']]],
+    ['Mon, 16 Nov', [['11:00', '🏨', '#b48ef0', 'Hotel Artemide · check out', 'Via Nazionale 22'], ['19:30', '✈', '#6aa5f0', 'FCO → IST', 'TK1326 · arrives 23:05']]]
   ];
-  function trBookings(paidBy) {
-    var cols = paidBy ? ' style="grid-template-columns:22px 96px minmax(0,1fr) 52px 80px"' : '';
-    return '<div class="cc-blk"><div class="blk-h">Bookings <small>4</small><span class="addl">+ Add booking</span></div>' +
-      TR_BOOKINGS.map(function (b) {
-        return '<div class="cc-row tr-bk"' + cols + '><span class="go"></span><span class="dt">' + b[0] + '</span><span class="nm">' + lbl(b[1]) + '<span class="t" style="margin-left:6px">' + b[2] + '</span></span>' +
-          (paidBy ? '<span class="calc">' + b[4] + '</span>' : '') + '<span class="num">' + (b[3] ? pfMoney(b[3]) : '<span class="calc">in the first</span>') + '</span></div>';
-      }).join('') + '</div>';
+  function trTimeline() {
+    return '<div class="x2-blk"><div class="x2-sec">Bookings<span class="r">+ Add</span></div>' + TR_TL.map(function (d) {
+      return '<div class="x2-day">' + d[0] + '</div>' + d[1].map(function (b) {
+        return '<div class="x2-tl" style="--tc:' + b[2] + '"><span class="tm">' + b[0] + '</span><span class="ic">' + b[1] + '</span><span class="tx"><b>' + b[3] + '</b><small>' + b[4] + '</small></span></div>';
+      }).join('');
+    }).join('') + '</div>';
   }
   function trPlaces() {
-    var day = function (d, n) { return '<div class="tr-day">' + d + '<small>' + n + '</small></div>'; };
-    var pl = function (p) { return '<div class="cc-row tr-pl"><span class="ck"><span class="gy-ck"></span></span><span class="nm"><span class="t">' + p + '</span></span><span class="calc">link</span></div>'; };
-    return '<div class="cc-blk"><div class="blk-h">Places <small>6</small><span class="addl">+ Add place</span></div>' +
-      day('Day 1 · Nov 12', '1') + pl('Trevi Fountain') + day('Day 2 · Nov 13', '2') + pl('Colosseum') + pl('Roman Forum') +
-      day('Day 3 · Nov 14', '2') + pl('Vatican Museums') + pl('St Peter\'s Basilica') + day('Any day', '1') + pl('Trastevere') + '</div>';
+    var p = function (n, name, day, on) { return '<div class="x2-row' + (on ? ' done' : '') + '"><span class="x2-num">' + n + '</span><span class="tx">' + name + '</span><span class="calc">' + day + '</span></div>'; };
+    return '<div class="x2-blk"><div class="x2-sec">Places to visit<span class="r">+ Add</span></div>' +
+      p(1, 'Trevi Fountain', 'Thu') + p(2, 'Colosseum', 'Fri') + p(3, 'Roman Forum', 'Fri') + p(4, 'Vatican Museums', 'Sat') + p(5, 'Trastevere', '') + '</div>';
   }
-  function trPacking() {
-    var pk = function (p, g, on) { return '<div class="cc-row tr-pl"><span class="ck"><span class="gy-ck' + (on ? ' on' : '') + '">' + (on ? GY_TICK : '') + '</span></span><span class="nm"><span class="t">' + p + '</span></span><span>' + lbl(g) + '</span></div>'; };
-    return '<div class="cc-blk"><div class="blk-h">Packing <small>34 to pack</small><span class="addl">+ Add thing</span></div>' +
-      pk('Passport', 'Documents', false) + pk('Tickets', 'Documents', false) + pk('Power adapter', 'Electronics', false) + pk('Power bank', 'Electronics', false) + pk('Phone charger', 'Electronics', false) +
-      '<div class="cc-addrow">31 more · Abroad and Flying from Packing list</div></div>';
-  }
-  function trExpenses() {
-    var ex = function (d, n, c, a, b) { return '<div class="cc-row tr-ex"><span class="go"></span><span class="dt">' + d + '</span><span class="nm"><span class="t">' + n + '</span><span class="calc" style="margin-left:8px;flex:none;font-weight:400">' + (b ? 'booking' : c) + '</span></span><span class="num">' + pfMoney(a) + '</span></div>'; };
-    return '<div class="cc-blk"><div class="blk-h">Expenses <small>4 · ₺31.400</small><span class="addl">+ Add expense</span></div>' +
-      ex('Oct 20', 'Flight TK1325', 'Transport', 9800, true) + ex('Oct 20', 'Hotel Artemide', 'Stay', 18200, true) + ex('Oct 22', 'Vatican Museums', 'Activities', 1400, true) + ex('Oct 24', 'Travel insurance', 'Other', 2000) + '</div>';
+  function trPacking(short) {
+    var k = function (n, on) { return '<span class="x2-kind' + (on ? ' on' : '') + '">' + n + '</span>'; };
+    var i = function (n, on) { return '<div class="x2-row' + (on ? ' done' : '') + '">' + x2Tick(on) + '<span class="tx">' + n + '</span></div>'; };
+    return '<div class="x2-blk"><div class="x2-sec">Packing<small>20 of 32</small><span class="r">+ Add</span></div>' +
+      '<div class="x2-kinds">' + k('🌍 Abroad', true) + k('✈ Flying', true) + k('🏖 Beach') + k('❄ Cold') + k('💼 Work') + '</div>' +
+      '<div class="x2-grp">Documents</div>' + i('Passport', true) + i('Tickets', true) + i('Travel insurance') +
+      (short ? '' : '<div class="x2-grp">Electronics</div>' + i('Power adapter') + i('Power bank') + i('Phone charger', true)) +
+      '<div class="cc-addrow" style="padding-left:0">26 more</div></div>';
   }
   function trTodo() {
-    var t = function (n, d, on) { return '<div class="cc-row tr-pl"><span class="ck"><span class="gy-ck' + (on ? ' on' : '') + '">' + (on ? GY_TICK : '') + '</span></span><span class="nm"><span class="t"' + (on ? ' style="color:var(--m-faint);text-decoration:line-through"' : '') + '>' + n + '</span></span><span class="dt">' + d + '</span></div>'; };
-    return '<div class="cc-blk"><div class="blk-h">To do <small>1 of 3</small><span class="addl">+ Add step</span></div>' +
-      t('Buy travel insurance', 'Oct 24', true) + t('Check passport expiry', 'Nov 1') + t('Book the airport transfer', 'Nov 10') + '</div>';
+    var t = function (n, d, on) { return '<div class="x2-row' + (on ? ' done' : '') + '">' + x2Tick(on) + '<span class="tx">' + n + '</span><span class="calc">' + d + '</span></div>'; };
+    return '<div class="x2-blk"><div class="x2-sec">To do<span class="r">+ Add</span></div>' + t('Buy travel insurance', '24 Oct', true) + t('Check passport expiry', '1 Nov') + t('Book the airport transfer', '10 Nov') + '</div>';
   }
-  function trTripLeft() {
-    return ccProp('Name', '<span class="pf-ph">Rome · Nov 2026</span>') + '<p class="tr-help">Left empty, where to and the month</p>' +
-      ccProp('Where to', 'Rome', { req: true }) +
-      '<div class="cc-two">' + ccProp('First day', 'Nov 12, 2026', { req: true }) + ccProp('Last day', 'Nov 16, 2026') + '</div>' +
-      ccProp('Kind of trip', trChips(['Abroad', 'Flying', 'Beach', 'Cold', 'Work'], ['Abroad', 'Flying'])) + '<p class="tr-help">What it brings from Packing list</p>' +
-      '<div class="cc-two">' + ccProp('Budget', pfMoney(60000)) + trCalc('Spent', pfMoney(31400)) + '</div>' +
-      '<div class="cc-two">' + trCalc('Left', pfMoney(28600)) + trCalc('Per day left', '₺5.720 · 5 days') + '</div>' +
-      ccProp('Notes', 'Roma Pass for 3 days; museums closed on Mondays.', { body: true });
+  function trSpent(shared) {
+    var e = function (n, who, a) { return '<div class="x2-row"><span class="tx">' + n + '<small>' + (shared ? who + ' paid' : who) + '</small></span><span class="n">' + pfMoney(a) + '</span></div>'; };
+    return '<div class="x2-blk"><div class="x2-sec">Expenses<small>₺31.400</small><span class="r">+ Add</span></div>' +
+      e('Flight TK1325', shared ? 'Ayşe' : '20 Oct', 9800) + e('Hotel Artemide', shared ? 'Can' : '20 Oct', 18200) + e('Vatican Museums', shared ? 'Ayşe' : '22 Oct', 1400) + e('Travel insurance', shared ? 'Ayşe' : '24 Oct', 2000) + '</div>';
   }
-  function trTrip() {
-    return trWindow(trTripLeft(), trBookings() + trPlaces(), trPacking() + trExpenses() + trTodo(), '<span class="st-btn">Cancel</span>', 'Trips · ' + TR_APP);
+  function trBalances() {
+    var b = function (n, v) { return '<div class="x2-row"><span class="tx">' + n + '</span><span class="x2-bal ' + (v < 0 ? 'pf-neg' : 'pf-in') + '">' + pfMoney(v, true) + '</span></div>'; };
+    var w = function (t, a) { return '<div class="x2-row"><span class="tx">' + t + '</span><span class="n">' + pfMoney(a) + '</span>' + x2Tick(false) + '</div>'; };
+    return '<div class="x2-blk"><div class="x2-sec">People<span class="r">Settle up</span></div>' + b('Ayşe', 2733) + b('Can', 7733) + b('Deniz', -10466) +
+      '</div><div class="x2-blk"><div class="x2-sec">Who pays whom</div>' + w('Deniz → Can', 7733) + w('Deniz → Ayşe', 2733) + '</div>';
   }
-  /** A new booking: its kind first, then what that kind has; its name from them. */
-  function trBooking(shared) {
-    var left = ccProp('', '<span class="pf-seg"><span class="on">Flight</span><span>Hotel</span><span>Train</span><span>Car</span><span>Event</span></span>') +
-      '<div class="cc-two">' + ccProp('Flight no', 'TK1325') + ccProp('Confirmation no', 'XK7Q2P') + '</div>' +
-      '<div class="cc-two">' + ccProp('From', 'IST') + ccProp('To', 'FCO') + '</div>' +
-      '<div class="cc-two">' + ccProp('Starts', 'Nov 12, 2026 · 08:45', { req: true }) + ccProp('Ends', 'Nov 12 · 10:50') + '</div>' +
-      (shared ? '<div class="cc-two">' + ccProp('Amount', pfMoney(9800)) + ccProp('Paid by', 'Ayşe', { dd: true }) + '</div>' + '<p class="tr-help">Written as an expense Ayşe paid, shared by all of the trip</p>'
-        : ccProp('Amount', pfMoney(9800)) + '<p class="tr-help">Written as an expense of the trip; not added again</p>') +
-      ccProp('Name', '<span class="pf-ph">Flight TK1325 IST → FCO</span>') + '<p class="tr-help">Left empty, its kind and where</p>' +
-      ccProp('Notes', '<span class="pf-ph">The ticket, a PDF, goes here</span>', { body: true });
-    return pfWindow('', left, '', '<span class="hint">In Rome · Nov 2026</span><span class="st-btn">Cancel</span><span class="st-btn go">Create</span>', 'New booking');
+  function trTrip(shared) {
+    var left = ccProp('Where to', 'Rome', { req: true }) +
+      '<div class="cc-two">' + ccProp('First day', '12 Nov 2026') + ccProp('Last day', '16 Nov 2026') + '</div>' +
+      ccProp('Budget', pfMoney(60000)) +
+      '<div class="x2-sum">' + pfBar(52, '₺31.400 spent') + '<small>₺28.600 left · ₺5.720 a day</small></div>' +
+      trTodo();
+    var cols = '<div class="x2-cols"><div>' + left + '</div><div>' + trTimeline() + trPlaces() + '</div><div>' + (shared ? trBalances() + trSpent(true) : trPacking() + trSpent(false)) + '</div></div>';
+    return '<div class="ovl center"><div class="rmod cc-rm"><div class="cp-head">' + ICON.collection + '<span>Trips · ' + TR_APP + '</span><span class="more">···</span><span class="x">×</span></div>' +
+      '<div class="x2-head"><b>Rome · Nov 2026</b><small>Thu 12 – Mon 16 Nov · 5 days · in 14 days</small></div>' + cols +
+      '<div class="rm-foot"><span class="st-btn">Cancel</span></div></div></div>';
   }
-  /** An expense on the way: in euros, at the rate used last for them; the trip the one on now. */
+  /** A booking by its kind, with what TripIt keeps of it; its name written by itself. */
+  function trBooking() {
+    var kinds = '<span class="x2-seg"><span class="on">✈ Flight</span><span>🏨 Hotel</span><span>🚗 Car</span><span>🚆 Train</span><span>🎟 Event</span></span>';
+    var body = kinds +
+      '<div class="cc-two">' + ccProp('Flight no', 'TK1325') + ccProp('Seat', '14C') + '</div>' +
+      ccProp('From → To', '<span class="x2-pair"><span>IST</span><span class="ar">→</span><span>FCO</span></span>') +
+      '<div class="cc-two">' + ccProp('Departs', 'Thu 12 Nov · 08:45') + ccProp('Arrives', '10:50') + '</div>' +
+      '<div class="cc-two">' + ccProp('Confirmation', 'XK7Q2P') + ccProp('Cost', pfMoney(9800)) + '</div>' +
+      '<div class="x2-check">' + X2_CLIP + 'The ticket</div>';
+    return x2Window('New booking · Rome · Nov 2026', body, '<span class="st-btn">Cancel</span><span class="st-btn go">Create</span>');
+  }
+  function trHotel() {
+    var kinds = '<span class="x2-seg"><span>✈ Flight</span><span class="on">🏨 Hotel</span><span>🚗 Car</span><span>🚆 Train</span><span>🎟 Event</span></span>';
+    var body = kinds + ccProp('Hotel', 'Hotel Artemide', { req: true }) + ccProp('Address', 'Via Nazionale 22, Rome') +
+      '<div class="cc-two">' + ccProp('Check in', 'Thu 12 Nov · 15:00') + ccProp('Check out', 'Mon 16 Nov · 11:00') + '</div>' +
+      '<div class="cc-two">' + ccProp('Confirmation', '88231') + ccProp('Cost', pfMoney(18200)) + '</div>' +
+      '<div class="x2-check">' + X2_CLIP + 'The booking</div>';
+    return x2Window('New booking · Rome · Nov 2026', body, '<span class="st-btn">Cancel</span><span class="st-btn go">Create</span>');
+  }
+  /** An expense on the way, alone: what, how much and in what, when; the trip the one it was opened in. */
   function trExp() {
-    var left = ccProp('Amount', '<span class="pf-amt"><span class="cur">€</span>48<span class="caret"></span></span>', { req: true }) +
-      '<div class="cc-two">' + ccProp('Currency', '<span class="pf-seg"><span>TRY</span><span class="on">EUR</span><span>USD</span></span>') + ccProp('Rate', '<span class="tr-rate"><b>37,10</b><span class="pf-last">used last for EUR</span></span>') + '</div>' +
-      '<p class="tr-help">= ₺1.781 in the trip’s money</p>' +
-      ccProp('Category', trCats(['Food', 'Transport', 'Stay', 'Activities', 'Shopping', 'Other'], 'Food')) +
-      '<div class="cc-two">' + ccProp('Trip', 'Rome · Nov 2026<span class="pf-last">on now</span>', { dd: true }) + ccProp('Date', 'Today') + '</div>' +
-      ccProp('Description', '<span class="pf-ph">Food</span>') + '<p class="tr-help">Left empty, its category’s name</p>';
-    return pfWindow('', left, '', '<span class="hint">Saved in Expenses</span><span class="st-btn">Cancel</span><span class="st-btn go">Create</span>', 'New expense');
+    var body = '<div class="x2-title">' + ccProp('', '<span>Dinner</span>') + '<span class="x2-ib">' + X2_CLIP + '</span></div>' +
+      '<div class="x2-amt"><span class="x2-cur">€<span class="dd">▾</span></span><span class="pf-amt">48<span class="caret"></span></span></div>' +
+      '<div class="x2-rate"><b>1 EUR = 37,10 ₺</b> <span>· used last · ₺1.781</span></div>' +
+      ccProp('When', 'Today');
+    return x2Window('New expense · Rome · Nov 2026', body, '<span class="st-btn">Cancel</span><span class="st-btn go">Create</span>');
   }
   var TR_PACK = [
-    ['Documents', [['Passport', ['Abroad']], ['ID card', ['Every trip']], ['Tickets', ['Flying']], ['Travel insurance', ['Abroad']], ['Driving licence', ['Every trip']]]],
-    ['Electronics', [['Phone charger', ['Every trip']], ['Power adapter', ['Abroad']], ['Power bank', ['Flying']], ['Headphones', ['Flying']]]],
-    ['Clothes', [['Underwear', ['Every trip']], ['T-shirts', ['Every trip']], ['Swimsuit', ['Beach']], ['Gloves', ['Cold']], ['Suit', ['Work']]]],
-    ['Toiletries', [['Toothbrush', ['Every trip']], ['Sunscreen', ['Beach']]]]
+    ['Documents', [['Passport', ['🌍 Abroad']], ['ID card', ['Every trip']], ['Tickets', ['✈ Flying']], ['Travel insurance', ['🌍 Abroad']]]],
+    ['Electronics', [['Phone charger', ['Every trip']], ['Power adapter', ['🌍 Abroad']], ['Power bank', ['✈ Flying']]]],
+    ['Clothes', [['Underwear', ['Every trip']], ['Swimsuit', ['🏖 Beach']], ['Gloves', ['❄ Cold']], ['Smart clothes', ['💼 Work']]]]
   ];
   function trPack() {
-    var head = '<div class="ca-row tr-pk head"><span>Thing</span><span>Taken on</span></div>';
     var rows = TR_PACK.map(function (g) {
-      return '<div class="ca-row tr-grp"><span>' + g[0] + ' <span style="letter-spacing:0">' + g[1].length + '</span></span></div>' + g[1].map(function (p) {
-        return '<div class="ca-row tr-pk"><span class="tt">' + p[0] + '</span><span>' + trChips(p[1], p[1]) + '</span></div>';
+      return '<div class="ca-row tr-grp"><span>' + g[0] + '</span></div>' + g[1].map(function (p) {
+        return '<div class="ca-row x2-pk"><span class="tt">' + p[0] + '</span><span class="x2-kinds" style="padding:0">' + p[1].map(function (k) { return '<span class="x2-kind on">' + k + '</span>'; }).join('') + '</span></div>';
       }).join('');
-    }).join('') + '<div class="cc-addrow">+ Add row · 42 more in Clothes, Toiletries, Health</div>';
-    return '<div class="ah">' + ahTop(TR_APP, ICON.globe, TR_MODS, 'Packing list') + ahScreen(['All'], head, rows) + '</div>';
+    }).join('') + '<div class="cc-addrow">+ Add · 51 more</div>';
+    return '<div class="ah">' + ahTop(TR_APP, ICON.globe, TR_MODS, 'Packing list') + ahScreen(['All'], '', rows) + '</div>';
   }
   function trToday() {
     var body = '<div class="tasksv"><div class="th"><b>Today</b><span class="c3-date">Thu, Nov 12</span><button type="button" class="add">Add task</button></div><div class="tl">' +
       '<div class="sec">Today <small>4</small></div>' +
-      pfRecRow('#3fb8a8', 'Rome · Nov 2026', '<span>' + ICON.collection + 'Trips</span><span>Nov 12 – 16 · 2 to pack</span>') +
-      pfRecRow('#6aa5f0', 'Flight TK1325 IST → FCO', '<span>08:45 – 10:50</span><span>' + ICON.collection + 'Bookings</span><span>XK7Q2P</span>') +
-      pfRecRow('#b48ef0', 'Hotel Artemide', '<span>15:00</span><span>' + ICON.collection + 'Bookings</span><span>Via Nazionale 22</span>') +
+      pfRecRow('#3fb8a8', 'Rome · Nov 2026', '<span>' + ICON.collection + 'Trips</span><span>first day · 2 to pack</span>') +
+      pfRecRow('#6aa5f0', '✈ IST → FCO', '<span>08:45</span><span>' + ICON.collection + 'Bookings</span><span>TK1325 · XK7Q2P</span>') +
+      pfRecRow('#b48ef0', '🏨 Hotel Artemide · check in', '<span>15:00</span><span>' + ICON.collection + 'Bookings</span><span>Via Nazionale 22</span>') +
       upTask({ t: 'Book the airport transfer', w: 'Rome · Nov 2026', p: '' }) +
       '<div class="qa">+ Add task</div></div></div>';
     return '<aside class="side">' + trTree('today') + '</aside><section class="main"><div class="panes">' + pane(tab('tasks', 'Today', 'x', true) + '<div class="tab plus">+</div>', body) + '</div>' +
       '<div class="status"><span>1 task · 3 records</span>' + syncStatus(false, null) + '</div></section>';
   }
   function trHome() {
-    var next = '<div class="ah-card"><h4>' + ICON.collection + 'Next trip<small>Trips</small></h4><div class="tr-next"><span class="big">Rome · in 14 days</span><span class="calc">Nov 12 – 16 · Abroad, Flying · 34 to pack</span>' +
-      pfBar(52, '₺31.400 of ₺60.000') + '<span class="calc">₺28.600 left · ₺5.720 a day</span></div></div>';
-    var coming = '<div class="ah-card"><h4>' + ICON.collection + 'Bookings<small>Coming</small></h4>' +
-      TR_BOOKINGS.slice(0, 3).map(function (b) { return '<div class="pf-hr"><span class="t">' + b[2] + '</span><span class="calc">' + b[0] + '</span></div>'; }).join('') + '</div>';
-    var year = '<div class="ah-card"><h4>' + ICON.collection + 'This year<small>Trips</small></h4>' +
-      '<div class="pf-hr"><span class="t">Izmir · Jun</span><span class="n">' + pfMoney(12350) + '</span></div><div class="pf-hr"><span class="t">Cappadocia · Aug</span><span class="n pf-neg">' + pfMoney(26900) + '</span></div><div class="pf-hr"><span class="t">Rome · Nov</span><span class="n">' + pfMoney(31400) + '</span></div></div>';
-    var today = '<div class="ah-cap">Coming <small>1</small></div><div class="ah-today">' + ahTr('#8a8fa0', 'Check passport expiry', 'Nov 1 · Rome · Nov 2026 · To do') + '</div>';
-    return '<div class="ah">' + ahTop(TR_APP, ICON.globe, TR_MODS, 'Home') + '<div class="ah-home">' + today + '<div class="ah-cap">Trips</div><div class="pf-home">' + next + coming + year + '</div></div></div>';
-  }
-  /** With Shared expenses: the trip is the group, its people and who pays whom in its window; a booking says who paid it. */
-  function trTogether() {
-    var mem = function (n, p, s) { var b = p - s; return '<div class="cc-row sh-mem"><span class="go"></span><span class="nm"><span class="t">' + n + '</span></span><span class="num">' + pfMoney(p) + '</span><span class="num">' + pfMoney(s) + '</span><span class="num ' + (b < 0 ? 'pf-neg' : 'pf-in') + '">' + pfMoney(b, true) + '</span></div>'; };
-    var members = '<div class="cc-blk"><div class="blk-h">People <small>3</small><span class="addl">+ Add person</span></div><div class="cc-row sh-mem head"><span></span><span>Name</span><span class="num">Paid</span><span class="num">Share</span><span class="num">Balance</span></div>' +
-      mem('Ayşe', 13200, 10467) + mem('Can', 18200, 10467) + mem('Deniz', 0, 10466) + '</div>';
-    var pays = '<div class="cc-blk"><div class="blk-h">Who pays whom <small>2</small><span class="addl">Settle up</span></div>' +
-      '<div class="cc-row sh-pay"><span class="nm"><span class="t">Deniz → Can</span></span><span class="num">' + pfMoney(7733) + '</span><span><span class="st-btn go">Paid</span></span></div>' +
-      '<div class="cc-row sh-pay"><span class="nm"><span class="t">Deniz → Ayşe</span></span><span class="num">' + pfMoney(2733) + '</span><span><span class="st-btn go">Paid</span></span></div></div>';
-    return trWindow(trTripLeft(), members + pays + trBookings(true), trExpenses() + trPacking(), '<span class="st-btn">Cancel</span>', 'Trips · ' + TR_APP);
+    var next = '<div class="ah-card"><h4>' + ICON.collection + 'Next trip<small>Trips</small></h4><div class="tr-next"><span class="big">Rome · in 14 days</span><span class="calc">12–16 Nov · 12 to pack · ₺28.600 left</span></div></div>';
+    var coming = '<div class="ah-card"><h4>' + ICON.collection + 'Coming bookings<small>Rome</small></h4>' +
+      '<div class="pf-hr"><span class="t">✈ IST → FCO</span><span class="calc">12 Nov · 08:45</span></div><div class="pf-hr"><span class="t">🏨 Hotel Artemide</span><span class="calc">12 Nov · 15:00</span></div><div class="pf-hr"><span class="t">🎟 Vatican Museums</span><span class="calc">14 Nov · 10:00</span></div></div>';
+    var today = '<div class="ah-cap">Coming <small>1</small></div><div class="ah-today">' + ahTr('#8a8fa0', 'Check passport expiry', '1 Nov · Rome · To do') + '</div>';
+    return '<div class="ah">' + ahTop(TR_APP, ICON.globe, TR_MODS, 'Home') + '<div class="ah-home">' + today + '<div class="ah-cap">Trips</div><div class="pf-home" style="grid-template-columns:repeat(2,minmax(0,1fr))">' + next + coming + '</div></div></div>';
   }
   function trPhone() {
-    var add = mbPage('<div class="mb-nav"><span class="back">Cancel</span><b>New expense</b><span class="acts" style="color:var(--m-accent);font-weight:600">Add</span></div>',
-      '<div class="pf-mamt"><span class="cur">€</span>48</div><div class="pf-mseg"><span class="pf-seg"><span>TRY</span><span class="on">EUR</span><span>USD</span></span></div>' +
-      '<div class="pf-mcats">' + ['Food', 'Transport', 'Stay', 'Activities', 'Shopping', 'Other'].map(function (c, i) { return '<span' + (i === 0 ? ' class="on"' : '') + ' style="--pc:' + TR_CAT[c] + '"><i></i>' + c + '</span>'; }).join('') + '</div>' +
-      '<div class="mb-form"><div class="mb-group wide">' + mbVal('Rate', '37,10 · used last', { text: true }) + mbVal('In ₺', '₺1.781', { text: true }) + mbVal('Trip', 'Rome · on now') + mbVal('Date', 'Today', { cls: 'date' }) + '</div></div>');
     var nav = '<div class="mb-nav"><span class="back">' + ICON.chevl + 'Trips</span><span class="acts"></span></div>';
-    var top = nav + '<div class="mb-rhead"><h2>Rome · Nov 2026</h2><small>Nov 12 – 16 · ₺28.600 left · ₺5.720 a day</small></div><div class="mb-ctabs"><span class="mb-ct">Details</span><span class="mb-ct on">Bookings<small>4</small></span><span class="mb-ct">Packing<small>34</small></span><span class="mb-ct">Places</span></div>';
-    var bookings = mbPage(top, '<div class="gy-mtoday">' + TR_BOOKINGS.map(function (b) {
-      return '<div class="pf-mrow"><span class="tx"><b>' + b[2] + '</b><small>' + b[1] + ' · ' + b[0] + '</small></span><span class="n">' + (b[3] ? pfMoney(b[3]) : '') + '</span></div>';
-    }).join('') + '</div>');
-    var ptop = nav + '<div class="mb-rhead"><h2>Rome · Nov 2026</h2><small>34 to pack</small></div><div class="mb-ctabs"><span class="mb-ct">Details</span><span class="mb-ct">Bookings<small>4</small></span><span class="mb-ct on">Packing<small>34</small></span><span class="mb-ct">Places</span></div>';
-    var pk = function (t, g, on) { return '<div class="tr-mpk' + (on ? ' done' : '') + '"><span class="gy-ck' + (on ? ' on' : '') + '">' + (on ? GY_TICK : '') + '</span><span class="t">' + t + '</span><small>' + g + '</small></div>'; };
-    var packing = mbPage(ptop, '<div class="gy-mtoday">' + pk('Passport', 'Documents', true) + pk('Tickets', 'Documents', true) + pk('Power adapter', 'Electronics') + pk('Power bank', 'Electronics') + pk('Phone charger', 'Electronics') + pk('Toothbrush', 'Toiletries') + '</div>');
-    return mbPhone('Harcama: € ile, kur son kullanılan', add, '') + mbPhone('Gezi: rezervasyonlar saatiyle', bookings, '') + mbPhone('Valiz: dokununca alındı', packing, '');
+    var top = nav + '<div class="mb-rhead"><h2>Rome · Nov 2026</h2><small>12–16 Nov · in 14 days · ₺28.600 left</small></div><div class="mb-ctabs"><span class="mb-ct on">Bookings</span><span class="mb-ct">Places</span><span class="mb-ct">Packing<small>12</small></span><span class="mb-ct">Money</span></div>';
+    var tl = mbPage(top, TR_TL.map(function (d) {
+      return '<div class="x2-mday">' + d[0] + '</div>' + d[1].map(function (b) { return '<div class="x2-mtl" style="--tc:' + b[2] + '"><span class="tm">' + b[0] + '</span><span class="ic">' + b[1] + '</span><span><b>' + b[3] + '</b><small>' + b[4] + '</small></span></div>'; }).join('');
+    }).join(''));
+    var ptop = nav + '<div class="mb-rhead"><h2>Rome · Nov 2026</h2><small>20 of 32 packed</small></div><div class="mb-ctabs"><span class="mb-ct">Bookings</span><span class="mb-ct">Places</span><span class="mb-ct on">Packing<small>12</small></span><span class="mb-ct">Money</span></div>';
+    var pk = function (t, on) { return '<div class="x2-mp">' + x2Tick(on) + '<span class="nm"' + (on ? ' style="color:var(--m-faint);text-decoration:line-through"' : '') + '>' + t + '</span></div>'; };
+    var packing = mbPage(ptop, '<div class="x2-mday">Documents</div><div class="gy-mtoday">' + pk('Passport', true) + pk('Tickets', true) + pk('Travel insurance') + '</div><div class="x2-mday">Electronics</div><div class="gy-mtoday">' + pk('Power adapter') + pk('Power bank') + pk('Phone charger', true) + '</div>');
+    return mbPhone('Gezi: rezervasyonlar gün gün', tl, '') + mbPhone('Valiz: dokununca alındı', packing, '');
   }
   var TR_VIEWS = {
     trhome: function () { return ahFrame(trTree(), 'app', TR_APP, trHome(), '3 screens'); },
     trtoday: trToday,
-    trtrips: function () { return ahFrame(trTree(), 'app', TR_APP, trTrips(), '4 records'); },
-    trtrip: function () { return ahFrame(trTree(), 'app', TR_APP, trTrips(), '4 records', trTrip()); },
-    trbooking: function () { return ahFrame(trTree(), 'app', TR_APP, trTrips(), '4 records', trBooking()); },
-    trexp: function () { return ahFrame(trTree(), 'app', TR_APP, trTrips(), '4 records', trExp()); },
-    trpack: function () { return ahFrame(trTree(), 'app', TR_APP, trPack(), '58 records'); },
-    trtogether: function () { return ahFrame(trTree(), 'app', TR_APP, trTrips(), '4 records', trTogether()); }
+    trtrips: function () { return ahFrame(trTree(), 'app', TR_APP, trTrips(), '5 trips'); },
+    trtrip: function () { return ahFrame(trTree(), 'app', TR_APP, trTrips(), '5 trips', trTrip(false)); },
+    trtogether: function () { return ahFrame(trTree(), 'app', TR_APP, trTrips(), '5 trips', trTrip(true)); },
+    trbooking: function () { return ahFrame(trTree(), 'app', TR_APP, trTrips(), '5 trips', trBooking()); },
+    trhotel: function () { return ahFrame(trTree(), 'app', TR_APP, trTrips(), '5 trips', trHotel()); },
+    trexp: function () { return ahFrame(trTree(), 'app', TR_APP, trTrips(), '5 trips', trExp()); },
+    trpack: function () { return ahFrame(trTree(), 'app', TR_APP, trPack(), '62 things') ; }
   };
   function renderTr(section, view) {
     var mock = section.querySelector('.mock');
@@ -15914,102 +15988,94 @@ p { margin: 0; max-width: 68ch; }
     var b = e.target.closest('[data-trview]');
     if (b) renderTr(sectionTr, b.dataset.trview);
   });
-  renderTr(sectionTr, 'trhome');
+  renderTr(sectionTr, 'trtrip');
 
-  // Shared expenses (draft, Oct 28): the amount, who paid and for whom tapped, the shares shown as
-  // they are worked out; who pays whom, each paid with a button; the rent written every month.
+  // Shared expenses (draft, Oct 28, again): an expense as Tricount adds one, a group as Tricount and
+  // Splitwise show one; who pays whom ticked.
   var SH_APP = 'Shared expenses';
   var SH_MODS = ['Home', 'Expenses', 'Groups'];
-  var SH_CAT = { Food: '#e0a040', Home: '#b48ef0', Transport: '#6aa5f0', Stay: '#3fb8a8', Fun: '#d06a9a', Other: '#8a8fa0' };
-  Object.keys(SH_CAT).forEach(function (k) { LC[k] = LC[k] || SH_CAT[k]; });
   function shTree() {
     return '<div class="tree fxt">' + row({ label: 'Today', ct: 2 }) + row({ label: 'Upcoming', ct: 3 }) +
       opRowT({ sp: true, open: true, label: 'Personal' }) +
       ahRow('Travel', { icon: ICON.globe }) + ahRow(SH_APP, { on: true, icon: ICON.share }) + ahRow('Personal finance', { icon: ICON.app }) + '</div>' + spFoot(null);
   }
   var SH_EXP = [
-    ['Home', [['Oct 29', 'Migros', 'Food', 'Ayşe', 'Everyone', 1240], ['Oct 27', 'Electricity', 'Home', 'Can', 'Everyone', 940], ['Oct 25', 'Dinner', 'Food', 'Deniz', 'Ayşe, Deniz', 620], ['Oct 20', 'Internet', 'Home', 'Ayşe', 'Everyone', 450, true], ['Oct 1', 'Rent', 'Home', 'Ayşe', 'Everyone', 30000, true]]],
-    ['Bodrum weekend', [['Sep 13', 'Boat trip', 'Fun', 'Ece', 'Everyone', 4800], ['Sep 12', 'Villa', 'Stay', 'Can', 'Everyone', 16000]]]
+    ['Thu, 29 Oct', [['Migros', 'Ayşe', 1240], ['Electricity', 'Can', 940]]],
+    ['Sun, 25 Oct', [['Dinner', 'Deniz', 620]]],
+    ['Tue, 20 Oct', [['Internet', 'Ayşe', 450]]],
+    ['Thu, 1 Oct', [['Rent', 'Ayşe', 30000, true]]]
   ];
   function shExp() {
-    var head = '<div class="ca-row sh-exp head"><span>Date</span><span>Description</span><span>Paid by</span><span>For</span><span class="num">Amount</span></div>';
-    var rows = SH_EXP.map(function (g) {
-      return '<div class="ca-row tr-grp"><span>' + g[0] + '</span></div>' + g[1].map(function (e) {
-        return '<div class="ca-row sh-exp"><span class="dt">' + e[0] + '</span><span class="tt">' + lbl(e[2]) + '<span style="margin-left:6px">' + e[1] + '</span>' + (e[6] ? '<span class="pf-auto" style="margin-left:8px"><i></i>Monthly</span>' : '') + '</span><span class="calc">' + e[3] + '</span><span class="calc">' + e[4] + '</span><span class="num">' + pfMoney(e[5]) + '</span></div>';
+    var head = '<div class="ca-row x2-exp head"><span>Expense</span><span>Paid by</span><span class="num">Amount</span></div>';
+    var rows = SH_EXP.map(function (d) {
+      return '<div class="ca-row tr-grp"><span>' + d[0] + '</span></div>' + d[1].map(function (e) {
+        return '<div class="ca-row x2-exp"><span class="tt">' + e[0] + (e[3] ? '<span class="pf-auto" style="margin-left:8px"><i></i>every month</span>' : '') + '</span><span class="calc">' + e[1] + '</span><span class="num">' + pfMoney(e[2]) + '</span></div>';
       }).join('');
     }).join('');
-    return '<div class="ah">' + ahTop(SH_APP, ICON.share, SH_MODS, 'Expenses') + ahScreen(['All'], head, rows) + '</div>';
+    return '<div class="ah">' + ahTop(SH_APP, ICON.share, SH_MODS, 'Expenses') + ahScreen(['Home', 'Bodrum weekend', 'All'], head, rows) + '</div>';
   }
-  function shChips(names, on, last) {
-    return '<span class="pf-cats">' + names.map(function (n) { return '<span' + (on.indexOf(n) >= 0 ? ' class="on"' : '') + ' style="--pc:var(--m-accent)"><i></i>' + n + (n === last ? '<span class="pf-last">last</span>' : '') + '</span>'; }).join('') + '</span>';
-  }
-  function shAdd(byAmounts) {
-    var shares = byAmounts
-      ? '<div class="sh-shares"><div class="r"><span>Ayşe</span><span class="n in on">800</span></div><div class="r"><span>Can</span><span class="n in">340</span></div>' +
-        '<div class="tot bad"><span>₺1.140 of ₺1.240</span><b>₺100 left to give</b></div></div>'
-      : '<div class="sh-shares"><div class="r"><span>Ayşe<small>paid · gets the cent</small></span><span class="n">₺413,34</span></div><div class="r"><span>Can</span><span class="n">₺413,33</span></div><div class="r"><span>Deniz</span><span class="n">₺413,33</span></div>' +
-        '<div class="tot ok"><span>₺1.240 of ₺1.240</span><b>adds up</b></div></div>';
-    var left = ccProp('Amount', '<span class="pf-amt"><span class="cur">₺</span>1.240<span class="caret"></span></span>', { req: true }) +
-      ccProp('Paid by', shChips(['Ayşe', 'Can', 'Deniz'], ['Ayşe'], 'Ayşe'), { req: true }) +
-      ccProp('For whom', shChips(['Ayşe', 'Can', 'Deniz'], byAmounts ? ['Ayşe', 'Can'] : ['Ayşe', 'Can', 'Deniz'])) +
-      ccProp('', '<span class="pf-seg"><span' + (byAmounts ? '' : ' class="on"') + '>Equally</span><span' + (byAmounts ? ' class="on"' : '') + '>By amounts</span><span>By shares</span></span>') +
-      ccProp('Shares', shares);
-    var right = ccProp('Category', '<span class="pf-cats">' + ['Food', 'Home', 'Transport', 'Fun', 'Other'].map(function (c, i) { return '<span' + (i === 0 ? ' class="on"' : '') + ' style="--pc:' + SH_CAT[c] + '"><i></i>' + c + '</span>'; }).join('') + '</span>') +
-      '<div class="cc-two">' + ccProp('Group', 'Home<span class="pf-last">last used</span>', { dd: true }) + ccProp('Date', 'Today') + '</div>' +
-      ccProp('Repeats', '<span class="pf-seg"><span class="on">No</span><span>Weekly</span><span>Monthly</span></span>') +
-      ccProp('Description', '<span class="pf-ph">Food</span>') + '<p class="tr-help">Left empty, its category’s name</p>';
-    var foot = byAmounts ? '<span class="hint" style="color:var(--m-p1)">The shares come to ₺1.140, not ₺1.240</span><span class="st-btn">Cancel</span><span class="st-btn go off">Create</span>'
-      : '<span class="hint">Saved in Expenses</span><span class="st-btn">Cancel</span><span class="st-btn go">Create</span>';
-    return pfWindow('', left, right, foot, 'New expense').replace('class="rmod cc-rm"', 'class="rmod cc-rm sh-rm"');
-  }
-  function shGroupRight() {
-    var mem = function (n, p, s) { var b = p - s; return '<div class="cc-row sh-mem"><span class="go"></span><span class="nm"><span class="t">' + n + '</span></span><span class="num">' + pfMoney(p) + '</span><span class="num">' + pfMoney(s) + '</span><span class="num ' + (b < 0 ? 'pf-neg' : 'pf-in') + '">' + pfMoney(b, true) + '</span></div>'; };
-    var members = '<div class="cc-blk"><div class="blk-h">People <small>3</small><span class="addl">+ Add person</span></div><div class="cc-row sh-mem head"><span></span><span>Name</span><span class="num">Paid</span><span class="num">Share</span><span class="num">Balance</span></div>' +
-      mem('Ayşe', 31690, 11187) + mem('Can', 940, 10877) + mem('Deniz', 620, 11187) + '</div>';
-    var pays = '<div class="cc-blk"><div class="blk-h">Who pays whom <small>2</small><span class="addl">Settle up</span></div>' +
-      '<div class="cc-row sh-pay"><span class="nm"><span class="t">Can → Ayşe</span></span><span class="num">' + pfMoney(9937) + '</span><span><span class="st-btn go">Paid</span></span></div>' +
-      '<div class="cc-row sh-pay"><span class="nm"><span class="t">Deniz → Ayşe</span></span><span class="num">' + pfMoney(10567) + '</span><span><span class="st-btn go">Paid</span></span></div>' +
-      '<div class="cc-row sh-pay done"><span class="nm"><span class="t">Can → Deniz · Sep 30</span></span><span class="num">' + pfMoney(1200) + '</span><span class="calc">paid</span></div></div>';
-    var exp = '<div class="cc-blk"><div class="blk-h">Expenses <small>5 · ₺33.250</small><span class="addl">+ Add expense</span></div>' +
-      SH_EXP[0][1].map(function (e) { return '<div class="cc-row tr-ex"><span class="go"></span><span class="dt">' + e[0] + '</span><span class="nm">' + lbl(e[2]) + '<span class="t" style="margin-left:6px">' + e[1] + ' · ' + e[3] + '</span></span><span class="num">' + pfMoney(e[5]) + '</span></div>'; }).join('') + '</div>';
-    return members + pays + exp;
+  /** Tricount's Add Expense: what, how much, who paid and when, then each one of the group with a tick and their part. */
+  function shAdd(how) {
+    var seg = '<span class="x2-seg"><span' + (how === 'equal' ? ' class="on"' : '') + '>Equally</span><span' + (how === 'amounts' ? ' class="on"' : '') + '>By amounts</span><span' + (how === 'parts' ? ' class="on"' : '') + '>By parts</span></span>';
+    var person = function (n, on, right, me) { return '<div class="x2-p' + (on ? '' : ' off') + '">' + x2Tick(on) + '<span class="nm">' + n + (me ? '<small>paid</small>' : '') + '</span>' + right + '</div>'; };
+    var people;
+    if (how === 'parts') {
+      var pr = function (x, v) { return '<span class="x2-parts"><b>' + x + 'x</b><small>' + v + '</small></span><span class="x2-step"><span>−</span><span>+</span></span>'; };
+      people = person('Ayşe', true, pr(2, '₺620,00'), true) + person('Can', true, pr(1, '₺310,00')) + person('Deniz', true, pr(1, '₺310,00')) + '<div class="x2-tot ok"><span>4 parts</span><b>₺1.240,00</b></div>';
+    } else if (how === 'amounts') {
+      people = person('Ayşe', true, '<span class="x2-in on">800</span>', true) + person('Can', true, '<span class="x2-in">340</span>') + person('Deniz', false, '<span class="x2-in" style="opacity:.4">0</span>') + '<div class="x2-tot bad"><span>₺1.140 of ₺1.240</span><b>₺100 missing</b></div>';
+    } else {
+      people = person('Ayşe', true, '<span class="n">₺413,34</span>', true) + person('Can', true, '<span class="n">₺413,33</span>') + person('Deniz', true, '<span class="n">₺413,33</span>');
+    }
+    var body = '<div class="x2-title">' + ccProp('', '<span>Migros</span>') + '<span class="x2-ib">' + X2_CLIP + '</span></div>' +
+      '<div class="x2-amt"><span class="x2-cur">₺<span class="dd">▾</span></span><span class="pf-amt">1.240<span class="caret"></span></span></div>' +
+      '<div class="cc-two">' + ccProp('Paid by', 'Ayşe', { dd: true }) + ccProp('When', 'Today') + '</div>' +
+      ccProp('For whom', seg) + '<div class="x2-people">' + people + '</div>' +
+      '<div class="x2-check"><i></i>Every month, as the rent</div>';
+    var foot = how === 'amounts' ? '<span class="st-btn">Cancel</span><span class="st-btn go off">Create</span>' : '<span class="st-btn">Cancel</span><span class="st-btn go">Create</span>';
+    return x2Window('New expense · Home', body, foot);
   }
   function shGroup() {
-    var left = ccProp('Name', 'Home', { req: true }) +
-      '<div class="cc-two">' + trCalc('People', '3') + trCalc('Spent', pfMoney(33250)) + '</div>' +
-      trCalc('Each, on average', pfMoney(11083)) +
-      ccProp('Notes', 'Rent is paid by Ayşe on the 1st; we settle at the end of the month.', { body: true });
-    return pfWindow('', left, shGroupRight(), '<span class="st-btn">Cancel</span>', 'Groups · ' + SH_APP);
+    var b = function (n, v) { return '<div class="x2-row"><span class="tx">' + n + '</span><span class="x2-bal ' + (v < 0 ? 'pf-neg' : 'pf-in') + '">' + pfMoney(v, true) + '</span></div>'; };
+    var w = function (t, a, on) { return '<div class="x2-row' + (on ? ' done' : '') + '"><span class="tx">' + t + '</span><span class="n">' + pfMoney(a) + '</span>' + x2Tick(on) + '</div>'; };
+    var e = function (n, who, a) { return '<div class="x2-row"><span class="tx">' + n + '<small>' + who + ' paid</small></span><span class="n">' + pfMoney(a) + '</span></div>'; };
+    var cols = '<div class="x2-cols" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr)"><div>' +
+      '<div class="x2-blk"><div class="x2-sec">People<span class="r">+ Add</span></div>' + b('Ayşe', 20503) + b('Can', -9937) + b('Deniz', -10567) + '</div>' +
+      '<div class="x2-blk"><div class="x2-sec">Who pays whom<span class="r">Settle up</span></div>' + w('Can → Ayşe', 9937) + w('Deniz → Ayşe', 10567) + w('Can → Deniz · 30 Sep', 1200, true) + '</div>' +
+      '</div><div><div class="x2-blk"><div class="x2-sec">Expenses<small>₺33.250</small><span class="r">+ Add</span></div>' + e('Migros', 'Ayşe', 1240) + e('Electricity', 'Can', 940) + e('Dinner', 'Deniz', 620) + e('Internet', 'Ayşe', 450) + e('Rent', 'Ayşe', 30000) + '</div></div></div>';
+    return '<div class="ovl center"><div class="rmod cc-rm" style="width:880px"><div class="cp-head">' + ICON.collection + '<span>Groups · ' + SH_APP + '</span><span class="more">···</span><span class="x">×</span></div>' +
+      '<div class="x2-head"><b>Home</b><small>3 people · ₺33.250 this month</small></div>' + cols +
+      '<div class="rm-foot"><span class="st-btn">Cancel</span></div></div></div>';
   }
   function shHome() {
     var home = '<div class="ah-card"><h4>' + ICON.collection + 'Home<small>₺33.250 this month</small></h4>' +
       '<div class="pf-hr"><span class="t">Can → Ayşe</span><span class="n">' + pfMoney(9937) + '</span></div><div class="pf-hr"><span class="t">Deniz → Ayşe</span><span class="n">' + pfMoney(10567) + '</span></div></div>';
-    var bodrum = '<div class="ah-card"><h4>' + ICON.collection + 'Bodrum weekend<small>₺20.800</small></h4><div class="pf-hr"><span class="t calc">Settled</span><span class="n calc">Sep 14</span></div></div>';
-    var recent = '<div class="ah-card"><h4>' + ICON.collection + 'Expenses<small>Latest</small></h4>' +
-      SH_EXP[0][1].slice(0, 4).map(function (e) { return '<div class="pf-hr"><span class="t">' + e[1] + '<span class="calc" style="margin-left:8px">' + e[3] + '</span></span><span class="n">' + pfMoney(e[5]) + '</span></div>'; }).join('') + '</div>';
-    var today = '<div class="ah-cap">Coming <small>1</small></div><div class="ah-today">' + ahTr('#b48ef0', 'Rent', 'Nov 1 · Expenses · ₺30.000 · Ayşe · written by itself') + '</div>';
-    return '<div class="ah">' + ahTop(SH_APP, ICON.share, SH_MODS, 'Home') + '<div class="ah-home">' + today + '<div class="ah-cap">Groups</div><div class="pf-home">' + home + bodrum + recent + '</div></div></div>';
+    var bodrum = '<div class="ah-card"><h4>' + ICON.collection + 'Bodrum weekend<small>₺20.800</small></h4><div class="pf-hr"><span class="t calc">All settled</span><span class="n calc">14 Sep</span></div></div>';
+    var today = '<div class="ah-cap">Coming <small>1</small></div><div class="ah-today">' + ahTr('#b48ef0', 'Rent', '1 Nov · ₺30.000 · Ayşe · written by itself') + '</div>';
+    return '<div class="ah">' + ahTop(SH_APP, ICON.share, SH_MODS, 'Home') + '<div class="ah-home">' + today + '<div class="ah-cap">Groups</div><div class="pf-home" style="grid-template-columns:repeat(2,minmax(0,1fr))">' + home + bodrum + '</div></div></div>';
   }
   function shPhone() {
-    var chip = function (n, on) { return '<span' + (on ? ' class="on"' : '') + ' style="--pc:var(--m-accent)"><i></i>' + n + '</span>'; };
-    var add = mbPage('<div class="mb-nav"><span class="back">Cancel</span><b>New expense</b><span class="acts" style="color:var(--m-accent);font-weight:600">Add</span></div>',
+    var nav = '<div class="mb-nav"><span class="back">Cancel</span><b>New expense</b><span class="acts" style="color:var(--m-accent);font-weight:600">Add</span></div>';
+    var mp = function (n, v, me) { return '<div class="x2-mp">' + x2Tick(true) + '<span class="nm">' + n + (me ? ' <small style="color:var(--m-faint);font-size:12px">paid</small>' : '') + '</span><span>' + v + '</span></div>'; };
+    var add = mbPage(nav, '<div class="mb-form"><div class="mb-group wide">' + mbVal('Title', 'Migros', { text: true }) + '</div></div>' +
       '<div class="pf-mamt"><span class="cur">₺</span>1.240</div>' +
-      '<div class="sh-mlab">Paid by</div><div class="pf-mcats">' + chip('Ayşe', true) + chip('Can') + chip('Deniz') + '</div>' +
-      '<div class="sh-mlab">For whom · equally</div><div class="pf-mcats">' + chip('Ayşe', true) + chip('Can', true) + chip('Deniz', true) + '</div>' +
-      '<div class="mb-form"><div class="mb-group wide">' + mbVal('Each', '₺413,33', { text: true }) + mbVal('Category', 'Food') + mbVal('Group', 'Home') + mbVal('Date', 'Today', { cls: 'date' }) + '</div></div>');
+      '<div class="x2-mrow"><div><small>Paid by</small><b>Ayşe</b></div><div><small>When</small><b>Today</b></div></div>' +
+      '<div class="pf-mseg"><span class="pf-seg"><span class="on">Equally</span><span>Amounts</span><span>Parts</span></span></div>' +
+      '<div class="gy-mtoday">' + mp('Ayşe', '₺413,34', true) + mp('Can', '₺413,33') + mp('Deniz', '₺413,33') + '</div>');
     var top = '<div class="mb-nav"><span class="back">' + ICON.chevl + 'Groups</span><span class="acts"></span></div><div class="mb-rhead"><h2>Home</h2><small>3 people · ₺33.250 this month</small></div>';
-    var pay = function (t, a) { return '<div class="sh-mpay"><span class="tx"><b>' + t + '</b><small>' + pfMoney(a) + '</small></span><span class="go">Paid</span></div>'; };
     var bal = function (n, b) { return '<div class="pf-mrow"><span class="tx"><b>' + n + '</b></span><span class="n ' + (b < 0 ? 'pf-neg' : 'pf-in') + '">' + pfMoney(b, true) + '</span></div>'; };
-    var group = mbPage(top, '<div class="sh-mlab">Who pays whom</div><div class="gy-mtoday">' + pay('Can → Ayşe', 9937) + pay('Deniz → Ayşe', 10567) + '</div>' +
-      '<div class="sh-mlab">Balances</div><div class="gy-mtoday">' + bal('Ayşe', 20503) + bal('Can', -9937) + bal('Deniz', -10567) + '</div>');
-    return mbPhone('Ekleme: tutar, kim ödedi, kimin için', add, '') + mbPhone('Grup: kim kime, Paid', group, '');
+    var pay = function (t, a) { return '<div class="x2-mp"><span class="nm">' + t + '</span><span>' + pfMoney(a) + '</span>' + x2Tick(false) + '</div>'; };
+    var group = mbPage(top, '<div class="x2-mday">People</div><div class="gy-mtoday">' + bal('Ayşe', 20503) + bal('Can', -9937) + bal('Deniz', -10567) + '</div>' +
+      '<div class="x2-mday">Who pays whom</div><div class="gy-mtoday">' + pay('Can → Ayşe', 9937) + pay('Deniz → Ayşe', 10567) + '</div>');
+    return mbPhone('Harcama: Tricount gibi', add, '') + mbPhone('Grup: bakiyeler, kim kime', group, '');
   }
   var SH_VIEWS = {
     shhome: function () { return ahFrame(shTree(), 'app', SH_APP, shHome(), '2 screens'); },
-    shexp: function () { return ahFrame(shTree(), 'app', SH_APP, shExp(), '7 records'); },
-    shadd: function () { return ahFrame(shTree(), 'app', SH_APP, shExp(), '7 records', shAdd(false)); },
-    shamounts: function () { return ahFrame(shTree(), 'app', SH_APP, shExp(), '7 records', shAdd(true)); },
-    shgroup: function () { return ahFrame(shTree(), 'app', SH_APP, shExp(), '7 records', shGroup()); }
+    shexp: function () { return ahFrame(shTree(), 'app', SH_APP, shExp(), '5 expenses'); },
+    shadd: function () { return ahFrame(shTree(), 'app', SH_APP, shExp(), '5 expenses', shAdd('equal')); },
+    shparts: function () { return ahFrame(shTree(), 'app', SH_APP, shExp(), '5 expenses', shAdd('parts')); },
+    shamounts: function () { return ahFrame(shTree(), 'app', SH_APP, shExp(), '5 expenses', shAdd('amounts')); },
+    shgroup: function () { return ahFrame(shTree(), 'app', SH_APP, shExp(), '5 expenses', shGroup()); }
   };
   function renderSh(section, view) {
     var mock = section.querySelector('.mock');
@@ -16030,7 +16096,7 @@ p { margin: 0; max-width: 68ch; }
     var b = e.target.closest('[data-shview]');
     if (b) renderSh(sectionSh, b.dataset.shview);
   });
-  renderSh(sectionSh, 'shhome');
+  renderSh(sectionSh, 'shadd');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });

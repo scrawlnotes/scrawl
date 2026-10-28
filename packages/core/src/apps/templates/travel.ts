@@ -1,17 +1,19 @@
 import type { MessageKey } from '@scrawlnotes/i18n';
-import { calendar, checkbox, currencyField, day, dayAndTime, formula, link, multi, nameField, number, rollup, select, text } from '../pieces';
+import { calendar, checkbox, day, dayAndTime, formula, link, multi, nameField, number, rollup, select, symbolOf, text } from '../pieces';
 import type { AppTemplate } from '../types';
-import { equalShares, TRIP_CATEGORIES as CATEGORIES, TRIP_COLORS as CATEGORY_COLORS } from './split';
+import { equalShares, expenseFields } from './split';
 
-// Travel (design/more-apps.md 4.5): each trip named by itself, its bookings by time and by kind, a
-// booking's amount its expense; its packing list from the person's own, by the kind of trip; its
-// money per day left. With Shared expenses a trip is a group too, and its expenses are the shared ones.
+// Travel (design/more-apps.md 4.5), as TripIt, Wanderlog and PackPoint show a trip: its bookings day
+// by day, a hotel on its check in and its check out; its places numbered; its packing from the
+// person's own list by the kind of trip, ticked; its money in one line. A booking's cost is its
+// expense. With Shared expenses a trip is a group too, and its expenses are the shared ones.
 
 const KEEPS = ['places', 'packing', 'expenses'];
-const BOOKINGS = ['Flight', 'Hotel', 'Train', 'Car', 'Event'];
+const BOOKINGS = ['Flight', 'Hotel', 'Car', 'Train', 'Event'];
+/** The sign of each kind of booking, beside it day by day. */
+const ICONS = { Flight: '✈', Hotel: '🏨', Car: '🚗', Train: '🚆', Event: '🎟' };
 const KINDS = ['Abroad', 'Flying', 'Beach', 'Cold', 'Work'];
 const EVERY = 'Every trip';
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const GROUPS = ['Documents', 'Money', 'Electronics', 'Clothes', 'Toiletries', 'Health', 'Other'];
 
 /** What is taken on a trip, ready: each with the kinds of trip it is taken on (PackPoint). */
@@ -82,7 +84,7 @@ export const PACKING: [string, string, string[]][] = [
 
 export const travel: AppTemplate = {
   id: 'travel',
-  version: 2,
+  version: 3,
   group: 'life',
   name: 'apps.travel.name',
   short: 'apps.travel.short',
@@ -103,54 +105,91 @@ export const travel: AppTemplate = {
     const shared = app.has('split') && app.hasPiece('group-members');
     const trips = app.path('trips');
     const main = app.format(false);
-    const multiMoney = app.money.multi && !shared;
     const expenses = spending ? app.called('spending') : '';
     const sym = app.money.main ?? '';
-    const tripColumns = ['first', 'last', ...(spending ? ['budget', 'spent', 'left', 'per_day'] : []), ...(packing ? ['to_pack'] : [])];
+    const money = (expr: string) => `${JSON.stringify(symbolOf(sym))} + text(round(${expr}))`;
 
-    // Trips: where to and when, named by themselves; what is left of the budget for each day to come.
-    app.field('trips', { ...nameField(), optional: true, help: 'Left empty, where to and the month' });
+    // A trip, as TripIt heads one: its name, its days and how far off; where to, its days and its
+    // budget on the left with what is left of it, its bookings and places in the middle, its packing
+    // and its money on the right (design/more-apps.md 4.5).
+    app.field('trips', { ...nameField(), optional: true });
     app.field('trips', { ...text('destination', 'Where to'), required: true });
-    app.field('trips', { ...day('first', 'First day'), required: true });
+    app.field('trips', day('first', 'First day'));
     app.field('trips', day('last', 'Last day'));
-    if (packing) app.field('trips', { ...multi('kind', 'Kind of trip', KINDS), chips: true, help: 'What it brings from Packing list' });
+    if (packing) {
+      app.field('trips', { ...multi('kind', 'Kind of trip', KINDS), chips: true });
+      app.place('trips', 'kind', 3);
+    }
     app.field('trips', number('budget', 'Budget', { format: main }));
-    app.field('trips', formula('coming', 'Coming', 'empty(last) ? first >= today() : last >= today()'));
-    app.field('trips', formula('when', 'When', 'first > today() ? (first - today() == 1 ? "tomorrow" : "in " + text(first - today()) + " days") : (empty(last) || last >= today() ? "now" : "")'));
-    app.formOrder('trips', ['destination', 'first', 'last', 'kind', 'budget', 'name']);
-    app.view('trips', { id: 'coming', name: 'Coming', conditions: [{ field: 'coming', op: 'true' }], sort: { key: 'first', dir: 'asc' }, columns: tripColumns }, true);
+    app.field('trips', formula('coming', 'Coming', 'empty(first) || (empty(last) ? first >= today() : last >= today())'));
+    app.field('trips', formula('when', 'When', 'empty(first) ? "" : first > today() ? (first - today() == 1 ? "tomorrow" : "in " + text(first - today()) + " days") : (empty(last) || last >= today() ? "now" : "")'));
+    // "12–16 Nov · 5 days · in 14 days".
+    const days = 'text(monthday(first)) + (empty(last) ? " " + monthname(first) : (month(first) == month(last) ? "" : " " + monthname(first)) + "–" + text(monthday(last)) + " " + monthname(last) + " · " + text(last - first + 1) + " days")';
+    app.field('trips', formula('dates', 'When', `empty(first) ? "No days yet" : ${days} + (empty(when) || when == "now" ? "" : " · " + when)`));
+    app.head('trips', 'dates');
+    app.view('trips', { id: 'coming', name: 'Coming', conditions: [{ field: 'coming', op: 'true' }], sort: { key: 'first', dir: 'asc' }, columns: ['dates', ...(spending ? ['left_said'] : []), ...(packing ? ['pack_said'] : [])] }, true);
     app.rule('trips', {
       kind: 'onSave',
       name: 'Its name',
-      src: `onSave("Its name", () => {\n  if (empty(name) && !empty(destination) && !empty(first)) name = destination + " · " + ${JSON.stringify(MONTHS)}[month(first) - 1] + " " + text(year(first))\n})`,
+      src: `onSave("Its name", () => {\n  if (empty(name) && !empty(destination)) name = empty(first) ? destination : destination + " · " + monthname(first) + " " + text(year(first))\n})`,
     });
-    app.rule('trips', { kind: 'check', name: 'The last day is before the first', src: 'check("last", () => empty(last) || last >= first, "The last day is before the first")' });
-    app.block('trips', { block: 'linked', collection: app.path('bookings'), style: 'table', fields: ['start', 'type', 'name', 'amount'], sort: 'start' });
+    app.rule('trips', { kind: 'check', name: 'The last day is before the first', src: 'check("last", () => empty(last) || empty(first) || last >= first, "The last day is before the first")' });
     // Its to-dos: a visa, the insurance; one with a day comes to Today and Upcoming.
-    app.block('trips', { block: 'subtasks', title: 'To do', add: 'Add step' });
+    app.block('trips', { block: 'subtasks', title: 'To do', add: 'Add step', column: 1 });
+    app.block('trips', {
+      block: 'linked',
+      collection: app.path('bookings'),
+      look: 'days',
+      time: 'start',
+      end: 'end',
+      icon: 'type',
+      icons: ICONS,
+      sub: 'said',
+      startSaid: { Hotel: 'check in', Car: 'pick up' },
+      endSaid: { Hotel: 'check out', Car: 'drop off' },
+      sort: 'start',
+      column: 2,
+    });
+    app.notes('trips', false);
 
-    // Bookings: what a kind has, its name from them, its time in Today; its amount its expense.
+    // A booking by its kind, with what TripIt keeps of it; a flight or a train named by itself.
     const isTicket = { when: [{ field: 'type', op: 'is' as const, value: ['Flight', 'Train'] }] };
-    app.field('bookings', { ...nameField(), optional: true, help: 'Left empty, its kind and where' });
+    app.field('bookings', {
+      ...nameField(),
+      optional: true,
+      labelBy: { field: 'type', labels: { Hotel: 'Hotel', Car: 'Car', Event: 'Event' } },
+      when: [{ field: 'type', op: 'is', value: ['Hotel', 'Car', 'Event'] }],
+    });
     app.field('bookings', { ...link('trip', 'Trip', trips), required: true });
-    app.field('bookings', { ...select('type', 'Type', BOOKINGS, { Flight: 'blue', Hotel: 'purple', Train: 'teal', Car: 'orange', Event: 'pink' }, 'Flight'), chips: true });
+    app.field('bookings', { ...select('type', 'Type', BOOKINGS, { Flight: 'blue', Hotel: 'purple', Car: 'orange', Train: 'teal', Event: 'pink' }, 'Flight'), chips: true });
     app.field('bookings', { ...text('flight_no', 'Flight no'), when: [{ field: 'type', op: 'is', value: ['Flight'] }] });
+    app.field('bookings', { ...text('seat', 'Seat'), ...isTicket });
     app.field('bookings', { ...text('from', 'From'), ...isTicket });
     app.field('bookings', { ...text('to', 'To'), ...isTicket });
     app.field('bookings', { ...text('address', 'Address'), when: [{ field: 'type', op: 'is', value: ['Hotel', 'Car', 'Event'] }] });
-    app.field('bookings', { ...dayAndTime('start', 'Starts'), required: true });
-    app.field('bookings', dayAndTime('end', 'Ends'));
-    app.field('bookings', text('confirmation', 'Confirmation no'));
-    app.field('bookings', { ...number('amount', 'Amount', { format: main }), ...(spending && { help: shared ? 'Written as an expense the one who paid it shares with all of the trip' : 'Written as an expense of the trip; not added again' }) });
-    if (shared) app.field('bookings', { ...link('paid_by', 'Paid by', app.path('group-members')), chips: true, within: 'trip' });
-    app.field('bookings', formula('said', 'Says', 'type == "Flight" || type == "Train" ? (empty(from) ? "" : from + " → " + to) + (empty(confirmation) ? "" : " · " + confirmation) : (empty(address) ? "" : address)'));
-    app.formOrder('bookings', ['type', 'flight_no', 'confirmation', 'from', 'to', 'address', 'start', 'end', 'amount', 'paid_by', 'name']);
-    app.view('bookings', calendar({ start: 'start', end: 'end', color: 'type', upcoming: true, words: ['said'] }));
+    app.field('bookings', { ...dayAndTime('start', 'Starts'), required: true, labelBy: { field: 'type', labels: { Flight: 'Departs', Train: 'Departs', Hotel: 'Check in', Car: 'Pick up' } } });
+    app.field('bookings', { ...dayAndTime('end', 'Ends'), labelBy: { field: 'type', labels: { Flight: 'Arrives', Train: 'Arrives', Hotel: 'Check out', Car: 'Drop off' } } });
+    app.field('bookings', text('confirmation', 'Confirmation'));
+    app.field('bookings', number('amount', 'Cost', { format: main }));
+    if (shared) app.field('bookings', { ...link('paid_by', 'Paid by', app.path('group-members')), within: 'trip' });
+    // Its line under its name: a flight's number, when it lands, its confirmation and seat; a hotel's address.
+    app.field(
+      'bookings',
+      formula(
+        'said',
+        'Says',
+        'type == "Flight" || type == "Train" ? (empty(flight_no) ? "" : flight_no + " · ") + (empty(end) || empty(time(end)) ? "" : "arrives " + text(time(end)) + " · ") + (empty(confirmation) ? "" : "Confirmation " + confirmation) + (empty(seat) ? "" : " · Seat " + seat) : (empty(address) ? "" : address) + (empty(confirmation) ? "" : " · Confirmation " + confirmation)',
+      ),
+    );
+    app.formOrder('bookings', ['type', 'name', 'flight_no', 'seat', 'from', 'to', 'address', 'start', 'end', 'confirmation', 'amount', 'paid_by']);
+    app.notes('bookings', 'attach');
+    app.view('bookings', { ...calendar({ start: 'start', end: 'end', color: 'type', upcoming: true, words: ['said'] }), hidden: true });
     app.rule('bookings', {
       kind: 'onSave',
       name: 'Its name',
       src: `onSave("Its name", () => {
-  if (empty(name)) name = type == "Flight" ? "Flight" + (empty(flight_no) ? "" : " " + flight_no) + (empty(from) ? "" : " " + from + " → " + to) : type == "Train" ? "Train" + (empty(from) ? "" : " " + from + " → " + to) : type + (empty(address) ? "" : " · " + address)
+  if (type == "Flight" || type == "Train") name = empty(from) ? type + (empty(flight_no) ? "" : " " + flight_no) : from + " → " + to
+  else if (empty(name)) name = type + (empty(address) ? "" : " · " + address)
 })`,
     });
     app.rule('bookings', { kind: 'check', name: 'It ends before it starts', src: 'check("end", () => empty(end) || end >= start, "It ends before it starts")' });
@@ -162,11 +201,11 @@ export const travel: AppTemplate = {
     if (was.length > 0) {
       e = was[0]
       update(e, { name: name, amount: amount, trip: trip, payer: paid_by, between: people })
-    } else e = add("${expenses}", { name: name, amount: amount, trip: trip, category: category, date: today(), payer: paid_by, between: people })
+    } else e = add("${expenses}", { name: name, amount: amount, trip: trip, date: today(), payer: paid_by, between: people })
     for (const s of find("${app.called('shares')}", { expense: e })) remove(s)
 ${equalShares(app, { expense: 'e', whole: 'amount', people: 'people', payer: 'paid_by', label: 'name', date: 'today()', indent: '    ' })}`
         : `    if (was.length > 0) update(was[0], { name: name, amount: amount, trip: trip })
-    else add("${expenses}", { name: name, amount: amount, trip: trip, category: category, date: today()${multiMoney ? `, currency: "${sym}", rate: 1` : ''} })`;
+    else add("${expenses}", { name: name, amount: amount, trip: trip, date: today()${app.money.multi ? `, currency: "${sym}", rate: 1` : ''} })`;
       app.rule('bookings', {
         kind: 'onSave',
         name: 'Its expense',
@@ -175,7 +214,6 @@ ${equalShares(app, { expense: 'e', whole: 'amount', people: 'people', payer: 'pa
   if (empty(amount) || amount <= 0${shared ? ' || empty(paid_by)' : ''}) {
     for (const e of was) remove(e)
   } else {
-    const category = type == "Hotel" ? "Stay" : type == "Event" ? "Activities" : "Transport"
 ${write}
   }
 })`,
@@ -183,12 +221,14 @@ ${write}
     }
 
     if (places) {
+      // The places to see, numbered as Wanderlog lists them, each on its day.
       app.field('places', nameField());
       app.field('places', { ...link('trip', 'Trip', trips), required: true });
       app.field('places', { ...day('day', 'Day'), help: 'Which day of the trip; left empty, any day' });
       app.field('places', { key: 'link', label: 'Link', type: 'url' });
       app.field('places', checkbox('visited', 'Been there'));
-      app.block('trips', { block: 'linked', collection: app.path('places'), style: 'table', fields: ['visited', 'name', 'link'], group: ['day'], sort: 'day', edit: ['visited'], done: true });
+      app.field('places', formula('weekday', 'Weekday', 'empty(day) ? "" : weekday(day)'));
+      app.block('trips', { block: 'linked', collection: app.path('places'), look: 'checklist', title: 'Places to visit', numbered: true, fields: ['weekday'], sort: 'day', column: 2 });
     }
     if (packing) {
       // The person's own list, ready with what most take; a new trip, or its kinds changed, brings what it is taken on.
@@ -198,6 +238,7 @@ ${write}
       app.field('packing-list', { ...multi('taken_on', 'Taken on', [EVERY, ...KINDS]), chips: true });
       app.view('packing-list', { id: 'all', name: 'All', conditions: [], group: 'group' }, true);
       app.tableColumns('packing-list', ['taken_on']);
+      app.homeTile('packing-list', { off: true });
       for (const [name, group, on] of PACKING) app.record('packing-list', { name, group, taken_on: on });
 
       app.field('packing', nameField('Thing'));
@@ -205,13 +246,14 @@ ${write}
       app.field('packing', select('group', 'Group', GROUPS));
       app.field('packing', checkbox('packed', 'Packed'));
       app.field('trips', rollup('to_pack', 'To pack', app.path('packing'), 'count', undefined, [{ field: 'packed', op: 'false' }]));
-      app.field('trips', formula('pack_said', 'Says', 'to_pack > 0 ? text(to_pack) + " to pack" : ""'));
-      app.block('trips', { block: 'linked', collection: app.path('packing'), style: 'table', fields: ['packed', 'name', 'group'], sort: 'group', edit: ['packed'], done: true });
+      app.field('trips', formula('pack_said', 'Packing', 'to_pack > 0 ? text(to_pack) + " to pack" : ""'));
+      // Ticked as it is packed, in its groups (PackPoint).
+      app.block('trips', { block: 'linked', collection: app.path('packing'), look: 'checklist', fields: ['packed'], group: ['group'], done: true, column: 3 });
       app.rule('trips', {
         kind: 'onSave',
         name: 'From the packing list',
         src: `onSave("From the packing list", () => {
-  if (empty(old.first) || text(kind) != text(old.kind)) {
+  if (empty(old.destination) || text(kind) != text(old.kind)) {
     const have = linked("${app.called('packing')}").map((p) => p.name)
     for (const p of find("${list}")) {
       if (!empty(p.taken_on) && (p.taken_on.includes("${EVERY}") || (!empty(kind) && p.taken_on.some((w) => kind.includes(w)))) && !have.includes(p.name)) add("${app.called('packing')}", { name: p.name, group: p.group })
@@ -220,68 +262,52 @@ ${write}
 })`,
       });
     }
-    app.view('trips', calendar({ start: 'first', upcoming: true, words: packing ? ['pack_said'] : [] }));
+    app.view('trips', { ...calendar({ start: 'first', upcoming: true, words: packing ? ['pack_said'] : [] }), hidden: true });
 
     if (spending) {
       const spent = app.path('spending');
       if (!shared) {
-        // An expense on the way: its amount first, a category tapped, the trip the one on now.
-        app.field('spending', { ...nameField('Description'), optional: true, help: 'Left empty, its category’s name' });
-        app.field('spending', number('amount', 'Amount', { required: true, format: multiMoney ? app.format(true) : main }));
-        if (multiMoney) {
-          app.field('spending', { ...currencyField(app), chips: true });
-          app.field('spending', { ...number('rate', 'Rate', { default: 1 }), help: 'What one of it is in the trip’s money; the rate used last for it', when: [{ field: 'currency', op: 'is-not', value: [sym] }] });
-        }
-        app.field('spending', formula('total', 'Total', multiMoney ? 'amount * (empty(rate) || currency == ' + JSON.stringify(sym) + ' ? 1 : rate)' : 'amount', main));
-        app.field('spending', { ...select('category', 'Category', CATEGORIES, CATEGORY_COLORS), chips: true });
-        app.field('spending', { ...link('trip', 'Trip', trips), default: `=find("${app.called('trips')}").filter((t) => t.first <= today() && (empty(t.last) || t.last >= today()))[0] || last("date")` });
-        app.field('spending', day('date', 'Date', true));
-        app.formOrder('spending', ['amount', 'currency', 'rate', 'category', 'trip', 'date', 'name']);
-        app.rule('spending', { kind: 'onSave', name: 'Its name', src: 'onSave("Its name", () => {\n  if (empty(name)) name = empty(category) ? "Expense" : category\n})' });
-        if (multiMoney) {
-          app.rule('spending', {
-            kind: 'onChange',
-            name: 'Its rate',
-            src: `onChange("currency", "Its rate", () => {
-  const before = find("${expenses}", { currency: currency }).filter((e) => !empty(e.rate) && !empty(e.date))
-  if (currency == ${JSON.stringify(sym)}) rate = 1
-  else if (before.length > 0 && (empty(rate) || rate == 1 || rate == old.rate)) rate = before.filter((e) => e.date == max(before.map((b) => b.date)))[0].rate
-})`,
-          });
-        }
-        app.tableColumns('spending', ['date', 'category', 'trip', 'total']);
+        // An expense on the way: what, how much and in what, when; the trip the one on now.
+        expenseFields(app);
+        app.field('spending', { ...link('trip', 'Trip', trips), default: `=find("${app.called('trips')}").filter((t) => !empty(t.first) && t.first <= today() && (empty(t.last) || t.last >= today()))[0] || last("date")` });
         app.field('spending', link('booking', 'Booking', app.path('bookings')));
+        app.formOrder('spending', ['name', 'amount', 'currency', 'rate', 'date', 'trip']);
+        app.tableColumns('spending', ['date', 'trip', 'total']);
       }
+      app.homeTile('spending', { off: true });
       app.field('trips', rollup('spent', 'Spent', spent, 'sum', 'total', undefined, main));
       app.field('trips', formula('left', 'Left', 'empty(budget) ? null : budget - spent', main));
       app.field('trips', formula('days_left', 'Days left', 'empty(last) || last < today() ? null : last - (first > today() ? first : today()) + 1'));
       app.field('trips', formula('per_day', 'Per day left', 'empty(left) || empty(days_left) || days_left <= 0 ? null : round(left / days_left)', main));
-      app.block('trips', { block: 'linked', collection: spent, style: 'table', fields: ['date', 'name', 'total'], sort: 'date', dir: 'desc', sums: true });
+      // Its money in one line, under the budget: "₺31.400 spent · ₺28.600 left · ₺5.720 a day".
+      app.field('trips', formula('money', 'Spent', `spent == 0 && empty(budget) ? "" : ${money('spent')} + " spent" + (empty(left) ? "" : left >= 0 ? " · " + ${money('left')} + " left" : " · " + ${money('-left')} + " over") + (empty(per_day) || per_day <= 0 ? "" : " · " + ${money('per_day')} + " a day")`));
+      app.field('trips', formula('left_said', 'Budget', `empty(left) ? "" : left >= 0 ? ${money('left')} + " left" : ${money('-left')} + " over"`));
+      app.block('trips', { block: 'linked', collection: spent, look: 'checklist', fields: shared ? ['payer', 'total'] : ['date', 'total'], sort: 'date', dir: 'desc', column: 3 });
       app.rule('trips', { kind: 'check', name: 'Over its budget', src: 'check("spent", () => empty(budget) || spent <= budget, `Over its budget by ${text(spent - budget)}`)' });
-      app.tableColumns('trips', tripColumns);
-      app.homeTile('trips', { value: 'left', sub: 'when' });
-    } else {
-      app.tableColumns('trips', tripColumns);
-      app.homeTile('trips', { sub: 'when' });
     }
+    // Home: the next trip, large.
+    app.field('trips', formula('next_said', 'Next', `(empty(first) ? "No days yet" : ${days})${packing ? ' + (to_pack > 0 ? " · " + text(to_pack) + " to pack" : "")' : ''}${spending ? ' + (empty(left_said) ? "" : " · " + left_said)' : ''}`));
+    app.homeTile('trips', { first: true, value: 'when', sub: 'next_said' });
+    app.formOrder('trips', ['destination', 'first', 'last', 'budget', 'money']);
+    app.tableColumns('trips', ['dates', ...(spending ? ['left_said'] : []), ...(packing ? ['pack_said'] : [])]);
 
     app.about({
       title: 'Travel',
-      what: `Your trips: where to and when, the bookings with their times${places ? ', the places to see day by day' : ''}${packing ? ', what to pack from your own list' : ''}${spending ? ', and what it costs, each day' : ''}.`,
+      what: `Your trips: where to and when, the bookings day by day${places ? ', the places to see' : ''}${packing ? ', what to pack from your own list' : ''}${spending ? ', and what it costs, each day' : ''}.`,
       pieces: ['trips', 'bookings', ...(places ? ['places'] : []), ...(packing ? ['packing', 'packing-list'] : []), ...(spending ? ['spending'] : [])],
-      glance: ['Trips and bookings in Today and Upcoming', ...(spending ? ['What is left of a trip’s budget for each day'] : []), ...(packing ? ['What is still to pack'] : []), ...(shared ? ['A trip is a group whose expenses are shared'] : [])],
+      glance: ['Trips and bookings in Today and Upcoming', 'Bookings day by day, a hotel on its check in and check out', ...(spending ? ['What is left of a trip’s budget for each day'] : []), ...(packing ? ['What is still to pack'] : []), ...(shared ? ['A trip is a group whose expenses are shared'] : [])],
       how: [
-        `Add a trip with where to and its days${packing ? ', and its kinds: abroad, flying, a beach' : ''}; leave its name empty for "Rome · Nov 2026".`,
-        `Add each booking in the trip's window: a flight with its number, from and to, a hotel with its address, and their times${spending ? '; its amount is written as an expense' : ''}${shared ? ', with who paid it' : ''}.`,
+        `Add a trip with where to, and its days once they are known${packing ? '; tick its kinds, abroad, flying, a beach' : ''}; it is called "Rome · Nov 2026".`,
+        `Add each booking in the trip's window: a flight with its number, from and to, a hotel with its address, and their times${spending ? '; its cost is written as an expense' : ''}${shared ? ', with who paid it' : ''}.`,
         'Write what is to be done before the trip in To do: a visa, the insurance; one with a day comes to Today.',
-        ...(places ? ['Add the places to see, each on its day; tick the ones you went to.'] : []),
+        ...(places ? ['Add the places to see, each on its day.'] : []),
         ...(packing ? [`Keep ${app.called('packing-list')} as you pack; a new trip takes what it is taken on, ticked as it is packed.`] : []),
-        ...(spending ? [`Add what you spend on the way: its amount and a category; the trip is the one on now${multiMoney ? ', and in another currency the rate used last' : ''}.`] : []),
+        ...(spending ? [`Add what you spend on the way: its title and amount; the trip is the one on now${app.money.multi ? ', and in another currency the rate used last' : ''}.`] : []),
       ],
       auto: [
         'A trip comes to Upcoming before its first day and to Today on it; its bookings on their days and times.',
-        'A trip left with no name is called after where to and its month; a booking after its kind and where.',
-        ...(spending ? ['A booking with an amount writes its expense, changed with it; a trip adds up its expenses, what is left of its budget, and what is left for each of its days to come; one over its budget is marked.'] : []),
+        'A trip is called after where to and its month; a flight or a train after where from and to.',
+        ...(spending ? ['A booking with a cost writes its expense, changed with it; a trip adds up its expenses, what is left of its budget, and what is left for each of its days to come; one over its budget is marked.'] : []),
         ...(packing ? [`A new trip, or one given another kind, takes from ${app.called('packing-list')} what is taken on every trip and on its kinds.`] : []),
       ],
       work: ['Where the tickets and the papers are kept.', ...(packing ? ['What we always take.'] : [])],

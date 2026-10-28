@@ -1,21 +1,43 @@
-import { calendar, checkbox, day, formula, link, nameField, number, rollup, select, text } from '../pieces';
+import { calendar, checkbox, currencyField, day, formula, link, nameField, number, rollup, select, symbolOf } from '../pieces';
 import type { AppDraft, AppTemplate } from '../types';
 
-// Shared expenses (design/more-apps.md 4.11): a trip, a flat, a family. The amount, who paid and for
-// whom picked from the people of the group; each one's share shown on the form as it is typed,
-// equally, by amounts or by shares, the cents left over on the one who paid; balances from the
-// shares, and Settle up writing who pays whom, each ticked Paid. One that comes again, the rent, is
-// written by itself every month. With Travel a trip is the group; with Personal finance your own
-// share is written as spent.
-
-const CATEGORIES = ['Food', 'Home', 'Transport', 'Stay', 'Fun', 'Other'];
-const CATEGORY_COLORS = { Food: 'orange', Home: 'purple', Transport: 'blue', Stay: 'teal', Fun: 'pink', Other: 'gray' } as const;
-/** What is spent on a trip on (design/more-apps.md 4.5). */
-export const TRIP_CATEGORIES = ['Transport', 'Stay', 'Food', 'Activities', 'Shopping', 'Other'];
-export const TRIP_COLORS = { Transport: 'blue', Stay: 'purple', Food: 'orange', Activities: 'pink', Shopping: 'teal', Other: 'gray' } as const;
+// Shared expenses (design/more-apps.md 4.11), as Tricount adds an expense: its title, its amount,
+// who paid and when, then each one of the group with a tick and their share, equally, by amounts
+// or by parts, the cents left over on the one who paid. A group shows each one's balance, who pays
+// whom ticked Paid and its expenses. The rent is written again every month. With Travel a trip is
+// the group; with Personal finance your own share is written as spent.
 
 /** Whether Personal finance takes your own share. */
 const mineOf = (app: AppDraft, answer: unknown) => app.has('finance') && app.hasPiece('transactions') && answer !== false;
+
+/**
+ * An expense's own fields, alone on a trip or shared: its title, its amount, in another of the
+ * app's currencies at the rate used last for it, said as "1 EUR = 37,10 ₺", and its day.
+ */
+export function expenseFields(app: AppDraft): void {
+  const main = app.format(false);
+  const multi = app.money.multi;
+  const sym = app.money.main ?? '';
+  app.field('spending', nameField('Title'));
+  app.field('spending', number('amount', 'Amount', { required: true, format: multi ? app.format(true) : main }));
+  if (multi) {
+    app.field('spending', { ...currencyField(app), beside: 'amount' });
+    app.field('spending', { ...number('rate', 'Rate', { default: 1 }), rate: { field: 'currency', main: symbolOf(sym) }, when: [{ field: 'currency', op: 'is-not', value: [sym] }] });
+    app.rule('spending', {
+      kind: 'onChange',
+      name: 'Its rate',
+      src: `onChange("currency", "Its rate", () => {
+  const before = find("${app.called('spending')}", { currency: currency }).filter((e) => !empty(e.rate) && !empty(e.date))
+  if (currency == ${JSON.stringify(sym)}) rate = 1
+  else if (before.length > 0 && (empty(rate) || rate == 1 || rate == old.rate)) rate = before.filter((e) => e.date == max(before.map((b) => b.date)))[0].rate
+})`,
+    });
+  }
+  app.field('spending', formula('total', 'Total', multi ? `amount * (empty(rate) || currency == ${JSON.stringify(sym)} ? 1 : rate)` : 'amount', main));
+  app.field('spending', day('date', 'When', true));
+  app.field('spending', formula('this_month', 'This month', 'year(date) == year(today()) && month(date) == month(today())'));
+  app.notes('spending', 'attach');
+}
 
 /**
  * The rules' lines that write an expense's shares equally between `people`, the cents left over on
@@ -55,7 +77,7 @@ export function equalShares(app: AppDraft, o: { expense: string; whole: string; 
 
 export const split: AppTemplate = {
   id: 'split',
-  version: 2,
+  version: 3,
   group: 'life',
   name: 'apps.split.name',
   short: 'apps.split.short',
@@ -74,7 +96,6 @@ export const split: AppTemplate = {
       ],
       default: 'equal',
     },
-    { key: 'abroad', kind: 'yesno', label: 'apps.split.abroad', default: false, help: 'apps.split.abroadHelp' },
     { key: 'finance', kind: 'yesno', label: 'apps.split.finance', default: true, when: ({ chosen }) => chosen.has('finance'), because: 'finance' },
   ],
   money: () => true,
@@ -86,7 +107,7 @@ export const split: AppTemplate = {
     const groups = travel ? 'trips' : 'groups';
     const key = travel ? 'trip' : 'group';
     const all = answers.methods === 'all';
-    const abroad = answers.abroad === true;
+    const multi = app.money.multi;
     const mine = mineOf(app, answers.finance);
     const members = app.called('group-members');
     const shares = app.called('shares');
@@ -94,22 +115,30 @@ export const split: AppTemplate = {
     const expenses = app.called('spending');
     const main = app.format(false);
     const sym = app.money.main ?? '';
-    const money = (expr: string) => `${JSON.stringify(sym + ' ')} + text(round(${expr}, 2))`;
+    const money = (expr: string) => `${JSON.stringify(symbolOf(sym))} + text(round(${expr}, 2))`;
     const names = ((answers.people as string[] | undefined) ?? []).map((n) => n.trim()).filter(Boolean);
+    // The people and who pays whom: on the left of a group's window, on the right of a trip's.
+    const side = { column: travel ? 3 : 1 };
 
     if (!travel) {
       app.field('groups', nameField());
       app.field('groups', rollup('total', 'Spent', app.path('spending'), 'sum', 'total', undefined, main));
+      app.field('groups', rollup('month', 'This month', app.path('spending'), 'sum', 'total', [{ field: 'this_month', op: 'true' }], main));
       app.record('groups', { name: 'Home' });
     }
     app.field(groups, rollup('members', 'People', app.path('group-members'), 'count'));
     app.field(groups, formula('each', 'Each, on average', `members > 0 ? ${travel ? 'spent' : 'total'} / members : 0`, main));
     app.field(groups, { ...rollup('to_settle', 'To settle', app.path('settlements'), 'list', 'said', [{ field: 'paid', op: 'false' }]), rollup: { from: app.path('settlements'), fn: 'list', field: 'said', where: [{ field: 'paid', op: 'false' }] } });
-    app.block(groups, { block: 'linked', collection: app.path('group-members'), style: 'table', fields: ['name', 'paid', 'owes', 'balance'] });
-    app.block(groups, { block: 'linked', collection: app.path('settlements'), style: 'table', fields: ['paid', 'from', 'to', 'amount'], edit: ['paid'], done: true });
+    // Each one's balance, who pays whom ticked as it is paid (Tricount, Splitwise).
+    app.block(groups, { block: 'linked', collection: app.path('group-members'), look: 'checklist', title: 'People', fields: ['balance'], ...side });
+    app.block(groups, { block: 'linked', collection: app.path('settlements'), look: 'checklist', title: 'Who pays whom', fields: ['paid', 'amount'], done: true, ...side });
     if (!travel) {
-      app.block('groups', { block: 'linked', collection: app.path('spending'), style: 'table', fields: ['date', 'name', 'payer', 'amount'], sort: 'date', dir: 'desc', sums: true });
-      app.homeTile('groups', { value: 'total', sub: 'to_settle' });
+      app.field('groups', formula('said', 'Says', `text(members) + " people · " + ${money('month')} + " this month"`));
+      app.head('groups', 'said');
+      app.notes('groups', false);
+      app.tableColumns('groups', ['members', 'month', 'to_settle']);
+      app.block('groups', { block: 'linked', collection: app.path('spending'), look: 'checklist', fields: ['payer', 'total'], sort: 'date', dir: 'desc', column: 2 });
+      app.homeTile('groups', { value: 'month', sub: 'to_settle' });
     }
 
     app.field('group-members', nameField());
@@ -118,50 +147,44 @@ export const split: AppTemplate = {
     app.field('group-members', rollup('paid', 'Paid', app.path('shares'), 'sum', 'paid', undefined, main));
     app.field('group-members', rollup('owes', 'Share', app.path('shares'), 'sum', 'part', undefined, main));
     app.field('group-members', formula('balance', 'Balance', 'paid - owes', main));
-    app.block('group-members', { block: 'linked', collection: app.path('shares'), style: 'table', fields: ['part', 'paid'], sums: true });
+    app.block('group-members', { block: 'linked', collection: app.path('shares'), look: 'checklist', fields: ['part', 'paid'] });
     for (const name of names) app.record('group-members', { name, ...(!travel && { group: 'Home' }) });
 
-    // An expense: its amount first, who paid and for whom tapped from the people of its group.
-    app.field('spending', { ...nameField('Description'), optional: true, help: 'Left empty, its category’s name' });
-    app.field('spending', number('amount', 'Amount', { required: true, format: abroad ? { style: 'number', decimals: 2 } : main }));
-    if (abroad) {
-      app.field('spending', text('currency', 'Currency'));
-      app.field('spending', { ...number('rate', 'Rate', { default: 1 }), help: 'What one of it is in the group’s money' });
-    }
-    app.field('spending', formula('total', abroad ? 'In the group’s currency' : 'Total', abroad ? 'amount * (rate || 1)' : 'amount', main));
-    app.field('spending', { ...link('payer', 'Paid by', app.path('group-members')), required: true, chips: true, within: key, default: '=last("date")' });
-    app.field('spending', { ...link('between', 'For whom', app.path('group-members'), true), chips: true, within: key, help: 'Left empty, all of them' });
-    if (all) app.field('spending', { ...select('split', 'Split', ['Equally', 'By amounts', 'By shares'], {}, 'Equally'), chips: true });
-    // On a trip, a trip's categories: transport, a stay, food.
-    app.field('spending', { ...(travel ? select('category', 'Category', TRIP_CATEGORIES, TRIP_COLORS) : select('category', 'Category', CATEGORIES, CATEGORY_COLORS)), chips: true });
-    if (travel && app.hasPiece('bookings')) app.field('spending', link('booking', 'Booking', app.path('bookings')));
+    // An expense: what, how much, who paid and when; then each one of the group with a tick and their share.
+    expenseFields(app);
+    app.field('spending', { ...link('payer', 'Paid by', app.path('group-members')), required: true, within: key, default: '=last("date")' });
+    app.field('spending', { ...link('between', 'For whom', app.path('group-members'), true), within: key });
     app.field('spending', {
       ...link(key, travel ? 'Trip' : 'Group', app.path(groups)),
-      default: travel ? `=find("${app.called('trips')}").filter((t) => t.first <= today() && (empty(t.last) || t.last >= today()))[0] || last("date")` : `=last("date") || find("${app.called('groups')}")[0]`,
+      default: travel ? `=find("${app.called('trips')}").filter((t) => !empty(t.first) && t.first <= today() && (empty(t.last) || t.last >= today()))[0] || last("date")` : `=last("date") || find("${app.called('groups')}")[0]`,
     });
-    app.field('spending', day('date', 'Date', true));
     if (!travel) {
-      app.field('spending', { ...select('repeats', 'Repeats', ['No', 'Weekly', 'Monthly'], {}, 'No'), chips: true });
-      app.field('spending', { ...day('next', 'Next'), help: 'The day it is written again', when: [{ field: 'repeats', op: 'is-not', value: ['No'] }] });
-      app.field('spending', formula('writes', 'Writes itself', 'repeats != "No" && !empty(next)'));
+      app.field('spending', checkbox('repeats', 'Every month'));
+      app.field('spending', { ...day('next', 'Next'), help: 'The day it is written again', when: [{ field: 'repeats', op: 'true' }] });
+      app.field('spending', formula('writes', 'Writes itself', 'repeats && !empty(next)'));
       app.field('spending', formula('says', 'Says', `${money('total')} + (empty(payer) ? "" : " · " + payer.name)`));
     }
+    // A booking's expense, with Travel: written by its booking.
+    if (travel && app.hasPiece('bookings')) app.field('spending', link('booking', 'Booking', app.path('bookings')));
+    if (all) app.field('spending', { ...select('split', 'For whom', ['Equally', 'By amounts', 'By parts'], {}, 'Equally'), chips: true });
     app.field('spending', rollup('shared', 'Shared', app.path('shares'), 'sum', 'part', undefined, main));
-    app.block('spending', { block: 'linked', collection: app.path('shares'), style: 'table', fields: ['person', ...(all ? ['weight', 'owes', 'part'] : ['owes']), 'paid'], sums: true, edit: all ? ['owes', 'weight'] : [] });
-    app.formOrder('spending', ['amount', 'currency', 'rate', 'payer', 'between', 'split', 'category', key, 'date', 'repeats', 'next', 'name']);
-    app.tableColumns('spending', ['date', 'payer', 'between', 'total']);
-    if (!travel) app.view('spending', { id: 'all', name: 'All', conditions: [], sort: { key: 'date', dir: 'desc' }, group: 'group' }, true);
+    app.block('spending', { block: 'linked', collection: app.path('shares'), look: 'split', pick: 'between', person: 'person', amount: 'owes', parts: 'weight', mode: 'split', total: 'total', fields: ['part'], column: 1 });
+    app.formOrder('spending', ['name', 'amount', 'currency', 'rate', 'payer', 'date', key, 'repeats', 'next', 'split']);
+    app.tableColumns('spending', ['date', 'payer', 'total']);
+    // Its groups say what is spent on Home; a count of expenses says nothing.
+    app.homeTile('spending', { off: true });
+    if (!travel) app.view('spending', { id: 'all', name: 'All', conditions: [], sort: { key: 'date', dir: 'desc' }, group: 'group', columns: ['date', 'payer', 'total'] }, true);
 
     app.field('shares', nameField());
     app.field('shares', { ...link('person', 'Who', app.path('group-members')), required: true });
     app.field('shares', link('expense', 'Expense', app.path('spending')));
     app.field('shares', link('settlement', 'Settlement', app.path('settlements')));
-    if (all) app.field('shares', number('weight', 'Shares', { default: 1 }));
+    if (all) app.field('shares', number('weight', 'Parts', { default: 1 }));
     app.field('shares', number('owes', 'Share', { format: main, default: 0 }));
-    // By shares, each one's part is the expense's total over its shares; else what is written.
-    app.field('shares', formula('part', 'Comes to', all ? 'empty(expense) || expense.split != "By shares" || expense.weights == 0 ? owes : round(expense.total * (weight || 1) / expense.weights, 2)' : 'owes', main));
+    // By parts, each one's share is the expense's total over its parts; else what is written.
+    app.field('shares', formula('part', 'Comes to', all ? 'empty(expense) || expense.split != "By parts" || expense.weights == 0 ? owes : round(expense.total * (weight || 1) / expense.weights, 2)' : 'owes', main));
     app.field('shares', number('paid', 'Paid', { format: main, default: 0 }));
-    if (all) app.field('spending', rollup('weights', 'Shares', app.path('shares'), 'sum', 'weight'));
+    if (all) app.field('spending', rollup('weights', 'Parts', app.path('shares'), 'sum', 'weight'));
 
     app.field('settlements', nameField());
     app.field('settlements', link(key, travel ? 'Trip' : 'Group', app.path(groups)));
@@ -174,45 +197,45 @@ export const split: AppTemplate = {
     app.view('settlements', { id: 'to-pay', name: 'To pay', conditions: [{ field: 'paid', op: 'false' }] }, true);
 
     // Each one's share as the amount, who paid or for whom changes: on the form as it is typed, and
-    // as it is saved from anywhere else; equally to start with, by amounts or by shares written in its table.
-    const whole = abroad ? 'round(amount * (empty(rate) ? 1 : rate), 2)' : 'amount';
+    // as it is saved from anywhere else; equally to start with, by amounts or by parts beside each one.
+    const whole = multi ? 'total' : 'amount';
     app.rule('spending', {
       kind: 'onChange',
       name: 'Shares',
-      src: `onChange(["amount", "payer", "between", "${key}"${all ? ', "split"' : ''}${abroad ? ', "rate"' : ''}], "Shares", () => {
+      src: `onChange(["amount", "payer", "between", "${key}"${all ? ', "split"' : ''}${multi ? ', "currency", "rate"' : ''}], "Shares", () => {
   if (empty(between) && !empty(${key})) between = find("${members}", { ${key}: ${key} })
   for (const s of linked("${shares}")) remove(s)
-  const label = empty(name) ? (${travel ? 'true' : 'empty(category)'} ? "Expense" : ${travel ? '""' : 'category'}) : name
+  const label = empty(name) ? "Expense" : name
 ${equalShares(app, { expense: 'this', whole, people: 'between', payer: 'payer', label: 'label', date: 'date', indent: '  ' })}
 })`,
     });
-    app.rule('spending', { kind: 'onSave', name: 'Its name', src: `onSave("Its name", () => {\n  if (empty(name)) name = ${travel ? 'empty(category) ? "Expense" : category' : 'empty(category) ? "Expense" : category'}\n  if (empty(${key}) && !empty(payer)) ${key} = payer.${key}\n})` });
+    app.rule('spending', { kind: 'onSave', name: 'Its group', src: `onSave("Its group", () => {\n  if (empty(${key}) && !empty(payer)) ${key} = payer.${key}\n})` });
     app.rule('spending', { kind: 'check', name: 'The shares do not add up', src: `check("amount", () => empty(amount) || shared == 0 || abs(shared - total) < 0.01, \`The shares come to \${text(shared)}, not \${text(total)}\`)` });
     if (!travel) {
-      // One that comes again: written anew on its next day, its shares as they are, then a month or a week on.
+      // The rent: written anew on its next day, its shares as they are, then a month on.
       app.rule('spending', {
         kind: 'onSave',
         name: 'Its next day',
         src: `onSave("Its next day", () => {
-  if (repeats == "No") next = null
-  else if (empty(next)) next = repeats == "Weekly" ? date + 7 : date + months(1)
+  if (!repeats) next = null
+  else if (empty(next)) next = date + months(1)
 })`,
       });
       app.rule('spending', {
         kind: 'action',
         name: 'Add again',
-        src: `action("Add again", { when: () => repeats != "No" && !empty(next), hint: "Only one that repeats" }, () => {
-  const e = add("${expenses}", { name: name, amount: amount, payer: payer, between: between, ${all ? 'split: split, ' : ''}category: category, group: group, date: next, repeats: "No"${abroad ? ', currency: currency, rate: rate' : ''} })
+        src: `action("Add again", { when: () => repeats && !empty(next), hint: "Only one that comes every month" }, () => {
+  const e = add("${expenses}", { name: name, amount: amount, payer: payer, between: between, ${all ? 'split: split, ' : ''}group: group, date: next, repeats: false${multi ? ', currency: currency, rate: rate' : ''} })
   for (const s of linked("${shares}")) add("${shares}", { name: s.name, person: s.person, expense: e, ${all ? 'weight: s.weight, ' : ''}owes: s.owes, paid: s.paid })${
     mine
       ? `
   for (const t of find("${app.called('transactions')}", { shared: this })) add("${app.called('transactions')}", { name: t.name, account: t.account, amount: t.amount, direction: "Out", date: next, shared: e })`
       : ''
   }
-  next = repeats == "Weekly" ? next + 7 : next + months(1)
+  next = next + months(1)
 })`,
       });
-      app.view('spending', calendar({ start: 'next', upcoming: true, button: 'Add again', auto: 'writes', words: ['says'] }, [{ field: 'repeats', op: 'is-not', value: ['No'] }]));
+      app.view('spending', { ...calendar({ start: 'next', upcoming: true, button: 'Add again', auto: 'writes', words: ['says'] }, [{ field: 'repeats', op: 'true' }]), hidden: true });
     }
     if (mine) app.field('transactions', link('shared', 'Shared expense', app.path('spending')));
 
@@ -257,7 +280,7 @@ ${equalShares(app, { expense: 'this', whole, people: 'between', payer: 'payer', 
         kind: 'onSave',
         name: 'Its people',
         src: `onSave("Its people", () => {
-  if (empty(old.first) && linked("${members}").length == 0) {
+  if (empty(old.destination) && linked("${members}").length == 0) {
     for (const p of find("${members}").filter((m) => empty(m.trip))) add("${members}", { name: p.name${mine ? ', me: p.me' : ''} })
   }
 })`,
@@ -269,19 +292,19 @@ ${equalShares(app, { expense: 'this', whole, people: 'between', payer: 'payer', 
       title: 'Shared expenses',
       what: `Who paid what${travel ? ' on each trip' : ' in each group'}${names.length > 0 ? `, between ${names.join(', ')}` : ''}, who owes whom, and settling up.`,
       pieces: [...(travel ? [] : ['groups']), 'group-members', 'spending', 'shares', 'settlements'],
-      glance: ["Each one's share on the form as it is typed", 'Balances from the shares', 'Who pays whom, each ticked Paid', ...(travel ? [] : ['What comes again written every month']), ...(mine ? ['Your own share is written as spent'] : [])],
+      glance: ["Each one's share beside their name as the expense is typed", 'Balances from the shares', 'Who pays whom, each ticked as it is paid', ...(travel ? [] : ['The rent written again every month']), ...(mine ? ['Your own share is written as spent'] : [])],
       how: [
-        travel ? 'Add the people of a trip in its window.' : 'Add the people of a group in its window; Home is ready for the first.',
-        `Add each expense: its amount, who paid and for whom; all of the ${travel ? 'trip' : 'group'} to start with${all ? ', equally, by amounts or by shares written in its table' : ''}.`,
-        ...(travel ? [] : ['Set Repeats to Monthly on the rent: it is written again on its day.']),
-        `Press Settle up on the ${travel ? 'trip' : 'group'}; tick Paid on each payment as it is made.`,
+        travel ? 'The people of a trip are those the app was set up with; add others in its window.' : 'Add the people of a group in its window; Home is ready for the first.',
+        `Add each expense: its title, its amount, who paid and when; all of the ${travel ? 'trip' : 'group'} share it, untick who is not in it${all ? ', or split it by amounts or by parts beside each one' : ''}.`,
+        ...(travel ? [] : ['Tick Every month on the rent: it is written again on its day.']),
+        `Press Settle up on the ${travel ? 'trip' : 'group'}; tick each payment as it is made.`,
         'Keep this app in a shared space for everyone to add what they paid; else one keeps it for all.',
       ],
       auto: [
-        `Each one's share is worked out as the expense is typed${abroad ? ', in the group’s currency at its rate' : ''}; the cents left over go to the one who paid.${all ? ' By shares, each one’s part is the total over the shares.' : ''}`,
+        `Each one's share is worked out as the expense is typed${multi ? ', in the main currency at its rate' : ''}; the cents left over go to the one who paid.${all ? ' By parts, each one’s share is the total over the parts.' : ''}`,
         "Each one's balance is what they paid less their share: above nothing they are owed, below it they owe, and it is marked.",
-        'Settle up takes back the payments not made yet and writes who pays whom how much, at most one fewer than the people in it; one ticked Paid counts in the balances.',
-        ...(travel ? [] : ['One that repeats is written again on its next day with its shares, and said with Undo.']),
+        'Settle up takes back the payments not made yet and writes who pays whom how much, at most one fewer than the people in it; one ticked counts in the balances.',
+        ...(travel ? [] : ['One that comes every month is written again on its next day with its shares, and said with Undo.']),
         ...(mine ? [`Your own share, the one ticked Me, is written as spent in ${app.called('transactions')}, from your bank account.`] : []),
       ],
       work: ['Who adds the expenses, and when.', 'When we settle up.'],

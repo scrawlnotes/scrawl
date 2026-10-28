@@ -159,7 +159,8 @@ export interface AppDraft extends Chosen {
   /** Adds a field to the piece, a collection or a board; one of the same key is kept as it is. */
   field(role: string, field: Field): void;
   /** Adds a block to the right of a collection's record screen, once. */
-  block(role: string, block: LayoutBlock): void;
+  /** `column`, from 1, puts it in a column of its own: a trip's bookings in the middle, its packing on the right. */
+  block(role: string, block: LayoutBlock & { column?: number }): void;
   /** Adds a view to a collection as it is set up, once by its id, the one it opens on with `opens`; a collection there before keeps its own views. */
   view(role: string, view: View, opens?: boolean): void;
   /** The plain table's columns after the first, by key. */
@@ -168,6 +169,12 @@ export interface AppDraft extends Chosen {
   homeTile(role: string, tile: HomeTile): void;
   /** The record window's fields in this order, by key, the others after them; the table keeps the fields' order. */
   formOrder(role: string, keys: string[]): void;
+  /** A field at the top of another column of the record's window, from 1: a trip's kind over its packing. */
+  place(role: string, key: string, column: number): void;
+  /** The record's window opens with its name as its title and this field's line under it. */
+  head(role: string, sub: string): void;
+  /** The record's window keeps only what is attached to it, a receipt, or no notes at all. */
+  notes(role: string, notes: 'attach' | false): void;
   /** Adds a rule to a collection's `_rules.js`, once by its name. */
   rule(role: string, chunk: RuleChunk): void;
   /** Adds a record to a collection as it is set up: a budget line, a warehouse. */
@@ -269,6 +276,12 @@ export interface CollectionPart {
   home?: HomeTile;
   /** Its window's fields in this order, the others after them: a transaction's amount first. */
   order?: string[];
+  /** Fields in another column than the first, by key. */
+  places?: { [key: string]: number };
+  /** Its window's title the record's name with this line under it. */
+  head?: { sub: string };
+  /** Its window's notes: only what is attached, or none. */
+  notes?: 'attach' | false;
   rules: RuleChunk[];
   /** The records it starts with. */
   records: { [key: string]: string | number | boolean | string[] }[];

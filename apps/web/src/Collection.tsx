@@ -41,6 +41,7 @@ import {
   type Field,
   fieldHref,
   type FieldValue,
+  fieldLabel,
   fieldValueOf,
   GROUPABLE,
   groupRecords,
@@ -124,7 +125,7 @@ import {
 } from 'react';
 import { CardPanel, type CardPanelActions } from './CardPanel';
 import { CalendarNav, CalendarViewDialog, calendarStatus, CollectionCalendar, DaysMonth, firstRange, PhoneCollectionCalendar, repeatItems, useCalendarNav } from './CollectionCalendar';
-import { boxKeys, Chip, choiceOptions, LIST_KEYS, MultiPicker, type Option, OptionList, Picker, useEscape } from './choices';
+import { boxKeys, Chip, choiceOptions, hueStyle, LIST_KEYS, MultiPicker, type Option, OptionList, Picker, useEscape } from './choices';
 import { fieldChoices, LabelsField } from './labels';
 import { FieldsDialog } from './Fields';
 import { isPhone, onPage } from './device';
@@ -928,12 +929,14 @@ export function FieldInput({ field, value, autoFocus, ctx, currency, onChange, o
 }
 
 /** The body of a record, in the live preview editor, as part of the form: what is typed goes to the draft. */
-export function NotesBlock({ home, text, editor, attach, onChange }: {
+export function NotesBlock({ home, text, editor, attach, onChange, only }: {
   home: string;
   text: string;
   editor: CollectionActions['editor'];
   attach: CollectionActions['attach'];
   onChange: (text: string) => void;
+  /** Only what is attached, a receipt: no box to write in until something is. */
+  only?: boolean;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const made = useRef<ScrawlEditor | null>(null);
@@ -950,7 +953,7 @@ export function NotesBlock({ home, text, editor, attach, onChange }: {
   }, []);
   return (
     <>
-      <div className={text ? 'rm-notes' : 'rm-notes empty'} data-hint={t('collection.notesHint')} onClick={() => made.current?.view.focus()}>
+      <div className={text ? 'rm-notes' : 'rm-notes empty'} hidden={only && !text} data-hint={t('collection.notesHint')} onClick={() => made.current?.view.focus()}>
         <div ref={host} />
       </div>
       <div className="rm-attach">
@@ -1004,8 +1007,10 @@ export const singularOf = (schema: Schema) => schema.singular ?? t('collection.r
  * stays, so that the first is added from here. A collection made on its own looks for the ones its
  * template keeps beside it; one that is not there is made from here, from the template of its name.
  */
-function LinkedRecords({ block, dir, record, today, actions, drafts, hint, onOpen, onAdd }: {
+function LinkedRecords({ block, dir, record, today, actions, drafts, hint, onOpen, onAdd, parent }: {
   block: LinkedBlock;
+  /** The record's form, for a split between people: who it is for and how, as they are typed. */
+  parent?: ParentForm;
   /** The collection of the record on screen. */
   dir: string;
   record: Record;
@@ -1065,7 +1070,8 @@ function LinkedRecords({ block, dir, record, today, actions, drafts, hint, onOpe
     );
   }
   const { schema } = source;
-  if (block.style === 'table') return <LinkedTable block={block} source={source} dir={dir} record={record} today={today} actions={actions} drafts={drafts} hint={hint} onOpen={onOpen} onAdd={onAdd} />;
+  // A block with a look, days, a checklist or a split, is drawn as the table draws it.
+  if (block.style === 'table' || block.look) return <LinkedTable block={block} source={source} dir={dir} record={record} today={today} actions={actions} drafts={drafts} hint={hint} onOpen={onOpen} onAdd={onAdd} parent={parent} />;
   // The linked records with what is worked out among their values, and their fields as those show.
   const computer = computerFor(source, actions.collections(), actions.boards(), today);
   const shownAs = computer.shown(source.dir);
@@ -1136,6 +1142,216 @@ function LinkedRecords({ block, dir, record, today, actions, drafts, hint, onOpe
   );
 }
 
+/** The form a block is in, as it is typed: its values and what sets one. */
+interface ParentForm {
+  values: Record['values'];
+  set: (key: string, value: FieldValue) => void;
+}
+
+/** A head of a block as a list has it: its name, how many, + Add. */
+function LookHead({ source, title, count, onAdd }: { source: Collection; title?: string; count: ReactNode; onAdd?: () => void }) {
+  return (
+    <div className="blk-h">
+      <span>{title ?? collectionName(source.dir)}</span>
+      {count !== null && <small>{count}</small>}
+      {onAdd && (
+        <button type="button" className="addl" onClick={onAdd}>
+          {t('collection.addShort')}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The rows day by day, as TripIt shows a trip (design/more-apps.md 4.5): a heading for each day,
+ * then each row's time, its sign by its choice, its name and its second line; one that ends on
+ * another day, a hotel, is there again on that day.
+ */
+function DayList({ block, source, rows, today, onOpen, onAdd }: { block: LinkedBlock; source: Collection; rows: Record[]; today: string; onOpen: (source: Collection, record: Record) => void; onAdd: () => void }) {
+  const { schema } = source;
+  const choice = block.icon ? schema.fields.find((f) => f.key === block.icon) : undefined;
+  const at = block.time ?? block.sort;
+  const entries = rows.flatMap((r) => {
+    const start = at ? r.values[at] : null;
+    const end = block.end ? r.values[block.end] : null;
+    const kind = choice ? r.values[choice.key] : null;
+    const said = (words: { [option: string]: string } | undefined) => (typeof kind === 'string' && words?.[kind]) || '';
+    const first = { r, when: typeof start === 'string' ? start : '', said: said(block.startSaid) };
+    // One that ends on another day, and says so then: a hotel's check out.
+    const last = typeof end === 'string' && end.slice(0, 10) !== first.when.slice(0, 10) && said(block.endSaid) ? [{ r, when: end, said: said(block.endSaid) }] : [];
+    return [first, ...last];
+  });
+  entries.sort((a, b) => (a.when || '9999').localeCompare(b.when || '9999'));
+  const days = new Map<string, typeof entries>();
+  for (const e of entries) days.set(e.when.slice(0, 10), [...(days.get(e.when.slice(0, 10)) ?? []), e]);
+  return (
+    <div className="blk look-days">
+      <LookHead source={source} title={block.title} count={rows.length || null} onAdd={onAdd} />
+      {rows.length === 0 && <p className="blk-none">{t('collection.noLinked', { collection: collectionName(source.dir).toLowerCase() })}</p>}
+      {[...days].map(([day, list]) => (
+        <div key={day || 'none'}>
+          <div className="ld-day">{day ? new Date(`${day}T00:00`).toLocaleDateString(locale(), { weekday: 'short', day: 'numeric', month: 'short' }) : t('collection.noDay')}</div>
+          {list.map((e, i) => {
+            const kind = choice ? e.r.values[choice.key] : null;
+            const sign = typeof kind === 'string' ? block.icons?.[kind] : undefined;
+            const sub = block.sub ? valueText(e.r.values[block.sub] ?? null) : '';
+            return (
+              <button key={`${e.r.id}-${i}`} type="button" className="ld-row" onClick={() => onOpen(source, e.r)} style={typeof kind === 'string' && kind ? hueStyle(choice ? optionColor(choice, kind) : undefined, kind) : undefined}>
+                <span className="tm">{e.when.length > 10 ? e.when.slice(11, 16) : ''}</span>
+                <span className="ic">{sign ?? ''}</span>
+                <span className="tx">
+                  <b>
+                    {recordTitle(e.r)}
+                    {e.said && <span className="said"> · {e.said}</span>}
+                  </b>
+                  {sub && <small>{sub}</small>}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * The rows as a checklist, as PackPoint has a packing list: in their groups, a round tick each and
+ * its name, a ticked one done; what else the block names after it, faint.
+ */
+function CheckList({ block, source, groups, rows, ctx, today, tick, onTick, onOpen, onAdd }: {
+  block: LinkedBlock;
+  source: Collection;
+  groups: ReturnType<typeof groupLinked>;
+  rows: Record[];
+  ctx: ValueContext;
+  today: string;
+  tick: Field | undefined;
+  onTick: (record: Record, on: boolean) => void;
+  onOpen: (source: Collection, record: Record) => void;
+  onAdd: () => void;
+}) {
+  const { schema } = source;
+  const ticked = (r: Record) => !!tick && r.values[tick.key] === true;
+  const others = (block.fields ?? []).map((k) => schema.fields.find((f) => f.key === k)).filter((f): f is Field => !!f && f.type !== 'checkbox' && f.type !== 'name' && !(block.group ?? []).includes(f.key));
+  const row = (r: Record, n: number) => (
+    <div key={r.id} className={ticked(r) && block.done ? 'lc-row done' : 'lc-row'}>
+      {tick ? (
+        <button type="button" className={ticked(r) ? 'lc-tick on' : 'lc-tick'} role="checkbox" aria-checked={ticked(r)} aria-label={recordTitle(r)} onClick={() => onTick(r, !ticked(r))}>
+          {ticked(r) && <Icon name="check" />}
+        </button>
+      ) : (
+        block.numbered && <span className="lc-num">{n}</span>
+      )}
+      <button type="button" className="lc-name" onClick={() => onOpen(source, r)}>
+        {recordTitle(r)}
+      </button>
+      {others.map((f) => {
+        const value = fieldValueOf(r, f, schema, today);
+        return isEmpty(value) ? null : (
+          <span key={f.key} className="lc-meta">
+            <Cell field={f} value={value} ctx={ctx} values={r.values} />
+          </span>
+        );
+      })}
+    </div>
+  );
+  let n = 0;
+  return (
+    <div className="blk look-check">
+      <LookHead source={source} title={block.title} count={tick && rows.length > 0 ? t('collection.tickedOf', { ticked: rows.filter(ticked).length, count: rows.length }) : rows.length || null} onAdd={onAdd} />
+      {groups.map((g) => (
+        <div key={g.key}>
+          {(block.group ?? []).length > 0 && <div className="lc-group">{g.label || t('collection.none')}</div>}
+          {g.records.map((r) => row(r, ++n))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Who a record is for, as Tricount adds an expense (design/more-apps.md 4.11): each of its group
+ * with a round tick and their share; by amounts the share is typed beside them, by parts their
+ * parts are counted up and down; under them what is missing.
+ */
+function SplitList({ block, source, dir, rows, actions, parent, onWrite }: { block: LinkedBlock; source: Collection; dir: string; rows: Record[]; actions: CollectionActions; parent: ParentForm; onWrite: (record: Record, field: Field, value: FieldValue) => void }) {
+  const { schema } = source;
+  const pickField = block.pick ? actions.collection(dir)?.schema.fields.find((f) => f.key === block.pick) : undefined;
+  const amount = block.amount ? schema.fields.find((f) => f.key === block.amount) : undefined;
+  const parts = block.parts ? schema.fields.find((f) => f.key === block.parts) : undefined;
+  const shown = block.fields?.[0] ? schema.fields.find((f) => f.key === block.fields![0]) : amount;
+  const mode = block.mode ? parent.values[block.mode] : null;
+  const byAmounts = typeof mode === 'string' && /amount/i.test(mode);
+  const byParts = typeof mode === 'string' && /part|share/i.test(mode);
+  const people = pickField?.collection ? choicesOf(pickField, actions.records(pickField.collection) ?? [], parent.values) : [];
+  const picked = Array.isArray(parent.values[block.pick ?? '']) ? (parent.values[block.pick!] as Link[]) : [];
+  const isPicked = (id: string) => picked.some((l) => l.id === id);
+  const shareOf = (id: string) => rows.find((r) => [r.values[block.person ?? '']].flat().some((l) => isLink(l) && l.id === id));
+  const toggle = (person: Record) => parent.set(block.pick!, isPicked(person.id) ? picked.filter((l) => l.id !== person.id) : [...picked, { id: person.id, name: person.name }]);
+  const money = (n: number) => (shown?.format ? formatNumber(n, shown.format, currencyOf(shown.format)) : String(n));
+  const total = block.total ? Number(parent.values[block.total] ?? 0) : 0;
+  const given = rows.reduce((s, r) => s + (Number(r.values[amount?.key ?? ''] ?? 0) || 0), 0);
+  const partsAll = rows.reduce((s, r) => s + (Number(r.values[parts?.key ?? ''] ?? 1) || 0), 0);
+  return (
+    <div className="blk look-split">
+      <div className="ls-people">
+        {people.map((p) => {
+          const share = shareOf(p.id);
+          const on = isPicked(p.id);
+          // By parts, its share of the total as the parts are now: the record it is of may not be written yet.
+          const value = share && byParts && parts && partsAll > 0 ? Math.round((total * Number(share.values[parts.key] ?? 1) * 100) / partsAll) / 100 : share && shown ? Number(share.values[shown.key] ?? 0) : 0;
+          return (
+            <div key={p.id} className={on ? 'ls-p' : 'ls-p off'}>
+              <button type="button" className={on ? 'lc-tick on' : 'lc-tick'} role="checkbox" aria-checked={on} aria-label={p.name} onClick={() => toggle(p)}>
+                {on && <Icon name="check" />}
+              </button>
+              <span className="nm">
+                {p.name}
+                {/* The one who paid it, said beside their name. */}
+                {share && Number(share.values.paid ?? 0) > 0 && <small>{t('collection.paidIt')}</small>}
+              </span>
+              {on && share && byAmounts && amount ? (
+                <input className="ls-in" type="number" inputMode="decimal" aria-label={p.name} value={String(share.values[amount.key] ?? '')} onChange={(event) => onWrite(share, amount, event.target.value === '' ? null : Number(event.target.value))} />
+              ) : on && share && byParts && parts ? (
+                <>
+                  <span className="ls-parts">
+                    <b>{Number(share.values[parts.key] ?? 1)}x</b>
+                    <small>{money(value)}</small>
+                  </span>
+                  <span className="ls-step">
+                    <button type="button" aria-label="−" onClick={() => onWrite(share, parts, Math.max(0, Number(share.values[parts.key] ?? 1) - 1))}>
+                      −
+                    </button>
+                    <button type="button" aria-label="+" onClick={() => onWrite(share, parts, Number(share.values[parts.key] ?? 1) + 1)}>
+                      +
+                    </button>
+                  </span>
+                </>
+              ) : (
+                <span className="n">{on && share ? money(value) : ''}</span>
+              )}
+            </div>
+          );
+        })}
+        {byAmounts && rows.length > 0 && Math.abs(given - total) >= 0.01 && (
+          <div className="ls-tot bad">
+            <span>{t('collection.splitOf', { given: money(given), total: money(total) })}</span>
+            <b>{t('collection.splitMissing', { missing: money(Math.abs(total - given)) })}</b>
+          </div>
+        )}
+        {byParts && rows.length > 0 && (
+          <div className="ls-tot">
+            <span>{t('collection.splitParts', { count: partsAll })}</span>
+            <b>{money(total)}</b>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /** The fields a linked table shows when its block names none: the collection's, but the link back here, six at most. */
 function linkedColumns(block: LinkedBlock, schema: Schema, dir: string, lines = false): Field[] {
   const byKey = new Map(schema.fields.map((f) => [f.key, f]));
@@ -1157,7 +1373,7 @@ export function withDrafts(all: Collection[], drafted: readonly Change[]): Colle
 }
 
 /** The rows a form adds to a linked table as it is typed in (design/gym.md 4.1), not written until Save. */
-interface LinkedDrafts {
+export interface LinkedDrafts {
   /** The rows added to a collection, as records not written yet. */
   rows: (source: Collection) => Record[];
   /** A row changed: in its window, or a tick in the table. */
@@ -1180,8 +1396,9 @@ interface LinkedDrafts {
  * heading ticks its rows or unticks them. In a form whose rules add rows as it is typed in, those
  * rows are among the others, changed and opened as they are, written on Save.
  */
-function LinkedTable({ block, source, dir, record, today, actions, drafts, hint, onOpen, onAdd }: {
+export function LinkedTable({ block, source, dir, record, today, actions, drafts, hint, onOpen, onAdd, parent }: {
   block: LinkedBlock;
+  parent?: ParentForm;
   source: Collection;
   dir: string;
   record: Record;
@@ -1279,6 +1496,9 @@ function LinkedTable({ block, source, dir, record, today, actions, drafts, hint,
       ],
       { icon: 'collection', title: recordTitle(r), sub: collectionName(source.dir) },
     );
+  if (block.look === 'days') return <DayList block={block} source={source} rows={rows} today={today} onOpen={onOpen} onAdd={() => startAdding(null)} />;
+  if (block.look === 'checklist') return <CheckList block={block} source={source} groups={groups} rows={rows} ctx={ctx} today={today} tick={tickColumn} onTick={(r, on) => tickColumn && write(r, tickColumn, on)} onOpen={onOpen} onAdd={() => startAdding(null)} />;
+  if (block.look === 'split' && parent) return <SplitList block={block} source={source} dir={dir} rows={rows} actions={actions} parent={parent} onWrite={write} />;
   const span = columns.length + 1;
   const row = (r: Record, of: Record[] = rows) => (
     <tr
@@ -1827,10 +2047,30 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
   // and the checks of the collection's rules it fails, a new one's too, at their fields or above the form.
   const problems = [...(record ? recordProblems({ values: toBe, extra: record.extra }, schema) : []), ...computer.checks(dir, record ?? recordWith(collection, id, toBe), toBe)];
   const recordWide = problems.filter((p) => !p.field || !fields.has(p.field));
+  // A field shown before another on its line, an expense's currency before its amount.
+  const besideOf = (key: string) => schema.fields.find((f) => f.beside === key && shownOnForm(f, { values: toBe }, schema, today));
   const item = (key: string, index: number): ReactNode => {
     const field = fields.get(key);
     // Nor one whose Shown when does not hold as the form is now: Store but for a warranty (design/shown-when.md).
     if (!field || offForm.has(key) || !shownOnForm(field, { values: toBe }, schema, today)) return null;
+    // One shown beside another is on that one's line; the name is the window's title when it has a head.
+    if (field.beside && fields.has(field.beside)) return null;
+    if (schema.head && field.type === 'name') return null;
+    // A rate as a sentence (design/more-apps.md 4.5): 1 EUR = 37,10 ₺.
+    if (field.rate) {
+      const of = draft.values[field.rate.field];
+      return (
+        <div key={`${key}-${index}`} className="prop prate">
+          <label className="rate" htmlFor={`field-${field.key}`}>
+            <span>1 {typeof of === 'string' ? of : ''} =</span>
+            <FieldInput field={field} value={draft.values[field.key] ?? null} ctx={ctx} onChange={(next) => setValue(field.key, next)} />
+            <span>{field.rate.main}</span>
+          </label>
+          {field.help && <p className="phelp">{field.help}</p>}
+        </div>
+      );
+    }
+    const before = besideOf(key);
     // What is worked out is shown, not typed; a new record's only when it says something: what its lines add up to, a total.
     const problem = problems.find((p) => p.field === field.key);
     if (isComputed(field.type)) {
@@ -1839,7 +2079,7 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
       if (isNew && !fromLines && (isEmpty(worked ?? null) || worked === 0 || worked === false)) return null;
       return (
         <div key={`${key}-${index}`} className={problem ? 'prop bad' : 'prop'}>
-          <span className="pl">{field.label}</span>
+          <span className="pl">{fieldLabel(field, toBe)}</span>
           <div className="pe">
             <span className={isEmpty(worked) ? 'st-field formula none' : 'st-field formula'}>{isEmpty(worked) ? '–' : <Cell field={shownAs.get(field.key) ?? field} value={worked} ctx={ctx} values={computed} />}</span>
             {problem && <p className="pbad">{problem.message}</p>}
@@ -1851,12 +2091,13 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
     return (
       <div key={`${key}-${index}`} className={problem ? 'prop bad' : 'prop'}>
         <label className="pl" htmlFor={`field-${field.key}`}>
-          {field.label}
+          {fieldLabel(field, toBe)}
           {(field.required || (field.type === 'name' && !field.optional)) && <i title={t('collection.required')}>*</i>}
         </label>
-        <div className={will ? 'pe will' : 'pe'}>
+        <div className={will ? 'pe will' : before ? 'pe beside' : 'pe'}>
+          {before && <FieldInput field={before} value={draft.values[before.key] ?? null} ctx={ctx} onChange={(next) => setValue(before.key, next)} />}
           <FieldInput
-            field={field}
+            field={field.labelBy ? { ...field, label: fieldLabel(field, toBe) } : field}
             value={will ? will.value : (draft.values[field.key] ?? null)}
             autoFocus={field.key === firstKey}
             ctx={ctx}
@@ -1875,15 +2116,15 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
       </div>
     );
   };
-  const body = (index: number): ReactNode => (
-    <div key={`body-${index}`} className="prop prop-body">
-      <span className="pl">{t('collection.body')}</span>
-      <NotesBlock home={collection.dir} text={draft.body} editor={actions.editor} attach={actions.attach} onChange={(text) => set({ body: text })} />
+  const body = (index: number, only = false): ReactNode => (
+    <div key={`body-${index}`} className={only ? 'prop prop-body only' : 'prop prop-body'}>
+      {!only && <span className="pl">{t('collection.body')}</span>}
+      <NotesBlock home={collection.dir} text={draft.body} editor={actions.editor} attach={actions.attach} onChange={(text) => set({ body: text })} only={only} />
     </div>
   );
   const entry = (layoutItem: LayoutItem, index: number): ReactNode => {
     if ('field' in layoutItem) return item(layoutItem.field, index);
-    if (layoutItem.block === 'body') return body(index);
+    if (layoutItem.block === 'body') return body(index, !!layoutItem.attach);
     if (layoutItem.block === 'actions') {
       if (!record || buttons.length === 0) return null;
       const now = { ...record, values: draft.values };
@@ -1917,6 +2158,7 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
           actions={actions}
           drafts={drafts}
           hint={pickFirst ?? undefined}
+          parent={{ values: { ...computed, ...draft.values }, set: setValue }}
           onOpen={(source, linked) => {
             const unsaved = drafted.find((c) => c.kind === 'add' && c.id === linked.id);
             setOver(unsaved && 'values' in unsaved ? { dir: source.dir, values: unsaved.values, draft: linked.id } : { dir: source.dir, id: linked.id });
@@ -2021,6 +2263,18 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
                   {p.message}
                 </p>
               ))}
+            </div>
+          )}
+          {schema.head && (
+            <div className="rm-head">
+              <input
+                className="rm-title"
+                aria-label={named?.label ?? t('collection.name')}
+                placeholder={recordTitle(recordWith(collection, id, toBe)) || t('collection.newOne', { singular: singularOf(schema) })}
+                value={named ? valueText(draft.values[named.key] ?? null) : ''}
+                onChange={(event) => named && setValue(named.key, event.target.value)}
+              />
+              {!isEmpty(computed[schema.head.sub] ?? null) && <small>{valueText(computed[schema.head.sub] ?? null)}</small>}
             </div>
           )}
           <div className="rm-cols">{columns}</div>
@@ -2985,7 +3239,8 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
           <button type="button" role="tab" aria-selected={!view} onClick={() => pickView(null)}>
             {t('collection.all')}
           </button>
-          {views.map((v) => (
+          {/* A calendar kept for Today is not a tab. */}
+          {views.filter((v) => !v.hidden || view?.id === v.id).map((v) => (
             <button key={v.id} type="button" role="tab" aria-selected={view?.id === v.id} onClick={() => pickView(v.id)} onContextMenu={(event) => viewMenu(event, v)}>
               {v.kind === 'calendar' && <Icon name="calendar" />}
               {v.name}

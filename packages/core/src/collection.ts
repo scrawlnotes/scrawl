@@ -101,6 +101,12 @@ export interface Field {
   when?: Condition[];
   /** A text's or a name's box offers what the collection's other records hold in it as it is typed: a doctor written before. */
   suggest?: boolean;
+  /** Its label as another field's choice is: a booking's Starts, Departs for a flight and Check in for a hotel (design/more-apps.md 4.5). */
+  labelBy?: { field: string; labels: { [option: string]: string } };
+  /** Shown before this field on its line, the two as one: an expense's currency before its amount. */
+  beside?: string;
+  /** A rate said as a sentence, "1 EUR = 37,10 ₺": the field of the currency it is of, and the money it is in. */
+  rate?: { field: string; main: string };
   /** A name that may be left empty, its rules writing it as the record is saved: a transaction's Description, its category's name (design/more-apps.md 4.1). */
   optional?: boolean;
   /** A line under it on the form saying what is written in it, where its name alone does not: "Left empty, the category's name". */
@@ -162,7 +168,8 @@ export type LayoutItem = { field: string } | (LayoutBlockKind & { when?: Conditi
  * design/more-apps.md 4.9); a column all of whose blocks are away is away too.
  */
 type LayoutBlockKind =
-  | { block: 'body' }
+  /** The record's notes; with `attach`, only what is attached to it, a receipt or a ticket. */
+  | { block: 'body'; attach?: boolean }
   | {
       block: 'linked';
       collection: string;
@@ -182,6 +189,35 @@ type LayoutBlockKind =
       apart?: string;
       /** With `choose`, the text that says what was had in a row's place: written, its group is picked too, and said changed (design/meal-plans.md 3). */
       instead?: string;
+      /**
+       * How the rows are shown besides a table (design/more-apps.md 4.5, 4.11): `days`, under a
+       * heading for each day, a time, a sign and two lines, as TripIt; `checklist`, a round tick
+       * and a name, in groups, as PackPoint; `split`, each of the record's group with a tick and
+       * their share, as Tricount.
+       */
+      look?: LinkedLook;
+      /** With `days`: the day and time it is by, the day it ends on, shown again on that day. */
+      time?: string;
+      end?: string;
+      /** With `days`: the choice whose sign is beside a row, and the sign of each option. */
+      icon?: string;
+      icons?: { [option: string]: string };
+      /** With `days`: the field of a row's second line; and what its title says on its first and last day, by its choice: check in, check out. */
+      sub?: string;
+      startSaid?: { [option: string]: string };
+      endSaid?: { [option: string]: string };
+      /** With `split`: the record's many-link of who it is for, each row's person, share and parts, and the record's choice of how it is split. */
+      pick?: string;
+      person?: string;
+      amount?: string;
+      parts?: string;
+      mode?: string;
+      /** With `checklist` and no tick: each row with its number, the places to see in order (Wanderlog). */
+      numbered?: boolean;
+      /** With a look, what its heading says instead of the collection's name: People, Who pays whom. */
+      title?: string;
+      /** With `split`: the record's total the shares come to. */
+      total?: string;
     }
   | { block: 'cards' }
   /** The record's subtasks; `title` and `add` call them by another name: a goal's Steps, Add step. */
@@ -201,6 +237,15 @@ type LayoutBlockKind =
  * role would.
  */
 export type LinkedStyle = 'list' | 'timeline' | 'table';
+
+/** A field's label as the record is: a booking's Starts, Departs for a flight (`labelBy`). */
+export function fieldLabel(field: Field, values: Record['values']): string {
+  const by = field.labelBy ? values[field.labelBy.field] : null;
+  return (typeof by === 'string' && field.labelBy!.labels[by]) || field.label;
+}
+
+/** How a table of linked records looks instead: days, a checklist, a split between people. */
+export type LinkedLook = 'days' | 'checklist' | 'split';
 
 export type LinkedBlock = Extract<LayoutItem, { block: 'linked' }>;
 
@@ -320,6 +365,8 @@ export interface View {
   widths?: ColumnWidths;
   /** The fields changed in the table, by key (`changesInTable`); unset for none. */
   edit?: string[];
+  /** Not a tab of the collection: a calendar kept for Today and Upcoming (design/more-apps.md 4.5). */
+  hidden?: boolean;
 }
 
 /**
@@ -360,6 +407,8 @@ export interface Schema {
   columns?: string[];
   /** What its box on its app's Home says (design/more-apps.md 4.1). */
   home?: HomeTile;
+  /** A record's window opens with its name as its title and the line of this field under it, "12–16 Nov · 5 days · in 14 days" (design/more-apps.md 4.5). */
+  head?: { sub: string };
   /** The fields; their order is the order of the table's columns. */
   fields: Field[];
   /** The record screen; unset means one column of every field, then the body. */
@@ -652,6 +701,12 @@ function readField(raw: unknown): Field | null {
   if ((type === 'text' || type === 'name') && raw.suggest === true) field.suggest = true;
   if (type === 'name' && raw.optional === true) field.optional = true;
   if (typeof raw.help === 'string' && raw.help.trim()) field.help = raw.help.trim();
+  if (isRecord(raw.labelBy) && typeof raw.labelBy.field === 'string' && isRecord(raw.labelBy.labels)) {
+    const labels = Object.fromEntries(Object.entries(raw.labelBy.labels).filter((e): e is [string, string] => typeof e[1] === 'string' && !!e[1].trim()));
+    if (Object.keys(labels).length > 0) field.labelBy = { field: cleanFieldKey(raw.labelBy.field), labels };
+  }
+  if (typeof raw.beside === 'string' && raw.beside.trim()) field.beside = cleanFieldKey(raw.beside);
+  if (type === 'number' && isRecord(raw.rate) && typeof raw.rate.field === 'string' && typeof raw.rate.main === 'string') field.rate = { field: cleanFieldKey(raw.rate.field), main: raw.rate.main };
   if ((type === 'link' || type === 'select' || type === 'multi-select') && raw.chips === true) field.chips = true;
   if (type === 'link' && typeof raw.within === 'string' && raw.within.trim()) field.within = cleanFieldKey(raw.within);
   return field;
@@ -687,7 +742,8 @@ function readBlock(raw: { [key: string]: unknown }): LayoutBlockKind | null {
   if (raw.block === 'subtasks') {
     return { block: 'subtasks', ...(typeof raw.title === 'string' && raw.title.trim() && { title: raw.title.trim() }), ...(typeof raw.add === 'string' && raw.add.trim() && { add: raw.add.trim() }) };
   }
-  if (raw.block === 'body' || raw.block === 'cards' || raw.block === 'actions') return { block: raw.block };
+  if (raw.block === 'body') return { block: 'body', ...(raw.attach === true && { attach: true }) };
+  if (raw.block === 'cards' || raw.block === 'actions') return { block: raw.block };
   if (raw.block === 'days') {
     const fields = strings(raw.fields).map(cleanFieldKey).filter(Boolean);
     return { block: 'days', ...(fields.length > 0 && { fields }) };
@@ -711,9 +767,31 @@ function readBlock(raw: { [key: string]: unknown }): LayoutBlockKind | null {
       ...(raw.done === true && { done: true }),
       ...(raw.choose === true && typeof raw.apart === 'string' && { apart: cleanFieldKey(raw.apart) }),
       ...(raw.choose === true && typeof raw.instead === 'string' && { instead: cleanFieldKey(raw.instead) }),
+      ...(raw.numbered === true && { numbered: true }),
+      ...(raw.look !== undefined && typeof raw.title === 'string' && raw.title.trim() && { title: raw.title.trim() }),
+      ...((raw.look === 'days' || raw.look === 'checklist' || raw.look === 'split') && { look: raw.look }),
+      ...keysOf(raw, ['time', 'end', 'icon', 'sub', 'pick', 'person', 'amount', 'parts', 'mode', 'total']),
+      ...wordsOf(raw, ['icons', 'startSaid', 'endSaid']),
     };
   }
   return null;
+}
+
+/** The field keys a block names, those of `names` given. */
+function keysOf(raw: { [key: string]: unknown }, names: string[]): { [key: string]: string } {
+  return Object.fromEntries(names.filter((n) => typeof raw[n] === 'string' && (raw[n] as string).trim()).map((n) => [n, cleanFieldKey(raw[n] as string)]));
+}
+
+/** The words a block says by a choice's option, those of `names` given. */
+function wordsOf(raw: { [key: string]: unknown }, names: string[]): { [key: string]: { [option: string]: string } } {
+  const out: { [key: string]: { [option: string]: string } } = {};
+  for (const n of names) {
+    const given = raw[n];
+    if (!isRecord(given)) continue;
+    const words = Object.fromEntries(Object.entries(given).filter((e): e is [string, string] => typeof e[1] === 'string' && !!e[1]));
+    if (Object.keys(words).length > 0) out[n] = words;
+  }
+  return out;
 }
 
 function readLayout(raw: unknown): Layout | undefined {
@@ -812,6 +890,8 @@ export function parseSchema(text: string): Schema {
   if (columns.length > 0) schema.columns = columns;
   const home = readHome(data.home, fields);
   if (home) schema.home = home;
+  const head = isRecord(data.head) && typeof data.head.sub === 'string' ? cleanFieldKey(data.head.sub) : '';
+  if (head && fields.some((f) => f.key === head)) schema.head = { sub: head };
   return schema;
 }
 
@@ -846,6 +926,7 @@ function readViews(raw: unknown, fields: Field[]): View[] {
     if (widths) view.widths = widths;
     const changed = strings(item.edit).map(cleanFieldKey).filter((k) => fields.some((f) => f.key === k && changesInTable(f)));
     if (changed.length > 0) view.edit = changed;
+    if (item.hidden === true) view.hidden = true;
     views.push(view);
   }
   return views;
@@ -948,6 +1029,10 @@ export interface HomeTile {
   filled?: boolean;
   /** Said in the box when no record has one: "Give a category a monthly limit to see it here". */
   empty?: string;
+  /** Only its first record, large, its `sub` under it: the next trip (design/more-apps.md 4.5). */
+  first?: boolean;
+  /** No box on Home: a list kept to pick from, the packing list. */
+  off?: boolean;
 }
 
 function readHome(raw: unknown, fields: Field[]): HomeTile | undefined {
@@ -957,7 +1042,7 @@ function readHome(raw: unknown, fields: Field[]): HomeTile | undefined {
   const sub = known(raw.sub);
   const totals = strings(raw.totals).map((k) => known(k)).filter((k): k is string => !!k);
   const empty = typeof raw.empty === 'string' && raw.empty.trim() ? raw.empty.trim() : undefined;
-  const home: HomeTile = { ...(value && { value }), ...(sub && { sub }), ...(value && raw.total === true && { total: true }), ...(totals.length > 0 && { totals }), ...(value && raw.filled === true && { filled: true }), ...(empty && { empty }) };
+  const home: HomeTile = { ...(value && { value }), ...(sub && { sub }), ...(value && raw.total === true && { total: true }), ...(totals.length > 0 && { totals }), ...(value && raw.filled === true && { filled: true }), ...(empty && { empty }), ...(raw.first === true && { first: true }), ...(raw.off === true && { off: true }) };
   return Object.keys(home).length > 0 ? home : undefined;
 }
 
