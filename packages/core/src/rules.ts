@@ -78,7 +78,10 @@ export interface SaveRule {
 
 /** What runs when a field changes, as read (design/gym.md 4.1): the field, its name and what it does. */
 export interface ChangeRule {
+  /** The first field it watches. */
   field: string;
+  /** Every field it watches: an expense's shares, worked out again as its amount, who paid or for whom changes (design/more-apps.md 4.11). */
+  fields: string[];
   /** Where the field is named in the file. */
   fieldAt: number;
   name: string;
@@ -146,13 +149,27 @@ export function parseRules(src: string): Rules {
   return { checks, actions, saves, changes };
 }
 
-/** The rest of `onChange(`: the field, its name and its body. */
+/** The rest of `onChange(`: the field, or a list of them, its name and its body. */
 function readChange(read: Reader, at: number, before: readonly ChangeRule[]): ChangeRule {
-  const first = read.next();
-  if (first.k !== 'str' || !first.v.trim()) throw new LangError(t('rules.changeField'), first.at);
+  const fieldAt = read.peek().at;
+  const fields: string[] = [];
+  const one = () => {
+    const each = read.next();
+    if (each.k !== 'str' || !each.v.trim()) throw new LangError(t('rules.changeField'), each.at);
+    fields.push(each.v.trim());
+  };
+  if (read.isOp('[')) {
+    read.next();
+    one();
+    while (read.isOp(',')) {
+      read.next();
+      one();
+    }
+    read.expect(']');
+  } else one();
   read.expect(',');
   const { name, body } = readSave(read, at, before, true);
-  return { field: first.v.trim(), fieldAt: first.at, name, body, at };
+  return { field: fields[0]!, fields, fieldAt, name, body, at };
 }
 
 /** The rest of `onSave(`: its name and its body. */
@@ -462,6 +479,9 @@ function checkBody(body: Stmt[], when: Node | undefined, outer: Scope, space: Ru
   walk(body, locals, new Set(saving ? ['old'] : asked ? ['input'] : []));
 }
 
+/** What a field's default may call, as a check: find() over the space, an expense's trip the one whose days hold today. */
+export const readingOf = (dir: string, space: RuleSpace | undefined): NonNullable<Scope['ruleFn']> => readingFn({ fields: [], dir }, space);
+
 /** What a check may call: find() and linked(), which read the space and change nothing; another of the rules' own functions is refused. */
 function readingFn(scope: Scope, space: RuleSpace | undefined): NonNullable<Scope['ruleFn']> {
   const dir = scope.dir ?? '';
@@ -537,8 +557,9 @@ export function rulesProblems(src: string, scope: Scope, space?: RuleSpace): Rul
     }
   }
   for (const change of rules.changes) {
-    if (!scope.fields.some((f) => f.key === change.field)) {
-      problems.push(said(change.fieldAt, t('fields.formulaUnknown', { name: change.field })));
+    const unknown = change.fields.find((key) => !scope.fields.some((f) => f.key === key));
+    if (unknown !== undefined) {
+      problems.push(said(change.fieldAt, t('fields.formulaUnknown', { name: unknown })));
       continue;
     }
     try {

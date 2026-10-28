@@ -185,13 +185,17 @@ Kişi için kurulur; para birimi kişisel finansta sorulur.
 
 ### 4.5 Seyahat (Life)
 
-- **Trips:** ad, nereye, ilk ve son gün, bütçe, harcanan.
-- **Bookings:** gezi, tür (Flight, Hotel, Train, Car, Event), saatli başlangıç ve bitiş, onay no, tutar; bilet ekte.
-- **Places:** gezi, ad, link, gidildi mi.
-- **Packing:** gezi, eşya, alındı mı.
-- **Expenses:** gezi, tutar, kategori.
-- **Takvim:** rezervasyonlar saatleriyle, Today ve Upcoming'de.
+28 Ekim, en az giriş ölçütüyle baştan (TripIt, Wanderlog, PackPoint, TravelSpend örnek). Mockup: `design/mockups.html` › Seyahat.
+
+- **Trips:** nereye ve günler; ad boşsa "Rome · Nov 2026". Gezinin türü çiplerle (Abroad, Flying, Beach, Cold, Work). Budget, Spent, Left ve Per day left (kalan para bölü bugünden son güne kalan gün; başlamamış gezide bütün günler). Pencere üç sütun: alanlar; rezervasyonlar saat sırasıyla, To do (alt görev, tarihli olan Today ve Upcoming'de), yerler günlere göre, valiz; harcamalar. Gezi Upcoming'de ve ilk gününde Today'de "12 to pack" diye, her gün gelmez.
+- **Bookings (gezinin satırları):** tür (segmentli seçim); Flight'ta uçuş no, From, To; Train'de From, To; Hotel, Car ve Event'te adres; başlangıç ve bitiş, onay no, tutar. Ad boşsa türünden ve yerinden ("Flight TK1325 IST → FCO"). Today'de saatiyle ve "IST → FCO · XK7Q2P". Tutarı olan rezervasyon kendi harcamasını yazar (Flight, Train, Car → Transport; Hotel → Stay; Event → Activities), tutar değişince harcama da; tutar silinince harcama gider.
+- **Places (gezinin satırları):** ad, Day (gezinin günü, boşsa any day), link, Been there.
+- **Packing list:** yaklaşık 60 hazır madde, gruplar (Documents, Money, Electronics, Clothes, Toiletries, Health, Other), her birinin "Taken on"u (Every trip ya da tür). Yeni gezi ya da türü değişen gezi, her gezide ve türlerinde alınanları kendi valiz listesine kendiliğinden alır, aynısını iki kez almaz. Valizde ve yerlerde tiklenen satır yapılmış sayılır, üstü çizilir.
+- **Expenses:** tutar önce, kategori çiplerden, Description boşsa kategorinin adı; gezi bugünü içine alan gezi, yoksa son kullanılan. App'te birden fazla para birimi varsa birim seçilir, kur o birimde son kullanılan kur gelir; toplam ana birimde.
+- **Home:** gezilerin kalanı ve ne zaman ("in 14 days").
+- **Shared expenses ile:** gezi grup olur; yeni gezi kurulumda yazılan kişileri kendi kişileri olarak alır; rezervasyonda Paid by (gezinin kişileri), tutarı olan rezervasyonun harcaması o kişiyle bütün gezi arasında bölünmüş yazılır.
 - **Sorular:** neleri tutuyorsunuz (çoklu: gidilecek yerler, valiz listesi, harcamalar).
+- **Mockup'tan farklar:** rezervasyon penceresi tek sütun; valiz listesi ekranında gruplar başlık, Taken on çip olarak; Home kartları genel kutular (sıradaki gezinin kartı yok, gezilerin kalanı ve ne zaman).
 
 ### 4.6 İş arama (Life)
 
@@ -259,6 +263,15 @@ Kişi için kurulur; para birimi kişisel finansta sorulur.
 - Antrenör ve spor salonu için ayrı iş şablonu yok: üyeler, ders programı ve paketler Randevu ile Abonelikler'le kurulur.
 
 ### 4.11 Paylaşılan harcamalar (Life)
+
+**28 Ekim, baştan** (Splitwise, Tricount, Settle Up örnek; mockup: `design/mockups.html` › Paylaşılan harcamalar):
+
+- **Expenses:** tutar önce; Paid by çiplerden (son ödeyen), For whom çiplerden (boşsa grubun herkesi, form açılınca hepsi seçili), çiplerde yalnız o grubun ya da gezinin kişileri (`within`). Herkesin payı formda tutar, ödeyen ya da kişiler değiştikçe görünür, kuruş artanı ödeyene; By amounts'ta pay satırın penceresinde yazılır, toplam tutmazsa formda söylenir; By shares'te pay sayısı yazılır, herkesin payı (Comes to) toplamdan kendiliğinden. Split again kalktı. Description boşsa kategorinin adı; grup son kullanılan, yoksa ilk grup. Repeats (No, Weekly, Monthly): tekrar eden gider Next gününde payları ve kendi payınla kendiliğinden yeniden yazılır, Undo ile.
+- **Groups:** kurulumda "Home"; pencerede kişiler (adıyla), Who pays whom (Paid tiki, ödenen üstü çizili), harcamalar; Settle up kalır. Home'da her grubun harcaması ve ödenecekleri.
+- **Menü:** Expenses ve Groups (Travel ile Trips); Settlements menüde yok.
+- **Mockup'tan farklar:** By amounts'ta pay tabloda değil satırın penceresinde yazılır (tablolar standart, hücreye yazılmaz); Who pays whom'da Paid düğme değil tik.
+
+Önceki hâli (22 Ekim):
 
 22 Ekim'de eklendi. Gezi, ev arkadaşları, ortak yemekler, aile içi masraflar: kim ne ödedi, kimin kime ne kadar borcu var.
 

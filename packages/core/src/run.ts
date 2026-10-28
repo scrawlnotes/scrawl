@@ -370,7 +370,7 @@ export interface SaveOptions {
 export function planSave(dir: string, record: Record, old: Record | null, space: RuleSpaceNow, { changes = true, field }: SaveOptions = {}): SaveRun {
   const collection = space.collections.find((c) => c.dir === dir);
   const changed = (key: string) => JSON.stringify(record.values[key] ?? null) !== JSON.stringify(old?.values[key] ?? null);
-  const ons = changesOf(collection?.rules).filter((c) => (field !== undefined ? c.field === field : changes && changed(c.field)));
+  const ons = changesOf(collection?.rules).filter((c) => (field !== undefined ? c.fields.includes(field) : changes && c.fields.some(changed)));
   const saves: { name: string; body: SaveRule['body'] }[] = [...ons, ...(field !== undefined ? [] : savesOf(collection?.rules))];
   const after: Plan = { action: '', dir, id: record.id, confirm: false, changes: [] };
   if (!collection || saves.length === 0) return { values: record.values, set: {}, after, stops: [] };

@@ -18,6 +18,7 @@ import {
   loadSchema,
   mixedCurrency,
   type NumberFormat,
+  readingOf,
   parseSchema,
   ROLLUP_FNS,
   type RollupFn,
@@ -181,7 +182,7 @@ async function checkSchema(fs: VaultFs, data: Json, text: string): Promise<Check
   for (const field of schema.fields) {
     const problem = field.type === 'formula' ? formulaProblem(field.formula ?? '', schema, field.key, schemaOf) : null;
     if (problem) problems.push(`${field.key}: ${problem}`);
-    const wrong = defaultProblem(field, schema, schemaOf);
+    const wrong = defaultProblem(field, schema, schemaOf, readingOf('', undefined));
     if (wrong) problems.push(`${field.key}: default: ${wrong}`);
     const mixed = mixedCurrency(field, schemaOf);
     if (mixed) notes.push(`${field.key}: ${mixed}`);

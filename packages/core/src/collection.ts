@@ -107,6 +107,11 @@ export interface Field {
   help?: string;
   /** A link picked on the form from chips of its records, the most used first: a transaction's category; a choice picked from its options side by side: Out, In, Transfer. */
   chips?: boolean;
+  /**
+   * A link whose choices are those of the record's group: the key of a link field it and its
+   * records both have, an expense's payer one of the people of its trip (design/more-apps.md 4.11).
+   */
+  within?: string;
   /** A link's target: the path of the collection its records come from. */
   collection?: string;
   /** A link that holds several records. */
@@ -171,6 +176,8 @@ type LayoutBlockKind =
       edit?: string[];
       /** A group's rows are alternatives, one of them picked: a meal's (design/meal-plans.md); "or" before the second on, a row not ticked not faint, a group picked or not. */
       choose?: boolean;
+      /** A ticked row is done and struck through, as on a list (a trip's packing); else one not ticked is, as a move skipped. */
+      done?: boolean;
       /** With `choose`, the tick that sets a row apart from the alternatives, said beside it and not counted: eaten off the plan. */
       apart?: string;
       /** With `choose`, the text that says what was had in a row's place: written, its group is picked too, and said changed (design/meal-plans.md 3). */
@@ -645,7 +652,8 @@ function readField(raw: unknown): Field | null {
   if ((type === 'text' || type === 'name') && raw.suggest === true) field.suggest = true;
   if (type === 'name' && raw.optional === true) field.optional = true;
   if (typeof raw.help === 'string' && raw.help.trim()) field.help = raw.help.trim();
-  if ((type === 'link' || type === 'select') && raw.chips === true) field.chips = true;
+  if ((type === 'link' || type === 'select' || type === 'multi-select') && raw.chips === true) field.chips = true;
+  if (type === 'link' && typeof raw.within === 'string' && raw.within.trim()) field.within = cleanFieldKey(raw.within);
   return field;
 }
 
@@ -700,6 +708,7 @@ function readBlock(raw: { [key: string]: unknown }): LayoutBlockKind | null {
       ...(typeof raw.lines === 'boolean' && { lines: raw.lines }),
       ...(changed.length > 0 && { edit: changed }),
       ...(raw.choose === true && { choose: true }),
+      ...(raw.done === true && { done: true }),
       ...(raw.choose === true && typeof raw.apart === 'string' && { apart: cleanFieldKey(raw.apart) }),
       ...(raw.choose === true && typeof raw.instead === 'string' && { instead: cleanFieldKey(raw.instead) }),
     };
@@ -1197,11 +1206,11 @@ function fitsType(kind: Kind, field: Field): boolean {
  * What is wrong with a field's default value: a formula that cannot be worked out or gives what
  * the field does not hold; a value the field cannot hold, a choice that is not one of its own.
  */
-export function defaultProblem(field: Field, schema: Pick<Schema, 'fields'>, schemaOf?: Scope['schemaOf']): string | null {
+export function defaultProblem(field: Field, schema: Pick<Schema, 'fields'>, schemaOf?: Scope['schemaOf'], ruleFn?: Scope['ruleFn']): string | null {
   const given = field.default;
   if (given === undefined || isComputed(field.type)) return null;
   if (typeof given === 'string' && given.startsWith('=')) {
-    const info = formulaInfo(given.slice(1), { fields: schema.fields, schemaOf, self: field.key, use: 'default' });
+    const info = formulaInfo(given.slice(1), { fields: schema.fields, schemaOf, self: field.key, use: 'default', ...(ruleFn && { ruleFn }) });
     if ('problem' in info) return info.problem;
     return fitsType(info.kind, field) ? null : t('fields.defaultKind', { what: kindWords(info.kind), field: field.label });
   }

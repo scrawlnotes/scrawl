@@ -56,6 +56,7 @@ import {
   serializeSchema,
   settleSchema,
   hiddenOnForm,
+  readingOf,
   shownField,
   SINGLE_TYPES,
   spaceOf,
@@ -997,7 +998,7 @@ function DefaultRow({ field, fields, schemaOf, preview, onChange }: {
 }) {
   const formula = field.defaultMode === 'formula' || field.type === 'link';
   const own = toField(field);
-  const problem = own.default !== undefined ? defaultProblem(own, { fields: fields.map(toField) }, schemaOf) : null;
+  const problem = own.default !== undefined ? defaultProblem(own, { fields: fields.map(toField) }, schemaOf, readingOf('', undefined)) : null;
   const gets = own.default !== undefined && !problem ? preview(own) : null;
   const value = field.defaultValue;
   const none: Option = { value: null, label: t('fields.noDefault'), chip: false };

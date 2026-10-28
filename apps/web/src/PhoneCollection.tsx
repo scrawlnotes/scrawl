@@ -71,7 +71,7 @@ import { t } from '@scrawlnotes/i18n';
 import { type FormEvent, type MouseEvent, type PointerEvent, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Chip } from './choices';
 import { DaysMonth } from './CollectionCalendar';
-import { type CollectionActions, type Draft, differs, draftOf, excerpt, LinkChips, NotesBlock, recordLayout, savePreview, singularOf, usedValues, type ValueContext, withDrafts } from './Collection';
+import { choicesOf, type CollectionActions, type Draft, differs, draftOf, excerpt, LinkChips, NotesBlock, recordLayout, savePreview, singularOf, usedValues, type ValueContext, withDrafts } from './Collection';
 import { fieldChoices, LabelSheet } from './labels';
 import { Icon, type IconName } from './Icon';
 import { Subtasks } from './Subtasks';
@@ -315,6 +315,23 @@ function FieldRow({ field, value, values, worked, changed, bad, autoFocus, today
       }
     // falls through
     case 'multi-select':
+      // A few chosen side by side: a trip's kinds (design/more-apps.md 4.5).
+      if (field.type === 'multi-select' && field.chips) {
+        const on = Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
+        return (
+          <div className={classes}>
+            {label}
+            <span className="segs many" role="group" aria-label={field.label}>
+              {(field.options ?? []).map((option) => (
+                <button key={option} type="button" aria-pressed={on.includes(option)} className={on.includes(option) ? 'on' : undefined} onClick={() => onChange(on.includes(option) ? on.filter((o) => o !== option) : [...on, option])}>
+                  {option}
+                </button>
+              ))}
+            </span>
+          </div>
+        );
+      }
+    // falls through
     case 'date':
     case 'time':
     case 'person': {
@@ -619,7 +636,7 @@ function FieldPicker({ field, value, about, today, ctx, onChange, onOpen, onClos
     );
   }
   if (field.type === 'select') return <ChoiceSheet field={field} value={value} about={about} onChange={onChange} onClose={onClose} />;
-  if (field.type === 'link') return <LinkSheet field={field} value={value} records={field.collection ? ctx.records(field.collection) : null} onChange={onChange} onOpen={onOpen} onClose={onClose} />;
+  if (field.type === 'link') return <LinkSheet field={field} value={value} records={field.collection ? choicesOf(field, ctx.records(field.collection) ?? [], ctx.values) : null} onChange={onChange} onOpen={onOpen} onClose={onClose} />;
   if (field.type === 'date' && field.time) return <DateTimeSheet label={field.label} title={about} value={typeof value === 'string' && value ? value : null} today={today} onChange={onChange} onClose={onClose} />;
   if (field.type === 'date') {
     return <DateSheet label={field.label} title={about} current={typeof value === 'string' && value ? value.slice(0, 10) : null} today={today} onPick={(day) => onChange(day)} onClose={onClose} />;
@@ -1100,7 +1117,7 @@ export function LinkedTab({ block, dir, schema: own, record, today, actions, dra
     const on = tick ? r.values[tick.key] === true : false;
     const or = !!block.choose && !isApart(r) && mine(of).indexOf(r) > 0;
     const row = (
-      <button key={r.id} type="button" className={tick && !on && !block.choose ? 'mb-cr off' : 'mb-cr'} onClick={() => open(r)}>
+      <button key={r.id} type="button" className={tick && (block.done ? on : !on) && !block.choose ? 'mb-cr off' : 'mb-cr'} onClick={() => open(r)}>
         <span className="tx">
           <b>
             {or && <span className="lor">{t('collection.or')}</span>}
@@ -1262,14 +1279,14 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
   const [draft, setDraft] = useState<Draft>(original);
   const [error, setError] = useState<string | null>(null);
   const [picking, setPicking] = useState<Field | null>(null);
-  // A new workout starts at its program, its list open: the field an onChange watches, when it is a choice to pick.
-  const from = useMemo(() => changesOf(collection.rules).map((c) => schema.fields.find((f) => f.key === c.field)).find((f): f is Field => !!f && (f.type === 'link' || f.type === 'select')) ?? null, [collection.rules, schema]);
+  // A new workout starts at its program, its list open: the field an onChange watches, when it is a choice to pick from a list, not one of chips on the form, and the one field it watches.
+  const from = useMemo(() => changesOf(collection.rules).filter((c) => c.fields.length === 1).map((c) => schema.fields.find((f) => f.key === c.field)).find((f): f is Field => !!f && (f.type === 'link' || f.type === 'select') && !f.chips) ?? null, [collection.rules, schema]);
   useEffect(() => {
     if (from && isEmpty(values?.[from.key] ?? null)) setPicking(from);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const busy = useRef(false);
-  const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink, used: (field) => usedValues(collection.records.map((r) => r.values[field.key])) };
+  const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink, used: (field) => usedValues(collection.records.map((r) => r.values[field.key])), values: draft.values };
   // The checks of the collection's rules it fails as it is typed: said under the form, the fields marked.
   const checked = computer.checks(dir, recordWith(collection, newId, draft.values), draft.values);
   const layout = recordLayout(schema, dir, true, actions);
@@ -1292,7 +1309,7 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
   const setValue = (key: string, value: FieldValue) => {
     setError(null);
     setDraft((d) => ({ ...d, values: { ...d.values, [key]: value } }));
-    const mine = new Set(watched.filter((w) => w.field === key).map((w) => w.name));
+    const mine = new Set(watched.filter((w) => w.fields.includes(key)).map((w) => w.name));
     if (mine.size === 0 || !actions.planChange) return;
     const ran = actions.planChange(dir, newId, { ...draft.values, [key]: value }, null, key);
     if (!ran) return;
@@ -1302,7 +1319,7 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
   };
   // Opened with that field given, a program day's Start, it has what that adds from the start.
   useEffect(() => {
-    for (const key of new Set(watched.map((w) => w.field))) if (!isEmpty(values?.[key] ?? null)) setValue(key, values![key]!);
+    for (const key of new Set(watched.flatMap((w) => w.fields))) if (!isEmpty(original.values[key] ?? null)) setValue(key, original.values[key]!);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const create = async () => {

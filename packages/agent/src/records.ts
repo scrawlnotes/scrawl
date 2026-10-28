@@ -17,6 +17,7 @@ import {
   fold,
   isComputed,
   isEmpty,
+  isLink,
   type Link,
   linkFieldsTo,
   linkTo,
@@ -258,12 +259,17 @@ export async function recordsTool(agent: Agent, args: { space?: string; collecti
   };
 }
 
-/** The links a value names: records of the field's collection, by name, code or id; refused when one is ambiguous. */
-export async function resolveLinks(fs: VaultFs, field: Field, raw: unknown): Promise<Link | Link[] | null> {
+/**
+ * The links a value names: records of the field's collection, by name, code or id; refused when one
+ * is ambiguous. With `within`, those of the record's group (`group`, its id) first: Can of this trip.
+ */
+export async function resolveLinks(fs: VaultFs, field: Field, raw: unknown, group?: string): Promise<Link | Link[] | null> {
   if (raw === null || raw === undefined || raw === '') return null;
   if (!field.collection) throw new Refusal(`The field ${field.label} has no collection to link to`);
-  const target = await loadCollection(fs, field.collection).catch(() => null);
-  if (!target) throw new Refusal(`The collection ${field.collection} that ${field.label} links to is not there`, { field: field.key });
+  const all = await loadCollection(fs, field.collection).catch(() => null);
+  if (!all) throw new Refusal(`The collection ${field.collection} that ${field.label} links to is not there`, { field: field.key });
+  const own = field.within && group ? all.records.filter((r) => [r.values[field.within!]].flat().some((l: unknown) => isLink(l) && l.id === group)) : [];
+  const target = own.length > 0 ? { ...all, records: own } : all;
   const refs = Array.isArray(raw) ? raw : [raw];
   const links: Link[] = [];
   for (const ref of refs) {
@@ -280,14 +286,17 @@ export async function resolveLinks(fs: VaultFs, field: Field, raw: unknown): Pro
  * Values as the agent gave them, by field key or label, read as their fields hold them. What does
  * not fit its field goes to `extra`, to be written as it was and marked.
  */
-export async function parseValues(fs: VaultFs, fields: Field[], given: { [key: string]: unknown }): Promise<{ values: { [key: string]: FieldValue }; extra: { [key: string]: unknown } }> {
+export async function parseValues(fs: VaultFs, fields: Field[], given: { [key: string]: unknown }, base: { [key: string]: FieldValue } = {}): Promise<{ values: { [key: string]: FieldValue }; extra: { [key: string]: unknown } }> {
   const values: { [key: string]: FieldValue } = {};
   const extra: { [key: string]: unknown } = {};
-  for (const [name, raw] of Object.entries(given)) {
-    const field = pickField(fields, name);
+  // A link of the record's group after the group's own: who paid, of the trip given or held.
+  const entries = Object.entries(given).map(([name, raw]) => ({ field: pickField(fields, name), raw }));
+  entries.sort((a, b) => Number(!!a.field.within) - Number(!!b.field.within));
+  for (const { field, raw } of entries) {
     if (isComputed(field.type)) throw new Refusal(`${field.label} is worked out, not written`, { field: field.key });
     if (field.type === 'link') {
-      values[field.key] = await resolveLinks(fs, field, raw);
+      const group = field.within ? (values[field.within] ?? base[field.within] ?? null) : null;
+      values[field.key] = await resolveLinks(fs, field, raw, isLink(group) ? group.id : undefined);
       continue;
     }
     if (raw === null || raw === undefined || raw === '') {
@@ -322,7 +331,7 @@ export async function saveRecordTool(agent: Agent, args: { space?: string; colle
   const { space, element } = await pickAcross(agent, args.space, args.collection, ['collection'], 'collection');
   const collection = await loadCollection(space.fs, element.path);
   const { schema } = collection;
-  const { values, extra } = await parseValues(space.fs, schema.fields, args.values ?? {});
+  const { values, extra } = await parseValues(space.fs, schema.fields, args.values ?? {}, args.id ? pickRecord(collection, args.id).values : {});
   const today = todayOf(agent);
   const around = await surroundings(space.fs, element.path);
   const computer = new Computer([collection, ...around.collections], around.boards, today);

@@ -792,7 +792,7 @@ describe('apps', () => {
     ]);
   });
 
-  it('shares expenses: each one’s share with the cents on the payer, balances, Settle up, a payment made, and split by shares and by amounts', async () => {
+  it('shares expenses: each one’s share with the cents on the payer, balances, Settle up, a payment ticked Paid, and split by shares and by amounts', async () => {
     const { agent } = await world();
     await createTool(agent, { kind: 'app', name: 'Flat', templates: ['split'], answers: { split: { people: ['Ayşe', 'Can', 'Deniz'], methods: 'all' } }, currencies: ['TRY'] });
     // Sums of cents carry a little of floating point; they are shown in the currency, as two decimals.
@@ -800,7 +800,7 @@ describe('apps', () => {
     const members = async () => Object.fromEntries((await recordsTool(agent, { collection: 'Flat/Members' })).data.records.map((m) => [m.name, [r(m.values.paid), r(m.values.owes), r(m.values.balance)]]));
     const groceries = await saveRecordTool(agent, { collection: 'Flat/Expenses', values: { name: 'Groceries', amount: 100, payer: 'Ayşe' } });
     const written = (await recordsTool(agent, { collection: 'Flat/Expenses' })).data.records[0]!;
-    expect([written.id, written.values, r(written.values.shared)]).toEqual([groceries.data.record.id, expect.objectContaining({ group: expect.objectContaining({ name: 'Flat' }), split: 'Equally' }), 100]);
+    expect([written.id, written.values, r(written.values.shared)]).toEqual([groceries.data.record.id, expect.objectContaining({ group: expect.objectContaining({ name: 'Home' }), split: 'Equally' }), 100]);
     expect((written.values.between as { name: string }[]).map((m) => m.name).sort()).toEqual(['Ayşe', 'Can', 'Deniz']);
     expect(await members()).toEqual({ Ayşe: [100, 33.34, 66.66], Can: [0, 33.33, -33.33], Deniz: [0, 33.33, -33.33] });
     await saveRecordTool(agent, { collection: 'Flat/Expenses', values: { name: 'Dinner', amount: 60, payer: 'Can', between: ['Can', 'Deniz'] } });
@@ -810,26 +810,25 @@ describe('apps', () => {
     expect([r(flat.values.total), flat.values.members]).toEqual([160, 3]);
     await saveRecordTool(agent, { collection: 'Flat/Groups', id: flat.id, action: 'Settle up' });
     const settlements = async () => (await recordsTool(agent, { collection: 'Flat/Settlements', sort: { field: 'amount' } })).data.records;
-    expect((await settlements()).map((s) => [s.name, s.values.amount, s.values.status])).toEqual([
-      ['Can → Ayşe', 3.33, 'Suggested'],
-      ['Deniz → Ayşe', 63.33, 'Suggested'],
+    expect((await settlements()).map((s) => [s.name, s.values.amount, s.values.paid])).toEqual([
+      ['Can → Ayşe', 3.33, false],
+      ['Deniz → Ayşe', 63.33, false],
     ]);
     // Deniz pays: their balance is nothing, and Settle up again leaves only what is not paid.
-    await saveRecordTool(agent, { collection: 'Flat/Settlements', id: (await settlements())[1]!.id, values: { status: 'Paid' } });
+    await saveRecordTool(agent, { collection: 'Flat/Settlements', id: (await settlements())[1]!.id, values: { paid: true } });
     expect(await members()).toEqual({ Ayşe: [100, 96.67, 3.33], Can: [60, 63.33, -3.33], Deniz: [63.33, 63.33, 0] });
     await saveRecordTool(agent, { collection: 'Flat/Groups', id: flat.id, action: 'Settle up' });
-    expect((await settlements()).map((s) => [s.name, s.values.amount, s.values.status])).toEqual([
-      ['Can → Ayşe', 3.33, 'Suggested'],
-      ['Deniz → Ayşe', 63.33, 'Paid'],
+    expect((await settlements()).map((s) => [s.name, s.values.amount, s.values.paid])).toEqual([
+      ['Can → Ayşe', 3.33, false],
+      ['Deniz → Ayşe', 63.33, true],
     ]);
 
-    // By shares: one share each to start; Deniz takes two, and Split again.
-    const rent = await saveRecordTool(agent, { collection: 'Flat/Expenses', values: { name: 'Rent', amount: 900, payer: 'Ayşe', split: 'By shares' } });
+    // By shares: one share each to start; Deniz takes two, and each one's part follows.
+    await saveRecordTool(agent, { collection: 'Flat/Expenses', values: { name: 'Rent', amount: 900, payer: 'Ayşe', split: 'By shares' } });
     const rentShares = async () => (await recordsTool(agent, { collection: 'Flat/Shares', where: [{ field: 'expense', op: 'is', value: 'Rent' }], sort: { field: 'name' } })).data.records;
     expect((await rentShares()).map((s) => s.values.owes)).toEqual([300, 300, 300]);
     await saveRecordTool(agent, { collection: 'Flat/Shares', id: (await rentShares())[2]!.id, values: { weight: 2 } });
-    await saveRecordTool(agent, { collection: 'Flat/Expenses', id: rent.data.record.id, action: 'Split again' });
-    expect((await rentShares()).map((s) => [s.name, s.values.owes])).toEqual([
+    expect((await rentShares()).map((s) => [s.name, s.values.part])).toEqual([
       ['Rent · Ayşe', 225],
       ['Rent · Can', 225],
       ['Rent · Deniz', 450],
@@ -842,11 +841,68 @@ describe('apps', () => {
     expect([marked.id, marked.problems]).toEqual([taxi.data.record.id, [{ kind: 'check', field: 'amount', text: 'The shares come to 45, not 50' }]]);
   });
 
+  it('keeps a trip: named by itself, packed from the list by its kinds, a booking its expense, an expense in the trip on now at the rate used last, and what is left each day', async () => {
+    const { agent } = await world();
+    await createTool(agent, { kind: 'app', name: 'Away', templates: ['travel'], currencies: ['TRY', 'EUR'] });
+    // Wednesday 21 October, on the trip.
+    const trip = await saveRecordTool(agent, { collection: 'Away/Trips', values: { destination: 'Rome', first: '2026-10-20', last: '2026-10-24', budget: 10000, kind: ['Abroad'] } });
+    expect(trip.data.record.name).toBe('Rome · Oct 2026');
+    const packed = async () => (await recordsTool(agent, { collection: 'Away/Packing' })).data.records.map((p) => p.name);
+    expect(await packed()).toEqual(expect.arrayContaining(['Passport', 'Toothbrush', 'Power adapter']));
+    expect(await packed()).not.toContain('Swimsuit');
+    // Another kind brings what it is taken on, nothing twice.
+    await saveRecordTool(agent, { collection: 'Away/Trips', id: trip.data.record.id, values: { kind: ['Abroad', 'Beach'] } });
+    expect(await packed()).toContain('Swimsuit');
+    expect((await packed()).filter((p) => p === 'Passport')).toHaveLength(1);
+
+    const flight = await saveRecordTool(agent, { collection: 'Away/Bookings', values: { trip: 'Rome · Oct 2026', type: 'Flight', flight_no: 'TK1325', from: 'IST', to: 'FCO', start: '2026-10-20T08:45', amount: 3000 } });
+    expect(flight.data.record.name).toBe('Flight TK1325 IST → FCO');
+    const expenses = async () => (await recordsTool(agent, { collection: 'Away/Expenses', sort: { field: 'amount' } })).data.records;
+    expect((await expenses()).map((e) => [e.name, e.values.amount, e.values.category])).toEqual([['Flight TK1325 IST → FCO', 3000, 'Transport']]);
+    // Its amount changed, its expense follows; not written twice.
+    await saveRecordTool(agent, { collection: 'Away/Bookings', id: flight.data.record.id, values: { amount: 3200 } });
+    expect((await expenses()).map((e) => e.values.amount)).toEqual([3200]);
+
+    await saveRecordTool(agent, { collection: 'Away/Expenses', values: { amount: 20, currency: 'EUR', rate: 37, category: 'Food' } });
+    const second = await saveRecordTool(agent, { collection: 'Away/Expenses', values: { amount: 10, currency: 'EUR', category: 'Food' } });
+    expect(second.data.record).toMatchObject({ name: 'Food', values: expect.objectContaining({ rate: 37, trip: expect.objectContaining({ name: 'Rome · Oct 2026' }) }) });
+    const rome = (await recordsTool(agent, { collection: 'Away/Trips' })).data.records[0]!;
+    // 3200 + 740 + 370 spent; 5690 left for the 4 days from today to the last.
+    expect(rome.values).toMatchObject({ spent: 4310, left: 5690, days_left: 4, per_day: 1423 });
+  });
+
+  it('shares a trip’s booking paid by one with all of the trip, and writes a shared rent again every month', async () => {
+    const { agent } = await world();
+    await createTool(agent, { kind: 'app', name: 'Away', templates: ['travel', 'split'], answers: { split: { people: ['Ayşe', 'Can'] } }, currencies: ['TRY'] });
+    await saveRecordTool(agent, { collection: 'Away/Trips', values: { destination: 'Rome', first: '2026-11-12', last: '2026-11-16' } });
+    // A new trip takes the people the app was set up with.
+    const hotel = await saveRecordTool(agent, { collection: 'Away/Bookings', values: { trip: 'Rome · Nov 2026', type: 'Hotel', name: 'Hotel Artemide', start: '2026-11-12T15:00', amount: 1000, paid_by: 'Can' } });
+    const members = async () => Object.fromEntries((await recordsTool(agent, { collection: 'Away/Members' })).data.records.filter((m) => !!m.values.trip).map((m) => [m.name, [m.values.paid, m.values.owes, m.values.balance]]));
+    const expense = (await recordsTool(agent, { collection: 'Away/Expenses' })).data.records[0]!;
+    expect([expense.name, expense.values.amount, expense.values.category, (expense.values.payer as { name: string }).name]).toEqual(['Hotel Artemide', 1000, 'Stay', 'Can']);
+    expect(await members()).toEqual({ Ayşe: [0, 500, -500], Can: [1000, 500, 500] });
+    await saveRecordTool(agent, { collection: 'Away/Bookings', id: hotel.data.record.id, values: { amount: 1200 } });
+    expect(await members()).toEqual({ Ayşe: [0, 600, -600], Can: [1200, 600, 600] });
+
+    const flat = await world();
+    await createTool(flat.agent, { kind: 'app', name: 'Flat', templates: ['split'], answers: { split: { people: ['Ayşe', 'Can'] } }, currencies: ['TRY'] });
+    const rent = await saveRecordTool(flat.agent, { collection: 'Flat/Expenses', values: { name: 'Rent', amount: 30000, payer: 'Ayşe', date: '2026-10-01', repeats: 'Monthly' } });
+    expect(rent.data.record.values).toMatchObject({ group: expect.objectContaining({ name: 'Home' }), next: '2026-11-01' });
+    await saveRecordTool(flat.agent, { collection: 'Flat/Expenses', id: rent.data.record.id, action: 'Add again' });
+    const rents = (await recordsTool(flat.agent, { collection: 'Flat/Expenses', sort: { field: 'date' } })).data.records;
+    expect(rents.map((r) => [r.name, r.values.date, r.values.repeats, r.values.next ?? null])).toEqual([
+      ['Rent', '2026-10-01', 'Monthly', '2026-12-01'],
+      ['Rent', '2026-11-01', 'No', null],
+    ]);
+    const balance = Object.fromEntries((await recordsTool(flat.agent, { collection: 'Flat/Members' })).data.records.map((m) => [m.name, m.values.balance]));
+    expect(balance).toEqual({ Ayşe: 30000, Can: -30000 });
+  });
+
   it('shares a trip’s expenses with Travel, and writes your own share in Personal finance', async () => {
     const { agent } = await world();
     await createTool(agent, { kind: 'app', name: 'Trips', templates: ['finance', 'travel', 'split'], answers: { split: { people: ['Me', 'Can'] } }, currencies: ['TRY'] });
     await saveRecordTool(agent, { collection: 'Trips/Trips', values: { name: 'Rome', first: '2026-11-05', last: '2026-11-09', budget: 1000 } });
-    for (const m of (await recordsTool(agent, { collection: 'Trips/Members' })).data.records) await saveRecordTool(agent, { collection: 'Trips/Members', id: m.id, values: { trip: 'Rome', ...(m.name === 'Me' && { me: true }) } });
+    for (const m of (await recordsTool(agent, { collection: 'Trips/Members' })).data.records) if (m.values.trip && m.name === 'Me') await saveRecordTool(agent, { collection: 'Trips/Members', id: m.id, values: { me: true } });
     await saveRecordTool(agent, { collection: 'Trips/Expenses', values: { name: 'Hotel', amount: 400, payer: 'Can', trip: 'Rome' } });
     const rome = (await recordsTool(agent, { collection: 'Trips/Trips' })).data.records[0]!;
     expect(rome.values).toMatchObject({ spent: 400, left: 600, members: 2, each: 200 });

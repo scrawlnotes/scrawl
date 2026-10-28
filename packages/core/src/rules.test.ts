@@ -54,6 +54,13 @@ const transactions: Collection = {
 };
 
 describe('rules', () => {
+  it('reads an onChange watching one field or several, and says a field that is not there', () => {
+    expect(parseRules('onChange("amount", "Shares", () => {})').changes.map((c) => c.fields)).toEqual([['amount']]);
+    const many = parseRules('onChange(["amount", "payer"], "Shares", () => {})').changes[0]!;
+    expect([many.field, many.fields]).toEqual(['amount', ['amount', 'payer']]);
+    expect(rulesProblems('onChange(["amount", "nope"], "Shares", () => {})', { fields: [{ key: 'amount', label: 'Amount', type: 'number' }] }).map((p) => p.message)).toEqual([expect.stringContaining('nope')]);
+  });
+
   it('reads checks and says on its line what is wrong with a rules file', () => {
     const rules = parseRules(RULES);
     expect(rules.checks.map((c) => c.field)).toEqual(['line', 'due', null]);

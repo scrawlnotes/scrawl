@@ -26,7 +26,7 @@ import { type ChoiceRenames, renameChoices, renameInViews } from '../fields';
 import { basename, dirname, join } from '../fs';
 import { fileNameOf } from '../names';
 import { freePath } from '../paths';
-import { RULES_FILE, rulesProblems, ruleSpaceOf } from '../rules';
+import { readingOf, RULES_FILE, rulesProblems, ruleSpaceOf } from '../rules';
 import { aboutAdded, aboutName, aboutNote, aboutSection, listed, partName } from './about';
 import { PIECES, type PieceInfo, ROLES } from './pieces';
 import { apartProblem, impliedBy, isTemplateId, readAnswers, readCurrencies, TEMPLATES } from './questions';
@@ -253,7 +253,13 @@ function layoutFor(fields: readonly Field[], blocks: readonly LayoutBlock[], act
   const rank = (f: Field) => (order?.includes(f.key) ? order.indexOf(f.key) : (order?.length ?? 0));
   const ordered = order ? fields.slice().sort((a, b) => rank(a) - rank(b)) : fields;
   const left: LayoutItem[] = [...ordered.map((f) => ({ field: f.key })), ...(actions ? [{ block: 'actions' as const }] : []), { block: 'body' }];
-  return { columns: blocks.length > 0 ? [{ width: 1, sections: [{ items: left }] }, { width: 2, sections: [{ items: [...blocks] }] }] : [{ sections: [{ items: left }] }] };
+  if (blocks.length === 0) return { columns: [{ sections: [{ items: left }] }] };
+  // Five blocks or more, a trip's bookings, places, packing, expenses and to-dos: in two columns beside the fields.
+  if (blocks.length >= 5) {
+    const half = Math.ceil(blocks.length / 2);
+    return { columns: [{ width: 1, sections: [{ items: left }] }, { width: 1, sections: [{ items: blocks.slice(0, half) }] }, { width: 1, sections: [{ items: blocks.slice(half) }] }] };
+  }
+  return { columns: [{ width: 1, sections: [{ items: left }] }, { width: 2, sections: [{ items: [...blocks] }] }] };
 }
 
 const rulesText = (name: string, chunks: readonly RuleChunk[]) => `// What ${name} checks and does, as the app set it up; change it as you need.\n\n${chunks.map((c) => c.src).join('\n\n')}\n`;
@@ -929,7 +935,7 @@ function problemsOf(checks: { part: CollectionPart; fields: Field[]; rules: Rule
         const wrong = formulaProblem(field.formula ?? '', schema, field.key, schemaOf);
         if (wrong) at(`${field.key}: ${wrong}`);
       }
-      const wrong = defaultProblem(field, schema, schemaOf);
+      const wrong = defaultProblem(field, schema, schemaOf, readingOf(part.path, space));
       if (wrong) at(`${field.key}: default: ${wrong}`);
       if (field.type === 'link' && !schemas.has(field.collection ?? '')) at(`${field.key} links to ${field.collection}, which is not there`);
       if (field.type === 'rollup') {

@@ -382,14 +382,14 @@ describe('setting up an app', () => {
     ]);
   });
 
-  it('sets up Shared expenses with its people in its first group, and with Travel on the trips', () => {
+  it('sets up Shared expenses with its people in its first group, Home, and with Travel on the trips', () => {
     const plan = planApp({ name: 'Flat', currencies: ['TRY'], templates: [{ id: 'split', answers: { people: ['Ayşe', 'Can'] } }] }, { ids });
     const records = (dir: string) => plan.files.filter((f) => f.path.startsWith(`Flat/${dir}/`) && f.path.endsWith('.md')).map((f) => f.text);
     const group = /id: (\w+)/.exec(records('Groups')[0]!)![1];
     // A record set up after another links to it by its name.
     expect(records('Members').map((t) => /group:\n\s+id: (\w+)\n\s+name: (.*)/.exec(t)!.slice(1))).toEqual([
-      [group, 'Flat'],
-      [group, 'Flat'],
+      [group, 'Home'],
+      [group, 'Home'],
     ]);
     const trip = planApp({ name: 'Away', currencies: ['TRY'], templates: [{ id: 'travel' }, { id: 'split' }] }, { ids });
     const collections = trip.created.filter((c) => c.kind === 'collection').map((c) => c.path);

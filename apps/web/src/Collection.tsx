@@ -388,6 +388,19 @@ export interface ValueContext {
   openRecord?: (field: Field, link: Link) => void;
   /** What the other records, or the board's other cards, hold in a multi-select or a text that suggests: offered as it is typed. */
   used?: (field: Field) => string[];
+  /** The record's values as the form holds them: a link's choices those of its group. */
+  values?: Record['values'];
+}
+
+/** A link's records to pick from: with `within`, those of the record's group, all while it has none. */
+export function choicesOf(field: Field, records: Record[], values: Record['values'] | undefined): Record[] {
+  const group = field.within ? values?.[field.within] : null;
+  const id = isLink(group) ? group.id : null;
+  if (!id) return records;
+  return records.filter((r) => {
+    const held = r.values[field.within!];
+    return (Array.isArray(held) ? held : [held]).some((l) => isLink(l) && l.id === id);
+  });
 }
 
 /** The words a multi-select holds across records or cards, those held most first. */
@@ -602,7 +615,7 @@ const CHIPS_SHOWN = 9;
  */
 export function LinkChips({ field, value, ctx, onChange }: { field: Field; value: Link | Link[] | null; ctx: ValueContext; onChange: (value: Link | Link[] | null) => void }) {
   const [all, setAll] = useState(false);
-  const target = field.collection ? (ctx.records(field.collection) ?? []) : [];
+  const target = choicesOf(field, field.collection ? (ctx.records(field.collection) ?? []) : [], ctx.values);
   const used = ctx.used?.(field) ?? [];
   const rank = (name: string) => (used.includes(name) ? used.indexOf(name) : used.length);
   // The most used first, the others by name.
@@ -653,7 +666,7 @@ function LinkField({ field, value, autoFocus, ctx, onChange }: {
   // Its records show by their name or code; a collection with neither has nothing to pick by.
   const into = field.collection ? ctx.collection(field.collection) : null;
   const linkable = !into || isLinkable(into.schema);
-  const target = field.collection && linkable ? ctx.records(field.collection) : null;
+  const target = field.collection && linkable ? choicesOf(field, ctx.records(field.collection) ?? [], ctx.values) : null;
   const q = typed.trim().toLowerCase();
   const chosen = new Set(links.map((l) => l.id));
   const found = (target ?? [])
@@ -853,6 +866,19 @@ export function FieldInput({ field, value, autoFocus, ctx, currency, onChange, o
       }
       return <SelectField field={field} value={typeof value === 'string' && value ? value : null} onChange={onChange} />;
     case 'multi-select':
+      // A few chosen side by side, each click taking it or leaving it: a trip's kinds (design/more-apps.md 4.5).
+      if (field.chips) {
+        const on = Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
+        return (
+          <span className="segs many" role="group" aria-label={field.label}>
+            {(field.options ?? []).map((option) => (
+              <button key={option} type="button" aria-pressed={on.includes(option)} className={on.includes(option) ? 'on' : undefined} onClick={() => onChange(on.includes(option) ? on.filter((o) => o !== option) : [...on, option])}>
+                {option}
+              </button>
+            ))}
+          </span>
+        );
+      }
       return <ChoicesField id={id} field={field} value={Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []} used={ctx.used?.(field) ?? []} onChange={onChange} />;
     case 'checkbox':
       return (
@@ -1140,6 +1166,8 @@ interface LinkedDrafts {
   add: (source: Collection, values: Record['values']) => void;
   /** A row taken out with Delete. */
   remove: (source: Collection, id: string) => void;
+  /** The written rows the form's onChanges take out at Save: an expense's shares worked out again. */
+  gone?: (source: Collection) => ReadonlySet<string>;
 }
 
 /**
@@ -1177,7 +1205,8 @@ function LinkedTable({ block, source, dir, record, today, actions, drafts, hint,
   const columns = linkedColumns(block, schema, dir, lines);
   const changes = new Set(columns.filter((f) => changesInTable(f) && block.edit?.includes(f.key)).map((f) => f.key));
   // A row not written yet gives way to its record once it is: as the form is saved.
-  const written = linkedRecords(source, dir, record);
+  const out = drafts?.gone?.(source);
+  const written = linkedRecords(source, dir, record).filter((r) => !out?.has(r.id));
   const unsaved = (drafts?.rows(source) ?? []).filter((r) => !written.some((w) => w.id === r.id));
   const isDraft = new Set(unsaved.map((r) => r.id));
   const linked = [...written.map((r) => ({ ...r, values: computer.values(source.dir, r) })), ...unsaved.map((r) => ({ ...r, values: computer.draft(source.dir, null, r.values) }))];
@@ -1254,7 +1283,7 @@ function LinkedTable({ block, source, dir, record, today, actions, drafts, hint,
   const row = (r: Record, of: Record[] = rows) => (
     <tr
       key={r.id}
-      className={['rec', isDraft.has(r.id) && 'draft', tickColumn && !ticked(r) && !block.choose && 'off'].filter(Boolean).join(' ')}
+      className={['rec', isDraft.has(r.id) && 'draft', tickColumn && (block.done ? ticked(r) : !ticked(r)) && !block.choose && 'off'].filter(Boolean).join(' ')}
       tabIndex={0}
       onClick={() => onOpen(source, r)}
       onContextMenu={(event) => rowMenu(event, r)}
@@ -1661,7 +1690,7 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
     followed.current = original;
     setDraft((d) => (differs(d, before) ? d : original));
   }, [original]);
-  const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink, used: (field) => usedValues(collection.records.map((r) => r.values[field.key])) };
+  const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink, used: (field) => usedValues(collection.records.map((r) => r.values[field.key])), values: draft.values };
   const buttons = useMemo(() => actionsOf(collection.rules), [collection.rules]);
 
   const layout: Layout = useMemo(() => recordLayout(schema, dir, isNew, actions, buttons.length > 0, watched.length > 0, lines), [schema, isNew, dir, actions, buttons.length, watched.length, lines]);
@@ -1681,7 +1710,7 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
     setError(null);
     setDraft((d) => ({ ...d, values: { ...d.values, [key]: value } }));
     // A field an onChange watches: what it adds takes the place of what it added before, the fields it sets are set.
-    const mine = new Set(watched.filter((w) => w.field === key).map((w) => w.name));
+    const mine = new Set(watched.filter((w) => w.fields.includes(key)).map((w) => w.name));
     if (mine.size === 0 || !actions.planChange) return;
     const ran = actions.planChange(dir, id, { ...draft.values, [key]: value }, record, key);
     if (!ran) return;
@@ -1692,7 +1721,7 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
   // A new record given a field an onChange watches, a program day's Start, has what it adds from the start.
   useEffect(() => {
     if (!isNew) return;
-    for (const key of new Set(watched.map((w) => w.field))) if (!isEmpty(given?.[key] ?? null)) setValue(key, given![key]!);
+    for (const key of new Set(watched.flatMap((w) => w.fields))) if (!isEmpty(given?.[key] ?? null)) setValue(key, given![key]!);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   /** The rows the form adds to a linked table, not written until Save; typed in and added to there. */
@@ -1707,12 +1736,15 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
             setDrafted((now) => [...now, { kind: 'add', dir: localPath(source.dir), id: rowId, values: actions.planSaved?.(source.dir, rowId, values, null) ?? values }]);
           },
           remove: (_source, rowId) => setDrafted((now) => now.filter((c) => !(c.kind === 'add' && c.id === rowId))),
+          gone: (source) => new Set(drafted.flatMap((c) => (c.kind === 'remove' && c.dir === localPath(source.dir) ? [c.id] : []))),
         }
     : undefined;
 
   // A new workout's items come from its program: until it is picked, its table says so, + Add under it.
-  const source = isNew ? watched.map((w) => fields.get(w.field)).find((f): f is Field => !!f && isEmpty(draft.values[f.key] ?? null)) : undefined;
-  const pickFirst = source ? { title: t('collection.pickFirst', { field: source.label.toLowerCase() }), text: t('collection.pickFirstText', { field: source.label.toLowerCase() }) } : null;
+  const source = isNew ? watched.flatMap((w) => w.fields).map((key) => fields.get(key)).find((f): f is Field => !!f && isEmpty(draft.values[f.key] ?? null)) : undefined;
+  // A choice picked, a workout's program; else a value typed, an expense's amount, whose shares come as it is.
+  const picked = (source?.type === 'link' || source?.type === 'select') && !source.chips;
+  const pickFirst = source ? (picked ? { title: t('collection.pickFirst', { field: source.label.toLowerCase() }), text: t('collection.pickFirstText', { field: source.label.toLowerCase() }) } : { title: t('collection.typeFirst', { field: source.label }), text: t('collection.typeFirstText') }) : null;
   const named = nameField(schema);
   /** Writes the form; false when it cannot be, saying why. */
   const write = async (): Promise<boolean> => {
@@ -1779,7 +1811,7 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
   // A new record's first box has the keyboard.
   // A new record starts at the field its rows come from, its list open: a workout's program; else at its first.
   const placedFields = layout.columns.flatMap((c) => c.sections.flatMap((s) => s.items)).filter((i): i is { field: string } => 'field' in i);
-  const firstKey = isNew ? (placedFields.find((i) => watched.some((w) => w.field === i.field)) ?? placedFields[0])?.field : undefined;
+  const firstKey = isNew ? (placedFields.find((i) => watched.some((w) => w.fields.includes(i.field))) ?? placedFields[0])?.field : undefined;
   // What is worked out (formulas, lookups, rollups) from what the form holds now; the rollups are the
   // record's, from what links to it, the rows typed in and not written yet among them: a new order's
   // total its new lines'.

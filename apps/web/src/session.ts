@@ -3208,7 +3208,7 @@ export class Session {
    */
   planChange(dir: string, id: string, values: CollectionRecord['values'], old: CollectionRecord | null, field: string): SaveRun | null {
     const collection = this.snapshot.collections[dir];
-    if (!collection || !changesOf(collection.rules).some((c) => c.field === field)) return null;
+    if (!collection || !changesOf(collection.rules).some((c) => c.fields.includes(field))) return null;
     try {
       return this.onSave(dir, old ? { ...old, values } : recordWith(collection, id, values), old, undefined, { field });
     } catch {

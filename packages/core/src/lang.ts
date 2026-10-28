@@ -851,7 +851,7 @@ export function check(node: Node, scope: Scope, stack: string[] = []): Checked {
       }
       case 'call': {
         const spec = FNS[n.fn];
-        const own = !spec && scope.use === 'rule' ? scope.ruleFn?.(n.fn, n.args.map((a) => (a.k === 'arrow' || a.k === 'obj' ? 'any' : visit(a))), n.args) : undefined;
+        const own = !spec && (scope.use === 'rule' || scope.use === 'default') ? scope.ruleFn?.(n.fn, n.args.map((a) => (a.k === 'arrow' || a.k === 'obj' ? 'any' : visit(a))), n.args) : undefined;
         if (own !== undefined) {
           for (const a of n.args) if (a.k === 'arrow' || a.k === 'obj') visit(a);
           return own;
@@ -899,7 +899,8 @@ export function check(node: Node, scope: Scope, stack: string[] = []): Checked {
       case 'obj':
       case 'arrow':
       case 'mcall':
-        if (scope.use !== 'rule') throw new LangError(t('lang.onlyInRules'), n.at);
+        // A default may find as rules do: the trip whose days hold today (design/more-apps.md 4.5).
+        if (scope.use !== 'rule' && !(scope.use === 'default' && scope.ruleFn)) throw new LangError(t('lang.onlyInRules'), n.at);
         return visitRule(n);
       case 'bin': {
         const [a, b] = [visit(n.left), visit(n.right)];

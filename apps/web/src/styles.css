@@ -20435,7 +20435,9 @@ button.ppl:hover {
 /* A choice of a few side by side: Out, In, Transfer (design/more-apps.md 4.1). */
 .segs {
   display: inline-flex;
+  flex-wrap: wrap;
   align-self: flex-start;
+  max-width: 100%;
   padding: 2px;
   border: 1px solid var(--sl-line);
   border-radius: 7px;
@@ -20443,6 +20445,7 @@ button.ppl:hover {
 
 .segs > button {
   padding: 3px 14px;
+  white-space: nowrap;
   border: 0;
   border-radius: 5px;
   background: none;
@@ -20456,6 +20459,25 @@ button.ppl:hover {
   background: var(--sl-sel);
   color: var(--sl-fg);
   font-weight: 600;
+}
+
+/* Several chosen side by side: chips, each on or off. */
+.segs.many {
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+}
+
+.segs.many > button {
+  padding: 3px 11px;
+  border: 1px solid var(--sl-line);
+  border-radius: 14px;
+}
+
+.segs.many > button.on {
+  border-color: var(--sl-accent);
+  background: color-mix(in srgb, var(--sl-accent) 16%, transparent);
 }
 
 /* A link picked from chips: a transaction's category (design/more-apps.md 4.1). */

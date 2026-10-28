@@ -191,6 +191,8 @@ export class Computer {
       const env: Env = {
         ...this.env(collection.dir, made, true),
         ...(me && { me }),
+        // find() as the rules have it: an expense's trip, the one whose days hold today (design/more-apps.md 4.5).
+        rule: (fn, args) => this.reading(collection.dir, made, fn, args),
         next: (prefix, digits) => nextNumber(collection.records.map((r) => r.values[field.key]), prefix, digits),
         // The value of the record whose day is the latest, of those that hold one.
         last: (by) => {
