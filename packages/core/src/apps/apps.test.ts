@@ -12,6 +12,7 @@ import { APP_FILE, APP_ICONS, AppProblems, type FoundApp, planApp } from './buil
 import { installApp, undoApp } from './install';
 import { appIcon, type AppPiece, hiddenOnForm, homeOf, linesBlocks, menuEditOf, menuFileOf, menuOf, screenKey, showsLines, unplacedOf } from './menu';
 import { PIECES } from './pieces';
+import { jobOf } from './templates/home';
 import { apartProblem, fitsWith, goTogether, readAnswers, TEMPLATES } from './questions';
 import { findApp, readAppFile, readAppMenu, writeAppMenu } from './roles';
 import { type Answers, audienceOf, TEMPLATE_GROUPS, TEMPLATE_IDS, type TemplateId } from './types';
@@ -448,6 +449,34 @@ describe('setting up an app', () => {
     await installApp(fs, withMoney);
     const again = (await findApp(fs, 'Work'))!;
     expect(planApp({ name: '', currencies: ['USD'], templates: [{ id: 'projects' }] }, { found: again, ids }).app.currencies).toEqual(['EUR', 'TRY']);
+  });
+
+  it('keeps homes and cars: each with its own jobs, how often from the job’s words', () => {
+    expect(['Boiler service yearly', 'Water purifier filters every 6 months', 'Tyre change twice a year', 'Inspection every 2 years', 'Filters quarterly', 'Plants monthly', 'Gutters'].map(jobOf)).toEqual([
+      { name: 'Boiler service', every: 'Yearly' },
+      { name: 'Water purifier filters', every: 'Every 6 months' },
+      { name: 'Tyre change', every: 'Every 6 months' },
+      { name: 'Inspection', every: 'Every 2 years' },
+      { name: 'Filters', every: 'Quarterly' },
+      { name: 'Plants', every: 'Monthly' },
+      { name: 'Gutters', every: 'Yearly' },
+    ]);
+    const plan = planApp({ name: 'Atlas', currencies: ['TRY'], templates: [{ id: 'home', answers: { homes: ['Flat', 'Summer house'], cars: ['Golf', 'Vespa'], carJobs: ['Inspection every 2 years'] } }] }, { ids });
+    const records = (dir: string) => plan.files.filter((f) => f.path.startsWith(`Atlas/${dir}/`) && !f.path.includes('/_'));
+    expect(records('Homes')).toHaveLength(2);
+    expect(records('Vehicles')).toHaveLength(2);
+    // Four jobs at each home, one for each car: each linked to its own.
+    const jobs = records('Upkeep');
+    expect(jobs).toHaveLength(10);
+    expect(jobs.filter((f) => f.text.includes('Summer house'))).toHaveLength(4);
+    expect(jobs.filter((f) => f.text.includes('Vespa') && f.text.includes('Every 2 years'))).toHaveLength(1);
+    const upkeep = parseSchema(plan.files.find((f) => f.path === 'Atlas/Upkeep/_collection.json')!.text);
+    expect(upkeep.fields.map((f) => f.key)).toEqual(['name', 'home', 'vehicle', 'every', 'next', 'last']);
+    expect(upkeep.fields.find((f) => f.key === 'every')!.options).toEqual(['Monthly', 'Quarterly', 'Every 6 months', 'Yearly', 'Every 2 years']);
+    expect(parseSchema(plan.files.find((f) => f.path === 'Atlas/Vehicles/_collection.json')!.text).fields.map((f) => f.key)).toEqual(['name', 'plate', 'km', 'next']);
+    // Only the cars: no homes, and their jobs in Upkeep.
+    const cars = planApp({ name: 'Garage', templates: [{ id: 'home', answers: { keeps: ['vehicles'] } }] }, { ids });
+    expect(cars.created.map((c) => c.path)).toEqual(['Garage/Vehicles', 'Garage/Upkeep', 'Garage/About Garage.md']);
   });
 
   it('sets up a person’s templates in one app only with those they share data with', async () => {

@@ -667,26 +667,45 @@ describe('apps', () => {
     expect(spent).toMatchObject({ amount: 400, direction: 'Out', account: expect.objectContaining({ name: 'Bank account' }), category: expect.objectContaining({ name: 'Bills' }), date: '2026-10-21' });
   });
 
-  it('keeps the home: a job done planned again, a paper a month before it runs out, the car on the first of its days', async () => {
+  it('keeps the home: its jobs and the car’s, each done planned again, a thing of the only home, a paper a month before it runs out', async () => {
     const { agent } = await world();
     await createTool(agent, { kind: 'app', name: 'Home', templates: ['home'], currencies: ['TRY'] });
-    const jobs = (await recordsTool(agent, { collection: 'Home/Home upkeep', sort: { field: 'name' } })).data.records;
-    expect(jobs.map((j) => [j.name, j.values.every])).toEqual([
-      ['Air conditioner filters', 'Quarterly'],
-      ['Boiler service', 'Yearly'],
-      ['Smoke alarm batteries', 'Yearly'],
+    const jobs = (await recordsTool(agent, { collection: 'Home/Upkeep', sort: { field: 'name' } })).data.records;
+    expect(jobs.map((j) => [j.name, j.values.every, ((j.values.home ?? j.values.vehicle) as { name: string }).name])).toEqual([
+      ['Air conditioner filters', 'Quarterly', 'Home'],
+      ['Boiler service', 'Yearly', 'Home'],
+      ['Inspection', 'Every 2 years', 'Car'],
+      ['Insurance', 'Yearly', 'Car'],
+      ['Service', 'Yearly', 'Car'],
+      ['Smoke alarm batteries', 'Yearly', 'Home'],
+      ['Tyre change', 'Every 6 months', 'Car'],
+      ['Water purifier filters', 'Every 6 months', 'Home'],
     ]);
-    const boiler = await saveRecordTool(agent, { collection: 'Home/Home upkeep', id: jobs[1]!.id, values: { next: '2026-10-01' } });
+    const job = (name: string) => jobs.find((j) => j.name === name)!.id;
+    const boiler = await saveRecordTool(agent, { collection: 'Home/Upkeep', id: job('Boiler service'), values: { next: '2026-10-01' } });
     expect(boiler.data.record.problems).toEqual([{ kind: 'check', field: 'next', text: 'Overdue' }]);
-    expect((await saveRecordTool(agent, { collection: 'Home/Home upkeep', id: jobs[1]!.id, action: 'Done' })).data.record.values).toMatchObject({ last: '2026-10-21', next: '2027-10-21' });
+    const done = async (name: string) => (await saveRecordTool(agent, { collection: 'Home/Upkeep', id: job(name), action: 'Done' })).data.record.values;
+    expect(await done('Boiler service')).toMatchObject({ last: '2026-10-21', next: '2027-10-21' });
+    expect(await done('Water purifier filters')).toMatchObject({ next: '2027-04-21' });
+    expect(await done('Inspection')).toMatchObject({ next: '2028-10-21' });
+    // The car shows the first of its jobs' days, and is marked when one is past.
+    await saveRecordTool(agent, { collection: 'Home/Upkeep', id: job('Insurance'), values: { next: '2026-10-20' } });
+    const car = (await recordsTool(agent, { collection: 'Home/Vehicles' })).data.records[0]!;
+    expect(car.values.next).toBe('2026-10-20');
+    expect(car.problems).toEqual([{ kind: 'check', field: 'next', text: 'A job is past its day' }]);
+    // With one home, a thing or a job saved with none is that home's; a car's job stays the car's.
+    const tv = await saveRecordTool(agent, { collection: 'Home/Items', values: { name: 'TV', warranty: '2027-05-01' } });
+    expect(tv.data.record.values.home).toMatchObject({ name: 'Home' });
+    expect((await saveRecordTool(agent, { collection: 'Home/Upkeep', values: { name: 'Gutters' } })).data.record.values.home).toMatchObject({ name: 'Home' });
+    const tyres = await saveRecordTool(agent, { collection: 'Home/Upkeep', values: { name: 'Wash', vehicle: 'Car' } });
+    expect(tyres.data.record.values.home).toBeUndefined();
     const passport = await saveRecordTool(agent, { collection: 'Home/Documents', values: { name: 'Passport', type: 'Passport', expires: '2026-12-15' } });
     expect(passport.data.record.values.remind).toBe('2026-11-15');
-    const car = await saveRecordTool(agent, { collection: 'Home/Vehicles', values: { name: 'Car', inspection: '2027-03-01', insurance: '2026-10-20', service: '2027-01-10' } });
-    expect(car.data.record.values).toMatchObject({ next: '2026-10-20', next_for: 'Insurance' });
-    expect(car.data.record.problems).toEqual([{ kind: 'check', field: 'next', text: 'Insurance is due' }]);
-    await saveRecordTool(agent, { collection: 'Home/Vehicles', id: car.data.record.id, values: { insurance: '2027-10-20' } });
     const due = (await dueRecordsTool(agent, { from: '2026-10-21', to: '2026-12-31' })).data.records as { start: string; record: { name: string } }[];
     expect(due.map((d) => [d.record.name, d.start])).toEqual([['Passport', '2026-11-15']]);
+    // Only cars kept: a job saved with no car is the only car's.
+    await createTool(agent, { kind: 'app', name: 'Garage', templates: ['home'], answers: { home: { keeps: ['vehicles'] } } });
+    expect((await saveRecordTool(agent, { collection: 'Garage/Upkeep', values: { name: 'Wash' } })).data.record.values.vehicle).toMatchObject({ name: 'Car' });
   });
 
   it('keeps a family’s health: an appointment in Upcoming, whose it is, a medication to get more of and a vaccination due', async () => {

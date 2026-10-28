@@ -137,12 +137,14 @@ Kişi için kurulur; para birimi kişisel finansta sorulur.
 
 ### 4.2 Ev, araç ve belgeler (Money and home)
 
-- **Items:** ad, oda, alındığı gün, fiyat, garanti bitişi; fatura ekte.
+- **Homes:** her ev bir kayıt (ad, adres); eşyalar ya da ev işleri tutulunca kurulur. Birden fazla ev olabilir.
+- **Items:** ad, ev, oda, alındığı gün, fiyat, garanti bitişi; fatura ekte.
 - **Documents:** tür (ID, Passport, Driving licence, Insurance, Other), no, bitiş, hatırlatma (bitişten 30 gün önce).
-- **Vehicles:** plaka, muayene, sigorta, bakım günleri, km.
-- **Home upkeep:** iş (Kombi bakımı gibi), aralık, sonraki gün. Done sonrakini yazar.
-- **Takvim:** bitecek belgeler, biten garantiler, araç ve ev işleri; Today ve Upcoming'de.
-- **Sorular:** neleri tutuyorsunuz (çoklu: eşyalar, belgeler, araç, ev bakımı), ev bakım işleri (liste).
+- **Vehicles:** her araba bir kayıt; plaka, km, sıradaki günü (işlerinin en yakını); penceresinde işleri. Günü geçen işi olan araba işaretlenir.
+- **Upkeep:** evin ve arabanın tekrarlayan işleri (kombi bakımı, muayene gibi), her biri bir eve ya da bir arabaya bağlı; aralık (Monthly, Quarterly, Every 6 months, Yearly, Every 2 years), son yapıldığı gün, sonraki gün. Done sonrakini yazar.
+- Tek ev ya da tek araba varken boş bırakılan ev ya da araba kaydederken ona bağlanır.
+- **Takvim:** bitecek belgeler, biten garantiler, ev ve araba işleri; Today ve Upcoming'de.
+- **Sorular:** neleri tutuyorsunuz (çoklu: eşyalar, belgeler, arabalar, ev bakımı), evler (liste, Home), ev işleri (liste: kombi bakımı, duman dedektörü pilleri, klima filtreleri, su arıtma filtreleri 6 ayda bir), arabalar (liste, Car), arabanın işleri (liste: muayene 2 yılda bir, sigorta, bakım yılda bir, lastik 6 ayda bir). Hazır işler her ev ve her araba için ayrı kurulur; aralık işin adından okunur, söylemiyorsa yıllık (28 Ekim).
 
 ### 4.3 Sağlık (Health)
 
