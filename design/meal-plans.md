@@ -1,61 +1,67 @@
 # Tarifler ve beslenme programı
 
-28 Ekim 2026. Kullanıcının Recipes denemesinden: günlük yemek planı kullanışsız; yemek listesi bir programa göre yapılır (diyet gibi), plan ekranı o programı takip etmek için. Gym'in program ve antrenman düzeni (`design/gym.md`) örnek alınır. Mockup: `design/mockups.html` › Beslenme programı.
+28 Ekim 2026. Kullanıcının Recipes denemesinden: yemek listesi bir programa göre yapılır (diyet gibi), takibi en az girişle. Mockup: `design/mockups.html` › Tarifler ve beslenme programı.
 
-## 1. Ne değişir
+İlk hâli (commit 1375390) Gym gibiydi: programın günü Today'de Start ve Skip, her gün pencere açıp işaretleme, Overdue. Kullanıcı: kimse her gün her öğünü tek tek girmez; en az kayıt, en çok otomasyon. Bu doküman ondan sonraki hâli.
 
-- **Recipes**'e **Link** gelir: tarifin olduğu sayfa. Gerisi aynı (tür, süre, kaç kişilik, etiketler, malzemeler).
-- **Meal plan** (her güne bir yemek) kalkar. Yerine iki ekran:
-  - **Plans:** bir diyet ya da beslenme programı, öğün öğün maddeleriyle.
-  - **Days:** programın her günü, yenenler işaretli.
-- **Shopping list** kalır; bir tariften Add to shopping list kalır. "Shop for the week" kalkar (günlük plandan çalışıyordu).
+## 1. Akış
+
+- **Plans:** bir diyet; günleri (Mon … Sun), From ve Until, notlarda diyetisyenin listesi. Maddeler öğün öğün; aynı öğündekiler alternatif ("or"); bir madde belli günlere özel olabilir (On); isteğe bağlı bir tarife bağlı.
+- **Program kaydedilince her günü kendiliğinden Days'te bir kayıt olur**, o günün maddeleriyle. Kimse gün açmaz.
+- **Days** bugünden sonrasını gösterir (From today); geçen günler gizli, All ve Calendar'da durur.
+- Bugünün günü **Today**'de görünür; **Upcoming'e gelmez**. Start, Skip, Overdue yok.
+- **Güne basınca** pencere: her maddenin başında checkbox (yendi), yanında **Instead** kutusu (yerine ne yendi). **Didn't follow** günü komple "uyulmadı" yapar.
+- Hiçbir şey girilmeyen gün olduğu gibi kalır; zorunlu bir giriş yok.
+- **Recipes**'e **Link** (tarifin sayfası). Shopping list ve tariften Add to shopping list kalır.
 - Önceden kurulmuş Recipes app'leri olduğu gibi kalır.
 
-## 2. Plans
+## 2. Programın günleri
 
-- Bir programın adı, **Days** (hangi günler: Mon … Sun; her gün için hepsi), **From** (başladığı gün), **Until** (bittiği gün, boş olabilir) ve notları: diyetisyenin listesi PDF olarak eklenir.
-- Programın maddeleri sağda tek tabloda, öğün öğün gruplu (Breakfast, Snack, Lunch, Dinner; öğünler sihirbazda değişir).
-- Bir madde: ne yeneceği ("2 yumurta, 30 g beyaz peynir, 5 zeytin"), **On** (Every day ya da Mon … Sun: o günlere özel), isteğe bağlı **Recipe**.
-- **Aynı öğündeki maddeler alternatiftir**: "2 yumurta…" ya da "1 kase yulaf…". Tabloda ikincisinden başlayarak satırın başında "or" yazar.
-- Bir öğünün bazı maddeleri belli günlere özel olabilir: Dinner, Mon ve Thu: fırında balık; Every day: tavuk sote. O gün ikisi de alternatif olur.
-- Programın günleri Today ve Upcoming'e gelir (Gym'deki gibi): **Start** o günü açar, **Skip** "uyulmadı" diye kapatır. Yazılmamış geçmiş gün Overdue'da kalır. Until'den sonra gelmez.
+- Kaydedilince From ile Until arasındaki, programın günlerine düşen her gün için Days'te bir kayıt ve maddeleri (o günün haftagününe göre) yazılır; olan gün yeniden yazılmaz.
+- Until zorunlu, varsayılanı From'dan 4 hafta sonra. Until uzatılırsa yeni günler eklenir; kısaltılırsa sonrasındaki dokunulmamış günler çöpe gider.
+- Programın maddesi eklenir, değişir ya da silinirse **bugünden sonraki, dokunulmamış** günlerin maddeleri yeniden yazılır. İşaretlenmiş ya da Instead yazılmış güne dokunulmaz.
 
-## 3. Days
+## 3. Gün
 
-- Bir gün: tarih, program, durumu (**Followed** ya da **Skipped**), notları.
-- Program seçilince (Start ya da elle) o günün maddeleri gelir, hiçbiri işaretsiz, öğün öğün; alternatifler alt alta.
-- Yenen işaretlenir; listede olmayan bir şey yendiyse **+ Add** ile eklenir, **Off plan** olarak görünür.
-- Başlıkta "3 of 4 meals": işaretli maddesi olan öğünler / o gün programda olan öğünler. Off plan olanlar ayrıca sayılır: "1 off plan".
-- Listesi This week, This month ve Calendar ile; takvimde günler Followed, Skipped ya da yazılmamış olarak.
+- Alanlar: Day, Plan, Status (Followed, varsayılan; Didn't follow), Notes.
+- Maddeler sağda öğün öğün; alternatiflerde "or", işaretsiz satır soluk ya da çizili değil.
+- Öğün başlığı: "2 to choose from", birinde işaret varsa "eaten", Instead yazılmışsa "changed".
+- Tablonun başında: "2 of 4 meals · 1 changed".
+- Didn't follow: düğme; Status'u Didn't follow yapar. İşaretli madde varken Didn't follow işaretlenir (uyarı).
 
 ## 4. Veri modeli
 
-Parçalar (rol → ad): `recipes` Recipes, `ingredients` Ingredients, `meal-plans` Plans, `plan-items` Plan items (Plans'ın satırları), `meal-days` Days, `day-items` Day items (Days'in satırları), `shopping` Shopping list.
+Parçalar (rol → ad): `recipes` Recipes, `ingredients` Ingredients, `meal-plans` Plans, `plan-items` Plan items, `meal-days` Days, `day-items` Day items, `shopping` Shopping list. Menü: Days, Plans, Recipes, Shopping list.
 
-- `recipes`: + `link` (url).
-- `meal-plans`: `name`, `days` (multi, Mon … Sun), `from` (date, zorunlu, bugün), `until` (date), `items` (rollup count), `followed` (rollup count, Days Followed), `last` (rollup max day). Görünüm **Plan days**: takvim, `repeat: { days, from, until, closedBy: { Days, plan, day }, start: 'Start', skip: { label: 'Skip', set: { status: 'Skipped' } } }`.
-- `plan-items`: `name` (ne yeneceği), `plan` (link, zorunlu), `meal` (select, sihirbazın öğünleri), `on` (select: Every day, Mon … Sun; varsayılan Every day), `order` (number), `recipe` (link, isteğe bağlı).
-- `meal-days`: `name` (program · gün), `day` (date, zorunlu, bugün), `plan` (link), `status` (Followed, Skipped; varsayılan Followed), her öğün için sırasıyla iki gizli rollup: `has_N` (o öğünün plandan maddesi) ve `ate_N` (işaretli olanı), en çok 8 öğün; `meals` ve `eaten` (formula: maddesi ya da işaretlisi olan öğün sayısı), `off` (rollup count: Off plan), `summary` (formula: "3 of 4"), `this_week`, `this_month`.
-- `day-items`: `name`, `day_of` (link Days, zorunlu), `meal` (select), `order`, `done` (checkbox, varsayılan işaretsiz), `off_plan` (checkbox, varsayılan işaretli: elle eklenen Off plan, plandan gelen değil), `recipe` (link), `day` (date, gününden).
-- **Doldurma** (`onChange("plan")`, Gym'deki gibi): programın maddelerinden `on` Every day ya da günün haftagünü olanlar `day-items` olarak eklenir, işaretsiz ve Off plan değil.
-- **Yenen öğün sayısı:** bir öğünde iki alternatif işaretlenirse iki sayılmasın diye öğün başına rollup sayılır, formül her öğünü bir kez sayar. Kural yazmadığı için tabloda tik atınca da, yeni günün penceresinde taslak satırlarla da doğru.
-- **Alternatifler tabloda:** bağlı tabloya `choose` (bir grubun satırları alternatif: ikinciden başlayarak "or", işaretsiz satır soluk ya da çizili değil, grup başlığında "eaten" ya da "2 to choose from", tablonun başında "3 of 4 meals") ve `apart` (onu işaretli satır alternatif sayılmaz, adının yanında alanın adı: Off plan; başlıkta "· 1 off plan"). Fields'ta değişmez, şablon verir; telefonda da aynı.
-- **Takvim tekrarında bitiş:** `RepeatSettings`'e `until?: string` (date alanı) eklenir; o günden sonra gün üretilmez. Gym etkilenmez.
-- Kontroller: Skipped bir günde işaretli madde varsa işaretlenir; aynı programın aynı günde iki günü işaretlenir.
+- `meal-plans`: `name`, `days` (multi, hepsi), `from` (date, zorunlu, bugün), `until` (date, zorunlu, `=today() + 27`), `items`, `followed` (rollup: Days Followed ve işaretli), `notes`. Plan days takvimi kalkar (günler Days'te kayıt).
+- `plan-items`: `name`, `plan`, `meal`, `on`, `order`, `recipe`. Tablo `choose: true`.
+- `meal-days`: `name`, `day`, `plan`, `status` (Followed, Didn't follow), öğün başına gizli rollup'lar: `has_N` (maddesi), `ate_N` (işaretli), `chg_N` (Instead yazılı), en çok 8 öğün; `meals`, `eaten` (bir öğün bir kez: işaretli ya da değişmiş), `changed` (rollup: Instead yazılı), `summary` ("2 of 4"), `ahead` (formula: `day >= today()`). Görünümler: From today (`ahead`, varsayılan, gün sırasıyla), All, Calendar. Takvim Today'e gelir, Upcoming'e gelmez.
+- `day-items`: `name`, `day_of`, `meal`, `order`, `done` (checkbox), `instead` (text), `recipe`, `day`. Tablo `choose: true`, `edit: ['done', 'instead']`.
+- **Programın kuralları** (`_rules.js`):
+  - `onSave` (Plans): eksik günleri ve maddelerini yazar; Until'den sonraki dokunulmamış günleri çöpe gönderir.
+  - `onSave` (Plan items): planın bugünden sonraki dokunulmamış günlerinin maddelerini yeniden yazar.
+  - `action("Didn't follow")` (Days): Status'u Didn't follow yapar.
+- **Genel değişiklikler** (bütün koleksiyonlar):
+  - Tabloda değişen alan (`edit`) metin olabilir: hücrede küçük bir kutu, yazılınca kaydedilir. Bugün yalnız onay kutusu ve seçim.
+  - Takvim görünümüne "yalnız Today" seçeneği: `upcoming: 'today'`.
+  - Bağlı tabloya `instead` (onu yazılı satırın grubu seçilmiş ve "changed" sayılır).
+  - Kural dilinde `dates(a, b)`: iki gün arası her gün.
+  - Formdan kaydedilen kaydın onSave'i formun birlikte yazacağı satırları görür: yeni programın penceresinde yazılan maddeler günlerine gelir.
+  - Önceki hâlden kalan bağlı tablo `apart` ayarı kalır, bu şablon kullanmaz; takvim tekrarındaki `until` kalır, bu şablon kullanmaz.
+  - Günün adı: program · haftagünü · tarih; Days tablosu Status, Meals, Changed ile.
 
-## 5. Sihirbaz
+## 5. Ajan
 
-- Öğünler (liste): Breakfast, Snack, Lunch, Dinner.
-- Alışveriş listesi tutulsun mu (evet/hayır).
-- Hazır program yok: diyet kişiye özel, boş başlar. About notu nasıl yazılacağını anlatır.
+- "Bugün öğlen ne yiyorum": Days'ten bugünün kaydı ve maddeleri.
+- "Kahvaltıda yulaf yedim": o maddeye `done: true`. "Akşam tavuk yerine pizza": `instead: "pizza"`. "Dün uymadım": `action: "Didn't follow"`.
+- Rehbere iki cümle: programın günleri kendiliğinden yazılır; gün açma, yalnız işaretle ya da Instead yaz.
 
 ## 6. Telefonda
 
-- Today'de programın günü: Start ve Skip.
-- Gün açılınca öğün öğün maddeler, dokununca işaretlenir; + Add ile listede olmayan.
+- Today'de bugünün günü; basınca gün: öğün öğün maddeler, dokununca yendi; maddeye uzun basınca Eaten ve Instead; en altta Didn't follow.
 
 ## 7. Testler
 
-- Core: şablonun parçaları ve alanları; doldurmanın haftagününe göre maddeleri seçmesi; `meals` ve `eaten` (iki alternatif işaretli bir öğün bir sayılır); Until'den sonra gün gelmemesi.
-- Ajan: program ve maddeler yazma, günü başlatma, işaretleme, Off plan ekleme; tarifin Link'i.
-- Web: tarayıcıda programın penceresi, günün penceresi, Today'de Start ve Skip; telefonda gün.
+- Core: program kaydedilince günlerin ve maddelerin yazılması (haftagünü, On, Until); Until uzayınca eklenmesi, kısalınca dokunulmamışların gitmesi; madde değişince dokunulmamış gelecek günlerin güncellenmesi, dokunulmuşların kalması; `eaten` ve `changed` sayımı; metin `edit`.
+- Ajan: program yazınca günler; işaretleme, Instead, Didn't follow; Today'de bugünün günü, Upcoming'de yok.
+- Web: Days'te From today; gün penceresinde işaret ve Instead kutusu; telefonda gün.

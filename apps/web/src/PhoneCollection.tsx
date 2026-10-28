@@ -992,6 +992,9 @@ export function LinkedTab({ block, dir, schema: own, record, today, actions, dra
   const apartField = block.choose && block.apart ? schema.fields.find((f) => f.key === block.apart && f.type === 'checkbox') : undefined;
   const isApart = (r: Entry) => !!apartField && r.values[apartField.key] === true;
   const mine = (of: Entry[]) => of.filter((r) => !isApart(r));
+  // What was had in a row's place, said under it; its group changed.
+  const insteadField = block.choose && block.instead ? schema.fields.find((f) => f.key === block.instead) : undefined;
+  const changedTo = (r: Entry) => (insteadField ? valueText(r.values[insteadField.key] ?? null) : '');
   const line = (r: Entry, of: Entry[] = rows) => {
     const amount = number ? fieldValueOf(r, number, schema, today) : undefined;
     const on = tick ? r.values[tick.key] === true : false;
@@ -1004,6 +1007,7 @@ export function LinkedTab({ block, dir, schema: own, record, today, actions, dra
             {recordTitle(r)}
           </b>
           {isApart(r) && <small className="lapart">{apartField!.label}</small>}
+          {changedTo(r) && <small className="lapart">{`${insteadField!.label}: ${changedTo(r)}`}</small>}
           <small>
             {r.name && r.code && <span className="key">{r.code}</span>}
             {shown(r).map((f) => (
@@ -1039,7 +1043,9 @@ export function LinkedTab({ block, dir, schema: own, record, today, actions, dra
               g.key,
               g.label,
               tick && block.choose
-                ? mine(g.records).some((r) => r.values[tick.key] === true)
+                ? mine(g.records).some((r) => !!changedTo(r))
+                  ? t('collection.changed')
+                  : mine(g.records).some((r) => r.values[tick.key] === true)
                   ? tick.label.toLowerCase()
                   : t('collection.toChoose', { count: mine(g.records).length })
                 : tick

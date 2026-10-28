@@ -221,7 +221,7 @@ const SHOWN_FIRST = 15;
 // lines under its row): a column a field, each as wide as its values, a long text cut short; a row
 // opens its record at a click, its ··· at its end, and the right click, the same menu: Open, the
 // rules' buttons, Delete. Nothing is typed in a cell; only the fields the table is told to change
-// are, a tick at a click, a choice from its list (`changesInTable`).
+// are, a tick at a click, a choice from its list, a text in a box (`changesInTable`).
 
 /** How wide the values of a type go before they are cut short; the others are as wide as what they hold. */
 const MAX_WIDTH: Partial<{ [type in Field['type']]: number }> = {
@@ -262,6 +262,32 @@ function rowKeys(event: KeyboardEvent<HTMLTableRowElement>, open: () => void) {
  * A cell the table changes: a tick turns at a click, a choice is picked from its list under it.
  * Its clicks stay in it, the list's too: the row does not open.
  */
+/** A text the table changes where it is (design/meal-plans.md 3): a box in the cell, written as it is left or Enter is pressed; Esc puts it back. */
+function TextCell({ field, value, onChange }: { field: Field; value: string; onChange: (value: FieldValue) => void }) {
+  const [typed, setTyped] = useState(value);
+  useEffect(() => setTyped(value), [value]);
+  const done = () => {
+    const next = typed.trim();
+    if (next !== value) onChange(next || null);
+  };
+  return (
+    <input
+      className="ttext"
+      aria-label={field.label}
+      placeholder={`${field.label}…`}
+      value={typed}
+      onClick={(event) => event.stopPropagation()}
+      onChange={(event) => setTyped(event.target.value)}
+      onBlur={done}
+      onKeyDown={(event) => {
+        event.stopPropagation();
+        if (event.key === 'Enter') event.currentTarget.blur();
+        if (event.key === 'Escape') setTyped(value);
+      }}
+    />
+  );
+}
+
 function ChangeCell({ field, value, onChange }: { field: Field; value: FieldValue | undefined; onChange: (value: FieldValue) => void }) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLButtonElement>(null);
@@ -274,6 +300,7 @@ function ChangeCell({ field, value, onChange }: { field: Field; value: FieldValu
       </button>
     );
   }
+  if (field.type === 'text') return <TextCell field={field} value={typeof value === 'string' ? value : ''} onChange={onChange} />;
   const now = typeof value === 'string' && value ? value : null;
   const options: Option[] = [
     ...(!field.required ? [{ value: null, label: t('collection.none'), chip: false }] : []),
@@ -1046,11 +1073,15 @@ function LinkedTable({ block, source, dir, record, today, actions, drafts, hint,
   const isApart = (r: Record) => !!apartField && r.values[apartField.key] === true;
   const own = (of: Record[]) => of.filter((r) => !isApart(r));
   const alternative = (r: Record, of: Record[]) => !!block.choose && !isApart(r) && own(of).indexOf(r) > 0;
+  // What was had in a row's place: its group picked too, and changed.
+  const insteadField = block.choose && block.instead ? schema.fields.find((f) => f.key === block.instead) : undefined;
+  const changed = (r: Record) => !!insteadField && !isEmpty(r.values[insteadField.key] ?? null);
+  const picked = (r: Record) => ticked(r) || changed(r);
   const groupField = block.group?.[0] ? schema.fields.find((f) => f.key === block.group![0]) : undefined;
   const countOf = (of: Record[]) => {
     if (block.choose && tickColumn && of.length > 0) {
       const mine = own(of);
-      return mine.some(ticked) ? tickColumn.label.toLowerCase() : t('collection.toChoose', { count: mine.length });
+      return mine.some(changed) ? t('collection.changed') : mine.some(ticked) ? tickColumn.label.toLowerCase() : t('collection.toChoose', { count: mine.length });
     }
     return tickColumn && of.length > 0 ? t('collection.tickedOf', { ticked: of.filter(ticked).length, count: of.length }) : of.length;
   };
@@ -1058,9 +1089,10 @@ function LinkedTable({ block, source, dir, record, today, actions, drafts, hint,
   const blockCount = () => {
     if (!(block.choose && tickColumn && groupField && rows.length > 0)) return countOf(rows);
     const picking = groups.filter((g) => own(g.records).length > 0);
-    const picked = t('collection.ofGroups', { ticked: picking.filter((g) => own(g.records).some(ticked)).length, count: picking.length, group: groupField.label.toLowerCase() });
+    const said = t('collection.ofGroups', { ticked: picking.filter((g) => own(g.records).some(picked)).length, count: picking.length, group: groupField.label.toLowerCase() });
     const apart = rows.filter(isApart).length;
-    return apart > 0 && apartField ? `${picked} · ${apart} ${apartField.label.toLowerCase()}` : picked;
+    const swapped = rows.filter(changed).length;
+    return [said, ...(apart > 0 && apartField ? [`${apart} ${apartField.label.toLowerCase()}`] : []), ...(swapped > 0 ? [t('collection.changedCount', { count: swapped })] : [])].join(' · ');
   };
   // + Add opens the row's window; + Add to a group starts it with the group's value.
   const startAdding = (group: { key: string; records: Record[] } | null) => {

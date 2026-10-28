@@ -200,9 +200,11 @@ export function dueRecords(collections: readonly Collection[], today: string, { 
         }
         continue;
       }
+      // One for Today only comes on its day, not before it.
+      const todayOnly = view.calendar.upcoming === 'today';
       for (const item of calendarRecords(collection, view, today)) {
         const key = `${collection.dir}/${item.record.id}`;
-        if (seen.has(key) || lastDayOf(item) < today) continue;
+        if (seen.has(key) || lastDayOf(item) < today || (todayOnly && item.start.slice(0, 10) > today)) continue;
         seen.add(key);
         out.push({ ...item, collection: collection.dir, view, schema: collection.schema });
       }

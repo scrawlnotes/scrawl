@@ -654,6 +654,15 @@ const FNS: { [name: string]: FnSpec } = {
       return 'day';
     },
   },
+  // Every day from one to another, both in: a plan's days, written as records (design/meal-plans.md 2).
+  dates: {
+    args: [2, 2],
+    kind: ([a, b], [n, m]) => {
+      need(DAYISH(a!), t('lang.fnDay', { fn: 'dates' }), n!);
+      need(DAYISH(b!), t('lang.fnDay', { fn: 'dates' }), m!);
+      return { list: 'day' };
+    },
+  },
   time: {
     args: [1, 1],
     kind: ([a], [n]) => {
@@ -1421,6 +1430,9 @@ function call(fn: string, args: RV[], env: Env): RV {
       return a instanceof Day && b instanceof Day ? workdays(a, b) : null;
     case 'day':
       return a instanceof Day ? new Day(a.n) : null;
+    case 'dates':
+      // Ten years at most, so that a day written wrong does not run on.
+      return a instanceof Day && b instanceof Day ? Array.from({ length: Math.max(0, Math.min(b.n - a.n + 1, 3660)) }, (_, i) => new Day(a.n + i)) : [];
     case 'time':
       return a instanceof Day && a.m !== null ? new Clock(a.m) : null;
     case 'at':

@@ -3921,7 +3921,14 @@ p { margin: 0; max-width: 68ch; }
 .cc-row .mp-or { color: var(--m-faint); font-size: 11px; text-align: center; }
 .cc-row .mp-off { margin-left: 6px; padding: 0 6px; border-radius: 9px; background: color-mix(in srgb, var(--m-p2) 18%, transparent); color: var(--m-p2); font-size: 10.5px; }
 .ca-row.mp-plan { grid-template-columns: minmax(0, 1fr) 210px 96px 96px 70px 84px; }
-.ca-row.mp-day { grid-template-columns: 112px minmax(0, 1fr) 96px 100px 84px minmax(0, 1fr); }
+.ca-row.mp-day { grid-template-columns: 150px minmax(0, 1fr) 96px 100px 84px minmax(0, 1fr); }
+.ca-row.mp-today { background: color-mix(in srgb, var(--m-sel) 30%, transparent); }
+.ca-row.mp-day .dt small { margin-left: 6px; color: var(--m-accent); font-size: 10.5px; }
+.cc-blk .cc-row.mi { grid-template-columns: 30px minmax(0, 1fr) 190px; }
+.mp-in { display: flex; align-items: center; min-height: 24px; padding: 0 8px; border: 1px solid var(--m-line); border-radius: 5px; color: var(--m-faint); font-size: 12px; }
+.mp-in.on { border-color: var(--m-accent); color: var(--m-fg); }
+.gy-mr .mp-or3 { color: var(--m-faint); font-weight: 400; }
+.gy-mr small.mp-in2 { color: var(--m-p2); }
 .mp-link { color: var(--m-accent); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--m-accent) 50%, transparent); text-underline-offset: 3px; }
 .gy-mr .mp-or2 { flex: none; width: 22px; color: var(--m-faint); font-size: 12px; text-align: center; }
 .fitem .sw-when { margin-left: 6px; padding: 0 6px; border-radius: 9px; background: color-mix(in srgb, var(--m-accent) 14%, transparent); color: var(--m-accent); font-size: 10.5px; line-height: 16px; white-space: nowrap; }
@@ -4893,13 +4900,13 @@ p { margin: 0; max-width: 68ch; }
       <div>
         <span class="letter">SCRAWL APPS · TASLAK</span>
         <h2>Tarifler ve beslenme programı</h2>
-        <p>Günlük yemek planı kalkar; yemek listesi bir programa göre yapılır, Gym'deki gibi. <b>Plans</b>: bir diyet, günleri, başladığı ve bittiği gün, diyetisyenin listesi notlarda; maddeleri öğün öğün, aynı öğündekiler <b>alternatif</b> ("or"), bir madde belli günlere özel olabilir, isteğe bağlı bir tarife bağlı. Programın günleri Today'de <b>Start</b> ve <b>Skip</b> ile. <b>Days</b>: o günün maddeleri işaretsiz gelir, yenen işaretlenir, listede olmayan <b>Off plan</b> eklenir; "3 of 4 meals". Tarife <b>Link</b>. Teknik tasarım <code>design/meal-plans.md</code>.</p>
-        <ul class="traits"><li>program öğün öğün</li><li>alternatifler</li><li>güne özel madde</li><li>Today'de Start, Skip</li><li>günde işaretleme</li><li>Off plan</li><li>tarifte Link</li><li>telefonda da</li></ul>
+        <p>Yemek listesi bir programa göre yapılır. <b>Plans</b>: bir diyet, günleri, başladığı ve bittiği gün, diyetisyenin listesi notlarda; maddeleri öğün öğün, aynı öğündekiler <b>alternatif</b> ("or"), bir madde belli günlere özel olabilir, isteğe bağlı bir tarife bağlı. Program kaydedilince her günü <b>Days</b>'te kendiliğinden bir kayıt olur, maddeleriyle; Days bugünden sonrasını gösterir, geçen günler gizli. Bugünün günü <b>Today</b>'de. Güne basınca: yenen işaretlenir, değişenin yanına <b>Instead</b> yazılır, ya da gün komple <b>Didn't follow</b>. Hiçbir şey girilmeyen gün olduğu gibi kalır; Start, Skip, Overdue yok, Upcoming'e gelmez. Tarife <b>Link</b>. Teknik tasarım <code>design/meal-plans.md</code>.</p>
+        <ul class="traits"><li>program öğün öğün</li><li>alternatifler</li><li>günler kendiliğinden</li><li>geçen günler gizli</li><li>işaret ve Instead</li><li>Didn't follow</li><li>Today'de bugün</li><li>tarifte Link</li><li>telefonda da</li></ul>
       </div>
       <span class="pick" role="group" aria-label="Beslenme programı görünümü">
         <button type="button" data-mpview="mpplan">Plans: program</button>
-        <button type="button" data-mpview="mpday">Days: bugün</button>
         <button type="button" data-mpview="mpdays">Days</button>
+        <button type="button" data-mpview="mpday">Days: bugün</button>
         <button type="button" data-mpview="mptoday">Today</button>
         <button type="button" data-mpview="mprecipe">Recipe: Link</button>
         <button type="button" data-mpview="mpphone">Telefon</button>
@@ -14862,45 +14869,44 @@ p { margin: 0; max-width: 68ch; }
       '<div class="cc-row mp head"><span></span><span>What</span><span>On</span><span>Recipe</span></div>' + meals + '</div>';
     return mpWindow('Plans', left, right);
   }
-  // Wednesday Oct 28: breakfast the oats, a snack the almonds, lunch the lentil soup; dinner not yet; a slice of cake off the plan.
-  var MP_EATEN = { '1 kase yulaf, yarım bardak süt, 1 muz': true, '10 badem': true, 'Mercimek çorbası, 1 kase yoğurt': true };
-  /** The day's window: the plan's items of a Wednesday, unticked till eaten; what was eaten off it added. */
+  // Thursday Oct 29, today: breakfast the oats eaten; the snack's apple not, a slice of cake instead; lunch and dinner still to come.
+  var MP_EATEN = { '1 kase yulaf, yarım bardak süt, 1 muz': true };
+  var MP_INSTEAD = { '1 elma': '1 dilim pasta' };
+  /** Today's day of the plan, as it opens from Days or Today: each item ticked as eaten, what was eaten instead written beside it. */
   function mpDay() {
-    var left = ccProp('Day', 'Oct 28, 2026 · Wednesday', { req: true }) +
+    var left = ccProp('Day', 'Oct 29, 2026 · Thursday', { req: true }) +
       ccProp('Plan', '<span class="lk">' + MP_PLAN + '</span>', { dd: true }) +
       ccProp('Status', lbl('Followed'), { dd: true }) +
-      '<div class="cc-prop gy-prop"><span class="pl">Notes</span><span class="box"><p>Öğleden sonra toplantıda pasta vardı.</p></span></div>';
+      ccProp('Notes', 'Add a note…', { body: true });
     var meals = MP_MEALS.map(function (m) {
-      var items = m.items.filter(function (x) { return x[1] === 'Every day'; });
+      var items = m.items.filter(function (x) { return x[1] === 'Every day' || x[1].indexOf('Thu') >= 0; });
       var rows = items.map(function (x, i) {
         var on = MP_EATEN[x[0]];
-        return '<div class="cc-row md' + (on ? '' : ' mp-not') + '"><span class="ck"><span class="gy-ck' + (on ? ' on' : '') + '">' + (on ? GY_TICK : '') + '</span></span><span class="nm"><span class="t">' + (i > 0 ? '<span class="calc">or </span>' : '') + x[0] + '</span></span><span class="lk">' + (x[2] || '') + '</span></div>';
+        var instead = MP_INSTEAD[x[0]];
+        return '<div class="cc-row mi"><span class="ck"><span class="gy-ck' + (on ? ' on' : '') + '">' + (on ? GY_TICK : '') + '</span></span>' +
+          '<span class="nm"><span class="t">' + (i > 0 ? '<span class="calc">or </span>' : '') + x[0] + '</span></span>' +
+          '<span class="mp-in' + (instead ? ' on' : '') + '">' + (instead ? instead + '<span class="caret"></span>' : 'Instead…') + '</span></div>';
       }).join('');
-      var extra = m.meal === 'Snack' ? '<div class="cc-row md"><span class="ck"><span class="gy-ck on">' + GY_TICK + '</span></span><span class="nm"><span class="t">1 dilim pasta</span><span class="mp-off">Off plan</span></span><span></span></div>' : '';
-      var done = items.some(function (x) { return MP_EATEN[x[0]]; });
-      return '<div class="gy-part">' + m.meal + ' <small>' + (done ? 'eaten' : items.length + ' to choose from') + '</small></div>' + rows + extra;
-    }).join('') + '<div class="cc-addrow">+ Add</div>';
-    var right = '<div class="cc-blk"><div class="blk-h">Items <small>3 of 4 meals · 1 off plan</small></div>' +
-      '<div class="cc-row md head"><span></span><span>What</span><span>Recipe</span></div>' + meals + '</div>';
-    return mpWindow('Days', left, right, '<span class="hint">From ' + MP_PLAN + ', a Wednesday; tick what you ate</span><span class="st-btn">Cancel</span><span class="st-btn go">Save</span>');
-  }
-  var MP_LOG = [
-    ['Oct 28', 'Wed', 'Followed', '3 of 4', '1', 'Toplantıda pasta'], ['Oct 27', 'Tue', 'Followed', '4 of 4', '', ''], ['Oct 26', 'Mon', 'Followed', '4 of 4', '', ''],
-    ['Oct 25', 'Sun', 'Skipped', '', '', 'Düğün'], ['Oct 24', 'Sat', 'Followed', '3 of 4', '2', ''], ['Oct 23', 'Fri', 'Followed', '4 of 4', '', ''],
-    ['Oct 22', 'Thu', 'Followed', '4 of 4', '', ''], ['Oct 21', 'Wed', 'Followed', '4 of 4', '', ''], ['Oct 20', 'Tue', 'Followed', '4 of 4', '', '']
-  ];
-  function mpDays() {
-    var rows = MP_LOG.map(function (d) {
-      return '<div class="ca-row mp-day' + (d[2] === 'Skipped' ? ' off' : '') + '"><span class="dt">' + d[0] + ' · ' + d[1] + '</span><span class="tt">' + MP_PLAN + '</span>' + lbl(d[2]) +
-        '<span class="num">' + (d[3] || '<span class="empty">–</span>') + '</span><span class="num">' + (d[4] || '<span class="empty">–</span>') + '</span><span class="lk">' + d[5] + '</span></div>';
+      var done = items.some(function (x) { return MP_EATEN[x[0]] || MP_INSTEAD[x[0]]; });
+      return '<div class="gy-part">' + m.meal + ' <small>' + (done ? (items.some(function (x) { return MP_INSTEAD[x[0]]; }) ? 'changed' : 'eaten') : items.length + ' to choose from') + '</small></div>' + rows;
     }).join('');
-    var head = '<div class="ca-row mp-day head"><span class="sorted">Day ↓</span><span>Plan</span><span>Status</span><span class="num">Meals</span><span class="num">Off plan</span><span>Note</span></div>';
-    return '<div class="ah">' + ahTop(MP_APP, ICON.app, MP_MODS, 'Days') + ahScreen(['This week', 'This month', 'All', 'Calendar'], head, rows) + '</div>';
+    var right = '<div class="cc-blk"><div class="blk-h">Items <small>2 of 4 meals · 1 changed</small></div>' +
+      '<div class="cc-row mi head"><span></span><span>What</span><span>Instead</span></div>' + meals + '</div>';
+    return mpWindow('Days', left, right, '<span class="st-btn">Didn’t follow</span><span class="hint">Tick what you ate; write what you ate instead</span><span class="st-btn">Cancel</span><span class="st-btn go">Save</span>');
+  }
+  // The plan's days from today on, each a record made with the plan; the days gone by are hidden.
+  var MP_DAYS = [['Oct 29', 'Thu', '2 of 4', '1 changed', true], ['Oct 30', 'Fri', '', ''], ['Oct 31', 'Sat', '', ''], ['Nov 1', 'Sun', '', ''], ['Nov 2', 'Mon', '', ''], ['Nov 3', 'Tue', '', ''], ['Nov 4', 'Wed', '', '']];
+  function mpDays() {
+    var rows = MP_DAYS.map(function (d) {
+      return '<div class="ca-row mp-day' + (d[4] ? ' mp-today' : '') + '"><span class="dt">' + d[0] + ' · ' + d[1] + (d[4] ? ' <small>Today</small>' : '') + '</span><span class="tt">' + MP_PLAN + '</span>' + lbl('Followed') +
+        '<span class="num">' + (d[2] || '<span class="empty">–</span>') + '</span><span class="num">' + (d[3] || '<span class="empty">–</span>') + '</span><span class="lk"></span></div>';
+    }).join('');
+    var head = '<div class="ca-row mp-day head"><span class="sorted">Day ↑</span><span>Plan</span><span>Status</span><span class="num">Meals</span><span class="num">Changed</span><span>Note</span></div>';
+    return '<div class="ah">' + ahTop(MP_APP, ICON.app, MP_MODS, 'Days') + ahScreen(['From today', 'All', 'Calendar'], head, rows) + '</div>';
   }
   function mpTodayRec() {
-    return '<div class="task c3-rec" style="--cc: #5cb87a"><span class="c3-rbar"></span><div><div class="tt">' + MP_PLAN + '</div>' +
-      '<div class="meta"><span>' + ICON.collection + 'Plans</span><span>' + MP_APP + ' · 4 meals</span></div>' +
-      '<div class="gy-acts"><span class="st-btn go">Start</span><span class="st-btn">Skip</span></div></div></div>';
+    return '<div class="task c3-rec" style="--cc: #5cb87a"><span class="c3-rbar"></span><div><div class="tt">' + MP_PLAN + ' · Thu, Oct 29</div>' +
+      '<div class="meta"><span>' + ICON.collection + 'Days</span><span>' + MP_APP + ' · 2 of 4 meals</span></div></div></div>';
   }
   function mpToday() {
     var body = '<div class="tasksv"><div class="th"><b>Today</b><span class="c3-date">Thu, Oct 29</span><button type="button" class="add">Add task</button></div><div class="tl">' +
@@ -14908,7 +14914,7 @@ p { margin: 0; max-width: 68ch; }
       upTask({ t: 'Pay the rent', w: 'Inbox', p: 'p2' }) + upTask({ t: 'Call the dentist', w: 'Home' }) + mpTodayRec() +
       '<div class="qa">+ Add task</div></div></div>';
     return '<aside class="side">' + mpTree() + '</aside><section class="main"><div class="panes">' + pane(tab('tasks', 'Today', 'x', true) + '<div class="tab plus">+</div>', body) + '</div>' +
-      '<div class="status"><span>2 tasks · 1 plan day</span>' + syncStatus(false, null) + '</div></section>';
+      '<div class="status"><span>2 tasks · 1 record</span>' + syncStatus(false, null) + '</div></section>';
   }
   /** A recipe: its link to where it is written, beside its time and servings; its ingredients on the right. */
   function mpRecipe() {
@@ -14923,30 +14929,37 @@ p { margin: 0; max-width: 68ch; }
       '<div class="cc-addrow">+ Add row</div></div>';
     return mpWindow('Recipes', left, right, '<span class="st-btn">Add to shopping list</span><span class="st-btn">Cancel</span><span class="st-btn go off">Save</span>');
   }
-  /** On a phone: the plan's day in Today; the day's meals, tapped as eaten. */
+  /** On a phone: today's day in Today; the day's meals, tapped as eaten, what was eaten instead under it. */
   function mpPhone() {
     var today = mbPage(mbHead('Today', 'Thursday, Oct 29', true),
-      '<div class="gy-mcap">Today</div><div class="gy-mtoday"><div class="gy-mt">' + ICON.collection + '<span class="tx"><b>' + MP_PLAN + '</b><small>4 meals</small></span><span class="skip">Skip</span><span class="go">Start</span></div></div>' +
+      '<div class="gy-mcap">Today</div><div class="gy-mtoday"><div class="gy-mt">' + ICON.collection + '<span class="tx"><b>' + MP_PLAN + '</b><small>2 of 4 meals</small></span></div></div>' +
       '<div class="gy-mtoday" style="margin-top: 8px"><div class="gy-mt"><span class="rc"></span><span class="tx"><b>Pay the rent</b></span></div><div class="gy-mt"><span class="rc"></span><span class="tx"><b>Call the dentist</b></span></div></div>');
-    var nav = '<div class="mb-nav"><span class="tb plain">Cancel</span><span class="mid">Wed, Oct 28</span><span class="acts"><span class="tb">Save</span></span></div>';
+    var nav = '<div class="mb-nav"><span class="tb plain">Cancel</span><span class="mid">Thu, Oct 29</span><span class="acts"><span class="tb">Save</span></span></div>';
     function mrow(x, i) {
       var on = MP_EATEN[x[0]];
-      return '<div class="gy-mr' + (on ? '' : ' mp-n') + '"><span class="c' + (on ? ' on' : '') + '">' + (on ? GY_TICK : '') + '</span><span class="tx"><b>' + x[0] + '</b>' + (x[2] ? '<small>' + x[2] + '</small>' : '') + '</span></div>';
+      var instead = MP_INSTEAD[x[0]];
+      return '<div class="gy-mr"><span class="c' + (on ? ' on' : '') + '">' + (on ? GY_TICK : '') + '</span><span class="tx"><b>' + (i > 0 ? '<span class="mp-or3">or </span>' : '') + x[0] + '</b>' +
+        (instead ? '<small class="mp-in2">Instead: ' + instead + '</small>' : '') + '</span></div>';
     }
     var day = nav + '<div class="mb-form" style="padding-top: 8px"><div class="mb-group wide">' + mbVal('Plan', MP_PLAN) + mbVal('Status', 'Followed') + '</div></div>' +
       MP_MEALS.map(function (m) {
-        var items = m.items.filter(function (x) { return x[1] === 'Every day'; });
-        var done = items.some(function (x) { return MP_EATEN[x[0]]; });
-        var extra = m.meal === 'Snack' ? '<div class="gy-mr"><span class="c on">' + GY_TICK + '</span><span class="tx"><b>1 dilim pasta</b><small>Off plan</small></span></div>' : '';
-        return '<div class="gy-mcap">' + m.meal + '<span>' + (done ? 'eaten' : items.length + ' to choose') + '</span></div><div class="gy-ml">' + items.map(mrow).join('') + extra + '</div>';
-      }).join('') + '<div class="gy-mcap" style="color: var(--m-accent); text-transform: none; letter-spacing: 0">+ Add what you ate</div>';
-    return mbPhone('Today: programın günü, Start ya da Skip', today, mbTabs('today')) +
-      mbPhone('Gün: öğün öğün, dokununca yendi', mbPage('', day), '');
+        var items = m.items.filter(function (x) { return x[1] === 'Every day' || x[1].indexOf('Thu') >= 0; });
+        var done = items.some(function (x) { return MP_EATEN[x[0]] || MP_INSTEAD[x[0]]; });
+        return '<div class="gy-mcap">' + m.meal + '<span>' + (done ? 'eaten' : items.length + ' to choose') + '</span></div><div class="gy-ml">' + items.map(mrow).join('') + '</div>';
+      }).join('') + '<div class="gy-mcap" style="color: var(--m-p1); text-transform: none; letter-spacing: 0">Didn’t follow</div>';
+    var sheet = MB_DIM + '<div class="mb-sheet"><span class="grab"></span><div class="mb-sh three"><span class="cancel">Cancel</span><b>1 elma</b><span class="ok">Done</span></div>' +
+      '<div class="mb-form"><div class="mb-group wide">' +
+      '<div class="mb-fr"><span class="fl">Eaten</span><span class="gy-step"><span class="gy-mr" style="padding: 0; min-height: 0"><span class="c"></span></span></span></div>' +
+      '<div class="mb-fr"><span class="fl">Instead</span><span class="in">1 dilim pasta<span class="caret"></span></span></div>' +
+      '</div></div></div>';
+    return mbPhone('Today: bugünün günü', today, mbTabs('today')) +
+      mbPhone('Gün: dokununca yendi; değişen altında', mbPage('', day), '') +
+      mbPhone('Maddeye uzun basınca: Instead', mbPage('', day), sheet);
   }
   var MP_VIEWS = {
     mpplan: function () { return ahFrame(mpTree(), 'app', MP_APP, mpPlans(), '1 record · Sorted by Name', mpPlan()); },
-    mpday: function () { return ahFrame(mpTree(), 'app', MP_APP, mpDays(), '9 records · This week', mpDay()); },
-    mpdays: function () { return ahFrame(mpTree(), 'app', MP_APP, mpDays(), '9 records · 8 followed, 1 skipped'); },
+    mpday: function () { return ahFrame(mpTree(), 'app', MP_APP, mpDays(), '7 records · From today', mpDay()); },
+    mpdays: function () { return ahFrame(mpTree(), 'app', MP_APP, mpDays(), '7 records · From today'); },
     mptoday: mpToday,
     mprecipe: function () { return ahFrame(mpTree(), 'app', MP_APP, mpPlans(), '1 record', mpRecipe()); }
   };

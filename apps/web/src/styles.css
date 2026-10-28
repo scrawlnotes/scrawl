@@ -20262,3 +20262,27 @@ button.ppl:hover {
   font-weight: 400;
   white-space: nowrap;
 }
+
+/* A text the table changes where it is: a box in the cell (design/meal-plans.md 3). */
+.rtable .ttext {
+  width: 100%;
+  min-width: 140px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  background: var(--sl-bg);
+  color: var(--sl-fg);
+  font: inherit;
+  font-size: 12.5px;
+  box-sizing: border-box;
+}
+
+.rtable .ttext::placeholder {
+  color: var(--sl-faint);
+}
+
+.rtable .ttext:focus {
+  border-color: var(--sl-accent);
+  outline: none;
+}

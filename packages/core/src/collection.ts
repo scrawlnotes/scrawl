@@ -153,6 +153,8 @@ export type LayoutItem =
       choose?: boolean;
       /** With `choose`, the tick that sets a row apart from the alternatives, said beside it and not counted: eaten off the plan. */
       apart?: string;
+      /** With `choose`, the text that says what was had in a row's place: written, its group is picked too, and said changed (design/meal-plans.md 3). */
+      instead?: string;
     }
   | { block: 'cards' }
   | { block: 'subtasks' }
@@ -228,7 +230,8 @@ export interface CalendarSettings {
   end?: string;
   duration?: string;
   color?: string;
-  upcoming: boolean;
+  /** Its records in Today and Upcoming; 'today', in Today only, the day it is (design/meal-plans.md 1). */
+  upcoming: boolean | 'today';
   /** Its records come on weekdays rather than on a day of their own: a program on its days. */
   repeat?: RepeatSettings;
 }
@@ -277,7 +280,7 @@ export interface View {
  * Whether a field can be changed in a table, where a row opens its record: a tick turns at a
  * click, a choice is picked from its list. A table changes the ones it is told to, none unless.
  */
-export const changesInTable = (field: Field) => field.type === 'checkbox' || field.type === 'select';
+export const changesInTable = (field: Field) => field.type === 'checkbox' || field.type === 'select' || field.type === 'text';
 
 /** Column widths in pixels, by field key. */
 export interface ColumnWidths {
@@ -627,6 +630,7 @@ function readItem(raw: unknown): LayoutItem | null {
       ...(changed.length > 0 && { edit: changed }),
       ...(raw.choose === true && { choose: true }),
       ...(raw.choose === true && typeof raw.apart === 'string' && { apart: cleanFieldKey(raw.apart) }),
+      ...(raw.choose === true && typeof raw.instead === 'string' && { instead: cleanFieldKey(raw.instead) }),
     };
   }
   return null;
@@ -800,7 +804,7 @@ function readCalendar(raw: unknown, fields: Field[]): CalendarSettings | null {
     ...(end && end.key !== start?.key && { end: end.key }),
     ...(duration && { duration: duration.key }),
     ...(color && { color: color.key }),
-    upcoming: given.upcoming !== false,
+    upcoming: given.upcoming === 'today' ? 'today' : given.upcoming !== false,
     ...(repeat && { repeat }),
   };
 }

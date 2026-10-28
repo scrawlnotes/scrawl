@@ -493,12 +493,24 @@ export function CalendarViewDialog({ schema, view, showAs, records, count, onSav
           />
           <span />
           <label className="calview-check">
-            <input type="checkbox" checked={settings.upcoming} onChange={(event) => setSettings({ ...settings, upcoming: event.target.checked })} />
+            <input type="checkbox" checked={settings.upcoming !== false} onChange={(event) => setSettings({ ...settings, upcoming: event.target.checked })} />
             <span>
               <b>{t('calendar.upcoming')}</b>
               <small>{t('calendar.upcomingHelp')}</small>
             </span>
           </label>
+          {settings.upcoming !== false && (
+            <>
+              <span />
+              <label className="calview-check">
+                <input type="checkbox" checked={settings.upcoming === 'today'} onChange={(event) => setSettings({ ...settings, upcoming: event.target.checked ? 'today' : true })} />
+                <span>
+                  <b>{t('calendar.todayOnly')}</b>
+                  <small>{t('calendar.todayOnlyHelp')}</small>
+                </span>
+              </label>
+            </>
+          )}
         </div>
         <p className="dialog-hint">{conditions.length === 0 ? t('collection.noConditions') : t('collection.conditions')}</p>
         {conditions.map((condition, i) => (

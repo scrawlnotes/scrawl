@@ -3113,7 +3113,7 @@ export class Session {
     const collection = this.snapshot.collections[dir];
     if (!collection) return t('error.create');
     const id = form?.id ?? newRecordId();
-    const ran = this.withDrafted(dir, id, input.values ?? {}, this.onSave(dir, recordWith(collection, id, input.values ?? {}), null, undefined, { changes: !form?.drafted }), form?.drafted);
+    const ran = this.withDrafted(dir, id, input.values ?? {}, this.onSave(dir, recordWith(collection, id, input.values ?? {}), null, this.ruleSpaceWith(dir, form?.drafted), { changes: !form?.drafted }), form?.drafted);
     let made: CollectionRecord;
     try {
       const { fs, space } = this.at(dir);
@@ -3137,7 +3137,7 @@ export class Session {
     const record = collection?.records.find((r) => r.id === id);
     if (!collection || !record) return t('error.record');
     const values = { ...record.values, ...(patch.values ?? {}) };
-    const ran = this.withDrafted(dir, id, values, this.onSave(dir, { ...record, values }, record, undefined, { changes: !form?.drafted }), form?.drafted);
+    const ran = this.withDrafted(dir, id, values, this.onSave(dir, { ...record, values }, record, this.ruleSpaceWith(dir, form?.drafted), { changes: !form?.drafted }), form?.drafted);
     if (ran) patch = { ...patch, values: ran.values };
     try {
       const { fs, space } = this.at(dir);
@@ -3229,6 +3229,20 @@ export class Session {
     } catch {
       return values;
     }
+  }
+
+  /**
+   * The space the rules of a record saved from a form read, with the rows the form adds among their
+   * collections' records: a new plan's onSave finds the items typed in its window (design/meal-plans.md 2).
+   */
+  private ruleSpaceWith(dir: string, drafted: Change[] | undefined): RuleSpaceNow {
+    const space = this.ruleSpace(dir);
+    if (!drafted?.length) return space;
+    const collections = space.collections.map((c) => {
+      const added = drafted.flatMap((d) => (d.kind === 'add' && d.dir === localPath(c.dir) && !c.records.some((r) => r.id === d.id) ? [recordWith(c, d.id, d.values)] : []));
+      return added.length > 0 ? { ...c, records: [...c.records, ...added] } : c;
+    });
+    return { ...space, collections };
   }
 
   /**
