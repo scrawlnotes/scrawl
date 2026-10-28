@@ -84,6 +84,12 @@ export interface AppTemplate {
   icon: string;
   /** What it is for, in a line. */
   what: MessageKey;
+  /**
+   * A person's template goes in one app only with these, which share its data: Travel with Shared
+   * expenses, Sport with Gym; with none, it is an app of its own (design/more-apps.md 1). A
+   * business's goes with any of its side.
+   */
+  goesWith?: readonly TemplateId[];
   questions: Question[];
   /** Whether it holds money with these answers, for the app's currencies to be asked. */
   money: (answers: Answers) => boolean;

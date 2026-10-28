@@ -1,4 +1,4 @@
-import { APP_TEMPLATES, type Answers, audienceOf, MemoryFs, saveMe, TEMPLATE_GROUPS, TEMPLATE_IDS, type TemplateId } from '@scrawlnotes/core';
+import { APP_TEMPLATES, type Answers, apartProblem, goTogether, MemoryFs, saveMe, TEMPLATE_GROUPS, TEMPLATE_IDS, type TemplateId } from '@scrawlnotes/core';
 import { describe, expect, it } from 'vitest';
 import { checkFile, checkRules } from './check';
 import { fileKind, Refusal } from './paths';
@@ -98,20 +98,21 @@ const LEAST: { [id in TemplateId]: Answers } = {
 };
 
 /**
- * The sets of templates tried (design/more-apps.md 7): each alone, each with each other of its
- * side, and each group's and each side's all together. Every set would be too many.
+ * The sets of templates tried (design/more-apps.md 7): each alone, each with each other it goes
+ * together with, each group's and each side's all together where they go in one app, and a
+ * person's that do. Every set would be too many.
  */
 const setsToTry = (): TemplateId[][] => {
-  const sideOf = (id: TemplateId) => audienceOf(APP_TEMPLATES[id].group);
   const out: TemplateId[][] = TEMPLATE_IDS.map((id) => [id]);
   TEMPLATE_IDS.forEach((a, i) => {
-    for (const b of TEMPLATE_IDS.slice(i + 1)) if (sideOf(a) === sideOf(b)) out.push([a, b]);
+    for (const b of TEMPLATE_IDS.slice(i + 1)) if (goTogether(a, b)) out.push([a, b]);
   });
   for (const groups of Object.values(TEMPLATE_GROUPS)) {
     for (const group of groups) out.push(TEMPLATE_IDS.filter((id) => APP_TEMPLATES[id].group === group));
     out.push(TEMPLATE_IDS.filter((id) => (groups as readonly string[]).includes(APP_TEMPLATES[id].group)));
   }
-  return out.filter((set) => set.length > 0);
+  out.push(['finance', 'travel', 'split']);
+  return out.filter((set) => (set.length > 1 ? apartProblem(set, new Set()) === null : set.length > 0));
 };
 
 /** What a template is asked with this set: only the questions it asks. */
@@ -838,12 +839,14 @@ describe('apps', () => {
 
   it('ticks a habit once a day, and keeps workouts: a planned one done, sets and the best, the body since the first, a race', async () => {
     const { agent } = await world();
-    await createTool(agent, { kind: 'app', name: 'Me', templates: ['habits', 'sport'], answers: { sport: { body: true, races: true } } });
-    const walk = (await recordsTool(agent, { collection: 'Me/Habits', where: [{ field: 'name', op: 'is', value: 'Walk 30 minutes' }] })).data.records[0]!;
-    const ticked = await saveRecordTool(agent, { collection: 'Me/Habits', id: walk.id, action: 'Done today' });
+    // Habits and Sport share no data: two apps.
+    await createTool(agent, { kind: 'app', name: 'Days', templates: ['habits'] });
+    await createTool(agent, { kind: 'app', name: 'Me', templates: ['sport'], answers: { sport: { body: true, races: true } } });
+    const walk = (await recordsTool(agent, { collection: 'Days/Habits', where: [{ field: 'name', op: 'is', value: 'Walk 30 minutes' }] })).data.records[0]!;
+    const ticked = await saveRecordTool(agent, { collection: 'Days/Habits', id: walk.id, action: 'Done today' });
     expect(ticked.data.record.values).toMatchObject({ today: 1, last_7: 1 });
-    expect((await refusal(saveRecordTool(agent, { collection: 'Me/Habits', id: walk.id, action: 'Done today' }))).message).toMatch(/Done today already/);
-    const late = await saveRecordTool(agent, { collection: 'Me/Goals', values: { name: 'Learn to swim', due: '2026-09-30' } });
+    expect((await refusal(saveRecordTool(agent, { collection: 'Days/Habits', id: walk.id, action: 'Done today' }))).message).toMatch(/Done today already/);
+    const late = await saveRecordTool(agent, { collection: 'Days/Goals', values: { name: 'Learn to swim', due: '2026-09-30' } });
     expect(late.data.record.problems).toEqual([{ kind: 'check', field: 'due', text: 'Past its day' }]);
 
     const planned = await saveRecordTool(agent, { collection: 'Me/Plan', values: { date: '2026-10-22', type: 'Run', minutes: 45 } });
@@ -1027,15 +1030,19 @@ describe('apps', () => {
     expect(listed.find((x) => x.id === 'finance')!.audience).toBe('personal');
     const mixed = await refusal(createTool(agent, { kind: 'app', name: 'Home', templates: ['crm', 'finance'], currencies: ['TRY'] }));
     expect(mixed.details.problems).toEqual(['An app is set up from templates for a business or for a person, not both: crm for a business, finance for a person. Set them up as two apps']);
+    // A person's templates go in one app only with those they share data with.
+    const apart = await refusal(createTool(agent, { kind: 'app', name: 'Home', templates: ['habits', 'recipes'] }));
+    expect(apart.details.problems).toEqual(['Recipes and Habits share no data: set them up as separate apps']);
+    expect((await createTool(agent, { kind: 'app', name: 'Fit', templates: ['sport', 'gym'] })).data).toMatchObject({ templates: ['sport', 'gym'] });
   });
 
   it('adds a template that keeps money to an app that has no currencies, with the ones given', async () => {
     const { agent } = await world();
-    await createTool(agent, { kind: 'app', name: 'Mine', templates: ['health'] });
-    const none = await refusal(createTool(agent, { kind: 'app', folder: 'Mine', name: '', templates: ['finance'] }));
+    await createTool(agent, { kind: 'app', name: 'Mine', templates: ['content'] });
+    const none = await refusal(createTool(agent, { kind: 'app', folder: 'Mine', name: '', templates: ['budget'] }));
     expect(none.details.problems).toEqual(['Give the currencies the app keeps money in, like TRY or EUR; the first is the main one']);
-    const added = await createTool(agent, { kind: 'app', folder: 'Mine', name: '', templates: ['finance'], currencies: ['TRY'] });
-    expect(added.data).toMatchObject({ templates: ['health', 'finance'] });
+    const added = await createTool(agent, { kind: 'app', folder: 'Mine', name: '', templates: ['budget'], currencies: ['TRY'] });
+    expect(added.data).toMatchObject({ templates: ['content', 'budget'] });
     expect(JSON.parse((await readTool(agent, { path: 'Mine/_app.json' })).data.text).currencies).toEqual(['TRY']);
   });
 });

@@ -9,6 +9,7 @@ Her şablon bugünkülerin yolunu izler (`packages/core/src/apps/templates/*.ts`
 - Her şablonun bir kitlesi olur: `audience: 'business' | 'personal'`.
 - Şablonlar adımının üstünde iki seçenek: **Business · Personal**. Kişisel space'te Personal ile, öbürlerinde Business ile açılır; seçim cihazda kalır.
 - Bir app ya iş ya kişisel şablonlardan kurulur: iki tarafın parçaları birbirine bağlanmaz, verileri de çoğu zaman ayrı space'lerde durur. Öbür tarafa geçince seçilenler bırakılır. Add to app yalnız app'in kendi tarafındaki şablonları sunar.
+- Kişisel şablonlar yalnız veri paylaştıklarıyla aynı app'e girer: Seyahat ve Paylaşılan harcamalar (Trips, Spending), Kişisel finans ve Paylaşılan harcamalar (kendi payın harcama olarak), Yakınlar ve Okuma (Recommended by bir yakına bağlanır), Spor ve Gym (Exercises). Öbürleri hep kendi app'i olur. Bir şablon seçilince uymayanlar soluk ve tıklanmaz, açıklamalarının yerinde "Set it up as its own app" yazar; Edit app'te app'teki şablonlar seçili sayılır; bağı kopan seçim kurulmaz, nedeni söylenir; ajan da buna uyar. İş şablonları hep birlikte seçilebilir (28 Ekim).
 - İş şablonları bugünkü gruplarında kalır (Customers, Work, Money). Kişiseller üç grupta: **Money and home** (Kişisel finans, Ev araç ve belgeler, Tarifler), **Health** (Sağlık, Spor ve antrenman, Alışkanlıklar) ve **Life** (Seyahat, Paylaşılan harcamalar, İş arama, Yakınlar, Okuma ve izleme).
 - Ajanın `create` aracı şablonları kitlesiyle listeler; iki taraftan şablonu aynı app'e koymaz, nedenini söyler.
 - Ekranı değiştiği için önce mockup.

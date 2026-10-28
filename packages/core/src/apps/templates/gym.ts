@@ -22,6 +22,7 @@ export const gym: AppTemplate = {
   short: 'apps.gym.short',
   icon: 'rise',
   what: 'apps.gym.what',
+  goesWith: ['sport'],
   questions: [
     { key: 'days', kind: 'yesno', label: 'apps.gym.days', default: true, help: 'apps.gym.daysHelp' },
     { key: 'sets', kind: 'yesno', label: 'apps.gym.sets', default: false, help: 'apps.gym.setsHelp' },

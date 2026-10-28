@@ -20,6 +20,7 @@ export const people: AppTemplate = {
   short: 'apps.people.short',
   icon: 'person',
   what: 'apps.people.what',
+  goesWith: ['reading'],
   questions: [
     { key: 'anniversaries', kind: 'yesno', label: 'apps.people.anniversaries', default: true },
     { key: 'often', kind: 'yesno', label: 'apps.people.often', default: true, help: 'apps.people.oftenHelp' },

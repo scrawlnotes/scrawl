@@ -28,7 +28,7 @@ import { freePath } from '../paths';
 import { RULES_FILE, rulesProblems, ruleSpaceOf } from '../rules';
 import { aboutAdded, aboutName, aboutNote, aboutSection, listed, partName } from './about';
 import { PIECES, type PieceInfo, ROLES } from './pieces';
-import { impliedBy, isTemplateId, readAnswers, readCurrencies, TEMPLATES } from './questions';
+import { apartProblem, impliedBy, isTemplateId, readAnswers, readCurrencies, TEMPLATES } from './questions';
 import {
   type AboutSection,
   type Answers,
@@ -300,6 +300,11 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
   // One side only: a business's pieces and a person's are not linked, and are mostly kept apart.
   const side = (audience: Audience) => [...chosen].filter((id) => audienceOf(TEMPLATES[id].group) === audience);
   if (side('business').length > 0 && side('personal').length > 0) problems.push(t('apps.oneSide', { business: side('business').join(', '), personal: side('personal').join(', ') }));
+  // A person's templates only with those they share data with; what was set up before stays as it is.
+  else if (fresh.length > 0) {
+    const apart = apartProblem(fresh, new Set(installed.keys()));
+    if (apart) problems.push(apart);
+  }
   const given = new Map(input.templates.map((x) => [x.id, x.answers ?? {}]));
   const answers = new Map(installed);
   for (const id of fresh) {

@@ -7074,8 +7074,10 @@ body > .mb-lifted {
   opacity: 0.45;
 }
 
-/* Add to app on a phone: the app's templates faint; what cannot be added said under the summary. */
-.na-mcard.in {
+/* Add to app on a phone: the app's templates faint, and a template that goes with nothing chosen;
+   what cannot be added said under the summary. */
+.na-mcard.in,
+.na-mcard.off {
   opacity: 0.55;
 }
 

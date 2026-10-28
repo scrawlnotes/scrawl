@@ -19,6 +19,7 @@ export const sport: AppTemplate = {
   short: 'apps.sport.short',
   icon: 'rise',
   what: 'apps.sport.what',
+  goesWith: ['gym'],
   questions: [
     { key: 'sports', kind: 'multi', label: 'apps.sport.sports', options: SPORTS.map((value) => ({ value, label: `apps.sport.sport.${value === 'Team sport' ? 'team' : value.toLowerCase()}` as MessageKey })), default: SPORTS },
     { key: 'sets', kind: 'yesno', label: 'apps.sport.sets', default: true, when: ({ answers }) => !Array.isArray(answers.sports) || answers.sports.includes('Gym'), under: 'sports' },

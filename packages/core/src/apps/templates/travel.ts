@@ -18,6 +18,7 @@ export const travel: AppTemplate = {
   short: 'apps.travel.short',
   icon: 'globe',
   what: 'apps.travel.what',
+  goesWith: ['split'],
   questions: [{ key: 'keeps', kind: 'multi', label: 'apps.travel.keeps', options: KEEPS.map((value) => ({ value, label: `apps.travel.keep.${value}` as MessageKey })), default: KEEPS }],
   money: () => true,
   pieces: (answers, app) => {

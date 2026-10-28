@@ -31,11 +31,49 @@ import { subscriptions } from './templates/subscriptions';
 import { support } from './templates/support';
 import { timeoff } from './templates/timeoff';
 import { travel } from './templates/travel';
-import { type Answer, type Answers, type AppTemplate, type Question, TEMPLATE_IDS, type TemplateId } from './types';
+import { listed } from './about';
+import { type Answer, type Answers, type AppTemplate, audienceOf, type Question, TEMPLATE_IDS, type TemplateId } from './types';
 
 export const TEMPLATES: { [id in TemplateId]: AppTemplate } = { crm, sales, support, appointments, projects, budget, stock, ecommerce, product, recruiting, assets, content, subscriptions, contracts, timeoff, goals, incidents, field, consulting, association, finance, home, health, recipes, travel, split, jobs, people, reading, habits, sport, gym };
 
 export const isTemplateId = (id: unknown): id is TemplateId => TEMPLATE_IDS.includes(id as TemplateId);
+
+/** Whether two templates go in one app: of one side, and a person's only with one it shares data with (design/more-apps.md 1). */
+export function goTogether(a: TemplateId, b: TemplateId): boolean {
+  const side = audienceOf(TEMPLATES[a].group);
+  if (side !== audienceOf(TEMPLATES[b].group)) return false;
+  return side === 'business' || !!TEMPLATES[a].goesWith?.includes(b) || !!TEMPLATES[b].goesWith?.includes(a);
+}
+
+/** Whether a template may be picked with those chosen and in the app: with none, or beside one it goes together with. */
+export const fitsWith = (id: TemplateId, chosen: ReadonlySet<TemplateId>): boolean => chosen.size === 0 || chosen.has(id) || [...chosen].some((other) => goTogether(id, other));
+
+/** The templates in groups of those that go together one after another, in their order: Finance, Travel, Shared expenses; Habits. */
+function groupsOf(ids: readonly TemplateId[]): TemplateId[][] {
+  const groups: TemplateId[][] = [];
+  const left = TEMPLATE_IDS.filter((id) => ids.includes(id));
+  while (left.length > 0) {
+    const group = [left.shift()!];
+    for (let i = 0; i < group.length; i++) {
+      for (let j = left.length - 1; j >= 0; j--) if (goTogether(group[i]!, left[j]!)) group.push(...left.splice(j, 1));
+    }
+    groups.push(TEMPLATE_IDS.filter((id) => group.includes(id)));
+  }
+  return groups;
+}
+
+/**
+ * What is wrong with templates of one side set apart from each other, null when they go in one app:
+ * a new app's in more than one group, or one added that goes with nothing in the app. A person's
+ * app set up mixed before keeps its templates; only what is added is asked of.
+ */
+export function apartProblem(chosen: readonly TemplateId[], installed: ReadonlySet<TemplateId>): string | null {
+  const names = (ids: TemplateId[]) => listed(ids.map((id) => t(TEMPLATES[id].short)));
+  const groups = groupsOf([...new Set([...installed, ...chosen])]);
+  if (installed.size === 0) return groups.length > 1 ? t('apps.apart', { groups: listed(groups.map((g) => g.map((id) => t(TEMPLATES[id].short)).join(' + '))) }) : null;
+  const lone = groups.filter((g) => !g.some((id) => installed.has(id))).flat();
+  return lone.length > 0 ? t('apps.apartFromApp', { templates: names(lone), count: lone.length, installed: names([...installed]) }) : null;
+}
 
 /** The questions a template asks, in order, with the templates chosen and its answers so far: one bound to another template or answer only when that holds. */
 export function askedQuestions(template: AppTemplate, chosen: ReadonlySet<TemplateId>, answers: Answers = {}): Question[] {

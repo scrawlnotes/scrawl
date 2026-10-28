@@ -13768,14 +13768,17 @@ button.st-li:hover,
   }
 }
 
-/* Add to app: the app's templates faint, In the app where the tick would be; a summary of what is
-   set up, what is added to what is there, what is left as it is, or what to change first. */
-.na-card.in {
+/* Add to app: the app's templates faint, In the app where the tick would be; a person's template
+   that goes with nothing chosen faint too, its own app; a summary of what is set up, what is added
+   to what is there, what is left as it is, or what to change first. */
+.na-card.in,
+.na-card.off {
   opacity: 0.55;
   cursor: default;
 }
 
-.na-card.in:hover {
+.na-card.in:hover,
+.na-card.off:hover {
   border-color: var(--sl-line);
 }
 

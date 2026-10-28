@@ -12,7 +12,7 @@ import { APP_FILE, APP_ICONS, AppProblems, type FoundApp, planApp } from './buil
 import { installApp, undoApp } from './install';
 import { appIcon, type AppPiece, hiddenOnForm, homeOf, linesBlocks, menuEditOf, menuFileOf, menuOf, screenKey, showsLines, unplacedOf } from './menu';
 import { PIECES } from './pieces';
-import { readAnswers, TEMPLATES } from './questions';
+import { apartProblem, fitsWith, goTogether, readAnswers, TEMPLATES } from './questions';
 import { findApp, readAppFile, readAppMenu, writeAppMenu } from './roles';
 import { type Answers, audienceOf, TEMPLATE_GROUPS, TEMPLATE_IDS, type TemplateId } from './types';
 
@@ -20,20 +20,21 @@ let n = 0;
 const ids = () => `id${++n}`;
 
 /**
- * The sets of templates tried (design/more-apps.md 7): each alone, each with each other of its
- * side, and each group's and each side's all together. Every set would be too many.
+ * The sets of templates tried (design/more-apps.md 7): each alone, each with each other it goes
+ * together with, each group's and each side's all together where they go in one app, and a
+ * person's that do. Every set would be too many.
  */
 const setsToTry = (): TemplateId[][] => {
-  const sideOf = (id: TemplateId) => audienceOf(TEMPLATES[id].group);
   const out: TemplateId[][] = TEMPLATE_IDS.map((id) => [id]);
   TEMPLATE_IDS.forEach((a, i) => {
-    for (const b of TEMPLATE_IDS.slice(i + 1)) if (sideOf(a) === sideOf(b)) out.push([a, b]);
+    for (const b of TEMPLATE_IDS.slice(i + 1)) if (goTogether(a, b)) out.push([a, b]);
   });
   for (const groups of Object.values(TEMPLATE_GROUPS)) {
     for (const group of groups) out.push(TEMPLATE_IDS.filter((id) => TEMPLATES[id].group === group));
     out.push(TEMPLATE_IDS.filter((id) => (groups as readonly string[]).includes(TEMPLATES[id].group)));
   }
-  return out.filter((set) => set.length > 0);
+  out.push(['finance', 'travel', 'split']);
+  return out.filter((set) => (set.length > 1 ? apartProblem(set, new Set()) === null : set.length > 0));
 };
 
 /** The answers that turn on what can be turned on, and the ones that turn it off. */
@@ -436,15 +437,45 @@ describe('setting up an app', () => {
     await installApp(fs, planApp({ name: 'Mine', templates: [{ id: 'health' }] }, { ids }));
     const found = (await findApp(fs, 'Mine'))!;
     expect(() => planApp({ name: '', templates: [{ id: 'support' }] }, { found })).toThrow(/support for a business, health for a person/);
-    expect(planApp({ name: '', templates: [{ id: 'home', answers: { keeps: ['documents'] } }] }, { found, ids }).templates.map((s) => s.id)).toEqual(['home']);
+    expect(() => planApp({ name: '', templates: [{ id: 'home', answers: { keeps: ['documents'] } }] }, { found, ids })).toThrow('Home shares no data with Health: set it up as its own app');
     // An app with no currencies takes the ones given with a template that keeps money; one that has them keeps its own.
-    expect(() => planApp({ name: '', templates: [{ id: 'finance' }] }, { found, ids })).toThrow(/Give the currencies/);
-    const withMoney = planApp({ name: '', currencies: ['EUR', 'TRY'], templates: [{ id: 'finance' }] }, { found, ids });
+    await installApp(fs, planApp({ name: 'Work', templates: [{ id: 'content' }] }, { ids }));
+    const work = (await findApp(fs, 'Work'))!;
+    expect(() => planApp({ name: '', templates: [{ id: 'budget' }] }, { found: work, ids })).toThrow(/Give the currencies/);
+    const withMoney = planApp({ name: '', currencies: ['EUR', 'TRY'], templates: [{ id: 'budget' }] }, { found: work, ids });
     expect(withMoney.app.currencies).toEqual(['EUR', 'TRY']);
-    expect(JSON.parse(withMoney.files.find((f) => f.path === `Mine/${APP_FILE}`)!.text).currencies).toEqual(['EUR', 'TRY']);
+    expect(JSON.parse(withMoney.files.find((f) => f.path === `Work/${APP_FILE}`)!.text).currencies).toEqual(['EUR', 'TRY']);
     await installApp(fs, withMoney);
-    const again = (await findApp(fs, 'Mine'))!;
-    expect(planApp({ name: '', currencies: ['USD'], templates: [{ id: 'home' }] }, { found: again, ids }).app.currencies).toEqual(['EUR', 'TRY']);
+    const again = (await findApp(fs, 'Work'))!;
+    expect(planApp({ name: '', currencies: ['USD'], templates: [{ id: 'projects' }] }, { found: again, ids }).app.currencies).toEqual(['EUR', 'TRY']);
+  });
+
+  it('sets up a person’s templates in one app only with those they share data with', async () => {
+    // Finance, Shared expenses and Travel go together; People and Reading; Sport and Gym; each of the others alone. A business's all together.
+    expect(TEMPLATE_IDS.filter((id) => audienceOf(TEMPLATES[id].group) === 'personal' && TEMPLATE_IDS.some((other) => other !== id && goTogether(id, other)))).toEqual(['finance', 'travel', 'split', 'people', 'reading', 'sport', 'gym']);
+    expect(goTogether('finance', 'travel')).toBe(false);
+    expect(goTogether('crm', 'timeoff')).toBe(true);
+    expect(goTogether('crm', 'gym')).toBe(false);
+    // What may be picked: with none chosen, all; with Finance, Shared expenses; with both, Travel; with Habits, nothing more.
+    const pickable = (chosen: TemplateId[]) => TEMPLATE_IDS.filter((id) => audienceOf(TEMPLATES[id].group) === 'personal' && !chosen.includes(id) && fitsWith(id, new Set(chosen)));
+    expect(pickable(['finance'])).toEqual(['split']);
+    expect(pickable(['finance', 'split'])).toEqual(['travel']);
+    expect(pickable(['gym'])).toEqual(['sport']);
+    expect(pickable(['habits'])).toEqual([]);
+    // Templates set apart are refused, said by their short names.
+    expect(() => planApp({ name: 'A', templates: [{ id: 'habits' }, { id: 'recipes' }] })).toThrow('Recipes and Habits share no data: set them up as separate apps');
+    expect(() => planApp({ name: 'A', currencies: ['TRY'], templates: [{ id: 'finance' }, { id: 'travel' }, { id: 'gym' }] })).toThrow('Finance, Travel and Gym share no data: set them up as separate apps');
+    expect(() => planApp({ name: 'A', currencies: ['TRY'], templates: [{ id: 'finance' }, { id: 'split' }, { id: 'habits' }] })).toThrow('Finance + Shared expenses and Habits share no data: set them up as separate apps');
+    expect(planApp({ name: 'A', currencies: ['TRY'], templates: [{ id: 'finance' }, { id: 'split' }, { id: 'travel' }] }, { ids }).templates.map((s) => s.id)).toEqual(['finance', 'travel', 'split']);
+    // Added to an app, one that goes with what is in it; an app set up mixed before keeps its templates, and may be added to.
+    const fs = new MemoryFs();
+    await installApp(fs, planApp({ name: 'Fit', templates: [{ id: 'gym' }] }, { ids }));
+    const fit = (await findApp(fs, 'Fit'))!;
+    expect(planApp({ name: '', templates: [{ id: 'sport' }] }, { found: fit, ids }).templates.map((s) => s.id)).toEqual(['sport']);
+    expect(() => planApp({ name: '', templates: [{ id: 'habits' }, { id: 'reading' }] }, { found: fit, ids })).toThrow('Reading and Habits share no data with Gym: set them up as their own apps');
+    const mixed = { ...fit, app: { ...fit.app, templates: [...fit.app.templates, { id: 'habits' as const, version: 1, answers: {} }] } };
+    expect(planApp({ name: '', templates: [{ id: 'sport' }] }, { found: mixed, ids }).templates.map((s) => s.id)).toEqual(['sport']);
+    expect(() => planApp({ name: '', templates: [{ id: 'recipes' }] }, { found: mixed, ids })).toThrow('Recipes shares no data with Gym and Habits: set it up as its own app');
   });
 });
 

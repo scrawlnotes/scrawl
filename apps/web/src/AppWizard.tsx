@@ -4,12 +4,14 @@ import {
   type AppInput,
   type AppPlan,
   AppProblems,
+  apartProblem,
   type Answer,
   type Answers,
   askedQuestions,
   type Audience,
   audienceOf,
   dirname,
+  fitsWith,
   localPath,
   PIECES,
   type Question,
@@ -268,7 +270,9 @@ export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreat
     if (at === 0) onClose();
     else setAt(at - 1);
   };
-  const ready = step === 'templates' ? chosen.length > 0 || blank : step === 'app' ? (!!app || name.trim() !== '') && (!money || currencies.length > 0) : step === 'summary' ? !!plan && !plan.blocked?.length && !plan.edit?.same : true;
+  // A person's templates chosen apart from each other, a tick taken off between them: said, and not set up.
+  const apart = step === 'templates' && !blank && chosen.length > 0 ? apartProblem(chosen, installed) : null;
+  const ready = step === 'templates' ? (chosen.length > 0 && !apart) || blank : step === 'app' ? (!!app || name.trim() !== '') && (!money || currencies.length > 0) : step === 'summary' ? !!plan && !plan.blocked?.length && !plan.edit?.same : true;
   const title = editing ? t('apps.edit', { name: editing.name }) : adding ? t('apps.addTo', { name: adding.name }) : t('apps.title');
   const go = editing ? t('apps.save') : adding ? t('apps.add') : t('apps.create');
 
@@ -299,6 +303,7 @@ export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreat
           onSide={adding || SIDES.length < 2 ? undefined : pickSide}
           chosen={chosenSet}
           installed={installed}
+          fits={(id) => fitsWith(id, chosenSet)}
           rolesOf={(id) => rolesOf(id).filter((role) => !borrowed(id).has(role))}
           sharedLine={sharedLine}
           onToggle={toggle}
@@ -347,7 +352,7 @@ export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreat
       />
     );
   };
-  const shownProblems = step === 'app' ? [] : problems;
+  const shownProblems = step === 'app' ? [] : apart ? [apart] : problems;
 
   if (phone) {
     return (
@@ -434,7 +439,7 @@ export function counts(plan: AppPlan): string {
     .join(', ');
 }
 
-function TemplatesPage({ phone, side, onSide, chosen, installed, rolesOf, sharedLine, onToggle, blank }: {
+function TemplatesPage({ phone, side, onSide, chosen, installed, fits, rolesOf, sharedLine, onToggle, blank }: {
   phone: boolean;
   /** Whose templates are shown: a business's or a person's. */
   side: Audience;
@@ -443,6 +448,8 @@ function TemplatesPage({ phone, side, onSide, chosen, installed, rolesOf, shared
   chosen: ReadonlySet<TemplateId>;
   /** The templates the app has already: faint, and not to be picked. */
   installed: ReadonlySet<TemplateId>;
+  /** Whether a template goes in one app with those chosen and the app's: one that does not is faint, its own app. */
+  fits: (id: TemplateId) => boolean;
   rolesOf: (id: TemplateId) => string[];
   sharedLine: (id: TemplateId) => string | null;
   onToggle: (id: TemplateId) => void;
@@ -474,6 +481,7 @@ function TemplatesPage({ phone, side, onSide, chosen, installed, rolesOf, shared
                 const template = APP_TEMPLATES[id];
                 const there = installed.has(id);
                 const on = chosen.has(id) && !there;
+                const off = !there && !fits(id);
                 const shared = sharedLine(id);
                 return (
                   <button
@@ -481,16 +489,16 @@ function TemplatesPage({ phone, side, onSide, chosen, installed, rolesOf, shared
                     type="button"
                     role="checkbox"
                     aria-checked={on}
-                    aria-disabled={there || undefined}
-                    className={[phone ? 'na-mcard' : 'na-card', there && 'in'].filter(Boolean).join(' ')}
-                    onClick={() => !there && onToggle(id)}
+                    aria-disabled={there || off || undefined}
+                    className={[phone ? 'na-mcard' : 'na-card', there && 'in', off && 'off'].filter(Boolean).join(' ')}
+                    onClick={() => !there && !off && onToggle(id)}
                   >
                     {there && !phone ? <span className="na-in">{t('apps.inTheApp')}</span> : <span className="tick">{on && <Icon name="check" />}</span>}
                     <span className="hd">
                       {!phone && <Icon name={template.icon as IconName} />}
                       {t(template.name)}
                     </span>
-                    <span className="what">{there && phone ? t('apps.inTheApp') : t(template.what)}</span>
+                    <span className="what">{there && phone ? t('apps.inTheApp') : off ? t('apps.ownApp') : t(template.what)}</span>
                     {!phone && (
                       <span className="sets">
                         {rolesOf(id).map((role) => (

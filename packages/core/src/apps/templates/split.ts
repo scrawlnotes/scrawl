@@ -17,6 +17,7 @@ export const split: AppTemplate = {
   short: 'apps.split.short',
   icon: 'share',
   what: 'apps.split.what',
+  goesWith: ['finance', 'travel'],
   questions: [
     { key: 'people', kind: 'list', label: 'apps.split.people', default: [], help: 'apps.split.peopleHelp', add: 'apps.split.addPerson' },
     {

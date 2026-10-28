@@ -25,6 +25,7 @@ export const finance: AppTemplate = {
   short: 'apps.finance.short',
   icon: 'stack',
   what: 'apps.finance.what',
+  goesWith: ['split'],
   questions: [
     { key: 'accounts', kind: 'list', label: 'apps.finance.accounts', default: ACCOUNTS, help: 'apps.finance.accountsHelp', add: 'apps.finance.addAccount' },
     { key: 'categories', kind: 'list', label: 'apps.finance.categories', default: CATEGORIES, help: 'apps.finance.categoriesHelp', add: 'apps.finance.addCategory' },

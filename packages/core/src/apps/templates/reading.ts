@@ -25,6 +25,7 @@ export const reading: AppTemplate = {
   short: 'apps.reading.short',
   icon: 'quote',
   what: 'apps.reading.what',
+  goesWith: ['people'],
   questions: [
     { key: 'types', kind: 'multi', label: 'apps.reading.types', options: TYPES.map((value) => ({ value, label: `apps.reading.type.${value.toLowerCase()}` as MessageKey })), default: TYPES },
     { key: 'services', kind: 'list', label: 'apps.reading.services', default: SERVICES, regional: { TR: SERVICES_TR }, help: 'apps.reading.servicesHelp', add: 'apps.reading.addService' },
