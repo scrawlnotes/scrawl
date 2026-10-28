@@ -1991,6 +1991,7 @@ export function App() {
   const taskActions: TaskActions = {
     dueRecords: () => dueRecordsNow,
     moveRecord,
+    pressButton: (due, name) => pressButton(due.collection, due.record.id, name),
     // Start opens the new record of the day, its link set, so that what its rules fill comes with it.
     startDay: (due) => {
       const closing = closingOf(due);

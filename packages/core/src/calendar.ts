@@ -170,7 +170,7 @@ export interface DueRecord extends CalendarRecord {
   collection: string;
   view: View;
   schema: Schema;
-  /** One of the days a repeating record comes on (design/gym.md 4.3), not closed yet: that day. */
+  /** One of the days a repeating record comes on (design/gym.md 4.3), not closed yet, or the day of one whose calendar has a button, gone by: that day. */
   day?: string;
   /** That day went by with nothing closing it: it stays in Overdue. */
   late?: boolean;
@@ -182,7 +182,8 @@ export const lastDayOf = (item: Pick<CalendarRecord, 'start' | 'end'>) => (item.
 /**
  * What the calendars that show in Today and Upcoming bring there, `collections` with what is
  * worked out among their values: their records from today on, and those that began before and go
- * on today; a record two calendars show comes once, by the first. By its day, those of a day with
+ * on today; one whose calendar has a button stays after its day, late, till the button moves it on
+ * (a check-up not done); a record two calendars show comes once, by the first. By its day, those of a day with
  * no time first.
  */
 export function dueRecords(collections: readonly Collection[], today: string, { all = collections, until = addDays(today, 62) }: DueOptions = {}): DueRecord[] {
@@ -202,11 +203,13 @@ export function dueRecords(collections: readonly Collection[], today: string, { 
       }
       // One for Today only comes on its day, not before it.
       const todayOnly = view.calendar.upcoming === 'today';
+      const keeps = !!view.calendar.button;
       for (const item of calendarRecords(collection, view, today)) {
         const key = `${collection.dir}/${item.record.id}`;
-        if (seen.has(key) || lastDayOf(item) < today || (todayOnly && item.start.slice(0, 10) > today)) continue;
+        const gone = lastDayOf(item) < today;
+        if (seen.has(key) || (gone && !keeps) || (todayOnly && item.start.slice(0, 10) > today)) continue;
         seen.add(key);
-        out.push({ ...item, collection: collection.dir, view, schema: collection.schema });
+        out.push({ ...item, collection: collection.dir, view, schema: collection.schema, ...(gone && { day: item.start.slice(0, 10), late: true }) });
       }
     }
   }

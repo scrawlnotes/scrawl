@@ -13,8 +13,8 @@ const JOBS = ['Boiler service every year', 'Smoke alarm batteries every year', '
 const CARS = ['Car'];
 const CAR_JOBS = ['Inspection every 2 years', 'Insurance every year', 'Service every year', 'Tyre change every 6 months'];
 /** How often, as ready ones; Custom is a number of days, weeks, months or years. */
-const EVERY = ['Weekly', 'Monthly', 'Every 3 months', 'Every 6 months', 'Yearly', 'Every 2 years', 'Custom'];
-const UNITS = ['Days', 'Weeks', 'Months', 'Years'];
+export const EVERY = ['Weekly', 'Monthly', 'Every 3 months', 'Every 6 months', 'Yearly', 'Every 2 years', 'Custom'];
+export const UNITS = ['Days', 'Weeks', 'Months', 'Years'];
 const REMIND = ['On the day', '1 week before', '1 month before'];
 
 /** The ready ones by the words for them, the longer first: every 6 months before monthly. */
@@ -41,7 +41,7 @@ export function jobOf(item: string): { name: string; every: string; interval?: n
 }
 
 /** Done: today its last time, its next as often as Every says, by its number and unit when Custom; days apart from months and years. */
-const DONE = `action("Done", () => {
+export const DONE = `action("Done", () => {
   last = today()
   if (every == "Weekly") next = today() + 7
   else if (every == "Custom" && unit == "Days") next = today() + interval
@@ -135,7 +135,8 @@ export const home: AppTemplate = {
       // The day it comes to Today and Upcoming: its next, or as long before it as Remind says.
       app.field('upkeep', formula('remind_on', 'Remind on', 'next - (remind == "1 week before" ? 7 : remind == "1 month before" ? 30 : 0)'));
       app.field('upkeep', day('last', 'Last done'));
-      app.view('upkeep', calendar({ start: 'remind_on', upcoming: true }));
+      // Done is on its row in Today; one past its day stays in Overdue till it is done.
+      app.view('upkeep', calendar({ start: 'remind_on', upcoming: true, button: 'Done' }));
       app.rule('upkeep', { kind: 'check', name: 'Overdue', src: 'check("next", () => empty(next) || next >= today(), "Overdue")' });
       app.rule('upkeep', { kind: 'action', name: 'Done', src: DONE });
       if (homes) app.rule('upkeep', { kind: 'onSave', name: 'The only home', src: `onSave("The only home", () => {\n  if (empty(home)${vehicles ? ' && empty(car)' : ''}) {\n    ${onlyHome()}\n  }\n})` });

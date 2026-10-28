@@ -12,6 +12,7 @@ import {
   type DueRecord,
   minutesOfDay,
   recordLabel,
+  valueText,
   timeOf,
   cardRef,
   type DueCardSubtask,
@@ -196,6 +197,8 @@ export interface TaskActions {
   /** A program's day (design/gym.md 4.3): its Start opens a new record of what closes it, for that day; its other button closes it at once, with Undo. */
   startDay?: (due: DueRecord) => void;
   skipDay?: (due: DueRecord) => void;
+  /** The button its calendar gives a record's row, pressed on the record: Refilled, Done. */
+  pressButton?: (due: DueRecord, name: string) => void;
   /** On a phone: a day chosen in a sheet, about `title`. */
   pickDay?: (title: string, onPick: (due: string | null) => void) => void;
   /** The open subtasks with a day of every card and record, by day then priority. */
@@ -2499,8 +2502,10 @@ export function recordWhen(due: Pick<CalendarRecord, 'start' | 'end' | 'minutes'
   return end ? `${from} – ${end}` : from;
 }
 
-/** What a record's row says after its time: its collection, its first person, its first link. */
+/** What a record's row says after its time: its collection, then the fields its calendar names, or its first person and its first link. */
 export function recordWords(due: DueRecord): string[] {
+  const words = due.view.calendar?.words;
+  if (words) return [collectionName(due.collection), ...words.map((key) => valueText(due.record.values[key]))].filter(Boolean);
   const person = due.schema.fields.find((f) => f.type === 'person');
   const link = due.schema.fields.find((f) => f.type === 'link');
   const linked = link ? due.record.values[link.key] : null;
@@ -2520,7 +2525,14 @@ export function recordWords(due: DueRecord): string[] {
 export function RecordRow({ due, day, today, actions }: { due: DueRecord; day: string; today: string; actions: TaskActions }) {
   const repeat = due.day ? due.view.calendar?.repeat : undefined;
   // A program's day, today's or one gone by, is started or closed from its row; one to come only opens.
-  const buttons = repeat && due.day! <= today && (
+  const button = !repeat && due.view.calendar?.button;
+  const buttons = button && actions.pressButton ? (
+    <span className="racts">
+      <button type="button" className="rstart" onClick={(event) => (event.stopPropagation(), actions.pressButton!(due, button))}>
+        {button}
+      </button>
+    </span>
+  ) : repeat && due.day! <= today && (
     <span className="racts">
       {repeat.skip && actions.skipDay && (
         <button type="button" className="rskip" onClick={(event) => (event.stopPropagation(), actions.skipDay!(due))}>

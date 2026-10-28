@@ -3920,6 +3920,14 @@ p { margin: 0; max-width: 68ch; }
 .cc-blk .cc-row.md { grid-template-columns: 30px minmax(0, 1fr) 132px; }
 .cc-row .mp-or { color: var(--m-faint); font-size: 11px; text-align: center; }
 .cc-row .mp-off { margin-left: 6px; padding: 0 6px; border-radius: 9px; background: color-mix(in srgb, var(--m-p2) 18%, transparent); color: var(--m-p2); font-size: 10.5px; }
+/* Health (draft, Oct 28): medicines that say when they run out, appointments by doctor, check-ups that come again. */
+.ca-row.hl-med { grid-template-columns: minmax(0, 1fr) 90px 130px 110px 120px; }
+.ca-row.hl-chk { grid-template-columns: minmax(0, 1fr) 90px 120px 110px 110px; }
+.ca-row.hl-apt { grid-template-columns: 150px minmax(0, 1fr) 90px minmax(0, 1fr); }
+.hl-low { color: var(--m-p2); }
+.hl-late { color: var(--m-p1); }
+.hl-follow { position: relative; }
+.hl-follow .cc-menu { position: absolute; right: 0; bottom: 34px; width: 200px; }
 .ca-row.mp-plan { grid-template-columns: minmax(0, 1fr) 210px 96px 96px 70px 84px; }
 .ca-row.mp-day { grid-template-columns: 150px minmax(0, 1fr) 96px 100px 84px minmax(0, 1fr); }
 .ca-row.mp-today { background: color-mix(in srgb, var(--m-sel) 30%, transparent); }
@@ -4890,6 +4898,26 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-ahview="ahedit">Edit menu</button>
         <button type="button" data-ahview="ahfields">Fields: satırlar</button>
         <button type="button" data-ahview="ahphone">Telefon</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="health">
+    <div class="brief">
+      <div>
+        <span class="letter">SCRAWL APPS · TASLAK</span>
+        <h2>Sağlık: en az girişle</h2>
+        <p>Medisafe, MyTherapy ve aile sağlık uygulamaları gibi. <b>Medicines</b>: ad, doz, günde kaç kez, kutudaki adet; bitiş günü kendiliğinden hesaplanır, bitmeden 5 gün önce Today'e gelir; <b>Refilled</b> sayacı yeniler. <b>Appointments</b>: doktor seçilir, yer ve telefon doktordan gelir; o gün Today'de; <b>Book follow-up</b> "6 ay sonra" diye sıradakini açar. <b>Check-ups</b>: diş, göz, yıllık kontrol, grip aşısı gibi tekrar edenler, her kişi için; Done sıradakini yazar. <b>Records</b>: tahlil, rapor, reçete, dosyası notlarda. <b>Doctors</b>: bir kez yazılır. Aile varsa her kayıtta kişi; tek kişiyken alan görünmez.</p>
+        <ul class="traits"><li>ilaç bitişi hesaplanır</li><li>Refilled</li><li>doktordan gelen yer</li><li>Book follow-up</li><li>tekrar eden kontroller</li><li>kişi başına</li><li>sonuçlar dosya</li><li>Today'de yalnız gerekenler</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Sağlık görünümü">
+        <button type="button" data-hlview="hltoday">Today</button>
+        <button type="button" data-hlview="hlmeds">Medicines</button>
+        <button type="button" data-hlview="hlmed">Medicine</button>
+        <button type="button" data-hlview="hlapt">Appointment</button>
+        <button type="button" data-hlview="hlchecks">Check-ups</button>
+        <button type="button" data-hlview="hlphone">Telefon</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -14983,6 +15011,124 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderMp(sectionMp, b.dataset.mpview);
   });
   renderMp(sectionMp, 'mpplan');
+
+  // Health (draft, Oct 28): what a person or a family needs to remember about health, with as little
+  // typed as can be: a medicine says when it runs out, an appointment takes its doctor's place, a
+  // check-up comes again by itself.
+  LC.Kaan = '#6aa5f0'; LC.Ayşe = '#b48ef0'; LC.Can = '#5cb87a'; LC['Lab result'] = '#6aa5f0'; LC.Report = '#b48ef0'; LC.Prescription = '#5cb87a';
+  var HL_APP = 'Health';
+  var HL_MODS = ['Home', 'Medicines', 'Appointments', 'Check-ups', 'Records', 'Doctors'];
+  function hlTree() {
+    return '<div class="tree fxt">' + row({ label: 'Today', ct: 4 }) + row({ label: 'Upcoming', ct: 3 }) +
+      opRowT({ sp: true, open: true, label: 'Personal' }) +
+      ahRow(HL_APP, { on: true, icon: ICON.app }) + ahRow('Recipes and meal plan', { icon: ICON.app }) + '</div>' + spFoot(null);
+  }
+  function hlWindow(kind, left, right, foot) {
+    var head = ICON.collection + '<span>' + kind + ' · ' + HL_APP + '</span><span class="open" title="Open in a tab">' + ICON.open + '</span><span class="more">···</span><span class="x">×</span>';
+    return '<div class="ovl center"><div class="rmod cc-rm' + (right ? '' : ' sw-rm') + '"><div class="cp-head">' + head + '</div>' +
+      '<div class="cc-cols"><div class="cc-col">' + left + '</div>' + (right ? '<div class="cc-col">' + right + '</div>' : '') + '</div>' +
+      '<div class="rm-foot">' + (foot || '<span class="st-btn">Cancel</span>') + '</div></div></div>';
+  }
+  var HL_MEDS = [
+    ['Atorvastatin 20 mg', 'Kaan', '1 · once a day', 'Nov 2', '5 days left', 'low'],
+    ['D vitamini', 'Kaan', '1 · once a day', 'Dec 14', '47 days'],
+    ['Amoksisilin 500 mg', 'Can', '1 · 3 times a day', 'Nov 4', 'Ends Nov 4'],
+    ['Ventolin', 'Ayşe', 'As needed', '–', '']
+  ];
+  function hlMeds() {
+    var head = '<div class="ca-row hl-med head"><span>Medicine</span><span>For</span><span>Dose</span><span>Runs out</span><span></span></div>';
+    var rows = HL_MEDS.map(function (m) {
+      return '<div class="ca-row hl-med"><span class="tt">' + m[0] + '</span>' + lbl(m[1]) + '<span>' + m[2] + '</span><span class="dt' + (m[5] ? ' hl-low' : '') + '">' + m[3] + '</span><span class="' + (m[5] ? 'hl-low' : 'calc') + '">' + m[4] + '</span></div>';
+    }).join('');
+    return '<div class="ah">' + ahTop(HL_APP, ICON.app, HL_MODS, 'Medicines') + ahScreen(['Taking', 'All'], head, rows) + '</div>';
+  }
+  /** A medicine: what is typed is its dose, how often and how many in a box; when it runs out is worked out. */
+  function hlMed() {
+    var left = ccProp('Name', 'Atorvastatin 20 mg', { req: true }) +
+      '<div class="cc-two">' + ccProp('For', lbl('Kaan'), { dd: true }) + ccProp('Dose', '1 tablet') + '</div>' +
+      '<div class="cc-two">' + ccProp('How often', 'Once a day', { dd: true }) + ccProp('In a box', '30') + '</div>' +
+      '<div class="cc-two">' + ccProp('Since', 'Oct 3, 2026') + ccProp('Runs out', '<span class="calc hl-low">Nov 2 · 5 days left</span>') + '</div>' +
+      ccProp('Notes', 'Akşam yemekten sonra.', { body: true });
+    return hlWindow('Medicines', left, '', '<span class="st-btn">Refilled</span><span class="st-btn">Stopped</span><span class="hint">A new box counts from today</span><span class="st-btn">Cancel</span>');
+  }
+  /** An appointment: its doctor picked, the place and phone from the doctor; Book follow-up opens the next. */
+  function hlApt() {
+    var left = ccProp('Doctor', '<span class="lk">Dr. Selin Aydın</span>', { dd: true, req: true }) +
+      '<div class="cc-two">' + ccProp('For', lbl('Kaan'), { dd: true }) + ccProp('When', 'Oct 29, 2026 · 14:30') + '</div>' +
+      '<div class="cc-two">' + ccProp('Clinic', '<span class="calc">Acıbadem Altunizade · Kardiyoloji</span>') + ccProp('Phone', '<span class="calc">0216 444 55 44</span>') + '</div>' +
+      ccProp('Notes', 'Kolesterol kontrolü; açlık tahlili getir.', { body: true });
+    var right = '<div class="cc-blk"><div class="blk-h">Records <small>1</small></div>' +
+      '<div class="cc-row md head"><span></span><span>Record</span><span>Kind</span></div>' +
+      '<div class="cc-row md"><span class="go"></span><span class="nm"><span class="t">Lipid paneli · Oct 20</span></span>' + lbl('Lab result') + '</div>' +
+      '<div class="cc-addrow">+ Add row</div></div>';
+    var menu = '<div class="cc-menu"><span>In 2 weeks</span><span>In 1 month</span><span>In 3 months</span><span class="on">In 6 months</span><span>In 1 year</span></div>';
+    return hlWindow('Appointments', left, right, '<span class="st-btn hl-follow">Book follow-up' + menu + '</span><span class="hint">With the same doctor, on the day you pick; its time when you know it</span><span class="st-btn">Cancel</span>');
+  }
+  var HL_CHECKS = [
+    ['Dentist', 'Kaan', 'Every 6 months', 'Nov 10', ''], ['Dentist', 'Ayşe', 'Every 6 months', 'Oct 20', 'late'],
+    ['Flu shot', 'Kaan', 'Yearly', 'Nov 1', ''], ['Flu shot', 'Ayşe', 'Yearly', 'Nov 1', ''], ['General check-up', 'Kaan', 'Yearly', 'Mar 3, 2027', ''],
+    ['Eye exam', 'Can', 'Every 2 years', 'Jun 12, 2027', ''], ['Tetanus', 'Kaan', 'Every 10 years', 'Sep 2031', '']
+  ];
+  function hlChecks() {
+    var head = '<div class="ca-row hl-chk head"><span>Check-up</span><span>For</span><span>Every</span><span class="sorted">Next ↑</span><span>Last done</span></div>';
+    var rows = HL_CHECKS.map(function (c) {
+      return '<div class="ca-row hl-chk"><span class="tt">' + c[0] + '</span>' + lbl(c[1]) + '<span>' + lbl(c[2]).replace('style="--lc:var(--m-dim)"', '') + '</span><span class="dt' + (c[4] ? ' hl-late' : '') + '">' + c[3] + '</span><span class="dt">' + (c[4] ? 'Apr 20' : '–') + '</span></div>';
+    }).join('');
+    return '<div class="ah">' + ahTop(HL_APP, ICON.app, HL_MODS, 'Check-ups') + ahScreen(['By next', 'By person'], head, rows) + '</div>';
+  }
+  function hlRec(color, title, meta, btns) {
+    return '<div class="task c3-rec" style="--cc: ' + color + '"><span class="c3-rbar"></span><div><div class="tt">' + title + '</div>' +
+      '<div class="meta">' + meta + '</div>' + (btns ? '<div class="gy-acts">' + btns + '</div>' : '') + '</div></div>';
+  }
+  function hlToday() {
+    var body = '<div class="tasksv"><div class="th"><b>Today</b><span class="c3-date">Thu, Oct 29</span><button type="button" class="add">Add task</button></div><div class="tl">' +
+      '<div class="sec">Overdue <small>1</small></div>' +
+      hlRec('#b48ef0', 'Dentist · Ayşe', '<span class="late">Oct 20</span><span>' + ICON.collection + 'Check-ups</span><span>' + HL_APP + '</span>', '<span class="st-btn go">Done</span>') +
+      '<div class="sec">Today <small>3</small></div>' +
+      upTask({ t: 'Pay the rent', w: 'Inbox', p: 'p2' }) +
+      hlRec('#6aa5f0', 'Dr. Selin Aydın · Kaan', '<span class="c3-when">14:30</span><span>' + ICON.collection + 'Appointments</span><span>Acıbadem Altunizade</span>') +
+      hlRec('#e0a040', 'Atorvastatin 20 mg runs out Nov 2', '<span>' + ICON.collection + 'Medicines</span><span>Kaan · 5 days left</span>', '<span class="st-btn go">Refilled</span>') +
+      '<div class="qa">+ Add task</div></div></div>';
+    return '<aside class="side">' + hlTree() + '</aside><section class="main"><div class="panes">' + pane(tab('tasks', 'Today', 'x', true) + '<div class="tab plus">+</div>', body) + '</div>' +
+      '<div class="status"><span>1 task · 3 records</span>' + syncStatus(false, null) + '</div></section>';
+  }
+  function hlPhone() {
+    var today = mbPage(mbHead('Today', 'Thursday, Oct 29', true),
+      '<div class="gy-mcap">Overdue</div><div class="gy-mtoday"><div class="gy-mt">' + ICON.collection + '<span class="tx"><b>Dentist · Ayşe</b><small><span class="late">Oct 20</span> · Check-ups</small></span><span class="go">Done</span></div></div>' +
+      '<div class="gy-mcap">Today</div><div class="gy-mtoday"><div class="gy-mt">' + ICON.collection + '<span class="tx"><b>Dr. Selin Aydın · Kaan</b><small>14:30 · Acıbadem Altunizade</small></span></div>' +
+      '<div class="gy-mt">' + ICON.collection + '<span class="tx"><b>Atorvastatin runs out Nov 2</b><small>Kaan · 5 days left</small></span><span class="go">Refilled</span></div></div>');
+    var nav = '<div class="mb-nav"><span class="back">' + ICON.chevl + 'Medicines</span><span class="acts"></span></div>';
+    var med = mbPage(nav + '<div class="mb-rhead"><h2>Atorvastatin 20 mg</h2><small>Kaan</small></div><div class="mb-qacts"><span class="mb-qact">' + ICON.play + 'Refilled</span><span class="mb-qact">' + ICON.play + 'Stopped</span></div>',
+      '<div class="mb-form"><div class="mb-group wide">' + mbVal('Dose', '1 tablet') + mbVal('How often', 'Once a day') + mbVal('In a box', '30') + mbVal('Since', 'Oct 3', { cls: 'date' }) + mbVal('Runs out', 'Nov 2 · 5 days left', { cls: 'faint', text: true }) + '</div></div>');
+    return mbPhone('Today: kontrol, randevu, biten ilaç', today, mbTabs('today')) + mbPhone('İlaç: bitişi hesaplanır, Refilled', med, '');
+  }
+  var HL_VIEWS = {
+    hltoday: hlToday,
+    hlmeds: function () { return ahFrame(hlTree(), 'app', HL_APP, hlMeds(), '4 records · Taking'); },
+    hlmed: function () { return ahFrame(hlTree(), 'app', HL_APP, hlMeds(), '4 records · Taking', hlMed()); },
+    hlapt: function () { return ahFrame(hlTree(), 'app', HL_APP, hlMeds(), '4 records', hlApt()); },
+    hlchecks: function () { return ahFrame(hlTree(), 'app', HL_APP, hlChecks(), '7 records · By next'); }
+  };
+  function renderHl(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (view === 'hlphone') {
+      mock.className = 'mock dir-a phones four mbs';
+      mock.innerHTML = hlPhone();
+    } else {
+      mock.className = 'mock dir-a' + (view === 'hltoday' ? '' : ' wider');
+      mock.innerHTML = HL_VIEWS[view]();
+    }
+    section.querySelectorAll('.brief [data-hlview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.hlview === view));
+    });
+  }
+  var sectionHl = document.querySelector('.dir[data-dir="health"]');
+  sectionHl.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-hlview]');
+    if (b) renderHl(sectionHl, b.dataset.hlview);
+  });
+  renderHl(sectionHl, 'hltoday');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });

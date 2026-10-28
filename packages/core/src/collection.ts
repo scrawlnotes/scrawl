@@ -234,6 +234,10 @@ export interface CalendarSettings {
   upcoming: boolean | 'today';
   /** Its records come on weekdays rather than on a day of their own: a program on its days. */
   repeat?: RepeatSettings;
+  /** The button of its rules each of its rows in Today and Upcoming has: Refilled, Done (design/more-apps.md 4.3). */
+  button?: string;
+  /** The fields its rows in Today and Upcoming say after the collection, in place of its first person and first link. */
+  words?: string[];
 }
 
 /**
@@ -806,6 +810,8 @@ function readCalendar(raw: unknown, fields: Field[]): CalendarSettings | null {
     ...(color && { color: color.key }),
     upcoming: given.upcoming === 'today' ? 'today' : given.upcoming !== false,
     ...(repeat && { repeat }),
+    ...(typeof given.button === 'string' && given.button.trim() && { button: given.button.trim() }),
+    ...(Array.isArray(given.words) && { words: given.words.filter((k): k is string => typeof k === 'string' && fields.some((f) => f.key === cleanFieldKey(k))).map(cleanFieldKey) }),
   };
 }
 

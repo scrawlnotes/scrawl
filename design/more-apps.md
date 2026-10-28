@@ -140,7 +140,7 @@ Kişi için kurulur; para birimi kişisel finansta sorulur.
 28 Ekim, kullanıcının denemesinden baştan:
 
 - **Documents:** yalnız belgeler: kullanım kılavuzu, pasaport, poliçe, garanti belgesi. Ad, ait olduğu ev ya da araba (boş olabilir), bitiş günü (boş olabilir), hatırlatma (bitişten 30 gün önce). Dosya notlara eklenir. Tür, numara, mağaza yok.
-- **Reminders:** tekrar eden her iş, evde ve arabada: kombi bakımı, su arıtma filtresi, muayene, sigorta, servis, lastik. Ad, ait olduğu ev ya da araba, aralık, sonraki gün, son yapıldığı gün. Done son yapıldığı günü bugün yapar, sonrakini aralığa göre yazar; günü geçen işaretlenir.
+- **Reminders:** tekrar eden her iş, evde ve arabada: kombi bakımı, su arıtma filtresi, muayene, sigorta, servis, lastik. Ad, ait olduğu ev ya da araba, aralık, sonraki gün, son yapıldığı gün. Done son yapıldığı günü bugün yapar, sonrakini aralığa göre yazar; günü geçen işaretlenir. Done Today satırında da var; günü geçen, Done'a basılana dek Overdue'da kalır (28 Ekim, Health ile).
 - **Aralık:** hazır kalıplar Weekly, Monthly, Every 3 months, Every 6 months, Yearly, Every 2 years; ve Custom: sayı ve birim (Days, Weeks, Months, Years), yalnız Custom seçilince görünür (`design/shown-when.md`). Km tutulmaz.
 - **Homes** ve **Cars:** her ev ve her araba bir kayıt; penceresinde kendi hatırlatmaları ve belgeleri. Arabanın sıradaki günü hatırlatmalarının en yakını, günü geçen hatırlatması olan araba işaretlenir.
 - Tek ev ya da tek araba varken boş bırakılan ev ya da araba kaydederken ona bağlanır.
@@ -150,12 +150,19 @@ Kişi için kurulur; para birimi kişisel finansta sorulur.
 
 ### 4.3 Sağlık (Health)
 
-- **Appointments:** doktor, bölüm, saatli gün, yer, not.
-- **Medications:** ad, doz, ne zaman, başlangıç ve bitiş, yeniden alma günü.
-- **Results:** gün, tahlil, sonuç; belge ekte.
-- **Vaccinations:** ad, gün, sonraki.
-- **Takvim:** randevular, ilaç yenileme ve aşılar; Today ve Upcoming'de.
-- **Sorular:** kimin için (yalnız ben, aile; aileyse kişi alanı), ilaçlar tutulsun mu.
+28 Ekim, kullanıcının "en az giriş" ölçütüyle baştan (Medisafe, MyTherapy, aile sağlık uygulamaları örnek). Mockup: `design/mockups.html` › Sağlık: en az girişle.
+
+- **Medicines:** ad, kimin, doz, günde kaç kez (Once a day, Twice a day, 3 times a day, As needed), kutudaki adet, başlangıç (bugün). **Runs out** hesaplanır: başlangıç + adet / günlük; bitmeden 5 gün önce Today ve Upcoming'e gelir, az kalan işaretlenir. **Refilled** başlangıcı bugün yapar; **Stopped** listeden çıkarır (Taking görünümü). Elle yazılan "ne zaman" ve "yeniden alma günü" yok.
+- **Appointments:** doktor seçilir (zorunlu), kimin, saatli gün; klinik ve telefon doktordan (lookup); adı doktordan. Takvimi Today ve Upcoming'de. **Book follow-up**: In 2 weeks, 1 month, 3 months, 6 months, 1 year; aynı doktor ve kişiyle o güne yeni randevu. Penceresinde Records'u.
+- **Check-ups:** tekrar eden kontroller ve aşılar (diş, yıllık kontrol, göz, grip aşısı); her kişi için ayrı; aralık Home'un Reminders'ındaki gibi (hazır kalıplar ve Custom); Done son günü ve sıradakini yazar; günü geçen işaretlenir. Ayrı Vaccinations ekranı yok.
+- **Records:** tahlil, rapor, reçete, görüntüleme: ad, tür, gün, kimin, doktor, randevu; dosya notlarda. Düz "Result" metni yok.
+- **Doctors:** ad, uzmanlık, klinik, telefon; penceresinde randevuları ve kayıtları.
+- **Aile:** kişi alanı yalnız aile seçilince; kontroller her kişi için kurulur.
+- **Today satırı:** ilaç "Medicines · kişi · 5 days left" ve **Refilled**; kontrol "Check-ups · kişi" ve **Done**; randevu "Appointments · kişi · klinik". Günü geçen kontrol ya da ilaç Done/Refilled'a basılana dek Overdue'da kalır. Bunun için her takvime: `button` (Today satırındaki düğme, kurallardan bir action) ve `words` (satırın koleksiyondan sonra söylediği alanlar); düğmesi olan takvimin günü geçen kaydı late olarak kalır.
+- **Pencereler:** ilaçta Status, Left ve Remind on gizli (Stopped düğmesi, tablo Left'i "5 days left" diye yazar); randevunun adı doktordan, pencerede yok, tabloda doktor bir kez.
+- **İlaç alma hatırlatması yok:** her doz için Today'de satır günlük işaretleme yükü getirir; yalnız bitiş hatırlatılır.
+- **Sorular:** kimin için (ben, aile; aileyse kişiler), ilaçlar tutulsun mu, tekrar eden kontroller (liste: Dentist every 6 months, General check-up every year, Eye exam every 2 years, Flu shot every year).
+- Önceden kurulmuş Health app'leri olduğu gibi kalır.
 
 ### 4.4 Tarifler ve yemek planı (Money and home)
 

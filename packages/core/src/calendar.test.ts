@@ -61,6 +61,8 @@ describe('the calendar', () => {
     // Upcoming is on unless it is said off; an end goes before a length; what is not a field of its kind is left out.
     expect(read({ start: 'next', end: 'ends', duration: 'duration' }).calendar).toEqual({ start: 'next', end: 'ends', upcoming: true });
     expect(read({ start: 'status', color: 'starts', upcoming: false }).calendar).toEqual({ start: 'starts', upcoming: false });
+    // A row's button and words: the words only fields it has.
+    expect(read({ start: 'next', button: ' Done ', words: ['status', 'gone', 4] }).calendar).toEqual({ start: 'next', upcoming: true, button: 'Done', words: ['status'] });
     // With no date field it is a table.
     expect(read({ start: 'starts' }, [{ key: 'name', type: 'name' }]).kind).toBeUndefined();
   });
