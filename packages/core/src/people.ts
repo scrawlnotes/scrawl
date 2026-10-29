@@ -188,6 +188,16 @@ export function refName(ref: PersonRef, people: Person[]): string | undefined {
 /** Whether a task or a card is given to the person with this id. */
 export const isMine = (ref: PersonRef | null | undefined, me: string | undefined) => !!me && ref?.id === me;
 
+/**
+ * Whether a task or a card of a shared space is the work of the person `me`, for Today and Upcoming:
+ * given to them or to an agent of theirs, or given to no one and made by them or their agent. One
+ * given by a name alone, or made by no one known, is theirs as well.
+ */
+export function isMyWork(item: { assignee?: PersonRef | null; author?: PersonRef | null }, me: string): boolean {
+  const ref = item.assignee ?? item.author;
+  return !ref?.id || ownerOf(ref.id) === me;
+}
+
 /** The name a person is shown under; one without a name is Unnamed, which the interface words. */
 export const personName = (person: Pick<Person, 'name'>, unnamed: string) => person.name ?? unnamed;
 

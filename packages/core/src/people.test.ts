@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MemoryFs } from './fs';
-import { agentId, isAgent, loadPeople, ownerName, mergePeople, ownerOf, parsePeople, sameAgent, samePerson, savePeople, serializePeople, setActive, withAgent, withPerson } from './people';
+import { agentId, isAgent, isMyWork, loadPeople, ownerName, mergePeople, ownerOf, parsePeople, sameAgent, samePerson, savePeople, serializePeople, setActive, withAgent, withPerson } from './people';
 
 const at = (day: string) => new Date(`2026-10-${day}T10:00:00Z`);
 
@@ -51,6 +51,20 @@ describe('people', () => {
     const people = parsePeople(JSON.stringify({ version: 1, people: [{ id: 'k', name: 'Kaan', seen: '', active: true, role: 'lead' }] }));
     expect(people[0]).toEqual({ id: 'k', name: 'Kaan', seen: '', active: true, role: 'lead' });
     expect(parsePeople(serializePeople(people))).toEqual(people);
+  });
+
+  it('tells whose work a task or a card is: given to them or their agent, else made by them', () => {
+    const k = { id: 'k' };
+    const eren = { id: 'e' };
+    expect(isMyWork({ assignee: k }, 'k')).toBe(true);
+    expect(isMyWork({ assignee: { id: agentId('k', 'a1') }, author: eren }, 'k')).toBe(true);
+    expect(isMyWork({ assignee: { id: agentId('e', 'b2') }, author: k }, 'k')).toBe(false);
+    expect(isMyWork({ assignee: eren }, 'k')).toBe(false);
+    expect(isMyWork({ author: k }, 'k')).toBe(true);
+    expect(isMyWork({ assignee: null, author: { id: agentId('k', 'a1') } }, 'k')).toBe(true);
+    expect(isMyWork({ author: eren }, 'k')).toBe(false);
+    expect(isMyWork({}, 'k')).toBe(true);
+    expect(isMyWork({ assignee: { name: 'Ayşe' } }, 'k')).toBe(true);
   });
 
   it('has an agent write itself in once a day, by an id that says whose it is', () => {

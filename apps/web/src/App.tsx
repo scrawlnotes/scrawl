@@ -63,6 +63,7 @@ import {
   filterFields,
   inSpace,
   spaceOf,
+  isMyWork,
   INBOX_TASKS,
   itemChip,
   type ChipKind,
@@ -1933,8 +1934,16 @@ export function App() {
     const space = spaces.find((each) => each.id === spaceOf(path));
     return space ? { name: space.name, people: space.people, ...(me && { me: me.id }) } : null;
   };
+  // Today and Upcoming show of a shared space only one's own work; the personal space is all one's own.
+  const [myTasks, myBoards] = useMemo(() => {
+    const mine = (path: string, item: Parameters<typeof isMyWork>[0]) => !me || !spaceOf(path) || isMyWork(item, me.id);
+    return [
+      Object.fromEntries(Object.entries(tasks).map(([path, list]) => [path, list.filter((task) => mine(path, task))])),
+      Object.fromEntries(Object.entries(boards).map(([path, board]) => [path, { ...board, cards: board.cards.filter((card) => mine(path, card)) }])),
+    ] as const;
+  }, [tasks, boards, me]);
   // The open subtasks with a day of every card and record, by day then priority, for Today and Upcoming.
-  const dueSubtasksNow: DueSubtask[] = [...dueCardSubtasks(boards), ...dueRecordSubtasks(collections)].sort(
+  const dueSubtasksNow: DueSubtask[] = [...dueCardSubtasks(myBoards), ...dueRecordSubtasks(collections)].sort(
     (a, b) => a.subtask.due!.localeCompare(b.subtask.due!) || a.subtask.priority - b.subtask.priority,
   );
   // The records the calendars that show in Today and Upcoming bring there; only their collections are worked out.
@@ -2296,11 +2305,11 @@ export function App() {
       downloads={downloads}
     />
   );
-  const dueNow = dueToday(tasks, today);
+  const dueNow = dueToday(myTasks, today);
   // Today counts what is late and due today, Upcoming what is due after it: neither counts what the other does.
-  const cardDays = [...dueCards(boards).map((d) => d.card.due!), ...dueSubtasksNow.map((d) => d.subtask.due!)];
+  const cardDays = [...dueCards(myBoards).map((d) => d.card.due!), ...dueSubtasksNow.map((d) => d.subtask.due!)];
   const dueCardsNow = cardDays.filter((day) => day <= today).length;
-  const dueLater = dueUpcoming(tasks, today).reduce((sum, d) => sum + d.tasks.length, 0) + cardDays.length - dueCardsNow;
+  const dueLater = dueUpcoming(myTasks, today).reduce((sum, d) => sum + d.tasks.length, 0) + cardDays.length - dueCardsNow;
   // A program's days count: today's and those gone by in Today, those to come in Upcoming (design/gym.md 4.3).
   const programDays = dueRecordsNow.filter((d) => d.day);
   const daysNow = programDays.filter((d) => d.day! <= today).length;
@@ -2574,7 +2583,7 @@ export function App() {
       ...besides(0, overdue),
     ];
     if (active === TODAY) {
-      const cards = dueCards(boards).filter((d) => d.card.due! <= today);
+      const cards = dueCards(myBoards).filter((d) => d.card.due! <= today);
       const subtasks = dueSubtasksNow.filter((d) => d.subtask.due! <= today);
       const overdue = dueNow.overdue.length + cards.filter((d) => late(d.card.due)).length + subtasks.filter((d) => late(d.subtask.due)).length;
       const records = dueRecordsNow.filter((d) => d.start.slice(0, 10) <= today).length;
@@ -2804,12 +2813,12 @@ export function App() {
         fieldsAsked={collectionFields}
       />
     )}
-    {!phone && active === TODAY && <TodayView lists={tasks} boards={boards} today={today} actions={taskActions} still={still} />}
+    {!phone && active === TODAY && <TodayView lists={myTasks} boards={myBoards} today={today} actions={taskActions} still={still} />}
     {!phone && active === CHAT && <ChatView snapshot={chat} menu={openMenu} onStatus={setViewStatus} links={chatLinks} goTo={chatGoTo} />}
     {!phone && active === UPCOMING && (
       <Upcoming
-        lists={tasks}
-        boards={boards}
+        lists={myTasks}
+        boards={myBoards}
         today={today}
         actions={taskActions}
         places={allPlaces()}
@@ -2911,8 +2920,8 @@ export function App() {
             recent={recent.filter((seen) => stillThere(seen.id))}
             titles={tabTitles}
             filters={filters}
-            lists={tasks}
-            boards={boards}
+            lists={myTasks}
+            boards={myBoards}
             today={today}
             actions={taskActions}
             onKind={(kind) => (kind === 'quick' ? newQuick() : setDialog(kind === 'app' ? { kind: 'newApp', folder: createIn } : { kind: 'new', start: kind }))}
@@ -3006,9 +3015,9 @@ export function App() {
             item={itemLayer}
             dueView={(kind) =>
               kind === 'today' ? (
-                <TodayView lists={tasks} boards={boards} today={today} actions={taskActions} bare still={still} />
+                <TodayView lists={myTasks} boards={myBoards} today={today} actions={taskActions} bare still={still} />
               ) : (
-                <PhoneUpcoming view={phoneUpcoming} lists={tasks} boards={boards} today={today} actions={taskActions} day={upDay} onDay={setUpcomingDay} still={still} />
+                <PhoneUpcoming view={phoneUpcoming} lists={myTasks} boards={myBoards} today={today} actions={taskActions} day={upDay} onDay={setUpcomingDay} still={still} />
               )
             }
             upcomingView={phoneUpcoming}
