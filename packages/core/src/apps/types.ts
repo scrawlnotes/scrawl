@@ -171,8 +171,10 @@ export interface AppDraft extends Chosen {
   formOrder(role: string, keys: string[]): void;
   /** A field at the top of another column of the record's window, from 1: a trip's kind over its packing. */
   place(role: string, key: string, column: number): void;
+  /** A new record's window asks only these fields, its title and its stages; the rest once it is made. */
+  newForm(role: string, keys: string[]): void;
   /** The record's window opens with its name as its title and this field's line under it. */
-  head(role: string, sub: string): void;
+  head(role: string, sub: string, steps?: string): void;
   /** The record's window keeps only what is attached to it, a receipt, or no notes at all. */
   notes(role: string, notes: 'attach' | false): void;
   /** Adds a rule to a collection's `_rules.js`, once by its name. */
@@ -279,9 +281,11 @@ export interface CollectionPart {
   /** Fields in another column than the first, by key. */
   places?: { [key: string]: number };
   /** Its window's title the record's name with this line under it. */
-  head?: { sub: string };
+  head?: { sub: string; steps?: string };
   /** Its window's notes: only what is attached, or none. */
   notes?: 'attach' | false;
+  /** The fields a new record's window asks. */
+  newForm?: string[];
   rules: RuleChunk[];
   /** The records it starts with. */
   records: { [key: string]: string | number | boolean | string[] }[];

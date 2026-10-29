@@ -19,11 +19,12 @@ import {
   recordTitle,
   screenKey,
   shownField,
+  stepCounts,
   sortRecords,
 } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { type MouseEvent, type ReactNode, useMemo } from 'react';
-import { Cell, type ValueContext } from './Collection';
+import { Cell, StepStrip, type ValueContext } from './Collection';
 import { Icon, type IconName } from './Icon';
 import { CardRow, RecordRow, recordKey, splitDueCards, type TaskActions } from './Tasks';
 
@@ -52,6 +53,8 @@ interface Glance {
   big?: boolean;
   /** No box on Home: the packing list. */
   off?: boolean;
+  /** How many are at each step of a field, as its line: "6 Saved · 7 Applied" (design/more-apps.md 4.6). */
+  counts?: [string, number][];
 }
 
 /** A screen's count and its first records: a collection by the view it opens on, a board by its open cards, a folder by its notes; none for a note. */
@@ -87,6 +90,8 @@ function glanceOf(screen: AppScreen, collections: Record<string, Collection>, bo
   const home = schema.home;
   if (!home) return glance;
   if (home.off) return { ...glance, off: true };
+  const stepped = home.counts ? schema.fields.find((f) => f.key === home.counts && f.steps) : undefined;
+  if (stepped) return { ...glance, counts: stepCounts(stepped, collection.records) };
   const scope = { fields: schema.fields, schemaOf: (path: string) => collections[path]?.schema };
   const shownAs = (key: string | undefined) => {
     const field = key ? schema.fields.find((f) => f.key === key) : undefined;
@@ -278,7 +283,9 @@ function AppHome({ modules, shows, collections, boards, notes, today, due, actio
                     <b>{glance?.count.text ?? '–'}</b>
                   )}
                   {checks(s)}
-                  {glance?.big && glance.rows?.[0] ? (
+                  {glance?.counts ? (
+                    <StepStrip counts={glance.counts} />
+                  ) : glance?.big && glance.rows?.[0] ? (
                     <span className="big">
                       <b>{glance.rows[0].name}</b>
                       <small>

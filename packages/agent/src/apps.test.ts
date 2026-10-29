@@ -89,7 +89,7 @@ const LEAST: { [id in TemplateId]: Answers } = {
   recipes: { meals: [], shopping: false },
   travel: { keeps: [] },
   split: { people: [], methods: 'equal', finance: false },
-  jobs: { stages: [] },
+  jobs: { stages: [], follow: '7' },
   people: { anniversaries: false, often: false },
   reading: { types: [], services: [], progress: false, goal: 'none', quotes: false, lending: false, releases: false },
   habits: { habits: [], goals: false },
@@ -967,15 +967,24 @@ describe('apps', () => {
     expect((await itemsOn('2026-10-26')).length).toBe(4);
 
     await createTool(agent, { kind: 'app', name: 'Jobs', templates: ['jobs'], currencies: ['TRY'] });
-    await saveRecordTool(agent, { collection: 'Jobs/Companies', values: { name: 'Acme' } });
-    const job = await saveRecordTool(agent, { collection: 'Jobs/Applications', values: { name: 'Backend developer', company: 'Acme', applied: '2026-10-01', heard: '2026-10-01' } });
-    expect(job.data.record.problems).toEqual([{ kind: 'check', field: 'heard', text: 'Follow up: nothing for 20 days' }]);
-    const talk = await saveRecordTool(agent, { collection: 'Jobs/Interviews', values: { application: 'Backend developer', when: '2026-10-23T10:00', type: 'Video' } });
-    expect(talk.data.record.name).toBe('Video · Backend developer');
+    // Saved with its to-dos ready; sent, its day written; nothing heard for two weeks, a follow-up in Today.
+    const job = await saveRecordTool(agent, { collection: 'Jobs/Applications', values: { name: 'Backend developer', company: 'Acme', location: 'Remote' } });
+    const saved = (await recordsTool(agent, { collection: 'Jobs/Applications' })).data.records[0]!;
+    expect([saved.values.status, saved.values.applied ?? null, saved.subtasks?.map((s) => s.title)]).toEqual(['Saved', null, ['Tailor your resume', 'Write a cover letter', 'Find a referral', 'Apply']]);
+    const sent = await saveRecordTool(agent, { collection: 'Jobs/Applications', id: job.data.record.id, values: { status: 'Applied' } });
+    expect(sent.data.record.values).toMatchObject({ applied: '2026-10-21', heard: '2026-10-21', follow_on: '2026-11-04', said: 'Acme · Remote · applied today' });
+    const followUps = async (to: string) => ((await dueRecordsTool(agent, { from: '2026-10-21', to })).data.records as { start: string; record: { name: string } }[]).filter((d) => d.record.name === 'Backend developer').map((d) => d.start);
+    expect(await followUps('2026-11-30')).toEqual(['2026-11-04']);
+    // An interview: news, the application at Interview, in Today with its time.
+    const talk = await saveRecordTool(agent, { collection: 'Jobs/Interviews', values: { application: 'Backend developer', when: '2026-10-23T10:00', type: 'Technical' } });
+    expect(talk.data.record.name).toBe('Technical · Backend developer, Acme');
     const now = (await recordsTool(agent, { collection: 'Jobs/Applications' })).data.records[0]!;
-    expect([now.values.heard, now.problems]).toEqual(['2026-10-23', undefined]);
+    expect(now.values).toMatchObject({ status: 'Interview', heard: '2026-10-23', follow_on: '2026-11-06', next_said: 'Interview · Fri 10:00' });
     const due = (await dueRecordsTool(agent, { from: '2026-10-21', to: '2026-10-31' })).data.records as { record: { name: string } }[];
-    expect(due.map((d) => d.record.name)).toContain('Video · Backend developer');
+    expect(due.map((d) => d.record.name)).toContain('Technical · Backend developer, Acme');
+    // Followed up: a week on.
+    await saveRecordTool(agent, { collection: 'Jobs/Applications', id: job.data.record.id, action: 'Followed up' });
+    expect((await recordsTool(agent, { collection: 'Jobs/Applications' })).data.records[0]!.values).toMatchObject({ followed: '2026-10-21', follow_on: '2026-11-06' });
   });
 
   it('keeps the people close to you: the next birthday or anniversary every year, and someone not talked to for a while', async () => {

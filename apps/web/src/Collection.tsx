@@ -42,6 +42,7 @@ import {
   fieldHref,
   type FieldValue,
   fieldLabel,
+  stepCounts,
   fieldValueOf,
   GROUPABLE,
   groupRecords,
@@ -419,6 +420,61 @@ export function usedValues(values: unknown[]): string[] {
 const isAddress = (type: Field['type']) => type === 'url' || type === 'email' || type === 'phone';
 
 /** A value as the table shows it: text, a chip for a choice, chips for choices, a tick for a flag, an address to open. */
+/**
+ * A stepped choice on a form, as Teal shows a job's stages (design/more-apps.md 4.6): its steps in
+ * a bar, those passed lit, the one it is at filled; the ones it ends at after them. A click picks one.
+ */
+export function StepsBar({ field, value, onChange, className }: { field: Field; value: FieldValue; onChange: (value: FieldValue) => void; className?: string }) {
+  const end = new Set(field.steps?.end ?? []);
+  const line = (field.options ?? []).filter((o) => !end.has(o));
+  const at = typeof value === 'string' ? value : '';
+  // Ended well, every step is passed; ended badly, none is lit.
+  const reached = end.has(at) ? (field.steps?.no.includes(at) ? -1 : line.length) : line.indexOf(at);
+  return (
+    <span className={className ?? 'steps'} role="radiogroup" aria-label={field.label}>
+      {(field.options ?? []).map((option) => {
+        const i = line.indexOf(option);
+        const cls = [end.has(option) && 'end', field.steps?.no.includes(option) && 'no', option === at ? 'on' : i >= 0 && i < reached ? 'past' : ''].filter(Boolean).join(' ');
+        return (
+          <button key={option} type="button" role="radio" aria-checked={option === at} className={cls || undefined} onClick={() => onChange(option)}>
+            {option}
+          </button>
+        );
+      })}
+    </span>
+  );
+}
+
+/** A stepped choice in a table, as Simplify lists a job: a dot for each step, those reached lit; one that ended badly red. */
+export function StepsDots({ field, value }: { field: Field; value: FieldValue }) {
+  const end = new Set(field.steps?.end ?? []);
+  const line = (field.options ?? []).filter((o) => !end.has(o));
+  const at = typeof value === 'string' ? value : '';
+  const no = !!field.steps?.no.includes(at);
+  const reached = end.has(at) ? (no ? -1 : line.length - 1) : line.indexOf(at);
+  return (
+    <span className={no ? 'dots no' : 'dots'} title={at} aria-label={at}>
+      {line.map((step, i) => (
+        <span key={step} className={i <= reached ? 'd on' : no && i === line.length - 1 ? 'd no' : 'd'} />
+      ))}
+    </span>
+  );
+}
+
+/** How many are at each step, as Teal heads its list: "6 Saved · 7 Applied". */
+export function StepStrip({ counts }: { counts: [string, number][] }) {
+  return (
+    <div className="step-strip">
+      {counts.map(([step, count]) => (
+        <span key={step}>
+          <b>{count}</b>
+          {step}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export function Cell({ field, value, ctx, values }: {
   field: Field;
   value: FieldValue | undefined;
@@ -427,6 +483,7 @@ export function Cell({ field, value, ctx, values }: {
   values?: Record['values'];
 }) {
   if (isEmpty(value)) return <span className="empty">–</span>;
+  if (field.type === 'select' && field.steps) return <StepsDots field={field} value={value ?? null} />;
   if (field.type === 'select') return <Chip text={valueText(value)} color={optionColor(field, valueText(value))} />;
   if (field.type === 'multi-select') {
     return (
@@ -853,6 +910,7 @@ export function FieldInput({ field, value, autoFocus, ctx, currency, onChange, o
       if (field.chips) return <LinkChips field={field} value={isLink(value) || Array.isArray(value) ? (value as Link | Link[]) : null} ctx={ctx} onChange={onChange} />;
       return <LinkField field={field} value={isLink(value) || Array.isArray(value) ? (value as Link | Link[]) : null} autoFocus={autoFocus} ctx={ctx} onChange={onChange} />;
     case 'select':
+      if (field.steps) return <StepsBar field={field} value={value} onChange={onChange} />;
       // A choice of a few side by side, one click picking it: Out, In, Transfer (design/more-apps.md 4.1).
       if (field.chips) {
         return (
@@ -1757,6 +1815,11 @@ function CardsBlock({ dir, record, today, actions, onOpen }: { dir: string; reco
  */
 export function recordLayout(schema: Schema, dir: string, isNew: boolean, actions: Pick<CollectionActions, 'collections' | 'boards'>, buttons = false, drafts = false, lines: readonly LinkedBlock[] = []): Layout {
   const own = layoutOf(schema);
+  if (isNew && own.new) {
+    const asked = new Set(own.new);
+    const items = own.columns.flatMap((c) => c.sections.flatMap((s) => s.items)).filter((item) => ('field' in item ? asked.has(item.field) : item.block === 'body'));
+    return { columns: [{ sections: [{ items }] }] };
+  }
   // A new record whose rules add rows as it is typed in (onChange) keeps its tables, to show them
   // before Create; one with lines keeps their blocks, its lines typed in before Create (design/app-home.md 4.2).
   if (isNew && (drafts || lines.length > 0)) {
@@ -2048,6 +2111,7 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
   const problems = [...(record ? recordProblems({ values: toBe, extra: record.extra }, schema) : []), ...computer.checks(dir, record ?? recordWith(collection, id, toBe), toBe)];
   const recordWide = problems.filter((p) => !p.field || !fields.has(p.field));
   // A field shown before another on its line, an expense's currency before its amount.
+  const headSteps = schema.head?.steps ? fields.get(schema.head.steps) : undefined;
   const besideOf = (key: string) => schema.fields.find((f) => f.beside === key && shownOnForm(f, { values: toBe }, schema, today));
   const item = (key: string, index: number): ReactNode => {
     const field = fields.get(key);
@@ -2055,7 +2119,7 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
     if (!field || offForm.has(key) || !shownOnForm(field, { values: toBe }, schema, today)) return null;
     // One shown beside another is on that one's line; the name is the window's title when it has a head.
     if (field.beside && fields.has(field.beside)) return null;
-    if (schema.head && field.type === 'name') return null;
+    if (schema.head && (field.type === 'name' || field.key === schema.head.steps)) return null;
     // A rate as a sentence (design/more-apps.md 4.5): 1 EUR = 37,10 ₺.
     if (field.rate) {
       const of = draft.values[field.rate.field];
@@ -2270,11 +2334,12 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
               <input
                 className="rm-title"
                 aria-label={named?.label ?? t('collection.name')}
-                placeholder={recordTitle(recordWith(collection, id, toBe)) || t('collection.newOne', { singular: singularOf(schema) })}
+                placeholder={(named && !named.optional ? named.label : recordTitle(recordWith(collection, id, toBe))) || t('collection.newOne', { singular: singularOf(schema) })}
                 value={named ? valueText(draft.values[named.key] ?? null) : ''}
                 onChange={(event) => named && setValue(named.key, event.target.value)}
               />
               {!isEmpty(computed[schema.head.sub] ?? null) && <small>{valueText(computed[schema.head.sub] ?? null)}</small>}
+              {headSteps && <StepsBar field={headSteps} value={draft.values[headSteps.key] ?? null} onChange={(next) => setValue(headSteps.key, next)} className="steps big" />}
             </div>
           )}
           <div className="rm-cols">{columns}</div>
@@ -3283,6 +3348,10 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
           )}
         </span>
       </div>
+      {view?.counts && (() => {
+        const field = schema.fields.find((f) => f.key === view.counts && f.steps);
+        return field ? <StepStrip counts={stepCounts(field, collection.records)} /> : null;
+      })()}
       {calendarView ? (
         <CollectionCalendar
           collection={rolled}

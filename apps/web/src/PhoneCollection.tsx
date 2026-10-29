@@ -37,6 +37,7 @@ import {
   linkedValues,
   linesBlocks,
   fieldLabel,
+  stepCounts,
   linkFieldsTo,
   localPath,
   newRecordId,
@@ -72,7 +73,7 @@ import { t } from '@scrawlnotes/i18n';
 import { type FormEvent, type MouseEvent, type PointerEvent, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Chip } from './choices';
 import { DaysMonth } from './CollectionCalendar';
-import { choicesOf, type CollectionActions, type Draft, differs, draftOf, excerpt, LinkChips, type LinkedDrafts, LinkedTable, NotesBlock, recordLayout, savePreview, singularOf, usedValues, type ValueContext, withDrafts } from './Collection';
+import { choicesOf, type CollectionActions, type Draft, differs, draftOf, excerpt, LinkChips, type LinkedDrafts, LinkedTable, NotesBlock, StepsBar, StepStrip, recordLayout, savePreview, singularOf, usedValues, type ValueContext, withDrafts } from './Collection';
 import { fieldChoices, LabelSheet } from './labels';
 import { Icon, type IconName } from './Icon';
 import { Subtasks } from './Subtasks';
@@ -299,6 +300,14 @@ function FieldRow({ field, value, values, worked, changed, bad, autoFocus, today
       }
     // falls through
     case 'select':
+      if (field.type === 'select' && field.steps) {
+        return (
+          <div className={classes + ' mb-chipsrow'}>
+            {label}
+            <StepsBar field={field} value={value} onChange={onChange} className="steps mb-steps" />
+          </div>
+        );
+      }
       // A choice of a few side by side: Out, In, Transfer.
       if (field.type === 'select' && field.chips) {
         return (
@@ -791,7 +800,8 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
   const willValues = willWrite.length > 0 ? { ...draft.values, ...Object.fromEntries(willWrite.map((w) => [w.key, w.value])) } : draft.values;
   const rollups = computer.draft(dir, record, willValues);
   // Not those whose Shown when does not hold as the page is now (design/shown-when.md).
-  const rows = formFields(schema, items.filter((item): item is { field: string } => 'field' in item)).filter((f) => f.type !== 'name' && f.type !== 'code' && shownOnForm(f, { values: willValues }, schema, today));
+  const rows = formFields(schema, items.filter((item): item is { field: string } => 'field' in item)).filter((f) => f.type !== 'name' && f.type !== 'code' && f.key !== schema.head?.steps && shownOnForm(f, { values: willValues }, schema, today));
+  const headSteps = schema.head?.steps ? schema.fields.find((f) => f.key === schema.head!.steps) : undefined;
   // What does not fit the schema, and the checks of the collection's rules the record fails as the page holds it.
   const found = [...recordProblems({ values: willValues, extra: record.extra }, schema), ...computer.checks(dir, record, willValues)];
   const problems = new Set(found.map((p) => p.field));
@@ -861,6 +871,7 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
         <div className="mb-rhead">
           {named ? <NameBox value={typedName} label={named.label} used={named.suggest ? (ctx.used?.(named) ?? []) : undefined} onChange={(text) => setValue(named.key, text)} /> : <h2>{title}</h2>}
           {schema.head && !isEmpty(rollups[schema.head.sub] ?? null) && <small className="mb-rsub">{valueText(rollups[schema.head.sub] ?? null)}</small>}
+          {headSteps && <StepsBar field={headSteps} value={draft.values[headSteps.key] ?? null} onChange={(next) => setValue(headSteps.key, next)} className="steps mb-steps" />}
           {codeField && (
             <button type="button" className={isEmpty(draft.values[codeField.key]) ? 'code none' : 'code'} onClick={() => setPicking(codeField)}>
               {valueText(draft.values[codeField.key] ?? null) || codeField.label}
@@ -1736,6 +1747,10 @@ export function PhoneCollectionList({ name, count, schema, today, fields, record
           </button>
         </div>
       )}
+      {view?.counts && (() => {
+        const field = schema.fields.find((f) => f.key === view.counts && f.steps);
+        return field ? <StepStrip counts={stepCounts(field, records)} /> : null;
+      })()}
       {body ?? <div className="mb-clist">
         {noFields ? (
           <Empty icon="collection" title={t('collection.noFields')} action={{ label: t('collection.fields'), run: onFields }} />

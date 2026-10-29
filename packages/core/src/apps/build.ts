@@ -178,13 +178,17 @@ class Draft implements AppDraft {
     this.part(role, 'collection').order = keys;
   }
 
+  newForm(role: string, keys: string[]) {
+    this.part(role, 'collection').newForm = keys;
+  }
+
   place(role: string, key: string, column: number) {
     const part = this.part(role, 'collection');
     part.places = { ...part.places, [key]: column };
   }
 
-  head(role: string, sub: string) {
-    this.part(role, 'collection').head = { sub };
+  head(role: string, sub: string, steps?: string) {
+    this.part(role, 'collection').head = { sub, ...(steps && { steps }) };
   }
 
   notes(role: string, notes: 'attach' | false) {
@@ -479,6 +483,7 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
       plan.created.push({ kind: part.kind, path: part.path });
       if (part.kind === 'collection') {
         const layout = layoutFor(part.fields, part.blocks, part.rules.some((r) => r.kind === 'action'), part.order, { ...(part.places && { places: part.places }), ...(part.notes !== undefined && { notes: part.notes }) });
+        if (layout && part.newForm) layout.new = part.newForm;
         const schema: Schema = { version: 2, template: matchingTemplate(role), ...(part.singular && { singular: part.singular }), role, ...(part.views.length > 0 && { views: part.views }), ...(part.defaultView && { defaultView: part.defaultView }), ...(part.columns && { columns: part.columns }), ...(part.home && { home: part.home }), ...(part.head && { head: part.head }), fields: part.fields, ...(layout && { layout }) };
         plan.dirs.push(part.path);
         file(join(part.path, COLLECTION_FILE), serializeSchema(schema));

@@ -101,6 +101,12 @@ export interface Field {
   when?: Condition[];
   /** A text's or a name's box offers what the collection's other records hold in it as it is typed: a doctor written before. */
   suggest?: boolean;
+  /**
+   * A choice gone through in order, as a job application's stages (design/more-apps.md 4.6): a bar
+   * of its steps on the form, a line of dots in a table; `end` the options after the line, the
+   * ones it stops at (Accepted, Rejected), `no` those of them that end it badly.
+   */
+  steps?: { end: string[]; no: string[] };
   /** Its label as another field's choice is: a booking's Starts, Departs for a flight and Check in for a hotel (design/more-apps.md 4.5). */
   labelBy?: { field: string; labels: { [option: string]: string } };
   /** Shown before this field on its line, the two as one: an expense's currency before its amount. */
@@ -238,6 +244,12 @@ type LayoutBlockKind =
  */
 export type LinkedStyle = 'list' | 'timeline' | 'table';
 
+/** How many of `records` are at each of a stepped field's steps, the ones it ends at left out: [["Saved", 6], ["Applied", 7]]. */
+export function stepCounts(field: Field, records: readonly { values: Record['values'] }[]): [string, number][] {
+  const end = new Set(field.steps?.end ?? []);
+  return (field.options ?? []).filter((o) => !end.has(o)).map((o) => [o, records.filter((r) => r.values[field.key] === o).length]);
+}
+
 /** A field's label as the record is: a booking's Starts, Departs for a flight (`labelBy`). */
 export function fieldLabel(field: Field, values: Record['values']): string {
   const by = field.labelBy ? values[field.labelBy.field] : null;
@@ -268,6 +280,8 @@ export interface Layout {
    * other; Fields lists them with their eye shut. Without it, the template's (PieceInfo.hidden).
    */
   hidden?: string[];
+  /** The fields a new record's window asks, the others after it is made: a job's company, where and its post (design/more-apps.md 4.6). */
+  new?: string[];
 }
 
 export type CollectionTemplate = 'companies' | 'people' | 'activities' | 'feedback' | 'payments' | 'blank';
@@ -367,6 +381,8 @@ export interface View {
   edit?: string[];
   /** Not a tab of the collection: a calendar kept for Today and Upcoming (design/more-apps.md 4.5). */
   hidden?: boolean;
+  /** How many of its records are at each step of this field, over the table: "Saved 6 · Applied 7". */
+  counts?: string;
 }
 
 /**
@@ -408,7 +424,7 @@ export interface Schema {
   /** What its box on its app's Home says (design/more-apps.md 4.1). */
   home?: HomeTile;
   /** A record's window opens with its name as its title and the line of this field under it, "12–16 Nov · 5 days · in 14 days" (design/more-apps.md 4.5). */
-  head?: { sub: string };
+  head?: { sub: string; steps?: string };
   /** The fields; their order is the order of the table's columns. */
   fields: Field[];
   /** The record screen; unset means one column of every field, then the body. */
@@ -699,6 +715,10 @@ function readField(raw: unknown): Field | null {
   const when = (Array.isArray(raw.when) ? raw.when : []).map((c) => readCondition(c)).filter((c): c is Condition => c !== null && c.field !== key);
   if (when.length > 0) field.when = when;
   if ((type === 'text' || type === 'name') && raw.suggest === true) field.suggest = true;
+  if (type === 'select' && (raw.steps === true || isRecord(raw.steps))) {
+    const given = isRecord(raw.steps) ? raw.steps : {};
+    field.steps = { end: strings(given.end), no: strings(given.no) };
+  }
   if (type === 'name' && raw.optional === true) field.optional = true;
   if (typeof raw.help === 'string' && raw.help.trim()) field.help = raw.help.trim();
   if (isRecord(raw.labelBy) && typeof raw.labelBy.field === 'string' && isRecord(raw.labelBy.labels)) {
@@ -811,7 +831,8 @@ function readLayout(raw: unknown): Layout | undefined {
     columns.push({ ...(width && { width }), sections });
   }
   const hidden = Array.isArray(raw.hidden) ? raw.hidden.filter((k): k is string => typeof k === 'string').map(cleanFieldKey).filter(Boolean) : undefined;
-  return columns.length > 0 ? { columns, ...(hidden && { hidden }) } : undefined;
+  const asked = Array.isArray(raw.new) ? raw.new.filter((k): k is string => typeof k === 'string').map(cleanFieldKey).filter(Boolean) : undefined;
+  return columns.length > 0 ? { columns, ...(hidden && { hidden }), ...(asked?.length && { new: asked }) } : undefined;
 }
 
 /**
@@ -891,7 +912,10 @@ export function parseSchema(text: string): Schema {
   const home = readHome(data.home, fields);
   if (home) schema.home = home;
   const head = isRecord(data.head) && typeof data.head.sub === 'string' ? cleanFieldKey(data.head.sub) : '';
-  if (head && fields.some((f) => f.key === head)) schema.head = { sub: head };
+  // Its stages under its title, a job application's (design/more-apps.md 4.6).
+  const stepsKey = isRecord(data.head) && typeof data.head.steps === 'string' ? cleanFieldKey(data.head.steps) : '';
+  const steps = stepsKey ? fields.find((f) => f.key === stepsKey && f.steps) : undefined;
+  if (head && fields.some((f) => f.key === head)) schema.head = { sub: head, ...(steps && { steps: steps.key }) };
   return schema;
 }
 
@@ -927,6 +951,7 @@ function readViews(raw: unknown, fields: Field[]): View[] {
     const changed = strings(item.edit).map(cleanFieldKey).filter((k) => fields.some((f) => f.key === k && changesInTable(f)));
     if (changed.length > 0) view.edit = changed;
     if (item.hidden === true) view.hidden = true;
+    if (typeof item.counts === 'string' && item.counts.trim()) view.counts = cleanFieldKey(item.counts);
     views.push(view);
   }
   return views;
@@ -1033,6 +1058,8 @@ export interface HomeTile {
   first?: boolean;
   /** No box on Home: a list kept to pick from, the packing list. */
   off?: boolean;
+  /** How many of its records are at each step of this field, as the box's line. */
+  counts?: string;
 }
 
 function readHome(raw: unknown, fields: Field[]): HomeTile | undefined {
@@ -1042,7 +1069,7 @@ function readHome(raw: unknown, fields: Field[]): HomeTile | undefined {
   const sub = known(raw.sub);
   const totals = strings(raw.totals).map((k) => known(k)).filter((k): k is string => !!k);
   const empty = typeof raw.empty === 'string' && raw.empty.trim() ? raw.empty.trim() : undefined;
-  const home: HomeTile = { ...(value && { value }), ...(sub && { sub }), ...(value && raw.total === true && { total: true }), ...(totals.length > 0 && { totals }), ...(value && raw.filled === true && { filled: true }), ...(empty && { empty }), ...(raw.first === true && { first: true }), ...(raw.off === true && { off: true }) };
+  const home: HomeTile = { ...(value && { value }), ...(sub && { sub }), ...(value && raw.total === true && { total: true }), ...(totals.length > 0 && { totals }), ...(value && raw.filled === true && { filled: true }), ...(empty && { empty }), ...(raw.first === true && { first: true }), ...(raw.off === true && { off: true }), ...(known(raw.counts) && { counts: known(raw.counts)! }) };
   return Object.keys(home).length > 0 ? home : undefined;
 }
 

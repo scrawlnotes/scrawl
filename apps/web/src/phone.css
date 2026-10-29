@@ -10108,3 +10108,26 @@ body > .mb-lifted {
   font-size: 13px;
   line-height: 1.4;
 }
+
+/* A stepped choice on the phone: its steps in a row that scrolls. */
+.mb-steps {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.mb-steps button {
+  flex: 0 0 auto;
+  font-size: 13.5px;
+}
+
+.mb-rhead .mb-steps {
+  margin-top: 10px;
+}
+
+.mb-page .step-strip,
+.mb-clist ~ .step-strip,
+.step-strip {
+  margin-left: 16px;
+  margin-right: 16px;
+}

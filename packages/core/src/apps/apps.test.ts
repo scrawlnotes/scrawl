@@ -1,7 +1,7 @@
 import { t } from '@scrawlnotes/i18n';
 import { describe, expect, it } from 'vitest';
 import { parseBoard } from '../board';
-import { addRecord, type Collection, createCollection, loadCollection, parseSchema, type Record, serializeSchema } from '../collection';
+import { addRecord, type Collection, createCollection, loadCollection, parseSchema, type Record, serializeSchema, stepCounts } from '../collection';
 import { dueRecords, repeatCalendar } from '../calendar';
 import { planSave, recordWith, type RuleSpaceNow } from '../run';
 import { Computer } from '../compute';
@@ -410,6 +410,21 @@ describe('setting up an app', () => {
       ['kind', 'Packing', 'Expenses', 'Members', 'Settlements'],
     ]);
     expect(trip.files.find((f) => f.path === 'Away/Trips/_rules.js')!.text).toContain('action("Settle up"');
+  });
+
+  it('sets up Job search with its stages in a bar, the ones it ends at after it, and counts at each', () => {
+    const plan = planApp({ name: 'Jobs', currencies: ['TRY'], templates: [{ id: 'jobs' }] }, { ids });
+    const applications = parseSchema(plan.files.find((f) => f.path === 'Jobs/Applications/_collection.json')!.text);
+    const status = applications.fields.find((f) => f.key === 'status')!;
+    expect([status.steps, applications.head]).toEqual([{ end: ['Accepted', 'Rejected'], no: ['Rejected'] }, { sub: 'said', steps: 'status' }]);
+    expect(stepCounts(status, [{ values: { status: 'Saved' } }, { values: { status: 'Applied' } }, { values: { status: 'Applied' } }, { values: { status: 'Rejected' } }])).toEqual([
+      ['Saved', 1],
+      ['Applied', 2],
+      ['Screening', 0],
+      ['Interview', 0],
+      ['Offer', 0],
+    ]);
+    expect(plan.created.map((c) => c.path)).not.toContain('Jobs/Companies');
   });
 
   it('sets up Reading and watching with the services of the region, and this year from its first day with its goal', () => {

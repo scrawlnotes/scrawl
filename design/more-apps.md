@@ -201,12 +201,19 @@ Kişi için kurulur; para birimi kişisel finansta sorulur.
 
 ### 4.6 İş arama (Life)
 
-- **Companies:** ad, site, not.
-- **Applications:** şirket, pozisyon, ilan linki, başvuru günü, durum (Applied, Screening, Interview, Offer, Rejected, Accepted), maaş, kaynak, sonraki adım günü.
-- **Interviews:** başvuru, saatli gün, tür, kiminle, not.
-- **Kontrol:** 14 gündür ses çıkmayan başvuru "Follow up" diye işaretlenir.
-- **Takvim:** görüşmeler ve sonraki adımlar, Today ve Upcoming'de.
-- **Sorular:** başvuru aşamaları (liste).
+29 Ekim, Huntr, Teal ve Simplify'ın ekranlarına bakılarak baştan. Mockup: `design/mockups.html` › İş arama.
+
+- **Applications:** listede üstte aşamalar sayılarıyla ("6 Saved · 7 Applied", Teal), satırda pozisyon, şirket, aşama noktaları (Simplify), ne zamandır ("12 days") ve sıradaki iş ("Interview · Thu 14:00", "Follow up on 12 Nov", Saved'de "1 of 4 done"). Active (bitenler hariç) ve All.
+- **Yeni başvuru:** başlıkta pozisyon, altında aşama çubuğu; Company, Location (önceden yazılanlar önerilir), Job post; notlar ve ek. Gerisi kaydedince (Simplify, Huntr).
+- **Başvuru penceresi:** başlıkta pozisyon, altında "Linear · Remote · applied 12 days ago"; tıklanan aşama çubuğu Saved → Applied → Screening → Interview → Offer, sonda Accepted ve Rejected (Teal). Solda Company, Location, Job post, Salary, Contact, Contact email, notlar (ilan metni, CV); sağda Interviews gün gün (Teal'in Interview Tracking'i) ve To do.
+- **Kendiliğinden:** aşama değişince haber günü bugün; Saved'den çıkınca başvuru günü; Saved'de açılan başvuruya hazır To do (Tailor your resume, Write a cover letter, Find a referral, Apply); görüşme eklenince haber günü ve aşama Interview.
+- **Takip:** gönderilmiş, bitmemiş ve seçilen süre (7, 14, 21 gün) ses çıkmayan başvuru Today'de **Followed up** düğmesiyle; basınca bir hafta sonra yine gelir, basılmazsa Overdue'da kalır.
+- **Interviews (başvurunun satırları):** ne zaman (saatli), tür (Phone screen, Technical, Culture, Panel, Final, Other), kiminle, notlar; adı kendiliğinden "Technical · Software Engineer, Linear"; Today'de saatiyle. Menüde yok.
+- **Home:** aşama sayıları, bugünün görüşmeleri ve takipleri.
+- **Companies kalktı** (şirket başvurunun içinde yazılır); Source, Last heard ve Next step alanları yok.
+- **Sorular:** aşamalar (liste, hazır), kaç gün sonra takip (A week, Two weeks, Three weeks).
+- **Altyapı:** seçimde `steps` (formda ok çubuğu, tabloda noktalar, telefonda kayan çubuk; `end` ve `no`), pencere başlığında aşamalar (`head.steps`), görünümde ve Home'da aşama sayıları (`counts`), yeni kaydın sorduğu alanlar (`layout.new`), zorunlu adın yer tutucusu alanın adı.
+- **Mockup'tan farklar:** yeni başvuruda Position ayrı kutu değil başlık, aşama seçimi düğmeler değil çubuk; pencerede solda Followed up düğmesi de var; görüşme satırının adı pencerede de uzun ("Technical · Software Engineer, Linear"); görüşmenin saati yoksa satırda saat yok; Home'da "This week: 3 applied · 2 interviews" satırı yok; telefonda To do ayrı sekme değil Details'in altında, yeni başvuruda aşama yok (Saved gelir); listede pozisyonun altında şirket değil, şirket ayrı sütun.
 
 ### 4.7 Yakınlar ve doğum günleri (Life)
 
