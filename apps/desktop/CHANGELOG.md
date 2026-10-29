@@ -2,6 +2,25 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.20
+
+The apps of a person's templates and CRM again, from the screens of the apps people use, with as little typed as can be.
+
+- CRM: a company and a person open in three columns, Log, Plan, Call and Email over what is planned and their history day by day, their people and their Deals beside. A deal's card says its company, its contact and its next step, late in red; its window has its stages in a bar, Log, Plan, Won and Lost. Won writes Customer in the company's Type.
+- Personal finance: a transaction is its amount and a category from chips; what comes again is written by itself on its day, one whose amount changes comes to Today with Paid.
+- Health: medicines say when they run out, appointments are named after their doctor, check-ups and vaccines come again for each person.
+- Home, car and documents is Reminders, Documents, Cars and Homes; Done writes the next time.
+- Recipes follows a meal plan: its days are written by themselves, an item ticked as eaten or what was had instead written beside it.
+- Habits and goals is ticked in Today with one click, with its streak and its month; a goal by a number or by its steps.
+- Travel and Shared expenses: a trip's window with its bookings day by day, its budget, its packing; an expense split as Tricount does.
+- Job search: an application's stages in a bar, its interviews and to-dos; one with no news comes to Today with Followed up.
+- People and birthdays: a birthday with or without its year, Keep in touch, Wished and Talked in Today.
+- Reading and watching: a screen for each kind, Books, Films, Series, Anime and more, each in its own words, +1 for an episode or a chapter.
+- A person's templates go in one app only with those they share data with. Edit app begins with the app's name, place and currencies.
+- A record's window has no Save: what is typed is kept as it is left, Cancel lets it go. A field, or a block of the window, may be there only when the record's other fields hold.
+- Today and Upcoming show of a shared space only one's own work, and their numbers count everything they show.
+- In the Labels window a label being renamed stays on one line.
+
 ## 0.1.19
 
 Every table is a plain table, Gym's program holds numbers, and a program's days are on its calendar.
