@@ -648,6 +648,12 @@ describe('formulas, conditions, groups and sums', () => {
     ]);
     expect(groupRecords(records, schema, 'status', today).map((g) => g.key)).toEqual(['active', 'prospect']);
     expect(groupRecords(records, schema, 'qty', today)).toHaveLength(1);
+    // A worked-out text groups as it says, in the records' own order: a birthday's month.
+    const sized = { ...schema, fields: [...schema.fields, { key: 'size', label: 'Size', type: 'formula' as const, formula: 'qty > 2 ? "Big" : "Small"' }] };
+    expect(groupRecords([...records].reverse(), sized, 'size', today).map((g) => [g.label, g.records.map((r) => r.name)])).toEqual([
+      ['Small', ['Initech', 'Globex']],
+      ['Big', ['Acme']],
+    ]);
     expect(columnSum(records, schema, 'total', today)).toBe(231.5);
     expect(columnSum(records, schema, 'qty', today)).toBe(6);
     expect(columnSum(records, schema, 'status', today)).toBeNull();

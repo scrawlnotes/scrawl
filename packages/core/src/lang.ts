@@ -1,6 +1,6 @@
 import { t } from '@scrawlnotes/i18n';
 import type { Field, FieldValue, Link, Schema } from './collection';
-import { clockOf, isDay, dateTimeOf, timeOf } from './day';
+import { clockOf, isDay, dateTimeOf, isYearless, timeOf } from './day';
 
 // The language of formulas, and later of rules: a syntax like JS's, read by our own reader,
 // which takes only what it knows. Numbers, texts, days, yes or no and lists; a field by its key
@@ -760,6 +760,15 @@ const FNS: { [name: string]: FnSpec } = {
       return 'text';
     },
   },
+  // The next time a day of the year comes, on or after today or a day given: a birthday's (design/more-apps.md 4.7).
+  upcoming: {
+    args: [1, 2],
+    kind: ([a, b], [n, m]) => {
+      need(DAYISH(a!), t('lang.fnDay', { fn: 'upcoming' }), n!);
+      if (b !== undefined) need(DAYISH(b), t('lang.fnDay', { fn: 'upcoming' }), m!);
+      return 'day';
+    },
+  },
   weekday: {
     args: [1, 1],
     kind: ([a], [n]) => {
@@ -1062,9 +1071,12 @@ export class Day {
   constructor(
     readonly n: number,
     readonly m: number | null = null,
+    /** A day of the year with no year, a birthday whose year is not known: counted in 2000, a leap year. */
+    readonly yearless = false,
   ) {}
   toString(): string {
     const day = new Date(this.n * 86400000).toISOString().slice(0, 10);
+    if (this.yearless) return `--${day.slice(5)}`;
     return this.m === null ? day : `${day}T${clockText(this.m)}`;
   }
   /** Minutes since 1970-01-01: a day alone at its start. */
@@ -1078,6 +1090,7 @@ const dayAt = (minutes: number) => new Day(Math.floor(minutes / 1440), ((minutes
 
 /** A day, or a day with its time, as a Day; null when the text is not one. */
 export function dayValue(text: string): Day | null {
+  if (isYearless(text)) return new Day(Math.round(Date.UTC(2000, Number(text.slice(2, 4)) - 1, Number(text.slice(5, 7))) / 86400000), null, true);
   const value = isDay(text) ? text : dateTimeOf(text);
   if (!value) return null;
   const [y, m, d] = value.slice(0, 10).split('-').map(Number) as [number, number, number];
@@ -1592,13 +1605,25 @@ function call(fn: string, args: RV[], env: Env): RV {
     case 'year':
     case 'month': {
       if (!(a instanceof Day)) return null;
-      const [y, m] = a.toString().split('-').map(Number) as [number, number];
+      // A day with no year has its month, not its year.
+      if (a.yearless && fn === 'year') return null;
+      const [y, m] = new Date(a.n * 86400000).toISOString().split('-').map(Number) as [number, number];
       return fn === 'year' ? y : m;
+    }
+    case 'upcoming': {
+      if (!(a instanceof Day)) return null;
+      const from = b instanceof Day ? b : dayValue(env.today);
+      if (!from) return null;
+      const [, m, d] = new Date(a.n * 86400000).toISOString().slice(0, 10).split('-').map(Number) as [number, number, number];
+      const y = Number(new Date(from.n * 86400000).toISOString().slice(0, 4));
+      // 29 February in a year that has none is the 28th.
+      const on = (year: number) => Math.round(Date.UTC(year, m - 1, m === 2 && d === 29 && !(year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)) ? 28 : d) / 86400000);
+      return new Day(on(y) >= from.n ? on(y) : on(y + 1));
     }
     case 'monthday':
     case 'monthname': {
       if (!(a instanceof Day)) return null;
-      const [, m, d] = a.toString().slice(0, 10).split('-').map(Number) as [number, number, number];
+      const [, m, d] = new Date(a.n * 86400000).toISOString().slice(0, 10).split('-').map(Number) as [number, number, number];
       return fn === 'monthday' ? d : MONTH_NAMES[m - 1]!;
     }
     case 'weekday': {

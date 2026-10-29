@@ -43,6 +43,7 @@ import {
   type FieldValue,
   fieldLabel,
   stepCounts,
+  dayWords,
   fieldValueOf,
   GROUPABLE,
   groupRecords,
@@ -420,6 +421,61 @@ export function usedValues(values: unknown[]): string[] {
 const isAddress = (type: Field['type']) => type === 'url' || type === 'email' || type === 'phone';
 
 /** A value as the table shows it: text, a chip for a choice, chips for choices, a tick for a flag, an address to open. */
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/**
+ * A day whose year may be left out, a birthday (design/more-apps.md 4.7): its day and its month,
+ * then its year if it is known. Written `1990-11-12`, or `--11-12` with no year.
+ */
+export function YearlessBox({ id, label, value, onChange, className }: { id?: string; label: string; value: FieldValue; onChange: (value: FieldValue) => void; className?: string }) {
+  const text = typeof value === 'string' ? value : '';
+  const yearless = text.startsWith('--');
+  const [y, m, d] = yearless ? ['', text.slice(2, 4), text.slice(5, 7)] : text ? text.slice(0, 10).split('-') : ['', '', ''];
+  const [year, setYear] = useState(y ?? '');
+  useEffect(() => setYear(y ?? ''), [y]);
+  const write = (day: string, month: string, yy: string) => {
+    if (!day || !month) return onChange(null);
+    const mm = month.padStart(2, '0');
+    const dd = day.padStart(2, '0');
+    onChange(/^\d{4}$/.test(yy) ? `${yy}-${mm}-${dd}` : `--${mm}-${dd}`);
+  };
+  const day = d ? String(Number(d)) : '';
+  const month = m ? String(Number(m)) : '';
+  return (
+    <span className={className ?? 'yearless'} role="group" aria-label={label}>
+      <select id={id} aria-label={t('collection.day')} value={day} onChange={(event) => write(event.target.value, month || '1', year)}>
+        <option value="">–</option>
+        {Array.from({ length: 31 }, (_, i) => (
+          <option key={i} value={String(i + 1)}>
+            {i + 1}
+          </option>
+        ))}
+      </select>
+      <select aria-label={t('collection.month')} value={month} onChange={(event) => write(day || '1', event.target.value, year)}>
+        <option value="">–</option>
+        {MONTH_NAMES.map((name, i) => (
+          <option key={name} value={String(i + 1)}>
+            {name}
+          </option>
+        ))}
+      </select>
+      <input
+        type="text"
+        inputMode="numeric"
+        maxLength={4}
+        aria-label={t('collection.year')}
+        placeholder={t('collection.yearIfKnown')}
+        value={year}
+        onChange={(event) => {
+          const next = event.target.value.replace(/\D/g, '');
+          setYear(next);
+          if (next === '' || next.length === 4) write(day, month, next);
+        }}
+      />
+    </span>
+  );
+}
+
 /**
  * A stepped choice on a form, as Teal shows a job's stages (design/more-apps.md 4.6): its steps in
  * a bar, those passed lit, the one it is at filled; the ones it ends at after them. A click picks one.
@@ -540,6 +596,8 @@ export function Cell({ field, value, ctx, values }: {
   }
   if (typeof value === 'number') return <span className="num">{formatNumber(value, field.format, currencyOf(field.format, values))}</span>;
   // A day with its time shows its clock after it; one with no time, where the field has one, all day.
+  // A birthday reads as a day: "12 Nov", "12 Nov 1990".
+  if (field.type === 'date' && typeof value === 'string' && field.yearless) return <span className="ct dt">{dayWords(value)}</span>;
   if (field.type === 'date' && typeof value === 'string') {
     const time = timeOf(value);
     return (
@@ -950,6 +1008,7 @@ export function FieldInput({ field, value, autoFocus, ctx, currency, onChange, o
       if (field.format?.style === 'duration') return <DurationBox id={id} label={field.label} value={typeof value === 'number' ? value : null} autoFocus={autoFocus} onChange={onChange} onEnter={onEnter} />;
       return <NumberBox id={id} field={field} value={typeof value === 'number' ? value : null} currency={currency} autoFocus={autoFocus} onChange={onChange} onEnter={onEnter} />;
     case 'date':
+      if (field.yearless) return <YearlessBox id={id} label={field.label} value={value} onChange={onChange} />;
       if (field.time) return <DateTimeBox id={id} label={field.label} value={typeof value === 'string' && value ? value : null} autoFocus={autoFocus} onChange={onChange} />;
       return <input id={id} type="date" autoFocus={autoFocus} aria-label={field.label} value={typeof value === 'string' ? value.slice(0, 10) : ''} onChange={(event) => onChange(event.target.value || null)} />;
     case 'time':

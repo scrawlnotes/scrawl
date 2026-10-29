@@ -124,3 +124,15 @@ describe('the language', () => {
     expect(problem('('.repeat(40) + '1' + ')'.repeat(40))).toBe('Too many brackets inside each other.');
   });
 });
+
+describe('a day with no year', () => {
+  it('comes round on its day, this year or the next, and has no year to count an age by', () => {
+    expect(run('upcoming(start)', { ...VALUES, start: '--11-12' })).toBe('2026-11-12');
+    expect(run('upcoming(start)', { ...VALUES, start: '1990-03-01' })).toBe('2027-03-01');
+    expect(run('upcoming(start)', { ...VALUES, start: '--10-20' })).toBe('2026-10-20');
+    expect(run('year(start)', { ...VALUES, start: '--11-12' })).toBeNull();
+    expect(run('monthday(start)', { ...VALUES, start: '--11-12' })).toBe(12);
+    // 29 February comes on the 28th in a year that has none.
+    expect(run('upcoming(start)', { ...VALUES, start: '--02-29' })).toBe('2027-02-28');
+  });
+});

@@ -217,11 +217,16 @@ Kişi için kurulur; para birimi kişisel finansta sorulur.
 
 ### 4.7 Yakınlar ve doğum günleri (Life)
 
-- **People** (CRM'in People'ıyla ortak değil; rolü ayrı): ad, yakınlık, doğum günü, yıldönümü, telefon, ne sıklıkla görüşmek istendiği (gün); son görüşme, sonraki doğum günü (formül, `years(n)` ile).
-- **Moments:** kişi, gün, tür (Call, Visit, Message), not.
-- **Kontrol:** istenen sıklıktan uzun süredir görüşülmeyen kişi işaretlenir.
-- **Takvim:** sonraki doğum günleri ve yıldönümleri her yıl, Today ve Upcoming'de.
-- **Sorular:** yıldönümleri tutulsun mu, görüşme sıklığı tutulsun mu.
+29 Ekim, hip, Dex ve Garden'ın ekranlarına bakılarak baştan. Mockup: `design/mockups.html` › Yakınlar ve doğum günleri.
+
+- **People:** ad, yakınlık (çipler), doğum günü ve yıldönümü (gün ve ay, yıl bilinirse: `--11-12` ya da `1990-11-12`), telefon, e-posta, Keep in touch (Every week … Every year, hazır aralık sorudan), notlar. Başlıkta "Friend · birthday on 12 Nov · last talked 33 days ago" (Dex); yeni kişide ad, yakınlık, doğum günü, telefon, Keep in touch.
+- **Görünümler:** Birthdays sıradaki güne göre, Today, Tomorrow ve ay ay (hip), satırda "Turns 36 · 29 Oct" ya da yılsızda "12 Nov" ve "in 14 days"; Keep in touch sırası gelene göre, "3 days late", "4 weeks left", son konuşma (Garden).
+- **Today:** doğum günü ve yıldönümü gününde **Wished** düğmesiyle (bir Message anı yazılır, gün gelecek yıla geçer; hip); sırası gelen kişi **Talked** ile (bugüne bir an yazılır; Garden'ın In touch today'i), geç kalan Overdue'da. Sıra ilk konuşmadan sonra sayılır; hiç konuşulmamış kişi Today'e gelmez, "Not talked yet" der.
+- **Moments (kişinin satırları):** ne zaman, tür (Call, Visit, Message), not; kişinin penceresinde gün gün (Dex). Menüde yok.
+- **Home:** sıradaki doğum günleri; bugünün Wished ve Talked satırları.
+- **Sorular:** yıldönümleri de mi, hazır Keep in touch aralığı (Every week … Every 3 months, No reminders).
+- **Altyapı:** yılsız gün (`yearless`, `--MM-DD`; formda gün, ay ve isteğe bağlı yıl; tabloda "12 Nov"); dilde `upcoming(gün, -den)` (bir günün sıradaki gelişi, 29 Şubat artık olmayan yılda 28'i) ve yılsız günde `year()` boş; formül metnine göre gruplama (kayıtların sırasıyla).
+- **Mockup'tan farklar:** Call ve Message düğmeleri masaüstünde yok (telefonda telefon ve e-posta yazılınca var); Talked ve Wished başlığın altında değil solda, Wished gününde değilse soluk; yıldönümü doğum gününün yanında değil altında; Keep in touch'ta "3 days late" renksiz; anın adı pencerede "Talked with Can Demir"; Home'da ayrı Keep in touch kutusu yok (sırası gelenler Home'un Today'inde); ay başlığında yıl da var ("Nov 2026").
 
 ### 4.8 Okuma ve izleme listesi (Life)
 

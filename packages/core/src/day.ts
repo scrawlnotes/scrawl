@@ -89,6 +89,30 @@ export function dateOf(text: string, time = false): string | null {
   return time ? moment : moment.slice(0, 10);
 }
 
+// A day of the year with no year, a birthday whose year is not known, is written `--MM-DD`, as
+// ISO 8601 writes one that comes every year (design/more-apps.md 4.7).
+const YEARLESS = /^-{0,2}(\d{1,2})-(\d{1,2})$/;
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** A day of the year as `--MM-DD`, from `--11-12` or `11-12`; null when it is not one. 29 February is one. */
+export function yearlessOf(text: string): string | null {
+  const m = YEARLESS.exec(text.trim());
+  if (!m) return null;
+  const [month, day] = [Number(m[1]), Number(m[2])];
+  if (month < 1 || month > 12 || day < 1 || day > [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1]!) return null;
+  return `--${pad(month)}-${pad(day)}`;
+}
+
+/** Whether a day's value has no year. */
+export const isYearless = (value: string) => value.startsWith('--') && yearlessOf(value) === value;
+
+/** A day as a person reads it, its year when it has one: "12 Nov", "12 Nov 1990". */
+export function dayWords(value: string): string {
+  const yearless = isYearless(value);
+  const [y, m, d] = yearless ? [null, Number(value.slice(2, 4)), Number(value.slice(5, 7))] : value.slice(0, 10).split('-').map(Number);
+  return `${d} ${MONTHS[(m ?? 1) - 1]}${y ? ` ${y}` : ''}`;
+}
+
 /** The time of a date's value, `14:30`; null for a day alone. */
 export const timeOf = (value: string): string | null => (value.length > 10 && value[10] === 'T' ? value.slice(11, 16) : null);
 

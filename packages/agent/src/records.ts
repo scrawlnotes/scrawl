@@ -303,7 +303,7 @@ export async function parseValues(fs: VaultFs, fields: Field[], given: { [key: s
       values[field.key] = null;
       continue;
     }
-    const value = readValue(field.type, raw, field.many, field.time);
+    const value = readValue(field.type, raw, field.many, field.time, field.yearless);
     if (value === null) extra[field.key] = raw;
     else values[field.key] = value;
   }

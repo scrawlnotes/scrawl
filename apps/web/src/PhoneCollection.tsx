@@ -38,6 +38,7 @@ import {
   linesBlocks,
   fieldLabel,
   stepCounts,
+  dayWords,
   linkFieldsTo,
   localPath,
   newRecordId,
@@ -73,7 +74,7 @@ import { t } from '@scrawlnotes/i18n';
 import { type FormEvent, type MouseEvent, type PointerEvent, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Chip } from './choices';
 import { DaysMonth } from './CollectionCalendar';
-import { choicesOf, type CollectionActions, type Draft, differs, draftOf, excerpt, LinkChips, type LinkedDrafts, LinkedTable, NotesBlock, StepsBar, StepStrip, recordLayout, savePreview, singularOf, usedValues, type ValueContext, withDrafts } from './Collection';
+import { choicesOf, type CollectionActions, type Draft, differs, draftOf, excerpt, LinkChips, type LinkedDrafts, LinkedTable, NotesBlock, StepsBar, StepStrip, YearlessBox, recordLayout, savePreview, singularOf, usedValues, type ValueContext, withDrafts } from './Collection';
 import { fieldChoices, LabelSheet } from './labels';
 import { Icon, type IconName } from './Icon';
 import { Subtasks } from './Subtasks';
@@ -190,7 +191,7 @@ function ShownValue({ field, value, today }: { field: Field; value: FieldValue |
     const links = (Array.isArray(value) ? value : [value]).filter(isLink);
     return <span className="tx">{links.map((link) => recordLabel(link)).join(', ')}</span>;
   }
-  if (field.type === 'date' && typeof value === 'string') return <span className="tx">{dateLabel(value, today)}</span>;
+  if (field.type === 'date' && typeof value === 'string') return <span className="tx">{field.yearless ? dayWords(value) : dateLabel(value, today)}</span>;
   if (typeof value === 'number') return <span className="tx">{formatNumber(value, field.format)}</span>;
   return <span className="tx">{valueText(value)}</span>;
 }
@@ -343,6 +344,16 @@ function FieldRow({ field, value, values, worked, changed, bad, autoFocus, today
       }
     // falls through
     case 'date':
+      // A birthday: its day and month in place, its year if it is known.
+      if (field.type === 'date' && field.yearless) {
+        return (
+          <div className={classes + ' mb-chipsrow'}>
+            {label}
+            <YearlessBox label={field.label} value={value} onChange={onChange} className="yearless mb-yearless" />
+          </div>
+        );
+      }
+    // falls through
     case 'time':
     case 'person': {
       const hint = field.type === 'multi-select' ? t('phone.addValue') : field.type === 'person' ? t('card.unassigned') : field.type === 'date' || field.type === 'time' ? t('phone.none') : t('phone.choose');

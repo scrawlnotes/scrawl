@@ -4207,6 +4207,24 @@ p { margin: 0; max-width: 68ch; }
 .mbs .jb-mbar span { flex: 0 0 auto; padding: 6px 12px; border-radius: 15px; background: var(--m-side); color: var(--m-dim); font-size: 13px; }
 .mbs .jb-mbar span.past { color: var(--m-fg); }
 .mbs .jb-mbar span.on { background: #4fb3d9; color: #0b1a22; font-weight: 600; }
+/* People and birthdays (Oct 29): screens as hip, Dex and Garden have them. */
+.ca-row.pp-bd { grid-template-columns: 240px 110px 240px 120px; }
+.ca-row.pp-kt { grid-template-columns: 220px 110px 150px 130px 120px; }
+.ca-row .pp-late { color: var(--m-p1); }
+.ca-row .pp-left { color: #5cb87a; }
+.ca-row .pp-soon { color: var(--m-accent); }
+.pp-acts { display: flex; gap: 8px; padding: 10px 20px 0; }
+.pp-acts span { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border: 1px solid var(--m-line); border-radius: 7px; color: var(--m-fg); font-size: 12.5px; }
+.pp-acts span.go { border-color: var(--m-accent); background: var(--m-accent); color: var(--m-on-accent); font-weight: 600; }
+.pp-acts svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.7; }
+.pp-every { display: flex; flex-wrap: wrap; gap: 6px; }
+.mbs .pp-mrow { display: flex; align-items: center; gap: 10px; padding: 11px 16px; border-bottom: 1px solid var(--m-line); }
+.mbs .pp-mrow .tx { flex: 1; min-width: 0; }
+.mbs .pp-mrow .tx b { display: block; font-size: 15.5px; font-weight: 500; }
+.mbs .pp-mrow .tx small { display: block; color: var(--m-faint); font-size: 13px; }
+.mbs .pp-mrow .r { color: var(--m-dim); font-size: 13px; text-align: right; }
+.mbs .pp-mrow .r.late { color: var(--m-p1); }
+.mbs .pp-mrow .r.left { color: #5cb87a; }
 .ca-row.mp-plan { grid-template-columns: minmax(0, 1fr) 210px 96px 96px 70px 84px; }
 .ca-row.mp-day { grid-template-columns: 150px minmax(0, 1fr) 96px 100px 84px minmax(0, 1fr); }
 .ca-row.mp-today { background: color-mix(in srgb, var(--m-sel) 30%, transparent); }
@@ -5267,6 +5285,28 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-jbview="jbtoday">Today</button>
         <button type="button" data-jbview="jbhome">Home</button>
         <button type="button" data-jbview="jbphone">Telefon</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="close">
+    <div class="brief">
+      <div>
+        <span class="letter">SCRAWL APPS · TASLAK</span>
+        <h2>Yakınlar ve doğum günleri: hip, Dex ve Garden'ın ekranlarından</h2>
+        <p><b>People</b> iki görünüm: <b>Birthdays</b> sıradaki doğum gününe göre Today, Tomorrow ve ay ay (hip), satırda "Turns 36 · 12 Nov · in 14 days", yılı bilinmeyende yaş yok; <b>Keep in touch</b> sırası gelene göre, "3 days late" ya da "2 weeks left" ve son konuşma (Garden). <b>Kişi penceresi</b>: başlıkta ad ve "Friend · turns 36 on 12 Nov · last talked 2 months ago" (Dex), Call, Message ve Talked; solda yakınlık, doğum günü (yıl boş kalabilir), yıldönümü, telefon, e-posta, ne sıklıkla; notlar; sağda anlar gün gün (Dex). <b>Today</b>: doğum günü <b>Wished</b>, sırası gelen <b>Talked</b> düğmesiyle. <b>Home</b>: Birthdays ve Keep in touch (Dex). "Talk every (days)" sayısı yok.</p>
+        <ul class="traits"><li>yılsız doğum günü</li><li>ay ay doğum günleri</li><li>geciken ve kalan</li><li>Talked tek tıkla</li><li>Wished</li><li>anlar gün gün</li><li>hazır aralıklar</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Yakınlar görünümü">
+        <button type="button" data-ppview="ppbdays">Doğum günleri</button>
+        <button type="button" data-ppview="pptouch">Keep in touch</button>
+        <button type="button" data-ppview="ppwin">Kişi</button>
+        <button type="button" data-ppview="ppnew">Yeni kişi</button>
+        <button type="button" data-ppview="ppmoment">An</button>
+        <button type="button" data-ppview="pptoday">Today</button>
+        <button type="button" data-ppview="pphome">Home</button>
+        <button type="button" data-ppview="ppphone">Telefon</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -16301,6 +16341,151 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderJb(sectionJb, b.dataset.jbview);
   });
   renderJb(sectionJb, 'jbapps');
+
+  // People and birthdays (draft, Oct 29): birthdays as hip lists them, keeping in touch as Garden
+  // does, a person as Dex shows one; Wished and Talked in Today.
+  var PP_APP = 'People and birthdays';
+  var PP_PHONE = '<svg viewBox="0 0 24 24"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1z"/></svg>';
+  var PP_MSG = '<svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg>';
+  function ppTree(on) {
+    return '<div class="tree fxt">' + row({ label: 'Today', ct: 3, on: on === 'today' }) + row({ label: 'Upcoming', ct: 5 }) +
+      opRowT({ sp: true, open: true, label: 'Personal' }) +
+      ahRow(PP_APP, { on: on !== 'today', icon: ICON.person || ICON.app }) + ahRow('Job search', { icon: ICON.clip }) + ahRow('Personal finance', { icon: ICON.app }) + '</div>' + spFoot(null);
+  }
+  var PP_BDAYS = [
+    ['Today', [['Ayşe Kaya', 'Friend', 'Turns 36 · 29 Oct', 'today', true]]],
+    ['Tomorrow', [['Mom', 'Family', 'Turns 63 · 30 Oct', 'tomorrow', true]]],
+    ['November', [['Can Demir', 'Friend', '12 Nov', 'in 14 days'], ['Elif & Mert', 'Family', '9th anniversary · 20 Nov', 'in 22 days'], ['Deniz', 'Colleague', 'Turns 29 · 27 Nov', 'in 29 days']]],
+    ['December', [['Grandpa', 'Family', 'Turns 88 · 4 Dec', 'in 36 days'], ['Zeynep', 'Friend', '18 Dec', 'in 50 days']]]
+  ];
+  function ppBdays() {
+    var head = '<div class="ca-row pp-bd head"><span>Name</span><span>Relation</span><span>Birthday</span><span>When</span></div>';
+    var rows = PP_BDAYS.map(function (g) {
+      return '<div class="ca-row tr-grp"><span>' + g[0] + '</span></div>' + g[1].map(function (p) {
+        return '<div class="ca-row pp-bd"><span class="tt">' + p[0] + '</span><span>' + lbl(p[1]) + '</span><span class="calc">' + p[2] + '</span><span class="' + (p[4] ? 'pp-soon' : 'calc') + '">' + p[3] + '</span></div>';
+      }).join('');
+    }).join('');
+    return '<div class="ah">' + ahTop(PP_APP, ICON.person || ICON.app, ['Home', 'People'], 'People') + ahScreen(['Birthdays', 'Keep in touch', 'All'], head, rows) + '</div>';
+  }
+  var PP_TOUCH = [
+    ['Can Demir', 'Friend', 'Every month', '3 days late', '26 Sep', 'late'],
+    ['Grandpa', 'Family', 'Every 2 weeks', '1 day late', '14 Oct', 'late'],
+    ['Zeynep', 'Friend', 'Every 2 months', '5 days left', '3 Sep', 'soon'],
+    ['Mom', 'Family', 'Every week', '6 days left', '28 Oct', 'left'],
+    ['Deniz', 'Colleague', 'Every 3 months', '2 months left', '2 Oct', 'left']
+  ];
+  function ppTouch() {
+    var head = '<div class="ca-row pp-kt head"><span>Name</span><span>Relation</span><span>Keep in touch</span><span>Next</span><span>Last talked</span></div>';
+    var rows = PP_TOUCH.map(function (p) {
+      return '<div class="ca-row pp-kt"><span class="tt">' + p[0] + '</span><span>' + lbl(p[1]) + '</span><span class="calc">' + p[2] + '</span><span class="pp-' + p[5] + '">' + p[3] + '</span><span class="calc">' + p[4] + '</span></div>';
+    }).join('');
+    return '<div class="ah">' + ahTop(PP_APP, ICON.person || ICON.app, ['Home', 'People'], 'People') + ahScreen(['Keep in touch', 'Birthdays', 'All'], head, rows).replace('<span class="on">Birthdays</span>', '<span>Birthdays</span>') + '</div>';
+  }
+  var PP_EVERY = ['Every week', 'Every 2 weeks', 'Every month', 'Every 2 months', 'Every 3 months', 'Every 6 months', 'Every year'];
+  function ppEvery(on) { return '<span class="x2-seg pp-every">' + PP_EVERY.map(function (e) { return '<span' + (e === on ? ' class="on"' : '') + '>' + e + '</span>'; }).join('') + '</span>'; }
+  function ppRel(on) { return '<span class="x2-seg">' + ['Family', 'Friend', 'Partner', 'Colleague', 'Other'].map(function (e) { return '<span' + (e === on ? ' class="on"' : '') + '>' + e + '</span>'; }).join('') + '</span>'; }
+  /** Dex's person: the name and its line, the buttons; Garden's fields; the moments day by day. */
+  function ppWin() {
+    var left = ccProp('Relation', ppRel('Friend')) +
+      '<div class="cc-two">' + ccProp('Birthday', '12 Nov <span class="calc" style="margin-left:6px">year not known</span>') + ccProp('Anniversary', '–') + '</div>' +
+      '<div class="cc-two">' + ccProp('Phone', '+90 532 418 22 10') + ccProp('Email', '<span class="lk">can@demir.dev</span>') + '</div>' +
+      ccProp('Keep in touch', 'Every month', { dd: true }) +
+      '<div class="jb-desc"><b>Notes</b>Married to Selin, two kids, Ada and Ege. Loves sailing; ask about the boat. Gift idea: a good knife.</div>';
+    var tl = function (t, ic, c, a, b) { return '<div class="x2-tl" style="--tc:' + c + '"><span class="tm">' + t + '</span><span class="ic">' + ic + '</span><span class="tx"><b>' + a + '</b><small>' + b + '</small></span></div>'; };
+    var moments = '<div class="x2-blk"><div class="x2-sec">Moments<small>4</small><span class="r">+ Add</span></div>' +
+      '<div class="x2-day">Fri, 26 Sep</div>' + tl('', '📞', '#6aa5f0', 'Call', 'His new job, the move to Izmir') +
+      '<div class="x2-day">Sun, 7 Sep</div>' + tl('', '🏠', '#5cb87a', 'Visit', 'Dinner at theirs; met the kids') +
+      '<div class="x2-day">Tue, 12 Aug</div>' + tl('', '💬', '#e0a84a', 'Message', 'Sent the photos from the wedding') +
+      '<div class="x2-day">Sat, 14 Jun</div>' + tl('', '🏠', '#5cb87a', 'Visit', 'Selin and Can\'s wedding') + '</div>';
+    return '<div class="ovl center"><div class="rmod cc-rm" style="width:900px"><div class="cp-head">' + ICON.collection + '<span>People · ' + PP_APP + '</span><span class="more">···</span><span class="x">×</span></div>' +
+      '<div class="x2-head"><b>Can Demir</b><small>Friend · birthday on 12 Nov · last talked 33 days ago · 3 days late</small></div>' +
+      '<div class="pp-acts"><span>' + PP_PHONE + 'Call</span><span>' + PP_MSG + 'Message</span><span class="go">Talked</span></div>' +
+      '<div class="jb-cols"><div>' + left + '</div><div>' + moments + '</div></div>' +
+      '<div class="rm-foot"><span class="st-btn">Cancel</span></div></div></div>';
+  }
+  function ppNew() {
+    var body = ccProp('Name', 'Zeynep', { req: true }) + ccProp('Relation', ppRel('Friend')) +
+      '<div class="cc-two">' + ccProp('Birthday', '18 Dec') + ccProp('Year', '<span class="calc">if you know it</span>') + '</div>' +
+      ccProp('Phone', '') + ccProp('Keep in touch', 'Every 2 months', { dd: true });
+    return x2Window('New person · People', body, '<span class="st-btn">Cancel</span><span class="st-btn go">Create</span>');
+  }
+  function ppMoment() {
+    var kinds = '<span class="x2-seg"><span class="on">📞 Call</span><span>🏠 Visit</span><span>💬 Message</span></span>';
+    var body = '<div class="cc-two">' + ccProp('When', 'Today') + ccProp('Type', kinds) + '</div>' + ccProp('Note', 'His new job, the move to Izmir');
+    return x2Window('New moment · Can Demir', body, '<span class="st-btn">Cancel</span><span class="st-btn go">Create</span>');
+  }
+  function ppToday() {
+    var body = '<div class="tasksv"><div class="th"><b>Today</b><span class="c3-date">Thu, Oct 29</span><button type="button" class="add">Add task</button></div><div class="tl">' +
+      '<div class="sec">Overdue <small>2</small></div>' +
+      pfRecRow('#5cb87a', 'Can Demir', '<span class="late">Oct 26</span><span>' + ICON.collection + 'People</span><span>Keep in touch · last talked 33 days ago</span>', '<span class="st-btn go">Talked</span>') +
+      pfRecRow('#b48ef0', 'Grandpa', '<span class="late">Oct 28</span><span>' + ICON.collection + 'People</span><span>Keep in touch · every 2 weeks</span>', '<span class="st-btn go">Talked</span>') +
+      '<div class="sec">Today <small>1</small></div>' +
+      pfRecRow('#d06a9a', 'Ayşe Kaya', '<span>' + ICON.collection + 'People</span><span>🎂 Turns 36 · Birthday</span>', '<span class="st-btn go">Wished</span>') +
+      '<div class="qa">+ Add task</div></div></div>';
+    return '<aside class="side">' + ppTree('today') + '</aside><section class="main"><div class="panes">' + pane(tab('tasks', 'Today', 'x', true) + '<div class="tab plus">+</div>', body) + '</div>' +
+      '<div class="status"><span>3 records</span>' + syncStatus(false, null) + '</div></section>';
+  }
+  function ppHome() {
+    var today = '<div class="ah-cap">Today <small>3</small></div><div class="ah-today" style="max-width:620px">' +
+      ahTr('#d06a9a', 'Ayşe Kaya · turns 36', 'Birthday', '<span class="st-btn go">Wished</span>') +
+      ahTr('#5cb87a', 'Can Demir', 'Keep in touch · 3 days late', '<span class="st-btn go">Talked</span>') + '</div>';
+    var bdays = '<div class="ah-card"><h4>' + ICON.collection + 'Birthdays<small>People</small></h4>' +
+      [['Mom', 'Turns 63 · tomorrow'], ['Can Demir', '12 Nov · in 14 days'], ['Elif & Mert', '9th anniversary · 20 Nov'], ['Deniz', 'Turns 29 · 27 Nov']].map(function (r) {
+        return '<div class="pf-hr"><span class="t">' + r[0] + '</span><span class="calc">' + r[1] + '</span></div>';
+      }).join('') + '</div>';
+    var touch = '<div class="ah-card"><h4>' + ICON.collection + 'Keep in touch<small>People</small></h4>' +
+      [['Can Demir', '3 days late', 'pf-neg'], ['Grandpa', '1 day late', 'pf-neg'], ['Zeynep', '5 days left', 'calc']].map(function (r) {
+        return '<div class="pf-hr"><span class="t">' + r[0] + '</span><span class="' + r[2] + '">' + r[1] + '</span></div>';
+      }).join('') + '</div>';
+    return '<div class="ah">' + ahTop(PP_APP, ICON.person || ICON.app, ['Home', 'People'], 'Home') + '<div class="ah-home">' + today + '<div class="ah-cap">People</div><div class="pf-home" style="grid-template-columns:repeat(2,minmax(0,1fr));max-width:900px">' + bdays + touch + '</div></div></div>';
+  }
+  function ppPhone() {
+    var nav = '<div class="mb-nav"><span class="back">' + ICON.chevl + PP_APP + '</span><span class="acts"></span></div>';
+    var list = mbPage(nav + '<div class="mb-rhead"><h2>People</h2><small>24 people</small></div>' +
+      '<div class="mb-ctabs"><span class="mb-ct on">Birthdays</span><span class="mb-ct">Keep in touch</span><span class="mb-ct">All</span></div>',
+      PP_BDAYS.map(function (g) {
+        return '<div class="x2-mday">' + g[0] + '</div>' + g[1].map(function (p) {
+          return '<div class="pp-mrow"><span class="tx"><b>' + p[0] + '</b><small>' + p[2] + '</small></span><span class="r' + (p[4] ? ' late' : '') + '">' + p[3] + '</span></div>';
+        }).join('');
+      }).join(''));
+    var top = '<div class="mb-nav"><span class="back">' + ICON.chevl + 'People</span><span class="acts"></span></div>' +
+      '<div class="mb-rhead"><h2>Can Demir</h2><small>Friend · 12 Nov · last talked 33 days ago</small></div>' +
+      '<div class="mb-qacts"><span class="mb-qact">' + PP_PHONE + 'Call</span><span class="mb-qact">' + PP_MSG + 'Message</span><span class="mb-qact" style="background:var(--m-accent);color:var(--m-on-accent)">Talked</span></div>' +
+      '<div class="mb-ctabs"><span class="mb-ct">Details</span><span class="mb-ct on">Moments<small>4</small></span></div>';
+    var win = mbPage(top, '<div class="x2-mday">Fri, 26 Sep</div><div class="x2-mtl" style="--tc:#6aa5f0"><span class="tm"></span><span class="ic">📞</span><span><b>Call</b><small>His new job, the move to Izmir</small></span></div>' +
+      '<div class="x2-mday">Sun, 7 Sep</div><div class="x2-mtl" style="--tc:#5cb87a"><span class="tm"></span><span class="ic">🏠</span><span><b>Visit</b><small>Dinner at theirs; met the kids</small></span></div>' +
+      '<div class="x2-mday">Tue, 12 Aug</div><div class="x2-mtl" style="--tc:#e0a84a"><span class="tm"></span><span class="ic">💬</span><span><b>Message</b><small>Sent the photos from the wedding</small></span></div>');
+    return mbPhone('People: doğum günleri ay ay', list, '') + mbPhone('Kişi: Call, Message, Talked, anlar', win, '');
+  }
+  var PP_VIEWS = {
+    ppbdays: function () { return ahFrame(ppTree(), 'app', PP_APP, ppBdays(), '24 people'); },
+    pptouch: function () { return ahFrame(ppTree(), 'app', PP_APP, ppTouch(), '24 people'); },
+    ppwin: function () { return ahFrame(ppTree(), 'app', PP_APP, ppTouch(), '24 people', ppWin()); },
+    ppnew: function () { return ahFrame(ppTree(), 'app', PP_APP, ppBdays(), '24 people', ppNew()); },
+    ppmoment: function () { return ahFrame(ppTree(), 'app', PP_APP, ppTouch(), '24 people', ppWin() + ppMoment()); },
+    pptoday: ppToday,
+    pphome: function () { return ahFrame(ppTree(), 'app', PP_APP, ppHome(), '2 screens'); }
+  };
+  function renderPp(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (view === 'ppphone') {
+      mock.className = 'mock dir-a phones four mbs';
+      mock.innerHTML = ppPhone();
+    } else {
+      mock.className = 'mock dir-a' + (view === 'pptoday' ? '' : ' wider');
+      mock.innerHTML = PP_VIEWS[view]();
+    }
+    section.querySelectorAll('.brief [data-ppview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.ppview === view));
+    });
+  }
+  var sectionPp = document.querySelector('.dir[data-dir="close"]');
+  sectionPp.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-ppview]');
+    if (b) renderPp(sectionPp, b.dataset.ppview);
+  });
+  renderPp(sectionPp, 'ppbdays');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });

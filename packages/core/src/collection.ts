@@ -1,6 +1,6 @@
 import { t } from '@scrawlnotes/i18n';
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml';
-import { clockOf, dateOf, isClock, isDay, isDateTime, timeOf } from './day';
+import { clockOf, dateOf, isClock, isDay, isDateTime, isYearless, timeOf, yearlessOf } from './day';
 import { clockValue, dayValue, type Env, evaluate, formulaInfo, fromRuntime, type Kind, kindWords, type Node, parseExpression, type RV, type Scope, toRuntime } from './lang';
 import { basename, type Entry, join, type VaultFs } from './fs';
 import { fileNameOf, shownName } from './names';
@@ -101,6 +101,8 @@ export interface Field {
   when?: Condition[];
   /** A text's or a name's box offers what the collection's other records hold in it as it is typed: a doctor written before. */
   suggest?: boolean;
+  /** A day whose year may be left out, a birthday: written `--MM-DD` then (design/more-apps.md 4.7). */
+  yearless?: boolean;
   /**
    * A choice gone through in order, as a job application's stages (design/more-apps.md 4.6): a bar
    * of its steps on the form, a line of dots in a table; `end` the options after the line, the
@@ -715,6 +717,7 @@ function readField(raw: unknown): Field | null {
   const when = (Array.isArray(raw.when) ? raw.when : []).map((c) => readCondition(c)).filter((c): c is Condition => c !== null && c.field !== key);
   if (when.length > 0) field.when = when;
   if ((type === 'text' || type === 'name') && raw.suggest === true) field.suggest = true;
+  if (type === 'date' && raw.yearless === true && raw.time !== true) field.yearless = true;
   if (type === 'select' && (raw.steps === true || isRecord(raw.steps))) {
     const given = isRecord(raw.steps) ? raw.steps : {};
     field.steps = { end: strings(given.end), no: strings(given.no) };
@@ -1112,7 +1115,7 @@ function readLink(raw: unknown): Link | null {
  * A front matter value as a field of `type` holds it; null when it does not fit. A link field that
  * holds `many` reads as a list; a date with `time` keeps the time it is given.
  */
-export function readValue(type: FieldType, raw: unknown, many = false, time = false): FieldValue {
+export function readValue(type: FieldType, raw: unknown, many = false, time = false, yearless = false): FieldValue {
   if (raw === null || raw === undefined) return null;
   switch (type) {
     case 'link': {
@@ -1132,6 +1135,8 @@ export function readValue(type: FieldType, raw: unknown, many = false, time = fa
     case 'date': {
       // `yaml` reads a day as text; another tool may have written a time with it, kept where the field has one.
       if (raw instanceof Date) return raw.toISOString().slice(0, 10);
+      // A birthday with no year: its day of the year.
+      if (yearless) return yearlessOf(String(raw)) ?? dateOf(String(raw), time);
       return dateOf(String(raw), time);
     }
     case 'time':
@@ -1248,7 +1253,7 @@ export function formulaNode(expr: string): Node | null {
  */
 function computedRuntime(value: FieldValue | undefined): RV {
   if (value === null || value === undefined) return null;
-  if (typeof value === 'string') return isDay(value) || isDateTime(value) ? dayValue(value) : isClock(value) ? clockValue(value) : value;
+  if (typeof value === 'string') return isDay(value) || isDateTime(value) || isYearless(value) ? dayValue(value) : isClock(value) ? clockValue(value) : value;
   if (isLink(value)) return { ref: true, dir: '', id: value.id, name: value.name, ...(value.code && { code: value.code }) };
   if (Array.isArray(value)) return (value as unknown[]).map((v) => (isLink(v) ? v.name : String(v)));
   return value;
@@ -1467,7 +1472,7 @@ function recordOf(front: { [key: string]: unknown }, body: string, schema: Schem
       extra[key] = raw;
       continue;
     }
-    const value = readValue(field.type, raw, field.many, field.time);
+    const value = readValue(field.type, raw, field.many, field.time, field.yearless);
     if (value !== null) values[key] = value;
     else if (raw !== null && raw !== undefined) extra[key] = raw;
   }
@@ -1923,7 +1928,9 @@ export function groupRecords(records: Record[], schema: Schema, key: string, tod
   const field = schema.fields.find((f) => f.key === key);
   // A worked-out field groups as what it shows: a lookup of a choice by its choices.
   const as = field && shown?.key === field.key ? shown : field;
-  if (!field || !as || !GROUPABLE.includes(as.type)) return [{ key: '', label: '', records }];
+  // A worked-out text groups as it says, in the order of the records: a birthday's month, Today and Tomorrow first.
+  const said = !!field && field.type === 'formula' && !!as && !GROUPABLE.includes(as.type);
+  if (!field || !as || (!GROUPABLE.includes(as.type) && !said)) return [{ key: '', label: '', records }];
   const groups = new Map<string, RecordGroup>();
   const add = (groupKey: string, label: string, record: Record) => {
     let group = groups.get(groupKey);
@@ -1942,6 +1949,7 @@ export function groupRecords(records: Record[], schema: Schema, key: string, tod
     else if (as.type === 'date' && typeof value === 'string') add(value.slice(0, 10), value.slice(0, 10), record);
     else add(String(value), valueText(value), record);
   }
+  if (said) return [...groups.values()].sort((a, b) => Number(a.key === '') - Number(b.key === ''));
   const order = as.options ?? [];
   const rank = (g: RecordGroup) => (g.key === '' ? Number.MAX_SAFE_INTEGER : order.includes(g.key) ? order.indexOf(g.key) : order.length);
   return [...groups.values()].sort((a, b) => rank(a) - rank(b) || a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' }));

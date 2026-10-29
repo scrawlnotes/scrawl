@@ -56,7 +56,7 @@ const MOST: { [id in TemplateId]: Answers } = {
   travel: {},
   split: { people: ['Ayşe', 'Can', 'Deniz'], methods: 'all', finance: true },
   jobs: {},
-  people: { anniversaries: true, often: true },
+  people: { anniversaries: true, touch: 'Every month' },
   reading: { progress: true, goal: '24', quotes: true, lending: true, releases: true },
   habits: { goals: true },
   sport: { sets: true, body: true, races: true },
@@ -90,7 +90,7 @@ const LEAST: { [id in TemplateId]: Answers } = {
   travel: { keeps: [] },
   split: { people: [], methods: 'equal', finance: false },
   jobs: { stages: [], follow: '7' },
-  people: { anniversaries: false, often: false },
+  people: { anniversaries: false, touch: 'off' },
   reading: { types: [], services: [], progress: false, goal: 'none', quotes: false, lending: false, releases: false },
   habits: { habits: [], goals: false },
   sport: { sports: [], body: false, races: false },
@@ -987,19 +987,28 @@ describe('apps', () => {
     expect((await recordsTool(agent, { collection: 'Jobs/Applications' })).data.records[0]!.values).toMatchObject({ followed: '2026-10-21', follow_on: '2026-11-06' });
   });
 
-  it('keeps the people close to you: the next birthday or anniversary every year, and someone not talked to for a while', async () => {
+  it('keeps the people close to you: birthdays every year with or without their year, Wished on the day, and Talked when it is time', async () => {
     const { agent } = await world();
     await createTool(agent, { kind: 'app', name: 'Close', templates: ['people'] });
-    const ayse = await saveRecordTool(agent, { collection: 'Close/People', values: { name: 'Ayşe', relation: 'Friend', birthday: '1990-11-03', anniversary: '2015-06-10', often: 30 } });
-    expect(ayse.data.record.values).toMatchObject({ next_birthday: '2026-11-03', age: 36, next_anniversary: '2027-06-10', next: '2026-11-03', occasion: 'Birthday' });
-    expect(ayse.data.record.problems).toEqual([{ kind: 'check', field: 'last', text: 'Not talked yet' }]);
+    // Wednesday 21 October. A birthday with its year turns an age; one without it is its day.
+    const ayse = await saveRecordTool(agent, { collection: 'Close/People', values: { name: 'Ayşe', relation: 'Friend', birthday: '1990-11-03', anniversary: '2015-06-10' } });
+    expect(ayse.data.record.values).toMatchObject({ every: 'Every month', next_birthday: '2026-11-03', age: 36, next: '2026-11-03', day_said: 'Turns 36 · 3 Nov', when_said: 'in 13 days', last_said: 'Not talked yet' });
+    const can = await saveRecordTool(agent, { collection: 'Close/People', values: { name: 'Can', birthday: '11-12' } });
+    expect(can.data.record.values).toMatchObject({ birthday: '--11-12', next: '2026-11-12', day_said: '12 Nov' });
+    expect(can.data.record.values.age ?? null).toBeNull();
+    // Talked a while ago: late; Talked today, a month on.
     expect((await saveRecordTool(agent, { collection: 'Close/Moments', values: { person: 'Ayşe', type: 'Call', date: '2026-09-01' } })).data.record.name).toBe('Call with Ayşe');
-    const person = async () => (await recordsTool(agent, { collection: 'Close/People' })).data.records[0]!;
-    expect([(await person()).values.last, (await person()).problems]).toEqual(['2026-09-01', [{ kind: 'check', field: 'last', text: 'Not talked for 50 days' }]]);
-    await saveRecordTool(agent, { collection: 'Close/Moments', values: { person: 'Ayşe', type: 'Visit', date: '2026-10-18' } });
-    expect((await person()).problems).toBeUndefined();
-    const due = (await dueRecordsTool(agent, { from: '2026-10-21', to: '2026-12-31' })).data.records as { start: string; record: { name: string } }[];
-    expect(due.map((d) => [d.record.name, d.start])).toEqual([['Ayşe', '2026-11-03']]);
+    const person = async (name: string) => (await recordsTool(agent, { collection: 'Close/People' })).data.records.find((r) => r.name === name)!;
+    expect((await person('Ayşe')).values).toMatchObject({ last: '2026-09-01', touch_on: '2026-10-01', touch_said: '20 days late' });
+    await saveRecordTool(agent, { collection: 'Close/People', id: ayse.data.record.id, action: 'Talked' });
+    expect((await person('Ayşe')).values).toMatchObject({ last: '2026-10-21', touch_on: '2026-11-20', touch_said: '4 weeks left' });
+    // On the day, Wished: a message written, and the birthday a year on.
+    const deniz = await saveRecordTool(agent, { collection: 'Close/People', values: { name: 'Deniz', birthday: '--10-21' } });
+    expect(deniz.data.record.values).toMatchObject({ next: '2026-10-21', when_said: 'today', wish_said: 'Birthday' });
+    await saveRecordTool(agent, { collection: 'Close/People', id: deniz.data.record.id, action: 'Wished' });
+    expect((await person('Deniz')).values).toMatchObject({ wished: '2026-10-21', next: '2027-10-21', last: '2026-10-21' });
+    const due = (await dueRecordsTool(agent, { from: '2026-10-22', to: '2026-12-31' })).data.records as { start: string; record: { name: string } }[];
+    expect(due.map((d) => [d.record.name, d.start])).toEqual(expect.arrayContaining([['Ayşe', '2026-11-03'], ['Can', '2026-11-12']]));
   });
 
   it('keeps reading and watching: Update to the last page, the year and its days in a row, a friend’s pick, a lent book, what comes out', async () => {
