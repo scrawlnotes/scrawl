@@ -6074,7 +6074,6 @@ textarea.tt-edit {
 }
 
 .labels-input {
-  grid-column: 2 / 4;
   min-width: 0;
   padding: 3px 7px;
   border: 1px solid var(--sl-accent);
@@ -6083,6 +6082,10 @@ textarea.tt-edit {
   color: var(--sl-fg);
   font: inherit;
   outline: none;
+}
+
+.labels-row.adding .labels-input {
+  grid-column: 2 / 4;
 }
 
 .labels-row.adding {
