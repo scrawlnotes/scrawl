@@ -64,6 +64,7 @@ import {
   inSpace,
   spaceOf,
   isMyWork,
+  dayInToday,
   INBOX_TASKS,
   itemChip,
   type ChipKind,
@@ -2310,10 +2311,10 @@ export function App() {
   const cardDays = [...dueCards(myBoards).map((d) => d.card.due!), ...dueSubtasksNow.map((d) => d.subtask.due!)];
   const dueCardsNow = cardDays.filter((day) => day <= today).length;
   const dueLater = dueUpcoming(myTasks, today).reduce((sum, d) => sum + d.tasks.length, 0) + cardDays.length - dueCardsNow;
-  // A program's days count: today's and those gone by in Today, those to come in Upcoming (design/gym.md 4.3).
-  const programDays = dueRecordsNow.filter((d) => d.day);
-  const daysNow = programDays.filter((d) => d.day! <= today).length;
-  const counts: Record<string, number> = { [TODAY]: dueNow.overdue.length + dueNow.today.length + dueCardsNow + daysNow, [UPCOMING]: dueLater + programDays.length - daysNow, [TRASH]: trash.length, [FILES]: fileCount, [CHAT]: chat.alerts, [QUICK]: quick.length };
+  // The calendars' records count under the day each is listed: today's, late ones and those going on in Today, the rest in Upcoming.
+  const recordDays = dueRecordsNow.map((d) => (d.late ? today : (d.day ?? dayInToday(d, today))));
+  const recordsNow = recordDays.filter((day) => day <= today).length;
+  const counts: Record<string, number> = { [TODAY]: dueNow.overdue.length + dueNow.today.length + dueCardsNow + recordsNow, [UPCOMING]: dueLater + recordDays.length - recordsNow, [TRASH]: trash.length, [FILES]: fileCount, [CHAT]: chat.alerts, [QUICK]: quick.length };
   for (const [list, listTasks] of Object.entries(tasks)) counts[tasksOf(list)] = openCount(listTasks);
   for (const [path, board] of Object.entries(boards)) counts[boardOf(path)] = openCardCount(board);
   for (const [dir, collection] of Object.entries(collections)) counts[collectionTab(dir)] = collection.records.length;
