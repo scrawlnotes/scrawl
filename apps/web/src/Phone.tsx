@@ -179,8 +179,6 @@ export interface PhoneProps {
   onUndo: () => void;
   /** Closes a notice that stays until it is closed. */
   onCloseNotice: () => void;
-  /** A new version waiting, with its Reload button. */
-  update: ReactNode;
   onOpen: (id: string) => void;
   onClose: (id: string) => void;
   onCreate: (folder: string) => void;
@@ -1747,9 +1745,8 @@ export function Phone(props: PhoneProps) {
           <Icon name="plus" />
         </button>
       )}
-      {(props.notice || props.update) && (
+      {props.notice && (
         <div className="mb-toasts">
-          {props.update && <div className="mb-update">{props.update}</div>}
           {props.notice && (
             <div className={[props.notice.undo || props.notice.action || props.notice.sticky ? 'mb-toast undo' : 'mb-toast', props.notice.sticky ? 'bad' : ''].join(' ').trim()} role={props.notice.sticky ? 'alert' : 'status'}>
               <span>

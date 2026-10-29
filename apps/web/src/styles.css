@@ -1180,6 +1180,11 @@ input:focus {
   box-sizing: border-box;
 }
 
+/* A new version ready is above every other window and menu: the app goes on only in it. */
+.backdrop.update-backdrop {
+  z-index: 100;
+}
+
 .backdrop > .dialog:not(.history) {
   box-sizing: border-box;
   max-height: 100%;
@@ -21175,4 +21180,27 @@ button.ppl:hover {
 .app-tile > .step-strip {
   width: 100%;
   margin-bottom: 0;
+}
+
+/* A day whose year may be left out: its day, its month, its year if known (design/more-apps.md 4.7). */
+.yearless {
+  display: flex;
+  gap: 6px;
+}
+
+.yearless select {
+  flex: 0 0 auto;
+  width: 70px;
+}
+
+.yearless select + select {
+  width: 84px;
+}
+
+.yearless input {
+  min-width: 0;
+}
+
+.yearless input {
+  width: 110px;
 }

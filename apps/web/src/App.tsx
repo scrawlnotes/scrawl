@@ -126,6 +126,7 @@ import {
   ExportDialog,
   RenameDialog,
   type TaskPlaceChoice,
+  UpdateDialog,
 } from './dialogs';
 import { type BoardActions, boardPlace, BoardView } from './Board';
 import { FormatBar } from './FormatBar';
@@ -458,6 +459,15 @@ export function App() {
     if (pendingJoin()) setDialog({ kind: 'settings', section: 'spaces' });
   }, []);
   const update = useSyncExternalStore(subscribeUpdate, updateReady);
+  const goToUpdate = () => void session.beforeSync().then(reloadIntoUpdate);
+  // A new version found while the app is out of sight is gone over to then; on screen it asks.
+  useEffect(() => {
+    if (!update) return;
+    const away = () => document.visibilityState === 'hidden' && goToUpdate();
+    away();
+    document.addEventListener('visibilitychange', away);
+    return () => document.removeEventListener('visibilitychange', away);
+  }, [update]);
   const desktopUpdate = useDesktopUpdate();
   const { ready, reading, folder, defaultFolder, me, tree, quick, quickOrder, quickSort, quickTexts, quickFormat, spaces, tabs, active, recent, titles, tasks, sections, boards, boardLooks, listLooks, labelLooks, folderLooks, created, keys: keyFiles, keysLooks, collections, collectionLooks, appLooks, filters, favorites, labels: spaceLabels, space, trash, fileCount, downloads, fileVersion, saved, stats, written, format, source, recording, recordError } =
     useSyncExternalStore(
@@ -3073,17 +3083,6 @@ export function App() {
             notice={notice}
             onUndo={undoNotice}
             onCloseNotice={() => setShown(null)}
-            update={
-              update && (
-                <>
-                  <span>{t('status.updateReady')}</span>
-                  {/* What is being typed is written first, then the page reloads into the new version. */}
-                  <button type="button" onClick={() => void session.beforeSync().then(reloadIntoUpdate)}>
-                    {t('status.reload')}
-                  </button>
-                </>
-              )
-            }
             onOpen={(id) => {
               // An empty note opens to be written in, with the keyboard up.
               if (session.opensToWrite(id)) session.holdKeyboard();
@@ -3519,15 +3518,6 @@ export function App() {
                 )}
               </span>
             )}
-            {update && (
-              <span className="update" role="status">
-                {t('status.updateReady')}
-                {/* What is being typed is written first, then the page reloads into the new version. */}
-                <button type="button" onClick={() => void session.beforeSync().then(reloadIntoUpdate)}>
-                  {t('status.reload')}
-                </button>
-              </span>
-            )}
             {desktopUpdate.state === 'ready' && (
               <span className="update" role="status" title={t('status.updateTip', { version: desktopUpdate.version })}>
                 {t('status.updateReady')}
@@ -3706,6 +3696,7 @@ export function App() {
           onClose={closeDialog}
         />
       )}
+      {update && <UpdateDialog onReload={goToUpdate} />}
       <input ref={importInput} type="file" accept={IMPORTABLE} hidden onChange={(event) => event.target.files?.[0] && void readImport(event.target.files[0])} />
       {importing && collections[importing.dir] && (
         <ImportDialog

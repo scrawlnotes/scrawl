@@ -100,6 +100,23 @@ function WindowDialog({ label, className, onClose, onEscape = onClose, onKeyDown
   );
 }
 
+/** A new version of the web app is ready: the app is used in it, so the window has nothing but Reload. */
+export function UpdateDialog({ onReload }: { onReload: () => void }) {
+  return (
+    <div className="backdrop update-backdrop">
+      <div className="dialog update-dialog" role="alertdialog" aria-label={t('status.updateReady')}>
+        <h2>{t('status.updateReady')}</h2>
+        <p className="confirm">{t('status.updateMessage')}</p>
+        <div className="dialog-actions">
+          <button type="button" className="primary" autoFocus onClick={onReload}>
+            {t('status.reload')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** A folder picked from the list, or a name typed for a folder that does not exist yet. */
 export interface FolderChoice {
   folder: string;
