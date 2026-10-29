@@ -1,5 +1,8 @@
 import {
+  addDays,
   type AskQuestion,
+  dayOf,
+  type FieldValue,
   basename,
   type BoardLinks,
   type CollectionTemplate,
@@ -21,7 +24,7 @@ import {
   spaceOf,
   type Template,
 } from '@scrawlnotes/core';
-import { type MessageKey, t } from '@scrawlnotes/i18n';
+import { locale, type MessageKey, t } from '@scrawlnotes/i18n';
 import {
   type CSSProperties,
   type FormEvent,
@@ -114,6 +117,41 @@ export function UpdateDialog({ onReload }: { onReload: () => void }) {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Why a deal was lost, asked as it is moved to a dropped column (Board.dropAsks, design/scrawl-apps.md
+ * 3.1): the field's reasons side by side, as Pipedrive asks, and a line of what happened.
+ */
+export function DropDialog({ field, card, onDone, onClose }: { field: Field; card: string; onDone: (reason: string | null, what: string) => void; onClose: () => void }) {
+  const [reason, setReason] = useState<string | null>(null);
+  const [what, setWhat] = useState('');
+  const title = t('board.lostTitle', { card });
+  const done = () => onDone(reason, what.trim());
+  return (
+    <Dialog label={title} onClose={onClose}>
+      <h2>{title}</h2>
+      <span className="segs many" role="radiogroup" aria-label={field.label}>
+        {(field.options ?? []).map((option) => (
+          <button key={option} type="button" role="radio" aria-checked={reason === option} className={reason === option ? 'on' : undefined} onClick={() => setReason(reason === option ? null : option)}>
+            {option}
+          </button>
+        ))}
+      </span>
+      <label className="field drop-what">
+        <span>{t('board.lostWhat')}</span>
+        <input type="text" value={what} onChange={(event) => setWhat(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && done()} />
+      </label>
+      <div className="dialog-actions">
+        <button type="button" onClick={onClose}>
+          {t('dialog.cancel')}
+        </button>
+        <button type="button" className="primary" onClick={done}>
+          {t('board.markLost')}
+        </button>
+      </div>
+    </Dialog>
   );
 }
 
@@ -1378,9 +1416,34 @@ export function ButtonDialog({ name, record, lines, onConfirm, onClose }: {
   );
 }
 
+/**
+ * The days a next step is usually on, side by side, as the CRM mockup's Log has them: Tomorrow,
+ * this week's Friday while it is after tomorrow, Next week (its Monday). A click picks one, its time kept.
+ */
+function DayChips({ value, onPick }: { value: FieldValue; onPick: (day: string) => void }) {
+  const today = dayOf(new Date());
+  const weekday = new Date(`${today}T00:00`).getDay();
+  const friday = addDays(today, (5 - weekday + 7) % 7);
+  const days = [
+    { day: addDays(today, 1), label: t('day.tomorrow') },
+    ...(friday > addDays(today, 1) ? [{ day: friday, label: new Date(`${friday}T00:00`).toLocaleDateString(locale(), { weekday: 'short' }) }] : []),
+    { day: addDays(today, (8 - weekday) % 7 || 7), label: t('tasks.nextWeek') },
+  ];
+  const at = typeof value === 'string' ? value : '';
+  return (
+    <span className="ask-days">
+      {days.map((d) => (
+        <button key={d.day} type="button" className={at.slice(0, 10) === d.day ? 'on' : undefined} aria-pressed={at.slice(0, 10) === d.day} onClick={() => onPick(at.length > 10 ? `${d.day}${at.slice(10)}` : d.day)}>
+          {d.label}
+        </button>
+      ))}
+    </span>
+  );
+}
+
 /** A question of a button as a field, for the form's own box: a choice is a select, a link picks from its collection. */
 const askedField = (q: AskQuestion): Field =>
-  ({ key: q.key, label: q.label, type: q.type === 'choice' ? 'select' : q.type, ...(q.options && { options: q.options }), ...(q.collection && { collection: q.collection }), ...(q.time && { time: true }) }) as Field;
+  ({ key: q.key, label: q.label, type: q.type === 'choice' ? 'select' : q.type, ...(q.options && { options: q.options }), ...(q.collection && { collection: q.collection }), ...(q.time && { time: true }), ...(q.chips && { chips: true }), ...(q.within && { within: q.within.field }) }) as Field;
 
 /**
  * The window of a button that asks before it runs: its name, what it is about, its questions in
@@ -1388,8 +1451,10 @@ const askedField = (q: AskQuestion): Field =>
  * with what is typed, and its own name on its button, faint while a needed answer is empty or it
  * would stop. On a phone a sheet.
  */
-export function AskDialog({ name, ask, plan, ctx, onRun, onClose }: {
+export function AskDialog({ name, given: start, ask, plan, ctx, onRun, onClose }: {
   name: string;
+  /** Answers it starts with: a deal's Log, the deal picked. */
+  given?: CollectionRecord['values'];
   /** Its say and questions with what was given so far. */
   ask: (given: CollectionRecord['values']) => { say: string; questions: AskQuestion[] } | null;
   /** What it would do with the answers. */
@@ -1398,14 +1463,14 @@ export function AskDialog({ name, ask, plan, ctx, onRun, onClose }: {
   onRun: (run: ButtonRun) => void;
   onClose: () => void;
 }) {
-  const [given, setGiven] = useState<CollectionRecord['values']>({});
+  const [given, setGiven] = useState<CollectionRecord['values']>(start ?? {});
   const asked = useMemo(() => ask(given), [ask, given]);
   const answers = useMemo(() => Object.fromEntries((asked?.questions ?? []).map((q) => [q.key, q.value])), [asked]);
   const run = useMemo(() => plan(answers), [plan, answers]);
   const host = useRef<HTMLDivElement>(null);
   // The first answer comes selected: typing puts another in its place.
   useEffect(() => {
-    const first = host.current?.querySelector<HTMLInputElement>('input:not([type="checkbox"])');
+    const first = host.current?.querySelector<HTMLInputElement>('input:not([type="checkbox"]), textarea');
     first?.focus();
     first?.select();
   }, []);
@@ -1414,19 +1479,42 @@ export function AskDialog({ name, ask, plan, ctx, onRun, onClose }: {
   const stopped = run instanceof RuleStop && missing.length === 0 ? run : null;
   const ready = missing.length === 0 && !(run instanceof RuleStop);
   const go = () => ready && onRun(run as ButtonRun);
-  const questions = asked.questions.map((q) => (
+  const answer = (key: string, value: FieldValue) => setGiven((g) => ({ ...g, [key]: value }));
+  const question = (q: AskQuestion) => (
     <div key={q.key} className="prop ask-q">
       <label className="pl" htmlFor={`field-${q.key}`}>
         {q.label}
         {q.required && <i title={t('collection.required')}>*</i>}
       </label>
       <div className="pe">
-        <FieldInput field={askedField(q)} value={q.value} ctx={ctx} onChange={(value) => setGiven((g) => ({ ...g, [q.key]: value }))} onEnter={go} />
+        {q.lines ? (
+          <textarea id={`field-${q.key}`} className="ask-lines-box" rows={3} value={typeof q.value === 'string' ? q.value : ''} onChange={(event) => answer(q.key, event.target.value || null)} />
+        ) : q.type === 'date' && q.chips ? (
+          <>
+            <DayChips value={q.value} onPick={(day) => answer(q.key, day)} />
+            <FieldInput field={askedField(q)} value={q.value} ctx={ctx} onChange={(value) => answer(q.key, value)} onEnter={go} />
+          </>
+        ) : (
+          <FieldInput field={askedField(q)} value={q.value} ctx={q.within ? { ...ctx, values: { [q.within.field]: q.within.link } } : ctx} onChange={(value) => answer(q.key, value)} onEnter={go} />
+        )}
         {q.required && isEmpty(q.value) ? <p className="pbad">{t('run.needed', { label: q.label })}</p> : q.note && <p className="pnote">{q.note}</p>}
       </div>
     </div>
-  ));
-  const will = (
+  );
+  // A question with a section begins a group of its own, a box under its title: the next step.
+  const groups = asked.questions.reduce<{ title?: string; list: AskQuestion[] }[]>((all, q) => (q.section || all.length === 0 ? [...all, { ...(q.section && { title: q.section }), list: [q] }] : (all.at(-1)!.list.push(q), all)), []);
+  const questions = groups.map((g, i) =>
+    g.title ? (
+      <div key={`section-${i}`} className="ask-sec">
+        <b>{g.title}</b>
+        {g.list.map(question)}
+      </div>
+    ) : (
+      g.list.map(question)
+    ),
+  );
+  // A button that says what it did needs no list of what it will do: Log, Done (design/scrawl-apps.md 3.1).
+  const will = !stopped && !(run instanceof RuleStop) && run.plan.said ? null : (
     <div className="ask-will">
       <span className="hd">{t('run.thisWill')}</span>
       {stopped ? (

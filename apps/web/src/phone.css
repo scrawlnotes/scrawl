@@ -3865,6 +3865,10 @@ body > .mb-lifted {
   color: var(--sl-dim);
 }
 
+.mb-kc .nx {
+  font-size: 13.5px;
+}
+
 .mb-kc .meta .val {
   margin-left: auto;
   color: var(--sl-fg);
@@ -4875,6 +4879,11 @@ body > .mb-lifted {
   display: none;
 }
 
+/* In a tab with others, each says what it is: Planned, History. */
+.mb-rpage .mb-look.shared .blk-h {
+  display: flex;
+}
+
 .mb-look .look-days .tx b,
 .mb-look .look-check .lc-name,
 .mb-look .look-split .nm {
@@ -4915,6 +4924,17 @@ body > .mb-lifted {
 .mb .mb-qact .icon {
   width: 22px;
   height: 22px;
+}
+
+/* A button of the rules among them, Log first in the accent (design/scrawl-apps.md 3.1). */
+.mb-qact:not(:has(.icon)) {
+  justify-content: center;
+  font-weight: 600;
+}
+
+.mb-qact.go {
+  background: var(--sl-accent);
+  color: var(--sl-bg);
 }
 
 .mb-rtabs {

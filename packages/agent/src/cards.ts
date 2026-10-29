@@ -11,6 +11,9 @@ import {
   type ColumnKind,
   columnCards,
   columnOf,
+  loadCollection,
+  updateRecord,
+  wonChange,
   currentPhase,
   type Field,
   type FieldValue,
@@ -429,11 +432,25 @@ async function cardPlace(agent: Agent, client: Client, args: CardArgs) {
   };
 }
 
+/** A deal won makes its company a customer (Board.wins): for each card that came into a done column. */
+async function writeWins(fs: VaultFs, before: Board, after: Board, ids: string[]) {
+  for (const id of ids) {
+    const was = before.cards.find((c) => c.id === id);
+    const card = after.cards.find((c) => c.id === id);
+    if (!card || columnOf(after, card)?.kind !== 'done' || (was && columnOf(before, was)?.kind === 'done')) continue;
+    const collection = after.wins && (await loadCollection(fs, (after.fields ?? []).find((f) => f.key === after.wins!.link)?.collection ?? '').catch(() => null));
+    const change = collection ? wonChange(after, card, [collection]) : null;
+    const record = change && collection!.records.find((r) => r.id === change.id);
+    if (record) await updateRecord(fs, collection!.schema, record, { values: change!.values });
+  }
+}
+
 async function saveCard(agent: Agent, client: Client, args: CardArgs) {
   const { space, element, board, people, now, by, author, who, today, where } = await cardPlace(agent, client, args);
   const step = await applyCard(space, board, args, now, by, author, who);
   if (step.status === 'exists') return { data: { ...where, created: false, exists: true, message: step.message, card: cardOut(board, step.card, today, people) } };
   await saveBoard(space.fs, element.path, step.board);
+  await writeWins(space.fs, board, step.board, [step.card.id]);
   return { data: { ...where, created: step.status === 'created', card: cardOut(step.board, step.board.cards.find((c) => c.id === step.card.id)!, today, people) } };
 }
 
@@ -455,6 +472,7 @@ async function saveCards(agent: Agent, client: Client, args: CardArgs & { items:
     }
   }
   if (done.some((step) => step.status !== 'exists')) await saveBoard(space.fs, element.path, board);
+  await writeWins(space.fs, place.board, board, done.map((step) => step.card.id));
   const count = (status: CardDone['status']) => done.filter((step) => step.status === status).length;
   return {
     data: {

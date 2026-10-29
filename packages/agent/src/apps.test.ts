@@ -6,6 +6,7 @@ import { readTool, treeTool } from './read';
 import { dueRecordsTool, recordsTool, saveRecordTool } from './records';
 import type { Agent, AgentSpace } from './space';
 import { createTool, writeTool } from './write';
+import { saveCardTool } from './cards';
 
 const NOW = new Date(2026, 9, 21, 10, 30);
 
@@ -143,7 +144,7 @@ describe('apps', () => {
     await createTool(agent, { kind: 'app', name: 'Spare parts', templates: ['crm', 'sales'], currencies: ['TRY'] });
     const { nodes } = (await treeTool(agent, {})).data as { nodes: { path: string; app?: { modules: { name: string; screens: string[] }[] } }[] };
     expect(nodes.find((n) => n.path === 'Spare parts')?.app?.modules).toEqual([
-      { name: 'CRM', screens: ['Spare parts/Companies', 'Spare parts/People', 'Spare parts/Deals.board.json', 'Spare parts/Activities'] },
+      { name: 'CRM', screens: ['Spare parts/Deals.board.json', 'Spare parts/Companies', 'Spare parts/People', 'Spare parts/Activities'] },
       { name: 'Sales', screens: ['Spare parts/Orders', 'Spare parts/Payments', 'Spare parts/Companies', 'Spare parts/Products'] },
     ]);
     expect(nodes.find((n) => n.path === 'Inbox.tasks.json')?.app).toBeUndefined();
@@ -1107,15 +1108,41 @@ describe('apps', () => {
     expect(race.data.record.problems).toEqual([{ kind: 'check', field: 'result', text: 'Write how it went' }]);
   });
 
-  it('logs a call from a company, and ships a release asking first when cards are open', async () => {
+  it('logs a meeting from a company with its next step, done in Today, a deal won making it a customer; and ships a release asking first when cards are open', async () => {
     const { fs, agent } = await world();
-    await createTool(agent, { kind: 'app', name: 'Studio', templates: ['crm', 'product'], answers: { crm: { deals: false } } });
-    const firm = await saveRecordTool(agent, { collection: 'Studio/Companies', values: { name: 'Lara Turizm' } });
-    const called = await saveRecordTool(agent, { collection: 'Studio/Companies', id: firm.data.record.id, action: 'Log a call' });
-    // A call logged is now: its day and its time.
-    expect(called.data.record.values.last_contact).toMatch(/^2026-10-21T\d\d:\d\d$/);
-    const activity = (await recordsTool(agent, { collection: 'Studio/Activities' })).data.records[0]!;
-    expect(activity.values).toMatchObject({ name: 'Call with Lara Turizm', type: 'call', by: 'Kaan', company: { name: 'Lara Turizm' } });
+    await createTool(agent, { kind: 'app', name: 'Studio', templates: ['crm', 'product'], currencies: ['TRY'] });
+    const firm = await saveRecordTool(agent, { collection: 'Studio/Companies', values: { name: 'Lara Turizm', city: 'Antalya' } });
+    const ayse = await saveRecordTool(agent, { collection: 'Studio/People', values: { name: 'Ayşe Kaya', company: 'Lara Turizm', title: 'Project Manager' } });
+    // Log: what happened, and the next step; two activities, one done, one planned.
+    const logged = await saveRecordTool(agent, {
+      collection: 'Studio/Companies',
+      id: firm.data.record.id,
+      action: 'Log',
+      input: { type: 'Meeting', when: '2026-10-21T14:00', with: 'Ayşe Kaya', said: 'They want 10% off', next_type: 'Email', next_what: 'Send the revised offer', next_when: '2026-10-23' },
+    });
+    expect(logged.data.action?.done).toBe('Logged · Lara Turizm');
+    expect(logged.data.record.values).toMatchObject({ last_contact: '2026-10-21T14:00', said: 'Lead · Antalya · 1 person · last contact today' });
+    const acts = (await recordsTool(agent, { collection: 'Studio/Activities', sort: { field: 'when' } })).data.records;
+    expect(acts.map((a) => [a.name, a.values.done ?? false, a.values.bucket, a.values.with_said])).toEqual([
+      ['Meeting with Ayşe Kaya', true, 'Done', 'Lara Turizm · Ayşe Kaya'],
+      ['Send the revised offer', false, 'Planned', 'Lara Turizm · Ayşe Kaya'],
+    ]);
+    expect((await saveRecordTool(agent, { collection: 'Studio/People', id: ayse.data.record.id, values: {} })).data.record.values.said).toBe('Project Manager · Lara Turizm · last contact today');
+    // On its day it is in Today with Done, which writes what was said.
+    const due = (await dueRecordsTool(agent, { from: '2026-10-23', to: '2026-10-23' })).data.records as { view: string; record: { name: string } }[];
+    expect(due.map((d) => d.record.name)).toEqual(['Send the revised offer']);
+    const offer = acts[1]!;
+    const doneIt = await saveRecordTool(agent, { collection: 'Studio/Activities', id: offer.id, action: 'Done', input: { said: 'Sent it' } });
+    expect(doneIt.data.record.values).toMatchObject({ done: true, said: 'Sent it', bucket: 'Done' });
+    // A deal won makes the company a customer; one lost says why.
+    const deal = await saveCardTool(agent, {}, { board: 'Studio/Deals', title: 'Hotel lifts', values: { company: 'Lara Turizm', value: 16000 } });
+    // Plan on the company about the deal: the activity is the deal's, picked by its title.
+    await saveRecordTool(agent, { collection: 'Studio/Companies', id: firm.data.record.id, action: 'Plan', input: { type: 'Call', what: 'Call about the lifts', when: '2026-10-24', with: 'Ayşe Kaya', deal: 'Hotel lifts' } });
+    const call = (await recordsTool(agent, { collection: 'Studio/Activities' })).data.records.find((a) => a.name === 'Call about the lifts')!;
+    expect(call.values).toMatchObject({ deal: expect.objectContaining({ name: 'Hotel lifts' }), with_said: 'Lara Turizm · Hotel lifts' });
+    await saveCardTool(agent, {}, { board: 'Studio/Deals', id: deal.data.card.key, column: 'Won' });
+    // Won writes Customer in its Type.
+    expect((await saveRecordTool(agent, { collection: 'Studio/Companies', id: firm.data.record.id, values: {} })).data.record.values).toMatchObject({ won: 1, stage: 'Customer', type: ['Customer'] });
 
     const release = await saveRecordTool(agent, { collection: 'Studio/Releases', values: { name: '1.0' } });
     const board = JSON.parse(await fs.readText('Studio/Roadmap.board.json'));

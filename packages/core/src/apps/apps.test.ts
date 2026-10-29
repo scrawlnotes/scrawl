@@ -138,7 +138,7 @@ describe('setting up an app', () => {
     const companies = schemas.filter((f) => parseSchema(f.text).role === 'companies');
     expect(companies).toHaveLength(1);
     const fields = parseSchema(companies[0]!.text).fields.map((f) => f.key);
-    expect(fields).toEqual(expect.arrayContaining(['name', 'segment', 'last_contact', 'open_deals']));
+    expect(fields).toEqual(expect.arrayContaining(['name', 'industry', 'last_contact', 'open_value', 'won']));
     const products = parseSchema(schemas.find((f) => f.path === 'Atlas/Products/_collection.json')!.text);
     expect(products.fields.map((f) => f.key)).toEqual(expect.arrayContaining(['price', 'tax_rate', 'cost', 'stock', 'supplier']));
     const orders = parseSchema(schemas.find((f) => f.path === 'Atlas/Orders/_collection.json')!.text);
@@ -171,7 +171,7 @@ describe('setting up an app', () => {
         .flatMap((schema) => (schema.views ?? []).filter((v) => v.kind === 'calendar').map((v) => [schema.role!, { ...v.calendar, conditions: v.conditions }] as const)),
     );
     expect(Object.fromEntries(calendars)).toEqual({
-      activities: { start: 'date', color: 'type', upcoming: true, conditions: [] },
+      activities: { start: 'when', color: 'type', upcoming: true, button: 'Done', words: ['with_said'], conditions: [{ field: 'done', op: 'false' }] },
       orders: { start: 'due', color: 'status', upcoming: false, conditions: [{ field: 'status', op: 'is-not', value: ['Paid', 'Cancelled'] }] },
       payments: { start: 'due', color: 'direction', upcoming: true, conditions: [{ field: 'status', op: 'is-not', value: ['Paid'] }] },
       projects: { start: 'start', end: 'end', color: 'status', upcoming: false, conditions: [{ field: 'status', op: 'is-not', value: ['Done', 'Cancelled'] }] },
@@ -184,7 +184,7 @@ describe('setting up an app', () => {
     // Activities and interviews hold a time when one is given.
     const field = (role: string, key: string) =>
       plan.files.map((file) => (file.path.endsWith('_collection.json') ? parseSchema(file.text) : null)).find((schema) => schema?.role === role)!.fields.find((f) => f.key === key);
-    expect(field('activities', 'date')).toMatchObject({ type: 'date', time: true });
+    expect(field('activities', 'when')).toMatchObject({ type: 'date', time: true });
     expect(field('interviews', 'date')).toMatchObject({ type: 'date', time: true });
     expect(field('maintenance', 'date')!.time).toBeUndefined();
   });
@@ -611,7 +611,7 @@ describe('the menu of an app', () => {
     const found = (await findApp(fs, 'Spare parts'))!;
     const menu = menuOf(found.app, 'Spare parts', piecesOf(found));
     expect(menu.map((m) => [m.name, m.screens.map((s) => s.name)])).toEqual([
-      ['CRM', ['Companies', 'People', 'Deals', 'Activities']],
+      ['CRM', ['Deals', 'Companies', 'People', 'Activities']],
       ['Sales', ['Orders', 'Payments', 'Companies', 'Products']],
       ['Stock', ['Products', 'Stock movements', 'Purchase orders', 'Companies']],
     ]);
@@ -653,7 +653,7 @@ describe('the menu the person sets', () => {
     const menu = menuOf(found.app, 'Spare parts', piecesOf(found));
     expect(names(menu)).toEqual([
       ['Selling', ['Orders', 'Companies', 'Products']],
-      ['CRM', ['Companies', 'People', 'Deals', 'Activities']],
+      ['CRM', ['Deals', 'Companies', 'People', 'Activities']],
     ]);
     expect(menu[0]!.screens[0]).toMatchObject({ view: 'open' });
     expect(screenKey(menu[0]!.screens[0]!)).toBe('Spare parts/Orders#open');
@@ -682,7 +682,7 @@ describe('the menu the person sets', () => {
     await createCollection(fs, 'Spare parts', 'Supplier prices', 'blank');
     const pieces = [...piecesOf(found), { kind: 'collection' as const, path: 'Spare parts/Supplier prices' }];
     expect(names(menuOf(found.app, 'Spare parts', pieces))).toEqual([
-      ['CRM', ['Companies', 'Deals', 'Activities']],
+      ['CRM', ['Deals', 'Companies', 'Activities']],
       ['Sales', ['Orders', 'Payments', 'Products']],
     ]);
     const now = menuEditOf(found.app, 'Spare parts', pieces);

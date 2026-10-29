@@ -166,7 +166,7 @@ export interface CollectionActions {
   /** Asks first, then moves the record's file to the trash. */
   removeRecord: (dir: string, record: Record) => void;
   /** Runs a button of the collection's rules on a record as it is written: asks first when it says so; says what it did, with Undo, or where it stopped. */
-  pressButton: (dir: string, id: string, name: string) => void;
+  pressButton: (dir: string, id: string, name: string, given?: Record['values']) => void;
   /** A repeating calendar's day (design/gym.md 4.3): Start opens the record that closes it, the other button writes it closed. */
   startDay?: (due: DueRecord) => void;
   skipDay?: (due: DueRecord) => void;
@@ -1206,7 +1206,9 @@ function LinkedRecords({ block, dir, record, today, actions, drafts, hint, onOpe
   // The linked records with what is worked out among their values, and their fields as those show.
   const computer = computerFor(source, actions.collections(), actions.boards(), today);
   const shownAs = computer.shown(source.dir);
-  const records = linkedRecords(source, dir, record).map((r) => ({ ...r, values: computer.values(source.dir, r) }));
+  const records = linkedRecords(source, dir, record)
+    .map((r) => ({ ...r, values: computer.values(source.dir, r) }))
+    .filter((r) => !block.where || matchesConditions(r, schema, block.where, today));
   const byKey = (key: string | undefined) => (key ? schema.fields.find((f) => f.key === key) : undefined);
   const day = byKey(block.sort)?.type === 'date' ? byKey(block.sort) : schema.fields.find((f) => f.type === 'date');
   const timeline = block.style ? block.style === 'timeline' : !!day;
@@ -1280,14 +1282,14 @@ interface ParentForm {
 }
 
 /** A head of a block as a list has it: its name, how many, + Add. */
-function LookHead({ source, title, count, onAdd }: { source: Collection; title?: string; count: ReactNode; onAdd?: () => void }) {
+function LookHead({ source, title, count, add, onAdd }: { source: Collection; title?: string; count: ReactNode; add?: string; onAdd?: () => void }) {
   return (
     <div className="blk-h">
       <span>{title ?? collectionName(source.dir)}</span>
       {count !== null && <small>{count}</small>}
       {onAdd && (
         <button type="button" className="addl" onClick={onAdd}>
-          {t('collection.addShort')}
+          {add ? t('collection.addNamed', { name: add }) : t('collection.addShort')}
         </button>
       )}
     </div>
@@ -1318,7 +1320,7 @@ function DayList({ block, source, rows, today, onOpen, onAdd }: { block: LinkedB
   for (const e of entries) days.set(e.when.slice(0, 10), [...(days.get(e.when.slice(0, 10)) ?? []), e]);
   return (
     <div className="blk look-days">
-      <LookHead source={source} title={block.title} count={rows.length || null} onAdd={onAdd} />
+      <LookHead source={source} title={block.title} count={rows.length || null} add={block.button} onAdd={onAdd} />
       {rows.length === 0 && <p className="blk-none">{t('collection.noLinked', { collection: collectionName(source.dir).toLowerCase() })}</p>}
       {[...days].map(([day, list]) => (
         <div key={day || 'none'}>
@@ -1375,23 +1377,49 @@ function CheckList({ block, source, groups, rows, ctx, today, tick, onTick, onOp
       ) : (
         block.numbered && <span className="lc-num">{n}</span>
       )}
-      <button type="button" className="lc-name" onClick={() => onOpen(source, r)}>
-        {recordTitle(r)}
-      </button>
-      {others.map((f) => {
-        const value = fieldValueOf(r, f, schema, today);
-        return isEmpty(value) ? null : (
-          <span key={f.key} className="lc-meta">
-            <Cell field={f} value={value} ctx={ctx} values={r.values} />
-          </span>
-        );
-      })}
+      {block.time ? (
+        stepLines(r)
+      ) : (
+        <>
+          <button type="button" className="lc-name" onClick={() => onOpen(source, r)}>
+            {recordTitle(r)}
+          </button>
+          {others.map((f) => {
+            const value = fieldValueOf(r, f, schema, today);
+            return isEmpty(value) ? null : (
+              <span key={f.key} className="lc-meta">
+                <Cell field={f} value={value} ctx={ctx} values={r.values} />
+              </span>
+            );
+          })}
+        </>
+      )}
     </div>
   );
+  // A planned step in two lines, as the CRM mockup has them: its name and what it is of ("· New
+  // tower"), under it its day, "Fri, 30 Oct · 10:00", red when late, and the other fields.
+  const stepLines = (r: Record) => {
+    const at = r.values[block.time!];
+    const when = typeof at === 'string' && at ? `${new Date(`${at.slice(0, 10)}T00:00`).toLocaleDateString(locale(), { weekday: 'short', day: 'numeric', month: 'short' })}${timeOf(at) ? ` · ${timeOf(at)}` : ''}` : '';
+    const subField = schema.fields.find((f) => f.key === block.sub);
+    const held = subField ? fieldValueOf(r, subField, schema, today) : null;
+    const of = isLink(held) ? held.name : valueText(held);
+    const rest = others.filter((f) => f.key !== block.time && f.key !== block.sub).map((f) => valueText(fieldValueOf(r, f, schema, today))).filter(Boolean);
+    return (
+      <button type="button" className="lc-name lc-step" onClick={() => onOpen(source, r)}>
+        <span>
+          {recordTitle(r)}
+          {of && <span className="of"> · {of}</span>}
+        </span>
+        <small className={typeof at === 'string' && !ticked(r) && at.slice(0, 10) < today ? 'late' : undefined}>{[when, ...rest].filter(Boolean).join(' · ')}</small>
+      </button>
+    );
+  };
   let n = 0;
   return (
     <div className="blk look-check">
-      <LookHead source={source} title={block.title} count={tick && rows.length > 0 ? t('collection.tickedOf', { ticked: rows.filter(ticked).length, count: rows.length }) : rows.length || null} onAdd={onAdd} />
+      {/* Rows kept to those not ticked, a company's planned activities, are counted, not said how many are done. */}
+      <LookHead source={source} title={block.title} count={tick && rows.length > 0 && !block.where?.some((c) => c.field === tick.key) ? t('collection.tickedOf', { ticked: rows.filter(ticked).length, count: rows.length }) : rows.length || null} add={block.button} onAdd={onAdd} />
       {groups.map((g) => (
         <div key={g.key}>
           {(block.group ?? []).length > 0 && <div className="lc-group">{g.label || t('collection.none')}</div>}
@@ -1557,7 +1585,10 @@ export function LinkedTable({ block, source, dir, record, today, actions, drafts
   const written = linkedRecords(source, dir, record).filter((r) => !out?.has(r.id));
   const unsaved = (drafts?.rows(source) ?? []).filter((r) => !written.some((w) => w.id === r.id));
   const isDraft = new Set(unsaved.map((r) => r.id));
-  const linked = [...written.map((r) => ({ ...r, values: computer.values(source.dir, r) })), ...unsaved.map((r) => ({ ...r, values: computer.draft(source.dir, null, r.values) }))];
+  // Only the rows the block asks for: a company's planned activities apart from those done.
+  const linked = [...written.map((r) => ({ ...r, values: computer.values(source.dir, r) })), ...unsaved.map((r) => ({ ...r, values: computer.draft(source.dir, null, r.values) }))].filter(
+    (r) => !block.where || matchesConditions(r, schema, block.where, today),
+  );
   const sorted = sortRecords(linked, schema, linkedSort(block, schema), today);
   const groups = groupLinked(sorted, schema, block.group ?? [], today);
   const rows = groups.flatMap((g) => (g.groups ? g.groups.flatMap((s) => s.records) : g.records));
@@ -1790,18 +1821,31 @@ const DONE_SHOWN = 5;
  * its board when more than one board links here) and its value, and opens over the record. A task
  * shows its title and when it is due, and is ticked off here. The finished ones come after the
  * open ones. + Add task makes a task about the record in Inbox.
+ *
+ * With `only`, a board's path, it is that board's cards under its name, each with its column and
+ * the day it closes by, and + Add makes a card there linked to the record and opens it: a
+ * company's Deals (design/scrawl-apps.md 3.1).
  */
-function CardsBlock({ dir, record, today, actions, onOpen }: { dir: string; record: Record; today: string; actions: CollectionActions; onOpen: (board: string, id: string) => void }) {
+function CardsBlock({ dir, record, only, today, actions, onOpen }: { dir: string; record: Record; only?: string; today: string; actions: CollectionActions; onOpen: (board: string, id: string) => void }) {
   const [adding, setAdding] = useState(false);
   const [typed, setTyped] = useState('');
   const boards = actions.boards();
-  const found = linkedCards(boards, dir, record);
-  const several = boardsLinkingTo(boards, dir).length > 1;
-  const about = recordTasks(actions.tasks(), dir, record.id);
+  const found = linkedCards(boards, dir, record).filter((d) => !only || d.board === only);
+  const several = !only && boardsLinkingTo(boards, dir).length > 1;
+  const about = only ? [] : recordTasks(actions.tasks(), dir, record.id);
   const open = about.filter(({ task }) => !task.done);
   const done = about.filter(({ task }) => task.done).slice(0, DONE_SHOWN);
+  const own = only ? boards[only] : undefined;
   const add = () => {
     if (!typed.trim()) return;
+    if (own && only) {
+      const back = (own.fields ?? []).find((f) => f.type === 'link' && f.collection === dir);
+      const id = actions.cardActions.addCard(only, { title: typed.trim(), ...(back && { values: { [back.key]: back.many ? [linkTo(record)] : linkTo(record) } }) });
+      setTyped('');
+      setAdding(false);
+      if (id) onOpen(only, id);
+      return;
+    }
     actions.addTask(INBOX_TASKS, { title: typed.trim(), record: { collection: dir, id: record.id, name: record.name, ...(record.code && { code: record.code }) } });
     setTyped('');
   };
@@ -1822,13 +1866,13 @@ function CardsBlock({ dir, record, today, actions, onOpen }: { dir: string; reco
   return (
     <div className="blk">
       <div className="blk-h">
-        <span>{t('collection.cards')}</span>
+        <span>{only ? boardName(only) : t('collection.cards')}</span>
         <small>{found.length + about.length}</small>
         <button type="button" className="addl" onClick={() => setAdding(true)}>
-          {t('collection.addTask')}
+          {only ? t('collection.addShort') : t('collection.addTask')}
         </button>
       </div>
-      {found.length === 0 && about.length === 0 && !adding && <p className="blk-none">{t('collection.noCards')}</p>}
+      {found.length === 0 && about.length === 0 && !adding && <p className="blk-none">{only ? t('collection.noLinked', { collection: boardName(only).toLowerCase() }) : t('collection.noCards')}</p>}
       {found.map(({ board: path, card }) => {
         const board = boards[path]!;
         const column = board.columns.find((c) => c.id === card.column);
@@ -1837,11 +1881,11 @@ function CardsBlock({ dir, record, today, actions, onOpen }: { dir: string; reco
         return (
           <button key={`${path}#${card.id}`} type="button" className={isFinished(board, card) ? 'lrec done' : 'lrec'} onClick={() => onOpen(path, card.id)}>
             <span className="ln">
-              <span className="key">{keyOf(board, card)}</span>
+              {!only && <span className="key">{keyOf(board, card)}</span>}
               {card.title}
             </span>
             <span className="meta">
-              <span>{several && column ? `${column.name} · ${boardName(path)}` : column?.name}</span>
+              <span>{several && column ? `${column.name} · ${boardName(path)}` : only && card.due && !isFinished(board, card) ? t('collection.closesBy', { column: column?.name ?? '', day: dueLabel(card.due, today) }) : column?.name}</span>
               {typeof amount === 'number' && <span className="num">{formatNumber(amount, value?.format, currencyOf(value?.format, card.values))}</span>}
             </span>
           </button>
@@ -1853,8 +1897,8 @@ function CardsBlock({ dir, record, today, actions, onOpen }: { dir: string; reco
           <span className="cb p4" aria-hidden="true" />
           <input
             autoFocus
-            aria-label={t('collection.taskName')}
-            placeholder={t('collection.taskName')}
+            aria-label={only ? t('collection.cardName', { board: boardName(only) }) : t('collection.taskName')}
+            placeholder={only ? t('collection.cardName', { board: boardName(only) }) : t('collection.taskName')}
             value={typed}
             onChange={(event) => setTyped(event.target.value)}
             onKeyDown={(event) => {
@@ -2281,6 +2325,19 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
               </span>
             );
           })}
+          {/* A phone and a mail filled in give Call and Email beside them, as on a phone (design/scrawl-apps.md 3.1). */}
+          {(['phone', 'email'] as const).map((type) => {
+            const field = schema.fields.find((f) => f.type === type && !isEmpty(draft.values[f.key]));
+            const href = field ? fieldHref(type, valueText(draft.values[field.key] ?? null)) : null;
+            return (
+              href && (
+                <button key={type} type="button" className="rbtn" onClick={() => actions.openLink(href)}>
+                  <Icon name={type === 'phone' ? 'phone' : 'mail'} />
+                  {t(type === 'phone' ? 'phone.call' : 'phone.mail')}
+                </button>
+              )
+            );
+          })}
         </div>
       );
     }
@@ -2321,7 +2378,7 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
       );
     }
     if (layoutItem.block === 'cards' && record) {
-      return <CardsBlock key={`cards-${index}`} dir={dir} record={record} today={today} actions={actions} onOpen={(board, card) => setOver({ board, card })} />;
+      return <CardsBlock key={`cards-${index}`} dir={dir} record={record} only={layoutItem.board} today={today} actions={actions} onOpen={(board, card) => setOver({ board, card })} />;
     }
     if (layoutItem.block === 'subtasks') {
       return (
@@ -2921,6 +2978,14 @@ export function CollectionView({ collection, embedded, screen, today, look, onLo
         {viewButton.name}
       </button>
     );
+  // A ring at the start of a row instead, as a list of things to do has it: an activity's Done (View.ring).
+  const ringed = !!viewButton && !!view?.ring;
+  const ringOf = (record: Record) =>
+    actionState(collection.rules ?? '', viewButton!, computer, dir, record).on ? (
+      <button type="button" className="lc-tick" title={viewButton!.name} aria-label={`${viewButton!.name} · ${recordTitle(record)}`} onClick={(event) => (event.stopPropagation(), actions.pressButton(dir, record.id, viewButton!.name))} />
+    ) : (
+      <span className="lc-tick off" aria-hidden="true" />
+    );
   // What a row says under its name, and its picture beside it (design/more-apps.md 4.8).
   const lineOf = (record: Record) => {
     if (!schema.line) return null;
@@ -3026,6 +3091,11 @@ export function CollectionView({ collection, embedded, screen, today, look, onLo
                   {lineOf(record)!.sub && <small>{lineOf(record)!.sub}</small>}
                 </span>
               </span>
+            ) : i === 0 && ringed ? (
+              <span className="cline">
+                {ringOf(record)}
+                {cellOf(record, field)}
+              </span>
             ) : (
               cellOf(record, field)
             )}
@@ -3033,7 +3103,7 @@ export function CollectionView({ collection, embedded, screen, today, look, onLo
         </td>,
         i === 0 && stripCell(record),
       ])}
-      {viewButton && <td className="tbtn">{rowButton(record)}</td>}
+      {viewButton && !ringed && <td className="tbtn">{rowButton(record)}</td>}
       <td className="tend">
         <button type="button" className="rmore" title={t('collection.menu')} aria-label={t('collection.menu')} onClick={(event) => (event.stopPropagation(), rowMenu(event, record))}>
           ···
@@ -3075,7 +3145,7 @@ export function CollectionView({ collection, embedded, screen, today, look, onLo
         </td>,
         i === 0 && stripView && <td key="days-strip" className="dstrip" />,
       ])}
-      {viewButton && <td className="tbtn" />}
+      {viewButton && !ringed && <td className="tbtn" />}
       <td className="tend" />
     </tr>
   );
@@ -3149,7 +3219,7 @@ export function CollectionView({ collection, embedded, screen, today, look, onLo
         <thead>
           <tr>
             {fields.map((field, i) => [head(field, i), i === 0 && stripHead])}
-            {viewButton && <th className="tbtn" />}
+            {viewButton && !ringed && <th className="tbtn" />}
             <th className="tend" />
           </tr>
         </thead>

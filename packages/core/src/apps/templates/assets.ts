@@ -70,7 +70,7 @@ export const assets: AppTemplate = {
       for (const name of (answers.placeList as string[] | undefined) ?? PLACES) if (!there.has(name.toLowerCase())) app.record('locations', { name });
       app.block('locations', { block: 'linked', collection: app.path('assets'), style: 'list', fields: ['status'] });
     }
-    if (supplier) app.block('companies', { block: 'linked', collection: app.path('assets'), style: 'list', fields: ['status'] });
+    if (supplier) app.block('companies', { block: 'linked', collection: app.path('assets'), style: 'list', fields: ['status'], column: 3 });
 
     app.rule('assets', {
       kind: 'action',

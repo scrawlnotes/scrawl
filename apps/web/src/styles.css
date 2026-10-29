@@ -9512,6 +9512,134 @@ textarea.tt-edit {
   margin-left: 0;
 }
 
+/* What happened to a deal lost, its label over its box. */
+.dialog .drop-what {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dialog .drop-what input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* A deal's head (design/scrawl-apps.md 3.1): its stages in a bar, then Log and Plan, Won and Lost. */
+.cp-deal {
+  padding: 0 20px;
+}
+
+.cp-deal .steps.big {
+  margin-top: 4px;
+}
+
+.cp-deal .cp-acts {
+  display: flex;
+  gap: 8px;
+  padding: 10px 0 2px;
+}
+
+.cp-deal .cp-acts button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid var(--sl-line);
+  border-radius: 7px;
+  color: var(--sl-fg);
+  font-size: 12.5px;
+}
+
+.cp-deal .cp-acts button svg {
+  width: 13px;
+  height: 13px;
+}
+
+.cp-deal .cp-acts button:disabled {
+  opacity: 0.5;
+}
+
+.cp-deal .cp-acts .go {
+  border-color: var(--sl-accent);
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font-weight: 600;
+}
+
+.cp-deal .cp-acts .won {
+  border-color: #5cb87a;
+  color: #5cb87a;
+  font-weight: 600;
+}
+
+.cp-deal .cp-acts .lost {
+  border-color: var(--sl-p1);
+  color: var(--sl-p1);
+  font-weight: 600;
+}
+
+.cp-deal .cp-acts .gap {
+  flex: 1;
+}
+
+/* On a phone, under the card's title, and its blocks under its description. */
+.mb-cpage .cp-deal {
+  padding: 0 16px 10px;
+}
+
+.mb-cblocks {
+  padding: 0 16px;
+}
+
+/* A deal's next step on its card: planned green, late red, none the accent's triangle (design/scrawl-apps.md 3.1). */
+.kc .nx,
+.mb-kc .nx {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--sl-dim);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kc .nx i,
+.mb-kc .nx i {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #5cb87a;
+}
+
+.kc .nx.late,
+.mb-kc .nx.late {
+  color: var(--sl-p1);
+}
+
+.kc .nx.late i,
+.mb-kc .nx.late i {
+  background: var(--sl-p1);
+}
+
+.kc .nx.none,
+.mb-kc .nx.none {
+  color: var(--sl-accent);
+}
+
+.kc .nx.none i,
+.mb-kc .nx.none i {
+  width: 0;
+  height: 0;
+  border-right: 4px solid transparent;
+  border-bottom: 7px solid var(--sl-accent);
+  border-left: 4px solid transparent;
+  border-radius: 0;
+  background: none;
+}
+
 .colm h3 .sum {
   color: var(--sl-dim);
   font-weight: 400;
@@ -13212,6 +13340,54 @@ button.st-li:hover,
 .ask-will {
   padding-top: 10px;
   border-top: 1px solid var(--sl-line);
+}
+
+/* A group of questions under its title, in a dashed box: a Log's next step (design/scrawl-apps.md 3.1). */
+.ask-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 11px;
+  border: 1px dashed var(--sl-line);
+  border-radius: 8px;
+}
+
+.ask-sec > b {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* The days a next step is usually on, side by side over its box (DayChips). */
+.ask-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.ask-days button {
+  padding: 3px 11px;
+  border: 1px solid var(--sl-line);
+  border-radius: 14px;
+  color: var(--sl-dim);
+  font-size: 12.5px;
+}
+
+.ask-days button.on {
+  border-color: var(--sl-accent);
+  color: var(--sl-accent);
+}
+
+.ask-lines-box {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  background: var(--sl-bg);
+  color: var(--sl-fg);
+  font: inherit;
+  resize: vertical;
 }
 
 .ask-will .hd {
@@ -19510,6 +19686,53 @@ button.ppl:hover {
   flex: 1.4;
 }
 
+/* A pipeline's stages on Home: each its name, a bar of its value against the largest, how many, the sum. */
+.app-tile .pipe {
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+}
+
+.app-tile .pipe > span {
+  display: grid;
+  grid-template-columns: minmax(70px, 0.8fr) minmax(40px, 1fr) 22px auto;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+  border-top: 1px solid var(--sl-line);
+  font-size: 12.5px;
+}
+
+.app-tile .pipe > span:first-child {
+  border-top: 0;
+}
+
+.app-tile .pipe .t {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-tile .pipe .b {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--sl-line);
+}
+
+.app-tile .pipe .b i {
+  display: block;
+  height: 100%;
+  background: #4fb3d9;
+}
+
+.app-tile .pipe .n,
+.app-tile .pipe .v {
+  color: var(--sl-dim);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
 .app-notes {
   display: flex;
   flex-direction: column;
@@ -20936,6 +21159,29 @@ button.ppl:hover {
   font-size: 12px;
 }
 
+/* A planned step in two lines: its name, under it its day and the rest, faint; late in red. */
+.look-check .lc-step {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  min-width: 0;
+  text-align: left;
+}
+
+.look-check .lc-step .of {
+  color: var(--sl-dim);
+}
+
+.look-check .lc-step small {
+  color: var(--sl-faint);
+  font-size: 11.5px;
+}
+
+.look-check .lc-step small.late {
+  color: var(--sl-p1);
+}
+
 .look-check .lc-num {
   display: grid;
   place-items: center;
@@ -20971,6 +21217,16 @@ button.ppl:hover {
   width: 11px;
   height: 11px;
   stroke-width: 2.6;
+}
+
+/* A ring that cannot be pressed for this row: faint. */
+.lc-tick.off {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.lc-tick:not(.off):not(.on):hover {
+  border-color: var(--sl-accent);
 }
 
 /* Who it is for, as Tricount adds an expense: each with a tick and their share. */

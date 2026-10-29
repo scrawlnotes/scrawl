@@ -1,5 +1,5 @@
 import { type Actor, actorIn, type By, isObject, readStamp, readWorkedOn, refKey, type Stamp, stampOf, workedBy, type WorkedOn, writtenBy } from './activity';
-import { evaluateFormula, type Field, type FieldValue, isEmpty, pointsAt, readFields, readValue, type Record as CollectionRecord, valueText } from './collection';
+import { type Collection, evaluateFormula, type Field, type FieldValue, isEmpty, isLink, type LinkedBlock, linkedRecords, pointsAt, readFields, readLinkedBlock, readValue, type Record as CollectionRecord, valueText } from './collection';
 import { type ChoiceRenames, renameChoices } from './fields';
 import type { VaultFs } from './fs';
 import { cleanLabels } from './labels';
@@ -118,7 +118,43 @@ export interface Board {
   fields?: Field[];
   /** Which piece of an app it is (`deals`, `roadmap`…), as an app template set it up. */
   role?: string;
+  /**
+   * Each open card says its next step, and one with none is marked: a deal as Pipedrive shows it
+   * (design/scrawl-apps.md 3.1). Its next step is the earliest of the records of `collection`
+   * linking to it that are not `done`, by `day`: its activities planned.
+   */
+  next?: BoardNext;
+  /** The field a card moved to a dropped column is asked: why a deal was lost. */
+  dropAsks?: string;
+  /** What the card's window shows of the records linking to it, as a record's linked blocks: a deal's next steps and its history. */
+  blocks?: LinkedBlock[];
+  /** A card moved to a done column writes `value` into `field` of the record its `link` points at: a deal won makes its company a customer. */
+  wins?: BoardWins;
+  /** Buttons the card's window has, of the record its link points at, the card given: a deal's Log and Plan, its company's. */
+  press?: BoardPress;
   cards: Card[];
+}
+
+export interface BoardPress {
+  /** The card's link field whose record has the buttons. */
+  link: string;
+  buttons: string[];
+  /** The question of the buttons the card answers: Log's deal. */
+  card: string;
+  /** Questions answered with the card's fields, question by field: Log's with, the deal's contact. */
+  fields?: { [ask: string]: string };
+}
+
+export interface BoardNext {
+  collection: string;
+  day: string;
+  done: string;
+}
+
+export interface BoardWins {
+  link: string;
+  field: string;
+  value: string;
 }
 
 export type Template = 'software' | 'simple' | 'issues' | 'crm';
@@ -217,6 +253,7 @@ export function parseBoard(text: string): Board {
   const phases = parsePhases(data?.phases);
   const fields = readFields(data?.fields, true);
   const cards = parseCards(data?.cards, columns);
+  const blocks = (Array.isArray(data?.blocks) ? data.blocks : []).map(readLinkedBlock).filter((b): b is LinkedBlock => b !== null);
   const maxKey = cards.reduce((max, c) => Math.max(max, c.key), 0);
   const stored = typeof data?.nextKey === 'number' && Number.isInteger(data.nextKey) ? data.nextKey : 1;
   return {
@@ -228,8 +265,57 @@ export function parseBoard(text: string): Board {
     phases: withOneCurrent(phases),
     ...(fields.length > 0 && { fields }),
     ...(typeof data?.role === 'string' && data.role.trim() && { role: data.role.trim() }),
+    ...(readNext(data?.next) && { next: readNext(data?.next)! }),
+    ...(typeof data?.dropAsks === 'string' && fields.some((f) => f.key === data.dropAsks) && { dropAsks: data.dropAsks }),
+    ...(blocks.length > 0 && { blocks }),
+    ...(isObject(data?.wins) && typeof data.wins.link === 'string' && typeof data.wins.field === 'string' && typeof data.wins.value === 'string' && { wins: { link: data.wins.link, field: data.wins.field, value: data.wins.value } }),
+    ...(readPress(data?.press) && { press: readPress(data?.press)! }),
     cards,
   };
+}
+
+function readPress(raw: unknown): BoardPress | null {
+  if (!isObject(raw) || typeof raw.link !== 'string' || typeof raw.card !== 'string' || !Array.isArray(raw.buttons)) return null;
+  const buttons = raw.buttons.filter((n): n is string => typeof n === 'string' && !!n.trim());
+  const fields = isObject(raw.fields) ? Object.fromEntries(Object.entries(raw.fields).filter((e): e is [string, string] => typeof e[1] === 'string')) : {};
+  return { link: raw.link, buttons, card: raw.card, ...(Object.keys(fields).length > 0 && { fields }) };
+}
+
+function readNext(raw: unknown): BoardNext | null {
+  if (!isObject(raw) || typeof raw.collection !== 'string' || typeof raw.day !== 'string' || typeof raw.done !== 'string') return null;
+  return { collection: raw.collection, day: raw.day, done: raw.done };
+}
+
+/** A card as a record a link points at: its id, its title for a name, its key for a code, its values. */
+export const cardRecord = (path: string, board: Board, card: Card): CollectionRecord => ({ id: card.id, path, name: card.title, code: keyOf(board, card), values: (card.values ?? {}) as CollectionRecord['values'], extra: {}, body: card.description ?? '' });
+
+/** A card's next step (Board.next): the earliest record linking to it not done that has a day; null when it has none. */
+export function nextStep(board: Board, path: string, card: Card, collections: readonly Collection[]): CollectionRecord | null {
+  const next = board.next;
+  const source = next && collections.find((c) => c.dir === next.collection);
+  if (!next || !source) return null;
+  const planned = linkedRecords(source, path, { id: card.id, name: card.title }).filter((r) => r.values[next.done] !== true && typeof r.values[next.day] === 'string' && r.values[next.day]);
+  return planned.reduce<CollectionRecord | null>((first, r) => (!first || (r.values[next.day] as string) < (first.values[next.day] as string) ? r : first), null);
+}
+
+/**
+ * What a card won writes (Board.wins): the record its link points at, in the collection the link
+ * field is of, with the value added to its field; null when it holds it already or there is none.
+ */
+export function wonChange(board: Board, card: Card, collections: readonly Collection[]): { dir: string; id: string; values: CollectionRecord['values'] } | null {
+  const wins = board.wins;
+  const field = wins && board.fields?.find((f) => f.key === wins.link && f.type === 'link');
+  const link = field ? [card.values?.[field.key]].flat()[0] : null;
+  const target = field?.collection ? collections.find((c) => c.dir === field.collection) : undefined;
+  const record = isLink(link) && target ? target.records.find((r) => (link.id ? r.id === link.id : r.name.trim().toLowerCase() === link.name.trim().toLowerCase())) : undefined;
+  const into = target?.schema.fields.find((f) => f.key === wins!.field);
+  if (!record || !into) return null;
+  const now = record.values[into.key];
+  if (into.type === 'multi-select') {
+    const held = Array.isArray(now) ? (now as string[]) : [];
+    return held.includes(wins!.value) ? null : { dir: target!.dir, id: record.id, values: { [into.key]: [...held, wins!.value] } };
+  }
+  return now === wins!.value ? null : { dir: target!.dir, id: record.id, values: { [into.key]: wins!.value } };
 }
 
 function emptyBoard(): Board {
@@ -437,7 +523,8 @@ export function cardValue(board: Board, card: Card, field: Field, today = ''): F
 /** The fields a card shows on its face: the board's first link and its first number, a deal's company and value. */
 export function faceFields(board: Board): Field[] {
   const fields = board.fields ?? [];
-  return [fields.find((f) => f.type === 'link'), fields.find((f) => f.type === 'number')].filter((f): f is Field => !!f);
+  // A deal's company and its contact, then its value.
+  return [...fields.filter((f) => f.type === 'link').slice(0, 2), fields.find((f) => f.type === 'number')].filter((f): f is Field => !!f);
 }
 
 /** The sum of a number or formula field over cards; null when none of them has a value. */

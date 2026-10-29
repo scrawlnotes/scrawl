@@ -41,6 +41,8 @@ export interface Rollup {
   field?: string;
   /** For a board: its open cards only. */
   open?: boolean;
+  /** For a board: its cards in a done column only, a company's deals won (design/scrawl-apps.md 3.1). */
+  won?: boolean;
   /** Only those records or cards that meet these conditions, as the Filter window's: the transactions whose direction is Out. */
   where?: Condition[];
   /** The one link field of those records it goes through, when they have more than one to here: a transfer's To account, apart from its account (design/more-apps.md 4.1). */
@@ -229,12 +231,19 @@ type LayoutBlockKind =
       mode?: string;
       /** With `checklist` and no tick: each row with its number, the places to see in order (Wanderlog). */
       numbered?: boolean;
+      /** Only the rows that meet these: a company's activities planned, apart from those done (design/scrawl-apps.md 3.1). */
+      where?: Condition[];
       /** With a look, what its heading says instead of the collection's name: People, Who pays whom. */
       title?: string;
       /** With `split`: the record's total the shares come to. */
       total?: string;
+      /** On a card's window (Board.blocks): + Add presses this of its buttons (Board.press), a deal's Plan. */
+      button?: string;
+      /** On a phone, the tab it is in with the blocks of the same tab: a company's Activity, its planned and its history (design/scrawl-apps.md 3.1). */
+      tab?: string;
     }
-  | { block: 'cards' }
+  /** The cards that link to the record and the tasks about it; with `board`, only that board's cards, under its name, + Add making one (a company's Deals). */
+  | { block: 'cards'; board?: string; tab?: string }
   /** The record's subtasks; `title` and `add` call them by another name: a goal's Steps, Add step. */
   | { block: 'subtasks'; title?: string; add?: string }
   /** A record's month on its calendar that repeats, a day clicked done or not done; over it the values of `fields` (a habit's streak, design/more-apps.md 4.9). */
@@ -422,6 +431,8 @@ export interface View {
   closed?: string[];
   /** The button of its rules each row has, where the record can have it pressed: +1 (design/more-apps.md 4.8). */
   button?: string;
+  /** Its button is a round ring at the start of each row, as a list of things to do has it: a CRM's activities' Done. */
+  ring?: true;
 }
 
 /**
@@ -734,6 +745,7 @@ function readField(raw: unknown): Field | null {
       fn,
       ...(key && fn !== 'count' && { field: key }),
       ...(r.open === true && { open: true }),
+      ...(r.won === true && { won: true }),
       ...(where.length > 0 && { where }),
       ...(typeof r.via === 'string' && cleanFieldKey(r.via) && { via: cleanFieldKey(r.via) }),
     };
@@ -813,7 +825,8 @@ function readBlock(raw: { [key: string]: unknown }): LayoutBlockKind | null {
     return { block: 'subtasks', ...(typeof raw.title === 'string' && raw.title.trim() && { title: raw.title.trim() }), ...(typeof raw.add === 'string' && raw.add.trim() && { add: raw.add.trim() }) };
   }
   if (raw.block === 'body') return { block: 'body', ...(raw.attach === true && { attach: true }) };
-  if (raw.block === 'cards' || raw.block === 'actions') return { block: raw.block };
+  if (raw.block === 'cards') return { block: 'cards', ...(typeof raw.board === 'string' && raw.board.trim() && { board: raw.board.trim() }), ...tabOf(raw) };
+  if (raw.block === 'actions') return { block: 'actions' };
   if (raw.block === 'days') {
     const fields = strings(raw.fields).map(cleanFieldKey).filter(Boolean);
     return { block: 'days', ...(fields.length > 0 && { fields }) };
@@ -838,13 +851,25 @@ function readBlock(raw: { [key: string]: unknown }): LayoutBlockKind | null {
       ...(raw.choose === true && typeof raw.apart === 'string' && { apart: cleanFieldKey(raw.apart) }),
       ...(raw.choose === true && typeof raw.instead === 'string' && { instead: cleanFieldKey(raw.instead) }),
       ...(raw.numbered === true && { numbered: true }),
-      ...(raw.look !== undefined && typeof raw.title === 'string' && raw.title.trim() && { title: raw.title.trim() }),
+      ...(Array.isArray(raw.where) && { where: raw.where.map((c) => readCondition(c)).filter((c): c is Condition => c !== null) }),
+      ...((raw.look !== undefined || Array.isArray(raw.where)) && typeof raw.title === 'string' && raw.title.trim() && { title: raw.title.trim() }),
       ...((raw.look === 'days' || raw.look === 'checklist' || raw.look === 'split') && { look: raw.look }),
       ...keysOf(raw, ['time', 'end', 'icon', 'sub', 'pick', 'person', 'amount', 'parts', 'mode', 'total']),
       ...wordsOf(raw, ['icons', 'startSaid', 'endSaid']),
+      ...(typeof raw.button === 'string' && raw.button.trim() && { button: raw.button.trim() }),
+      ...tabOf(raw),
     };
   }
   return null;
+}
+
+/** The phone tab a block is in, when it says one. */
+const tabOf = (raw: { [key: string]: unknown }) => (typeof raw.tab === 'string' && raw.tab.trim() ? { tab: raw.tab.trim() } : {});
+
+/** A linked block as a board's file has it (Board.blocks); null for anything else. */
+export function readLinkedBlock(raw: unknown): LinkedBlock | null {
+  const block = isRecord(raw) ? readBlock(raw) : null;
+  return block?.block === 'linked' ? block : null;
 }
 
 /** The field keys a block names, those of `names` given. */
@@ -1009,6 +1034,7 @@ function readViews(raw: unknown, fields: Field[]): View[] {
     const closed = strings(item.closed).filter((s) => s.trim());
     if (closed.length > 0) view.closed = closed;
     if (typeof item.button === 'string' && item.button.trim()) view.button = item.button.trim();
+    if (view.button && item.ring === true) view.ring = true;
     views.push(view);
   }
   return views;
@@ -1117,6 +1143,8 @@ export interface HomeTile {
   off?: boolean;
   /** How many of its records are at each step of this field, as the box's line. */
   counts?: string;
+  /** The view whose records the box lists, by its id, and whose name it has: a CRM's Gone quiet (design/scrawl-apps.md 3.1). */
+  view?: string;
 }
 
 function readHome(raw: unknown, fields: Field[]): HomeTile | undefined {
@@ -1126,7 +1154,7 @@ function readHome(raw: unknown, fields: Field[]): HomeTile | undefined {
   const sub = known(raw.sub);
   const totals = strings(raw.totals).map((k) => known(k)).filter((k): k is string => !!k);
   const empty = typeof raw.empty === 'string' && raw.empty.trim() ? raw.empty.trim() : undefined;
-  const home: HomeTile = { ...(value && { value }), ...(sub && { sub }), ...(value && raw.total === true && { total: true }), ...(totals.length > 0 && { totals }), ...(value && raw.filled === true && { filled: true }), ...(empty && { empty }), ...(raw.first === true && { first: true }), ...(raw.off === true && { off: true }), ...(known(raw.counts) && { counts: known(raw.counts)! }) };
+  const home: HomeTile = { ...(value && { value }), ...(sub && { sub }), ...(value && raw.total === true && { total: true }), ...(totals.length > 0 && { totals }), ...(value && raw.filled === true && { filled: true }), ...(empty && { empty }), ...(raw.first === true && { first: true }), ...(raw.off === true && { off: true }), ...(known(raw.counts) && { counts: known(raw.counts)! }), ...(typeof raw.view === 'string' && raw.view.trim() && { view: raw.view.trim() }) };
   return Object.keys(home).length > 0 ? home : undefined;
 }
 

@@ -1,4 +1,4 @@
-import { BOARD_EXT, type Board, type Card, cardValue as readCardValue, isFinished, linkedCards } from './board';
+import { BOARD_EXT, type Board, type Card, cardValue as readCardValue, columnOf, isFinished, linkedCards } from './board';
 import {
   type Collection,
   type Field,
@@ -360,6 +360,7 @@ export class Computer {
       const fields = board.fields ?? [];
       let cards = linkedCards({ [r.from]: board }, dir, record).map((d) => d.card);
       if (r.open) cards = cards.filter((card) => !isFinished(board, card));
+      if (r.won) cards = cards.filter((card) => columnOf(board, card)?.kind === 'done');
       if (where.length > 0) {
         cards = cards.filter((card) => {
           const values = Object.fromEntries(fields.map((f) => [f.key, this.cardValue(r.from, card, f)]));

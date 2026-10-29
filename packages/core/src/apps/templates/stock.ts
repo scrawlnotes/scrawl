@@ -108,7 +108,7 @@ export const stock: AppTemplate = {
       src: `check("stock", () => ${services ? 'type == "service" || ' : ''}stock >= reorder_level, \`Low: \${stock} left\`)`,
     });
     app.block('products', { block: 'linked', collection: moves, style: 'table', fields: ['date', 'direction', 'type', 'quantity', ...(places ? ['location'] : [])], sort: 'date' });
-    app.block('companies', { block: 'linked', collection: app.path('products'), style: 'list', fields: ['stock'] });
+    app.block('companies', { block: 'linked', collection: app.path('products'), style: 'list', fields: ['stock'], column: 3 });
 
     app.field('stock-movements', link('product', 'Product', app.path('products')));
     app.field('stock-movements', select('direction', 'Direction', ['In', 'Out'], { In: 'green', Out: 'red' }, 'In'));
@@ -175,7 +175,7 @@ ${movement(app, '  ', 'product: product, direction: "In", type: "transfer", quan
       if (app.money.multi) app.field('purchase-orders', currencyField(app));
       app.field('purchase-orders', rollup('total', 'Total', app.path('purchase-order-lines'), 'sum', 'amount', undefined, app.format(true)));
       app.block('purchase-orders', { block: 'linked', collection: app.path('purchase-order-lines'), style: 'table', fields: ['product', 'quantity', 'unit_cost', 'amount'], sums: true });
-      app.block('companies', { block: 'linked', collection: app.path('purchase-orders'), style: 'list', fields: ['status', 'total'], sort: 'date' });
+      app.block('companies', { block: 'linked', collection: app.path('purchase-orders'), style: 'list', fields: ['status', 'total'], sort: 'date', column: 3 });
 
       const line = lineFormat(app);
       app.field('purchase-order-lines', nameField('Item'));

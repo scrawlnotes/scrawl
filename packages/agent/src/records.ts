@@ -6,6 +6,8 @@ import {
   isDay,
   addRecord,
   type Board,
+  BOARD_EXT,
+  cardRecord,
   type Collection,
   Computer,
   CONDITION_OPS,
@@ -157,8 +159,9 @@ function answersFor(action: ActionRule | undefined, input: { [key: string]: unkn
       if (!clock) throw new Refusal(`${a.key} takes a time as HH:mm`);
       out[a.key] = clock;
     } else if (a.type === 'link') {
-      const path = pathNamed(world.collections.map((c) => c.dir), a.collection!, dir);
-      const collection = world.collections.find((c) => c.dir === path);
+      const path = pathNamed([...world.collections.map((c) => c.dir), ...Object.keys(world.boards)], a.collection!, dir);
+      const board = path ? world.boards[path] : undefined;
+      const collection = board ? cardsAsCollection(path!, board) : world.collections.find((c) => c.dir === path);
       if (!collection) throw new Refusal(`There is no collection called ${a.collection} for ${a.key}`);
       out[a.key] = linkTo(pickRecord(collection, String(raw)));
     } else out[a.key] = String(raw);
@@ -263,10 +266,14 @@ export async function recordsTool(agent: Agent, args: { space?: string; collecti
  * The links a value names: records of the field's collection, by name, code or id; refused when one
  * is ambiguous. With `within`, those of the record's group (`group`, its id) first: Can of this trip.
  */
+/** A board's cards as a collection's records, for a link to pick one by its title or key. */
+const cardsAsCollection = (path: string, board: Board): Collection => ({ dir: path, schema: { version: 2, template: 'blank', fields: [] }, records: board.cards.map((card) => cardRecord(path, board, card)) });
+
 export async function resolveLinks(fs: VaultFs, field: Field, raw: unknown, group?: string): Promise<Link | Link[] | null> {
   if (raw === null || raw === undefined || raw === '') return null;
   if (!field.collection) throw new Refusal(`The field ${field.label} has no collection to link to`);
-  const all = await loadCollection(fs, field.collection).catch(() => null);
+  // A link to a board points at its cards, by their title or key: an activity's deal (design/scrawl-apps.md 3.1).
+  const all = field.collection.endsWith(BOARD_EXT) ? await loadBoard(fs, field.collection).then((board) => cardsAsCollection(field.collection!, board), () => null) : await loadCollection(fs, field.collection).catch(() => null);
   if (!all) throw new Refusal(`The collection ${field.collection} that ${field.label} links to is not there`, { field: field.key });
   const own = field.within && group ? all.records.filter((r) => [r.values[field.within!]].flat().some((l: unknown) => isLink(l) && l.id === group)) : [];
   const target = own.length > 0 ? { ...all, records: own } : all;

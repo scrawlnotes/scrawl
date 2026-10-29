@@ -76,7 +76,7 @@ export const projects: AppTemplate = {
     }
     app.block('projects', { block: 'cards' });
     if (time) app.block('projects', { block: 'linked', collection: app.path('time-entries'), style: 'table', fields: ['date', 'person', 'hours', ...(billable ? ['billable'] : [])], sums: true });
-    if (customers && app.hasPiece('companies')) app.block('companies', { block: 'linked', collection: app.path('projects'), style: 'list', fields: ['status'] });
+    if (customers && app.hasPiece('companies')) app.block('companies', { block: 'linked', collection: app.path('projects'), style: 'list', fields: ['status'], column: 3 });
 
     app.rule('projects', { kind: 'check', name: 'The end is before the start', src: 'check("end", () => end >= start, "The end is before the start")' });
     const started = [

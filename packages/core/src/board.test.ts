@@ -24,6 +24,7 @@ import {
   moveCard,
   moveCardToKind,
   moveColumn,
+  nextStep,
   movePhase,
   newBoard,
   nextOpenPhase,
@@ -49,6 +50,7 @@ import {
   setPhasesOn,
   updateCard,
   updatePhase,
+  wonChange,
 } from './board';
 import { MemoryFs } from './fs';
 import { mergeFile } from './sync/merge-files';
@@ -508,7 +510,7 @@ describe("a board's own fields", () => {
     expect(cardValue(read, pilot!, field('company'))).toEqual({ id: 'a1', name: 'Acme Corp', code: 'CUS-0012' });
     expect(cardValue(read, plan!, field('next_step'))).toBe('2026-10-14');
     expect(cardSum(read, read.cards, field('value'))).toBe(36000);
-    expect(faceFields(read).map((f) => f.key)).toEqual(['company', 'value']);
+    expect(faceFields(read).map((f) => f.key)).toEqual(['company', 'contact', 'value']);
     // Emptied, a value goes; with none left, so do the card's values.
     const cleared = updateCard(read, 'k2', { values: { value: null, next_step: null } }, now);
     expect(cleared.cards.find((c) => c.id === 'k2')!.values).toBeUndefined();
@@ -526,6 +528,31 @@ describe("a board's own fields", () => {
     expect(boardsLinkingTo(boards, 'Scrawl/Companies')).toEqual(['Scrawl/Deals.board.json']);
     expect(linkedCards(boards, 'Scrawl/Companies', { id: 'a1', name: 'Acme Corp' }).map((d) => d.card.title)).toEqual(['Pilot', 'Old deal']);
     expect(linkedCards(boards, 'Scrawl/People', { id: 'p9', name: 'acme corp' }).map((d) => d.card.title)).toEqual(['By name']);
+  });
+
+  it("say a deal's next step from its activities, and what Won writes, kept through the file", () => {
+    const path = 'Scrawl/Deals.board.json';
+    let deals: Board = { ...crm(), next: { collection: 'Scrawl/Activities', day: 'when', done: 'done' }, wins: { link: 'company', field: 'type', value: 'Customer' } };
+    deals = addCard(deals, { title: 'Pilot', values: { company: { id: 'a1', name: 'Acme Corp' } } }, now, undefined, 'k1');
+    deals = parseBoard(serializeBoard(deals));
+    expect(deals.next).toEqual({ collection: 'Scrawl/Activities', day: 'when', done: 'done' });
+    const record = (id: string, name: string, values: Record<string, unknown>) => ({ id, path: `${id}.md`, name, code: '', values: values as never, extra: {}, body: '' });
+    const activities = {
+      dir: 'Scrawl/Activities',
+      schema: { version: 2 as const, template: 'blank' as const, fields: [{ key: 'name', label: 'Name', type: 'name' as const }, { key: 'when', label: 'When', type: 'date' as const }, { key: 'done', label: 'Done', type: 'checkbox' as const }, { key: 'deal', label: 'Deal', type: 'link' as const, collection: path }] },
+      records: [
+        record('x1', 'Call', { when: '2026-10-05', done: true, deal: { id: 'k1', name: 'Pilot' } }),
+        record('x2', 'Send the offer', { when: '2026-10-12', deal: { id: 'k1', name: 'Pilot' } }),
+        record('x3', 'Visit', { when: '2026-10-09T10:00', deal: { id: 'k1', name: 'Pilot' } }),
+      ],
+    };
+    const card = deals.cards[0]!;
+    // The earliest not done.
+    expect(nextStep(deals, path, card, [activities])?.name).toBe('Visit');
+    expect(nextStep(deals, path, card, [{ ...activities, records: [activities.records[0]!] }])).toBeNull();
+    const companies = { dir: 'Scrawl/Companies', schema: { version: 2 as const, template: 'blank' as const, fields: [{ key: 'type', label: 'Type', type: 'multi-select' as const, options: ['Customer', 'Partner'] }] }, records: [record('a1', 'Acme Corp', { type: ['Partner'] })] };
+    expect(wonChange(deals, card, [companies])).toEqual({ dir: 'Scrawl/Companies', id: 'a1', values: { type: ['Partner', 'Customer'] } });
+    expect(wonChange(deals, card, [{ ...companies, records: [record('a1', 'Acme Corp', { type: ['Customer'] })] }])).toBeNull();
   });
 
   it('change in one go: renamed choices follow on the cards, a value whose field is gone stays', () => {

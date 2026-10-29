@@ -135,7 +135,7 @@ export const appointments: AppTemplate = {
     app.field('people', rollup('last_appointment', 'Last appointment', booked, 'max', 'start'));
     app.field('people', rollup('appointment_count', 'Appointments', booked, 'count'));
     app.field('people', rollup('no_shows', 'No-shows', booked, 'count', undefined, [{ field: 'status', op: 'is', value: ['No-show'] }]));
-    app.block('people', { block: 'linked', collection: booked, sort: 'start', style: 'timeline' });
+    app.block('people', { block: 'linked', collection: booked, sort: 'start', style: 'timeline', column: 3 });
     if (team) app.block('staff', { block: 'linked', collection: booked, style: 'list', fields: ['start', 'status'], sort: 'start' });
     if (resources) app.block('resources', { block: 'linked', collection: booked, style: 'list', fields: ['start', 'status'], sort: 'start' });
 

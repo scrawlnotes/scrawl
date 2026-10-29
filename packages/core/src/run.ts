@@ -11,6 +11,7 @@ import {
   isComputed,
   isEmpty,
   isLink,
+  type Link,
   linkFieldsTo,
   linkTo,
   nameField,
@@ -260,7 +261,7 @@ export function planAction(rules: string, name: string, dir: string, recordId: s
 
 /** What a button was given for what it asks, as the language reads it: each answer as its question's kind of field holds it. */
 function inputOf(action: ActionRule, given: Record['values'], space: RuleSpaceNow, dir: string): Obj {
-  const paths = space.collections.map((c) => c.dir);
+  const paths = [...space.collections.map((c) => c.dir), ...Object.keys(space.boards)];
   return new Obj(
     new Map(
       (action.ask ?? []).map((a) => {
@@ -284,6 +285,12 @@ export interface AskQuestion {
   required: boolean;
   value: FieldValue;
   note?: string;
+  /** A choice side by side, a text of several lines, the title of the group it begins (AskRule). */
+  chips?: boolean;
+  lines?: boolean;
+  section?: string;
+  /** A link offers only the records whose field of this key points at this one (AskRule.within). */
+  within?: { field: string; link: Link };
 }
 
 /**
@@ -295,7 +302,7 @@ export function askOf(rules: string, name: string, dir: string, recordId: string
   const action = actionsOf(rules).find((a) => a.name === name);
   if (!action?.ask?.length) return null;
   const record = space.collections.find((c) => c.dir === dir)?.records.find((r) => r.id === recordId);
-  const paths = space.collections.map((c) => c.dir);
+  const paths = [...space.collections.map((c) => c.dir), ...Object.keys(space.boards)];
   let say = record ? recordTitle(record) : '';
   const questions: AskQuestion[] = action.ask.map((a) => ({
     key: a.key,
@@ -304,6 +311,10 @@ export function askOf(rules: string, name: string, dir: string, recordId: string
     ...(a.options && { options: a.options }),
     ...(a.type === 'link' && { collection: pathNamed(paths, a.collection!, dir) ?? a.collection! }),
     ...(a.time && { time: true }),
+    ...(a.chips && { chips: true }),
+    ...(a.lines && { lines: true }),
+    ...(a.section && { section: a.section }),
+    ...(a.within && record && { within: { field: a.within, link: linkTo(record) } }),
     required: a.required,
     value: given[a.key] ?? null,
   }));

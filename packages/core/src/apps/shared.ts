@@ -4,21 +4,27 @@ import type { AppDraft } from './types';
 // What a shared piece starts with, whichever template sets it up: each template that uses it
 // calls these first, and adds its own fields after. A field set up once is kept as it is.
 
+// A company's and a person's window is HubSpot's (design/scrawl-apps.md 3.1): what it is on the
+// left, what happened with it in the middle, and what links to it on the right, column 3, where
+// every template that links to it adds its own card.
+
 export function companies(app: AppDraft) {
   if (!app.hasPiece('companies')) return;
   app.field('companies', nameField());
   app.field('companies', { key: 'website', label: 'Website', type: 'url' });
-  app.field('companies', multi('type', 'Type', ['customer', 'supplier', 'partner'], { customer: 'green', supplier: 'orange', partner: 'purple' }));
-  app.field('companies', person('owner', 'Owner'));
+  app.field('companies', { key: 'phone', label: 'Phone', type: 'phone' });
+  app.field('companies', { ...text('city', 'City'), suggest: true });
+  app.field('companies', multi('type', 'Type', ['Customer', 'Supplier', 'Partner'], { Customer: 'green', Supplier: 'orange', Partner: 'purple' }));
+  app.field('companies', person('owner', 'Owner', true));
 }
 
 export function people(app: AppDraft) {
   if (!app.hasPiece('people')) return;
   app.field('people', nameField());
   if (app.hasPiece('companies')) app.field('people', link('company', 'Company', app.path('companies')));
+  app.field('people', { ...text('title', 'Job title'), suggest: true });
   app.field('people', { key: 'email', label: 'Email', type: 'email' });
   app.field('people', { key: 'phone', label: 'Phone', type: 'phone' });
-  app.field('people', text('title', 'Title'));
 }
 
 /** The units a product is sold in: by the piece and by weight for goods, by time for services. */
@@ -76,7 +82,7 @@ export function feedback(app: AppDraft) {
   app.field('feedback', select('source', 'Source', ['email', 'call', 'interview', 'social', 'support'], { email: 'yellow', call: 'blue', interview: 'purple', social: 'pink', support: 'orange' }));
   app.field('feedback', text('topic', 'Topic'));
   app.field('feedback', select('status', 'Status', ['new', 'planned', 'done', 'declined'], { new: 'blue', planned: 'yellow', done: 'green', declined: 'gray' }, 'new'));
-  if (app.hasPiece('people')) app.block('people', { block: 'linked', collection: app.path('feedback'), style: 'list', fields: ['status'] });
-  if (app.hasPiece('companies')) app.block('companies', { block: 'linked', collection: app.path('feedback'), style: 'list', fields: ['status'] });
+  if (app.hasPiece('people')) app.block('people', { block: 'linked', collection: app.path('feedback'), style: 'list', fields: ['status'], column: 3 });
+  if (app.hasPiece('companies')) app.block('companies', { block: 'linked', collection: app.path('feedback'), style: 'list', fields: ['status'], column: 3 });
 }
 

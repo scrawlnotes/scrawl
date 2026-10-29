@@ -20,6 +20,7 @@ import {
   assigneesOf,
   choosesAnything,
   type Favorite,
+  type Field,
   favoriteKey,
   isFavorite,
   sameLabel,
@@ -39,8 +40,10 @@ import {
   isDefaultLook,
   BOARD_EXT,
   boardName,
+  wonChange,
   type Card,
   cardBrief,
+  cardRecord,
   cardRef,
   type CollectionTemplate,
   recordTitle,
@@ -130,6 +133,7 @@ import {
   RenameDialog,
   type TaskPlaceChoice,
   UpdateDialog,
+  DropDialog,
 } from './dialogs';
 import { type BoardActions, boardPlace, BoardView } from './Board';
 import { FormatBar } from './FormatBar';
@@ -267,7 +271,7 @@ type OpenDialog =
   | { kind: 'confirm'; title: string; message: string; action: string; danger: boolean; run: () => void; places?: ConfirmPlace[]; after?: string; brief?: string }
   | { kind: 'closePhase'; board: string; phase: Phase; left: number }
   | { kind: 'button'; run: ButtonRun; record: string }
-  | { kind: 'askButton'; dir: string; id: string; name: string }
+  | { kind: 'askButton'; dir: string; id: string; name: string; given?: CollectionRecord['values'] }
   | { kind: 'removeSpace'; id: string }
   | { kind: 'history'; path: string }
   | { kind: 'moveTask'; list: string; id: string }
@@ -774,9 +778,9 @@ export function App() {
     const said = event.stops.length > 1 ? t('run.savesStopped', { count: event.stops.length }) : t('run.saveStoppedAt', { line: stop.line, message: stop.message, record: stop.record });
     setShown({ title: t('run.stopped', { name: stop.name }), text: event.done ? `${said} ${event.done}.` : said, ...(undo && { undo }), sticky: true, toast: true });
   };
-  const pressButton = (dir: string, id: string, name: string) => {
-    // One that asks opens its questions first; what it does is worked out there.
-    if (session.askButton(dir, id, name)) return setDialog({ kind: 'askButton', dir, id, name });
+  const pressButton = (dir: string, id: string, name: string, given?: CollectionRecord['values']) => {
+    // One that asks opens its questions first, with the answers given: a deal's Log, the deal picked; what it does is worked out there.
+    if (session.askButton(dir, id, name)) return setDialog({ kind: 'askButton', dir, id, name, ...(given && { given }) });
     const run = session.planButton(dir, id, name);
     if (run instanceof RuleStop) return buttonStopped(name, run);
     const record = collections[dir]?.records.find((r) => r.id === id);
@@ -2156,7 +2160,7 @@ export function App() {
       const found = collections[record.collection]?.records.find((r) => r.id === record.id);
       return found ? recordTitle(found) : record.name || record.code || t('collection.untitled');
     },
-    openRecord: (collection, id) => (phone ? setRecordAsked({ dir: collection, id }) : setRecordOver({ dir: collection, id })),
+    openRecord: (collection, id) => (collection.endsWith(BOARD_EXT) ? showCard(collection, id) : phone ? setRecordAsked({ dir: collection, id }) : setRecordOver({ dir: collection, id })),
     people: peopleOf,
     dueSubtasks: () => dueSubtasksNow,
     completeSubtask: (ref) =>
@@ -2213,7 +2217,8 @@ export function App() {
     }),
     ask: (title, message, run, action) => ask(title, message, run, action),
     say: (text) => setNotice(text),
-    records: (dir) => collections[dir]?.records ?? null,
+    // A link may point at a board: its cards are what it picks from, as records (an activity's deal).
+    records: (dir) => (dir.endsWith(BOARD_EXT) ? (boards[dir] ? boards[dir]!.cards.map((card) => cardRecord(dir, boards[dir]!, card)) : null) : (collections[dir]?.records ?? null)),
     collection: (dir) => collections[dir] ?? null,
     collections: () => Object.values(collections),
     changeSchema: (dir, change) => session.changeSchema(dir, change),
@@ -2233,14 +2238,27 @@ export function App() {
     editor: (home, parent, doc, onChange) => session.openEditor(home, parent, doc, onChange),
     attach: descriptionHost.attach,
   };
+  // A deal moved to Lost is asked why first (Board.dropAsks, design/scrawl-apps.md 3.1); any other move is made at once.
+  const [dropping, setDropping] = useState<{ board: string; id: string; place: { column: string; after: string | null }; field: Field; title: string } | null>(null);
+  const moveOrAsk = (board: string, id: string, place: { column: string; after: string | null }) => {
+    const whole = boards[board];
+    const card = whole?.cards.find((c) => c.id === id);
+    const to = whole?.columns.find((c) => c.id === place.column);
+    const field = whole?.dropAsks ? whole.fields?.find((f) => f.key === whole.dropAsks) : undefined;
+    if (field && card && to?.kind === 'dropped' && card.column !== to.id) return setDropping({ board, id, place, field, title: card.title });
+    session.moveCard(board, id, place);
+    // A deal won makes its company a customer (Board.wins).
+    const won = whole && card && to?.kind === 'done' && card.column !== to.id ? wonChange(whole, card, Object.values(collections)) : null;
+    if (won) void session.updateRecord(won.dir, won.id, { values: won.values });
+  };
   const boardActions: BoardActions = {
     addCard: (board, input) => session.addCard(board, input),
     pickFilter: (board, step = null) => setFilterSheet({ tab: boardOf(board), step }),
     moveDue: (board, id, due) => taskActions.reschedule([{ board, id }], due),
-    moveCard: (board, id, place) => session.moveCard(board, id, place),
+    moveCard: (board, id, place) => moveOrAsk(board, id, place),
     moveToColumn: (board, id, column) => {
       const whole = boards[board];
-      if (whole) session.moveCard(board, id, { column, after: columnCards(whole, column).filter((c) => c.id !== id).pop()?.id ?? null });
+      if (whole) moveOrAsk(board, id, { column, after: columnCards(whole, column).filter((c) => c.id !== id).pop()?.id ?? null });
     },
     removeCard: (board, card) => {
       if (openCard?.id === card.id) setOpenCard(null);
@@ -3725,6 +3743,19 @@ export function App() {
         />
       )}
       {update && <UpdateDialog onReload={goToUpdate} />}
+      {dropping && (
+        <DropDialog
+          field={dropping.field}
+          card={dropping.title}
+          onClose={() => setDropping(null)}
+          onDone={(reason, what) => {
+            session.moveCard(dropping.board, dropping.id, dropping.place);
+            if (reason) session.updateCard(dropping.board, dropping.id, { values: { [dropping.field.key]: reason } });
+            if (what) session.addComment(dropping.board, dropping.id, what);
+            setDropping(null);
+          }}
+        />
+      )}
       <input ref={importInput} type="file" accept={IMPORTABLE} hidden onChange={(event) => event.target.files?.[0] && void readImport(event.target.files[0])} />
       {importing && collections[importing.dir] && (
         <ImportDialog
@@ -3929,6 +3960,7 @@ export function App() {
       {dialog?.kind === 'askButton' && (
         <AskDialog
           name={dialog.name}
+          given={dialog.given}
           ask={(given) => session.askButton(dialog.dir, dialog.id, dialog.name, given)}
           plan={(given) => session.planButton(dialog.dir, dialog.id, dialog.name, given)}
           ctx={{ records: collectionActions.records, collection: collectionActions.collection, openLink: collectionActions.openLink }}

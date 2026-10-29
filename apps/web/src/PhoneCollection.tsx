@@ -29,6 +29,7 @@ import {
   isLink,
   keyOf,
   type Link,
+  type LayoutItem,
   type LinkedBlock,
   linkedCards,
   linkedRecords,
@@ -50,6 +51,7 @@ import {
   opsFor,
   opTakesValue,
   optionColor,
+  matchesConditions,
   offeredOptions,
   optionName,
   problemText,
@@ -73,7 +75,7 @@ import {
   durationTyped,
 } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
-import { type FormEvent, type MouseEvent, type PointerEvent, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { type FormEvent, Fragment, type MouseEvent, type PointerEvent, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Chip } from './choices';
 import { DaysMonth } from './CollectionCalendar';
 import { choicesOf, type CollectionActions, type Draft, differs, draftOf, excerpt, LinkChips, type LinkedDrafts, LinkedTable, NotesBlock, StepsBar, StepStrip, YearlessBox, recordLayout, savePreview, singularOf, usedValues, type ValueContext, withDrafts } from './Collection';
@@ -799,7 +801,7 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
   // A block with conditions is there only while the page's values meet them: a goal's steps for a goal by its steps.
   const items = layout.columns.flatMap((column) => column.sections.flatMap((section) => section.items)).filter((item) => 'field' in item || shownOnForm(item, { values: draft.values }, schema, today));
   // What links here, each in a tab; the record's own subtasks are on the first, with its fields.
-  const blocks = items.filter((item): item is LinkedBlock | { block: 'cards' } => 'block' in item && (item.block === 'linked' || item.block === 'cards'));
+  const blocks = items.filter((item): item is LinkedBlock | Extract<LayoutItem, { block: 'cards' }> => 'block' in item && (item.block === 'linked' || item.block === 'cards'));
   const subtasksBlock = items.find((item): item is { block: 'subtasks'; title?: string; add?: string } => 'block' in item && item.block === 'subtasks');
   const hasSubtasks = !!subtasksBlock;
   // A habit's month (design/more-apps.md 4.9), under its fields.
@@ -831,13 +833,34 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
   });
 
   const boards = actions.boards();
-  const tabOf = (block: LinkedBlock | { block: 'cards' }) => {
-    if (block.block === 'cards') return { label: t('phone.cardsTab'), count: linkedCards(boards, dir, record).length + recordTasks(actions.tasks(), dir, record.id).length };
+  const tabOf = (block: LinkedBlock | Extract<LayoutItem, { block: 'cards' }>) => {
+    if (block.block === 'cards') {
+      if (block.board) return { label: boardName(block.board), count: linkedCards(boards, dir, record).filter((d) => d.board === block.board).length };
+      return { label: t('phone.cardsTab'), count: linkedCards(boards, dir, record).length + recordTasks(actions.tasks(), dir, record.id).length };
+    }
     const source = actions.collection(block.collection);
-    return { label: block.title ?? collectionName(block.collection), count: source ? linkedRecords(source, dir, record).length : null };
+    // Only those the block asks for: a company's planned activities.
+    const count = source ? linkedRecords(source, dir, record).filter((r) => !block.where || matchesConditions(r, source.schema, block.where, today)).length : null;
+    return { label: block.title ?? collectionName(block.collection), count };
   };
-  const shownBlock = tab > 0 ? blocks[tab - 1] : undefined;
-  const source = shownBlock?.block === 'linked' ? actions.collection(shownBlock.collection) : null;
+  // Blocks that say their tab share it, as the CRM mockup has a company's Activity and Related;
+  // then the record's own fields are last, About, and the page opens on the first.
+  const grouped = blocks.some((b) => b.tab);
+  const groups = blocks.reduce<{ label: string; list: typeof blocks; count: number | null }[]>((all, b) => {
+    const own = tabOf(b);
+    const label = (grouped && b.tab) || own.label;
+    const at = grouped ? all.find((g) => g.label === label) : undefined;
+    if (at) {
+      at.list.push(b);
+      at.count = (at.count ?? 0) + (own.count ?? 0);
+    } else all.push({ label, list: [b], count: own.count });
+    return all;
+  }, []);
+  const detailsAt = grouped ? groups.length : 0;
+  const tabs = grouped ? [...groups, { label: t('phone.about'), count: null }] : [{ label: t('phone.details'), count: null }, ...groups];
+  const shownList = tab === detailsAt ? [] : (groups[grouped ? tab : tab - 1]?.list ?? []);
+  const only = shownList.length === 1 ? shownList[0] : undefined;
+  const source = only?.block === 'linked' ? actions.collection(only.collection) : null;
 
   /** Writes the page; false when it cannot be, saying why. */
   const save = async (): Promise<boolean> => {
@@ -845,7 +868,7 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
     const missing = missingText(schema, draft.values);
     if (missing) {
       setError(missing);
-      setTab(0);
+      setTab(detailsAt);
       return false;
     }
     busy.current = true;
@@ -891,7 +914,7 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
             </button>
           )}
         </div>
-        {quick.length > 0 && (
+        {(quick.length > 0 || (grouped && buttons.length > 0)) && (
           <div className="mb-qacts">
             {quick.map(({ type, href }) => (
               <button key={type} type="button" className="mb-qact" onClick={() => actions.openLink(href)}>
@@ -899,11 +922,22 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
                 {t(ADDRESS[type].label)}
               </button>
             ))}
+            {/* On a page in tabs its buttons are here, on every tab: Log first, in the accent. */}
+            {grouped &&
+              buttons.map((button, i) => {
+                const state = actionState(collection.rules ?? '', button, computer, dir, { ...record, values: draft.values });
+                if (!state.on) return null;
+                return (
+                  <button key={button.name} type="button" className={i === 0 ? 'mb-qact go' : 'mb-qact'} onClick={() => void press(button.name)}>
+                    {button.name}
+                  </button>
+                );
+              })}
           </div>
         )}
         {blocks.length > 0 && (
           <div className="mb-ctabs mb-rtabs" role="tablist">
-            {[{ label: t('phone.details'), count: null }, ...blocks.map(tabOf)].map((each, i) => (
+            {tabs.map((each, i) => (
               <button key={i} type="button" role="tab" aria-selected={tab === i} className={tab === i ? 'mb-ct on' : 'mb-ct'} onClick={() => setTab(i)}>
                 {each.label}
                 {each.count !== null && each.count > 0 && <small>{each.count}</small>}
@@ -911,9 +945,9 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
             ))}
           </div>
         )}
-        {tab === 0 && (
+        {tab === detailsAt && (
           <>
-            {buttons.length > 0 && (
+            {!grouped && buttons.length > 0 && (
               <div className="mb-rbuttons" role="group" aria-label={t('run.buttons')}>
                 {buttons.map((button) => {
                   const state = actionState(collection.rules ?? '', button, computer, dir, { ...record, values: draft.values });
@@ -996,23 +1030,30 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
             )}
           </>
         )}
-        {shownBlock?.block === 'linked' && source && shownBlock.look && (
-          <div className="mb-look">
-            <LinkedTable
-              block={shownBlock}
-              source={source}
-              dir={dir}
-              record={record}
-              today={today}
-              actions={actions}
-              parent={{ values: { ...rollups, ...draft.values }, set: setValue }}
-              onOpen={(of, row) => actions.show?.(of.dir, row.id)}
-              onAdd={(of, given) => actions.create?.(of.dir, given)}
-            />
-          </div>
-        )}
-        {shownBlock?.block === 'linked' && !shownBlock.look && <LinkedTab block={shownBlock} dir={dir} schema={schema} record={record} today={today} actions={actions} />}
-        {shownBlock?.block === 'cards' && <CardsTab dir={dir} record={record} today={today} actions={actions} onOpenCard={onOpenCard} />}
+        {shownList.map((shownBlock, i) => {
+          const from = shownBlock.block === 'linked' ? actions.collection(shownBlock.collection) : null;
+          // Several blocks in a tab each say what they are: People, Deals.
+          const cap = shownList.length > 1 && !(shownBlock.block === 'linked' && from && shownBlock.look) && <div className="mb-cap mb-cpad">{tabOf(shownBlock).label}</div>;
+          if (shownBlock.block === 'cards') return <Fragment key={i}>{cap}<CardsTab dir={dir} record={record} only={shownBlock.board} today={today} actions={actions} onOpenCard={onOpenCard} /></Fragment>;
+          if (from && shownBlock.look) {
+            return (
+              <div key={i} className={shownList.length > 1 ? 'mb-look shared' : 'mb-look'}>
+                <LinkedTable
+                  block={shownBlock}
+                  source={from}
+                  dir={dir}
+                  record={record}
+                  today={today}
+                  actions={actions}
+                  parent={{ values: { ...rollups, ...draft.values }, set: setValue }}
+                  onOpen={(of, row) => actions.show?.(of.dir, row.id)}
+                  onAdd={(of, given) => actions.create?.(of.dir, given)}
+                />
+              </div>
+            );
+          }
+          return <Fragment key={i}>{cap}<LinkedTab block={shownBlock} dir={dir} schema={schema} record={record} today={today} actions={actions} /></Fragment>;
+        })}
       </div>
       {source && actions.create && (
         <button type="button" className="mb-fab" aria-label={t('collection.newOne', { singular: singularOf(source.schema) })} title={t('collection.newOne', { singular: singularOf(source.schema) })} onClick={() => actions.create!(source.dir, linkedValues(source.schema, dir, record, schema))}>
@@ -1085,7 +1126,9 @@ export function LinkedTab({ block, dir, schema: own, record, today, actions, dra
   // The linked records with what is worked out among their values, their fields as those show.
   const computer = computerFor(source, actions.collections(), actions.boards(), today);
   const shownAs = computer.shown(source.dir);
-  const records = drafts ? drafts.rows.map((r) => ({ ...r, values: computer.draft(source.dir, null, r.values) })) : linkedRecords(source, dir, record).map((r) => ({ ...r, values: computer.values(source.dir, r) }));
+  const records = (drafts ? drafts.rows.map((r) => ({ ...r, values: computer.draft(source.dir, null, r.values) })) : linkedRecords(source, dir, record).map((r) => ({ ...r, values: computer.values(source.dir, r) }))).filter(
+    (r) => !block.where || matchesConditions(r, schema, block.where, today),
+  );
   const byKey = (key: string | undefined) => (key ? schema.fields.find((f) => f.key === key) : undefined);
   const day = byKey(block.sort)?.type === 'date' ? byKey(block.sort) : schema.fields.find((f) => f.type === 'date');
   const timeline = block.style ? block.style === 'timeline' : !!day;
@@ -1235,17 +1278,26 @@ export function LinkedTab({ block, dir, schema: own, record, today, actions, dra
  * value, and opens as a page; a task is ticked off here. A line at the end adds a task about the
  * record to Inbox.
  */
-function CardsTab({ dir, record, today, actions, onOpenCard }: { dir: string; record: Entry; today: string; actions: CollectionActions; onOpenCard: (board: string, id: string) => void }) {
+function CardsTab({ dir, record, only, today, actions, onOpenCard }: { dir: string; record: Entry; only?: string; today: string; actions: CollectionActions; onOpenCard: (board: string, id: string) => void }) {
   const [typed, setTyped] = useState('');
   const boards = actions.boards();
-  const found = linkedCards(boards, dir, record);
-  const several = boardsLinkingTo(boards, dir).length > 1;
-  const about = recordTasks(actions.tasks(), dir, record.id);
+  // With `only`, one board's cards, a company's deals, the line making one there.
+  const found = linkedCards(boards, dir, record).filter((d) => !only || d.board === only);
+  const several = !only && boardsLinkingTo(boards, dir).length > 1;
+  const about = only ? [] : recordTasks(actions.tasks(), dir, record.id);
   const open = about.filter(({ task }) => !task.done);
   const done = about.filter(({ task }) => task.done).slice(0, DONE_SHOWN);
   const add = (event: FormEvent) => {
     event.preventDefault();
     if (!typed.trim()) return;
+    const own = only ? boards[only] : undefined;
+    if (own && only) {
+      const back = (own.fields ?? []).find((f) => f.type === 'link' && f.collection === dir);
+      const id = actions.cardActions.addCard(only, { title: typed.trim(), ...(back && { values: { [back.key]: back.many ? [linkTo(record)] : linkTo(record) } }) });
+      setTyped('');
+      if (id) onOpenCard(only, id);
+      return;
+    }
     actions.addTask(INBOX_TASKS, { title: typed.trim(), record: { collection: dir, id: record.id, name: record.name, ...(record.code && { code: record.code }) } });
     setTyped('');
   };
@@ -1265,7 +1317,7 @@ function CardsTab({ dir, record, today, actions, onOpenCard }: { dir: string; re
   );
   return (
     <div className="mb-rlist">
-      {found.length === 0 && about.length === 0 && <p className="mb-hint mb-rnone">{t('collection.noCards')}</p>}
+      {found.length === 0 && about.length === 0 && <p className="mb-hint mb-rnone">{only ? t('collection.noLinked', { collection: boardName(only).toLowerCase() }) : t('collection.noCards')}</p>}
       {found.map(({ board: path, card }) => {
         const board = boards[path]!;
         const column = board.columns.find((c) => c.id === card.column);
@@ -1287,8 +1339,8 @@ function CardsTab({ dir, record, today, actions, onOpenCard }: { dir: string; re
       {open.map(taskRow)}
       {done.map(taskRow)}
       <form className="mb-crtask new" onSubmit={add}>
-        <span className="cb p4" aria-hidden="true" />
-        <input enterKeyHint="done" aria-label={t('collection.taskName')} placeholder={t('collection.taskName')} value={typed} onChange={(event) => setTyped(event.target.value)} />
+        {!only && <span className="cb p4" aria-hidden="true" />}
+        <input enterKeyHint="done" aria-label={only ? t('collection.cardName', { board: boardName(only) }) : t('collection.taskName')} placeholder={only ? t('collection.cardName', { board: boardName(only) }) : t('collection.taskName')} value={typed} onChange={(event) => setTyped(event.target.value)} />
         <button type="submit" className="go" disabled={!typed.trim()}>
           {t('collection.add')}
         </button>

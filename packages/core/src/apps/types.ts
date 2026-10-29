@@ -1,6 +1,6 @@
 import type { MessageKey } from '@scrawlnotes/i18n';
-import type { ColumnKind } from '../board';
-import type { Field, HomeTile, LayoutBlock, NumberFormat, Schema, View } from '../collection';
+import type { BoardNext, BoardPress, BoardWins, ColumnKind } from '../board';
+import type { Field, HomeTile, LayoutBlock, LinkedBlock, NumberFormat, Schema, View } from '../collection';
 import type { PieceInfo } from './pieces';
 
 // An app is a folder of collections, boards, notes and rules set up from ready templates that
@@ -184,7 +184,7 @@ export interface AppDraft extends Chosen {
   /** Adds a record to a collection as it is set up: a budget line, a warehouse. */
   record(role: string, values: { [key: string]: string | number | boolean | string[] }): void;
   /** A board's columns and how it is shown, when it is set up. */
-  columns(role: string, columns: [string, ColumnKind][], look?: { phasesOn?: boolean; list?: boolean }): void;
+  columns(role: string, columns: [string, ColumnKind][], look?: BoardSetup): void;
   /** A note in a folder piece: a saved reply. */
   note(role: string, name: string, text: string): void;
   /** A money field's format: in the main currency, or, with more than one, in the one the record holds. */
@@ -311,8 +311,17 @@ export interface BoardPart {
   fields: Field[];
   phasesOn?: boolean;
   list?: boolean;
+  /** Its cards say their next step (Board.next), a card moved to a dropped column is asked this field (Board.dropAsks), its window shows these blocks (Board.blocks), one won writes this (Board.wins). */
+  next?: BoardNext;
+  dropAsks?: string;
+  blocks?: LinkedBlock[];
+  wins?: BoardWins;
+  press?: BoardPress;
   was?: { board: string };
 }
+
+/** How a board looks and works, as a template sets it up. */
+export type BoardSetup = Pick<BoardPart, 'phasesOn' | 'list' | 'next' | 'dropAsks' | 'blocks' | 'wins' | 'press'>;
 
 /** A folder of notes: Saved replies. */
 export interface FolderPart {

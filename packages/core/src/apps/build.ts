@@ -39,6 +39,7 @@ import {
   type AppPlan,
   type Audience,
   audienceOf,
+  type BoardSetup,
   type BoardPart,
   type CollectionPart,
   type EditItem,
@@ -213,12 +214,17 @@ class Draft implements AppDraft {
     if (!part.records.some((r) => same(r, values))) part.records.push(values);
   }
 
-  columns(role: string, columns: BoardPart['columns'], look: { phasesOn?: boolean; list?: boolean } = {}) {
+  columns(role: string, columns: BoardPart['columns'], look: BoardSetup = {}) {
     const part = this.part(role, 'board');
     if (part.columns.length > 0) return;
     part.columns = columns;
     if (look.phasesOn) part.phasesOn = true;
     if (look.list) part.list = true;
+    if (look.next) part.next = look.next;
+    if (look.dropAsks) part.dropAsks = look.dropAsks;
+    if (look.blocks) part.blocks = look.blocks;
+    if (look.wins) part.wins = look.wins;
+    if (look.press) part.press = look.press;
   }
 
   note(role: string, name: string, text: string) {
@@ -299,8 +305,10 @@ function layoutFor(fields: readonly Field[], blocks: readonly (LayoutBlock & { c
   for (const [key, column] of Object.entries(placed)) if (column > 1 && fields.some((f) => f.key === key)) items[column - 1]!.push({ field: key });
   blocks.forEach((b, i) => items[columnOf(b, i) - 1]!.push(strip(b)));
   items[0]!.push(...notes);
-  if (count === 1) return { columns: [{ sections: [{ items: items[0]! }] }] };
-  return { columns: items.map((list, i) => ({ width: count === 2 && i === 1 ? 2 : 1, sections: [{ items: list }] })) };
+  // A column nothing is put in is not there: a supplier's window with no CRM has its cards on the right of its fields.
+  const kept = items.filter((list, i) => i === 0 || list.length > 0);
+  if (kept.length === 1) return { columns: [{ sections: [{ items: kept[0]! }] }] };
+  return { columns: kept.map((list, i) => ({ width: kept.length === 2 && i === 1 ? 2 : 1, sections: [{ items: list }] })) };
 }
 
 const rulesText = (name: string, chunks: readonly RuleChunk[]) => `// What ${name} checks and does, as the app set it up; change it as you need.\n\n${chunks.map((c) => c.src).join('\n\n')}\n`;
@@ -507,6 +515,11 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
           phases: [],
           ...(part.fields.length > 0 && { fields: part.fields }),
           role,
+          ...(part.next && { next: part.next }),
+          ...(part.dropAsks && { dropAsks: part.dropAsks }),
+          ...(part.blocks && { blocks: part.blocks }),
+          ...(part.wins && { wins: part.wins }),
+          ...(part.press && { press: part.press }),
           cards: [],
         };
         file(part.path, serializeBoard(board));
@@ -979,7 +992,7 @@ function problemsOf(checks: { part: CollectionPart; fields: Field[]; rules: Rule
       }
       const wrong = defaultProblem(field, schema, schemaOf, readingOf(part.path, space));
       if (wrong) at(`${field.key}: default: ${wrong}`);
-      if (field.type === 'link' && !schemas.has(field.collection ?? '')) at(`${field.key} links to ${field.collection}, which is not there`);
+      if (field.type === 'link' && !schemas.has(field.collection ?? '') && !boards[field.collection ?? '']) at(`${field.key} links to ${field.collection}, which is not there`);
       if (field.type === 'rollup') {
         const source = schemaOf(field.rollup?.from ?? '');
         if (!source) at(`${field.key} rolls up from ${field.rollup?.from}, which is not there`);

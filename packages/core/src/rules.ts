@@ -53,6 +53,14 @@ export interface AskRule {
   required: boolean;
   /** The line under its box: a text, or what works one out. */
   note?: Node;
+  /** A choice picked from its options side by side: Call, Meeting, Email, Note. */
+  chips?: boolean;
+  /** A text of several lines: what was said. */
+  lines?: boolean;
+  /** It and the questions after it are a group of their own under this title: the next step (design/scrawl-apps.md 3.1). */
+  section?: string;
+  /** A link offers only the records whose field of this key points at the record pressed: a company's deals, its people. */
+  within?: string;
   at: number;
 }
 
@@ -268,6 +276,15 @@ function readAsk(value: Node): AskRule[] {
         ask.required = v.v;
       } else if (part.key === 'note') {
         ask.note = textNode(v, 'rules.askNote');
+      } else if (part.key === 'chips' || part.key === 'lines') {
+        if (v.k !== 'bool') throw new LangError(t('rules.askFlag', { name: part.key }), v.at);
+        ask[part.key] = v.v;
+      } else if (part.key === 'section') {
+        if (v.k !== 'str' || !v.v.trim()) throw new LangError(t('rules.askSection'), v.at);
+        ask.section = v.v.trim();
+      } else if (part.key === 'within') {
+        if (v.k !== 'str' || !v.v.trim()) throw new LangError(t('rules.askWithin'), v.at);
+        ask.within = v.v.trim().toLowerCase();
       } else throw new LangError(t('rules.askPart', { name: part.key }), part.at);
     }
     if (!typed) throw new LangError(t('rules.askType'), spec.at);
@@ -335,7 +352,8 @@ function checkBody(body: Stmt[], when: Node | undefined, outer: Scope, space: Ru
   const askFields = () =>
     (action?.ask ?? []).map((a) => {
       if (a.type !== 'link' || !space) return askField(a);
-      const path = pathNamed(space.collections.map((c) => c.dir), a.collection!, dir);
+      // A link may point at a board's cards too: an activity's deal (design/scrawl-apps.md 3.1).
+      const path = pathNamed([...space.collections.map((c) => c.dir), ...space.boards.map((b) => b.path)], a.collection!, dir);
       if (!path) throw new LangError(t('rules.noCollection', { name: a.collection! }), a.at);
       return askField(a, path);
     });

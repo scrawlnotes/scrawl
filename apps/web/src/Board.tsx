@@ -20,6 +20,8 @@ import {
   columnCards,
   currentPhase,
   faceFields,
+  nextStep,
+  recordTitle,
   type Field,
   type FieldValue,
   isEmpty,
@@ -55,7 +57,7 @@ import { Icon, type IconName } from './Icon';
 import { CardQuickAdd, cardHead, ColumnTabs, KindMark, StatusSheet } from './PhoneBoard';
 import { LabelChip } from './labels';
 import { Empty, liftUntilTouch, Sheet, SheetClose } from './sheets';
-import { dueClass, dueLabel } from './Tasks';
+import { dueClass, dueLabel, toDate } from './Tasks';
 import { holdToDrag } from './touchDrag';
 import { SubtaskCount } from './Subtasks';
 
@@ -67,15 +69,11 @@ const NO_POINTER = { preventDefault: () => undefined, clientX: 0, clientY: 0 } a
 
 /** What can be done on a board, at the path given. */
 export interface BoardActions extends CardPanelActions {
-  /** Returns the new card's id. */
-  addCard: (board: string, input: NewCard) => string;
   moveCard: (board: string, id: string, place: CardPlace) => void;
   /** Asks first, then deletes the card. */
   removeCard: (board: string, card: Card) => void;
   /** Gives a card another due day, saying so with Undo. */
   moveDue: (board: string, id: string, due: string) => void;
-  /** Opens the card beside the columns. */
-  openCard: (board: string, id: string) => void;
   addColumn: (board: string, name: string, kind: ColumnKind, after?: string) => void;
   renameColumn: (board: string, id: string, name: string) => void;
   setColumnKind: (board: string, id: string, kind: ColumnKind) => void;
@@ -292,9 +290,26 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, onHold
   const people = actions.people?.(path)?.people;
   const phase = showPhase && card.phase ? board.phases.find((p) => p.id === card.phase) : undefined;
   // The board's first link and first number, a deal's company and value, as they are filled in.
-  const face = faceFields(board)
+  const filled = faceFields(board)
     .map((field) => ({ field, value: cardValue(board, card, field, today) }))
     .filter(({ value }) => !isEmpty(value));
+  // Its links in one line, "Acme Lojistik · Ayşe Kaya", then its value.
+  const linked = filled.filter(({ value }) => typeof value !== 'number');
+  const face = [...(linked.length > 0 ? [{ field: linked[0]!.field, value: linked.map(({ value }) => faceText(value)).join(' · ') as FieldValue }] : []), ...filled.filter(({ value }) => typeof value === 'number')];
+  // A deal's next step as Pipedrive shows it, the first of its activities planned: green, late red, none a triangle (design/scrawl-apps.md 3.1).
+  const step = board.next && !isFinished(board, card) ? nextStep(board, path, card, actions.recordActions.collections()) : undefined;
+  const stepAt = step && board.next ? String(step.values[board.next.day] ?? '') : '';
+  const stepDay = stepAt.slice(0, 10);
+  const late = !!step && stepDay < today;
+  // "Thu 14:00", "2 days late".
+  const when = late ? t('board.daysLate', { count: Math.round((toDate(today).getTime() - toDate(stepDay).getTime()) / 86_400_000) }) : `${dueLabel(stepDay, today)}${stepAt.length > 10 ? ` ${stepAt.slice(11, 16)}` : ''}`;
+  const next =
+    step === undefined ? null : (
+      <span className={step === null ? 'nx none' : late ? 'nx late' : 'nx'}>
+        <i />
+        {step === null ? t('board.noNextStep') : `${recordTitle(step)} · ${when}`}
+      </span>
+    );
   const menu = (event: MouseEvent) =>
     actions.menu(event, [
       ...board.columns
@@ -337,6 +352,7 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, onHold
             {card.assignee && <span className={`mb-who${isAgentId(card.assignee.id) ? ' bot' : ''}`}>{initialOf(card.assignee, people)}</span>}
           </span>
           <b>{card.title}</b>
+          {next}
           {(card.due || subtasks || card.labels?.length || comments > 0 || phase || face.length > 0) && (
             <span className="meta">
               {card.due && (
@@ -383,11 +399,13 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, onHold
       onContextMenu={menu}
     >
       <button type="button" className="kc-main" onClick={() => actions.openCard(path, card.id)}>
-        <span className="key">{keyOf(board, card)}</span>
+        {/* A deal is its title, as Pipedrive shows it: no key, no priority. */}
+        {!board.next && <span className="key">{keyOf(board, card)}</span>}
         <span className="kt">
-          <i className={`dot p${card.priority}`} />
+          {!board.next && <i className={`dot p${card.priority}`} />}
           <span>{card.title}</span>
         </span>
+        {next}
         {(card.due || subtasks || card.labels?.length || comments > 0 || noteTitle !== null || phase || face.length > 0 || hasCardWho(card)) && (
           <span className="meta">
             {card.due && <span className={dueClass(card.due, today)}>{dueLabel(card.due, today)}</span>}
@@ -1604,6 +1622,8 @@ export function BoardView({ path, board, name, embedded, today, actions, look, o
   /** Where a dragged column would land: the gap before the column at this index. */
   const [columnDrop, setColumnDrop] = useState<number | null>(null);
   const waiting = reviewCount(board);
+  // Deals with nothing planned, said over the columns as Pipedrive does.
+  const stepless = board.next ? board.cards.filter((c) => !isFinished(board, c) && !nextStep(board, path, c, actions.recordActions.collections())).length : 0;
   const shownPhase = 'phase' in shown ? board.phases.find((p) => p.id === shown.phase) : undefined;
   // Every phase as a lane across the columns, and a lane for cards in none when there are any.
   const unphased = phaseCards(board, null);
@@ -1843,6 +1863,7 @@ export function BoardView({ path, board, name, embedded, today, actions, look, o
         </span>
         {view === 'calendar' && <MonthNav month={month} today={today} onMonth={setMonth} />}
         {waiting > 0 && <span className="wait">{t('board.toReview', { count: waiting })}</span>}
+        {stepless > 0 && <span className="wait">{t('board.stepless', { count: stepless })}</span>}
         <SearchBox value={asked.text} onChange={(text) => chooseFilter({ ...asked, text })} />
         {filter.button}
         <button type="button" className="ghost" onClick={() => setDesigning(true)}>

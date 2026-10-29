@@ -142,7 +142,7 @@ export const association: AppTemplate = {
       app.field('donations', day('date', 'Date', true));
       if (drives) app.field('donations', link('campaign', 'Campaign', app.path('campaigns')));
       app.field('people', rollup('donated', 'Donated', given, 'sum', 'amount', inMain(app), main));
-      app.block('people', { block: 'linked', collection: given, style: 'table', fields: ['date', 'amount'], sort: 'date', sums: true });
+      app.block('people', { block: 'linked', collection: given, style: 'table', fields: ['date', 'amount'], sort: 'date', sums: true, column: 3 });
       app.rule('donations', {
         kind: 'onSave',
         name: 'Received',

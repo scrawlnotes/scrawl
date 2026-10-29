@@ -186,6 +186,31 @@ Ortak olmasa da başka şablonun parçasına bağlananlar: Demirbaşın tedarik�
 
 ### 3.1 CRM
 
+29 Ekim, Pipedrive, HubSpot ve Attio'nun ekranlarına bakılarak baştan. Mockup: `design/mockups.html` › CRM: Pipedrive'ın fırsatları, HubSpot'un şirket ve kişisi.
+
+- **Ortak parçaların ilkesi:** şirketin ve kişinin penceresi HubSpot gibi üç sütun: solda bilgileri, ortada Log ve Plan, planlananlar ve geçmiş gün gün, sağda bağlı kayıtlar. Başka şablonlar (Sales, Support, Projects, Contracts, Stock, Assets…) şirkete ve kişiye yalnız sağ sütuna kart ekler.
+- **Şirket:** başlıkta "Customer · İstanbul · 3 people · last contact 3 days ago"; Name, Website, Phone, Email, City, Industry (hazır sektörler), Size (1–10 … 1000+), Type (Customer, Supplier, Partner; Customer kazanılan fırsatla kendiliğinden), Owner (ben). Segment, Status, Tags kalktı.
+- **Kişi:** başlıkta "Project Manager · Acme Lojistik · last contact 3 days ago"; Name, Company (önerilir), Job title, Email, Phone; Call ve Email. Status, Source, Tags kalktı.
+- **Log:** şirketin, kişinin ve fırsatın penceresinde tek pencere: tür (Call, Meeting, Email, Note), ne zaman, kiminle, ne konuşuldu ve isteğe bağlı sıradaki adım (tür, ne, ne zaman); geçmişe bir, sıradaki adım varsa planlanana bir aktivite yazar (Pipedrive'ın "işi bitir, sıradakini planla"sı).
+- **Activities:** Pipedrive'ınki gibi: Overdue, Today, Planned, satırında tik halkası; To do ve Done. Planlanan aktivite gününde Today'de **Done** ile (saatlisi Upcoming'de de); Done Log penceresini açar. Geciken Overdue'da kalır.
+- **Deals (pano):** Pipedrive gibi sütun başında tutar ve sayı; kartta şirket ve kişi, değer, sıradaki adım: planlı yeşil, geciken kırmızı, adımı olmayan sarı üçgen "No next step". Fırsatın penceresinde aşama çubuğu, Log, Won ve Lost; Lost nedenini sorar (Price, Timing, Competitor, No budget, No response, Not a fit). Alanlar: Company, Contact, Value, Expected close, Source (Referral, Website, Event, Outbound, Partner), Owner. Sıradaki adımlar fırsata bağlı planlı aktiviteler (Today'e gelir), geçmiş yapılmış aktiviteleri.
+- **Home:** bugünün aktiviteleri, aşama aşama Pipeline, bu ay kapanacaklar, "Gone quiet" (30 gündür teması olmayan müşteriler).
+- **Menü:** Home, Deals, Companies, People, Activities.
+- **Altyapı:**
+  - Bağlantı alanı bir panonun kartlarını da gösterebilir (aktivitenin Deal'i): seçicide kartlar adıyla, ajan kartı başlığı ya da anahtarıyla bağlar, tıklayınca kart açılır.
+  - Panoda `next` (kartın sıradaki adımı, ona bağlı açık aktivitelerin en erkeni; yoksa sarı üçgen, pano başında "2 with no next step"), `dropAsks` (Lost nedenini sorar), `blocks` (kart penceresinde bağlı kayıt blokları: Next steps, History), `press` (kart penceresinde şirketin Log ve Plan düğmeleri, fırsat seçili açılır), `wins` (Won şirketin Type'ına Customer yazar; uygulamada da ajanda da).
+  - Fırsat penceresinde aşama çubuğu, Log, Plan, Won, Lost; Expected close ve Owner adlarıyla.
+  - Kartta şirket ve kişi tek satırda; anahtar ve öncelik noktası yok.
+  - Rollup'ta `won`; bağlı blokta `where`, `time` (iki satırlı planlı adım: ad · fırsat, altında gün · tür · kişi) ve `tab` (telefonda Activity ve Related sekmeleri, alanlar About'ta).
+  - Kart bloğunda `board`: şirketin Deals'i, satırda aşama ve kapanış günü, + Add o şirkete bağlı fırsat açar.
+  - Düğme sorusunda `chips`, `lines`, `section`, `within` (şirketin kişileri ve fırsatları); tarih sorusunda `chips` ile Tomorrow, Fri, Next week; verilen cevaplarla açılış (fırsattan Log); `done` yazan düğmede "This will" satırı yok.
+  - Görünümde `ring`: düğmesi satır başında halka (Activities'te Done).
+  - Telefon ve e-posta dolu kayıtta masaüstünde de Call ve Email düğmeleri; şirkete Email alanı.
+  - Boş sütun pencereden düşer; başka şablonların şirket ve kişi kartları 3. sütunda.
+- **Mockup'tan kalan farklar:** fırsat penceresinde kartın genel alanları (Priority, Labels) ve yorum zaman çizelgesi duruyor, aşama değişiklikleri History'de değil zaman çizelgesinde; Log'da tür çiplerinde simge yok, When ve With alt alta; telefonda Deals listesi standart telefon panosu.
+
+22 Ekim'deki ilk hâli:
+
 | Parça | Tür | İçinde | Hesaplanan |
 |---|---|---|---|
 | Companies | koleksiyon | ad, web sitesi, segment, tür (customer, supplier, partner), sorumlu, durum (prospect, active, churned), etiketler | son görüşme; açık fırsatların toplam değeri |

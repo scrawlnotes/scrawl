@@ -13,6 +13,7 @@ import {
   isLink,
   keyOf,
   type Link,
+  type NewCard,
   formatNumber,
   currencyOf,
   type PersonRef,
@@ -22,6 +23,11 @@ import {
   valueText,
   workerKey,
   workersOf,
+  isFinished,
+  BOARD_EXT,
+  cardRecord,
+  type Collection,
+  type Record as CollectionRecord,
 } from '@scrawlnotes/core';
 import type { ScrawlEditor, ScrawlViewer } from '@scrawlnotes/editor';
 import { t } from '@scrawlnotes/i18n';
@@ -39,7 +45,7 @@ import {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { Cell, type CollectionActions, FieldInput, RecordDialog, usedValues, type ValueContext } from './Collection';
+import { Cell, type CollectionActions, FieldInput, LinkedTable, RecordDialog, StepsBar, usedValues, type ValueContext } from './Collection';
 import { isPhone, pageBox, pageWindow } from './device';
 import type { MenuHead, MenuItem } from './dialogs';
 import { useEscape } from './choices';
@@ -90,6 +96,10 @@ export interface CardPanelActions {
   viewer: (home: string, parent: HTMLElement, doc: string) => ScrawlViewer;
   /** The collections the board's link fields point at: their records to pick from, and a record to open over the card. */
   recordActions: CollectionActions;
+  /** Opens a card: one a link points at, a deal of an activity. */
+  openCard: (board: string, id: string) => void;
+  /** Returns the new card's id. */
+  addCard: (board: string, input: NewCard) => string;
   /** The people of the space a board is in, to give its cards to; null in the personal space, where a name is typed. */
   people?: (board: string) => SpacePeople | null;
 }
@@ -553,7 +563,7 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
     records: records.records,
     collection: records.collection,
     openLink: records.openLink,
-    openRecord: (field: Field, link: Link) => field.collection && setOver({ dir: field.collection, id: link.id }),
+    openRecord: (field: Field, link: Link) => field.collection && (field.collection.endsWith(BOARD_EXT) ? actions.openCard(field.collection, link.id) : setOver({ dir: field.collection, id: link.id })),
     used: (field: Field) => usedValues(board.cards.map((each) => each.values?.[field.key])),
   };
   const overCollection = over ? records.collection(over.dir) : null;
@@ -612,22 +622,27 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
           ×
         </button>
       </div>
+      {(board.next || board.press) && <DealHead board={board} path={path} card={card} actions={actions} />}
       <div className="cp-body">
         <div className="cp-main">
         <TextField id="card-title" label={t('card.title')} value={card.title} onSave={(title) => update({ title })} />
         <div className="cp-sec">{t('card.description')}</div>
         <div className="cp-desc" ref={host} />
         <AttachButton onFiles={(files) => editor.current && actions.attach(editor.current, path, files)} />
-        <Subtasks
-          list={card.subtasks ?? []}
-          change={(change) => actions.changeSubtasks(path, card.id, change)}
-          complete={(subtask) => actions.completeSubtask(path, card.id, subtask)}
-          removed={actions.removedSubtask}
-          team={team}
-          today={today}
-          menu={actions.menu}
-          place="card"
-        />
+        {board.blocks?.length ? (
+          <CardBlocks board={board} path={path} card={card} today={today} actions={actions} onOpen={(source, r) => setOver({ dir: source.dir, id: r.id })} />
+        ) : (
+          <Subtasks
+            list={card.subtasks ?? []}
+            change={(change) => actions.changeSubtasks(path, card.id, change)}
+            complete={(subtask) => actions.completeSubtask(path, card.id, subtask)}
+            removed={actions.removedSubtask}
+            team={team}
+            today={today}
+            menu={actions.menu}
+            place="card"
+          />
+        )}
         {card.note && (
           <p className="cp-links">
             {noteTitle === null ? (
@@ -684,9 +699,9 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
           </select>
           <label htmlFor="card-labels">{t('card.labels')}</label>
           <LabelsField id="card-labels" path={path} labels={card.labels ?? []} onChange={(labels) => update({ labels })} />
-          <label htmlFor="card-due">{t('card.due')}</label>
+          <label htmlFor="card-due">{board.next ? t('card.closes') : t('card.due')}</label>
           <input id="card-due" type="date" value={card.due ?? ''} onChange={(event) => update({ due: event.target.value || null })} />
-          <label htmlFor="card-assignee">{t('card.assignee')}</label>
+          <label htmlFor="card-assignee">{board.next ? t('card.owner') : t('card.assignee')}</label>
           {team ? (
             <AssigneeField team={team} current={card.assignee ?? null} onPick={(assignee) => update({ assignee })} />
           ) : (
@@ -733,6 +748,82 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
   );
 }
 
+/**
+ * What presses a button of the record a card's link points at, the card given (Board.press): a
+ * deal's Log, its company's, the deal picked in it. Null when the link points at nothing.
+ */
+function cardPresser(board: Board, card: Card, records: CollectionActions): ((name: string) => void) | null {
+  const press = board.press;
+  const field = press && board.fields?.find((f) => f.key === press.link && f.type === 'link');
+  const link = field ? [card.values?.[field.key]].flat()[0] : null;
+  if (!press || !field?.collection || !isLink(link) || !link.id) return null;
+  const given: CollectionRecord['values'] = { [press.card]: { id: card.id, name: card.title, code: keyOf(board, card) } };
+  for (const [ask, key] of Object.entries(press.fields ?? {})) if (!isEmpty(card.values?.[key] as FieldValue)) given[ask] = card.values![key] as FieldValue;
+  return (name) => records.pressButton(field.collection!, link.id, name, given);
+}
+
+/**
+ * A deal's head as Pipedrive has it (design/scrawl-apps.md 3.1): its stages in a bar, a click
+ * moves it; its buttons, its company's Log and Plan (Board.press); Won, and Lost, which asks why.
+ */
+function DealHead({ board, path, card, actions }: { board: Board; path: string; card: Card; actions: CardPanelActions }) {
+  const open = board.columns.filter((c) => c.kind !== 'done' && c.kind !== 'dropped');
+  const stages = { key: 'stage', label: t('card.status'), type: 'select', options: open.map((c) => c.name) } as Field;
+  const at = board.columns.find((c) => c.id === card.column);
+  const press = cardPresser(board, card, actions.recordActions);
+  const needs = board.fields?.find((f) => f.key === board.press?.link)?.label ?? '';
+  return (
+    <div className="cp-deal">
+      {open.length > 1 && (
+        <StepsBar
+          field={stages}
+          value={at && open.includes(at) ? at.name : null}
+          onChange={(name) => {
+            const to = open.find((c) => c.name === name);
+            if (to && to.id !== card.column) actions.moveToColumn(path, card.id, to.id);
+          }}
+          className="steps big"
+        />
+      )}
+      <div className="cp-acts">
+        {board.press?.buttons.map((name, i) => (
+          <button key={name} type="button" className={i === 0 ? 'go' : undefined} disabled={!press} title={press ? undefined : t('board.pressNeeds', { field: needs })} onClick={() => press?.(name)}>
+            {i === 0 && <Icon name="plus" />}
+            {name}
+          </button>
+        ))}
+        <span className="gap" />
+        {!isFinished(board, card) &&
+          (['done', 'dropped'] as const).map((kind) => {
+            const to = board.columns.find((c) => c.kind === kind);
+            return (
+              to && (
+                <button key={kind} type="button" className={kind === 'done' ? 'won' : 'lost'} onClick={() => actions.moveToColumn(path, card.id, to.id)}>
+                  {kind === 'done' ? t('board.won') : t('board.lost')}
+                </button>
+              )
+            );
+          })}
+      </div>
+    </div>
+  );
+}
+
+/** What links to a card, as a record's linked blocks show it (Board.blocks): a deal's next steps and its history; + Plan and + Log press its buttons. */
+function CardBlocks({ board, path, card, today, actions, onOpen }: { board: Board; path: string; card: Card; today: string; actions: CardPanelActions; onOpen: (source: Collection, record: CollectionRecord) => void }) {
+  const records = actions.recordActions;
+  const self = cardRecord(path, board, card);
+  const press = cardPresser(board, card, records);
+  return (
+    <>
+      {(board.blocks ?? []).map((block, i) => {
+        const source = records.collection(block.collection);
+        return source ? <LinkedTable key={i} block={block} source={source} dir={path} record={self} today={today} actions={records} onOpen={onOpen} onAdd={() => block.button && press?.(block.button)} /> : null;
+      })}
+    </>
+  );
+}
+
 /** On a phone, a menu opens from the bottom wherever it was asked for. */
 const NO_POINTER = { preventDefault: () => undefined, clientX: 0, clientY: 0 } as unknown as MouseEvent;
 
@@ -770,7 +861,8 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
     records: records.records,
     collection: records.collection,
     openLink: records.openLink,
-    openRecord: (field: Field, link: Link) => field.collection && (records.show ? records.show(field.collection, link.id) : setOver({ dir: field.collection, id: link.id })),
+    openRecord: (field: Field, link: Link) =>
+      field.collection && (field.collection.endsWith(BOARD_EXT) ? actions.openCard(field.collection, link.id) : records.show ? records.show(field.collection, link.id) : setOver({ dir: field.collection, id: link.id })),
     used: (field: Field) => usedValues(board.cards.map((each) => each.values?.[field.key])),
   };
   const overCollection = over ? records.collection(over.dir) : null;
@@ -904,6 +996,7 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
             </button>
           </div>
         )}
+        {(board.next || board.press) && <DealHead board={board} path={path} card={card} actions={actions} />}
         <div className="mb-form">
           <div className="mb-group">
             {row(
@@ -947,7 +1040,7 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
               ),
               () => setPicking('labels'),
             )}
-            {row('calendar', t('card.due'), card.due ? <span className={dueClass(card.due, today)}>{dueLabel(card.due, today)}</span> : none, () => setPicking('due'))}
+            {row('calendar', board.next ? t('card.closes') : t('card.due'), card.due ? <span className={dueClass(card.due, today)}>{dueLabel(card.due, today)}</span> : none, () => setPicking('due'))}
             {row(
               'person',
               t('card.assignee'),
@@ -994,16 +1087,22 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
         <div className="mb-cattach">
           <AttachButton onFiles={(files) => editor.current && actions.attach(editor.current, path, files)} />
         </div>
-        <Subtasks
-          list={card.subtasks ?? []}
-          change={(change) => actions.changeSubtasks(path, card.id, change)}
-          complete={(subtask) => actions.completeSubtask(path, card.id, subtask)}
-          removed={actions.removedSubtask}
-          team={team}
-          today={today}
-          menu={actions.menu}
-          place="card"
-        />
+        {board.blocks?.length ? (
+          <div className="mb-cblocks">
+            <CardBlocks board={board} path={path} card={card} today={today} actions={actions} onOpen={(source, r) => (records.show ? records.show(source.dir, r.id) : setOver({ dir: source.dir, id: r.id }))} />
+          </div>
+        ) : (
+          <Subtasks
+            list={card.subtasks ?? []}
+            change={(change) => actions.changeSubtasks(path, card.id, change)}
+            complete={(subtask) => actions.completeSubtask(path, card.id, subtask)}
+            removed={actions.removedSubtask}
+            team={team}
+            today={today}
+            menu={actions.menu}
+            place="card"
+          />
+        )}
         {(card.timeline.length > 0 || card.author) && <div className="mb-cap mb-cpad">{t('card.timeline')}</div>}
         <div className="mb-ctl tlog">
           <Timeline board={board} path={path} card={card} team={team} today={today} actions={actions} />
@@ -1035,12 +1134,17 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
           records={records.records(linking.collection)}
           onChange={(value) => setValue(linking, value)}
           onOpen={
-            records.show
+            linking.collection.endsWith(BOARD_EXT)
               ? (link) => {
                   setLinking(null);
-                  records.show!(linking.collection!, link.id);
+                  actions.openCard(linking.collection!, link.id);
                 }
-              : undefined
+              : records.show
+                ? (link) => {
+                    setLinking(null);
+                    records.show!(linking.collection!, link.id);
+                  }
+                : undefined
           }
           onClose={() => setLinking(null)}
         />

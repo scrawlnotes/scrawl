@@ -23,6 +23,11 @@ import {
   screenKey,
   shownField,
   stepCounts,
+  cardSum,
+  cardValue,
+  dayWords,
+  faceFields,
+  formatNumber,
   sortRecords,
 } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
@@ -58,6 +63,12 @@ interface Glance {
   off?: boolean;
   /** How many are at each step of a field, as its line: "6 Saved · 7 Applied" (design/more-apps.md 4.6). */
   counts?: [string, number][];
+  /** What the box is called when its Home setting lists a view: Gone quiet. */
+  title?: string;
+  /** A board of deals (Board.next): each open stage with how many and their sum, and the deals to close this month, a box of their own (design/scrawl-apps.md 3.1). */
+  pipe?: { name: string; count: number; sum: string; share: number }[];
+  closing?: { name: string; said: string }[];
+  closingSum?: string;
 }
 
 /** A screen's count and its first records: a collection by the view it opens on, a board by its open cards, a folder by its notes; none for a note. */
@@ -67,7 +78,29 @@ function glanceOf(screen: AppScreen, collections: Record<string, Collection>, bo
     if (!board) return null;
     const closed = new Set(board.columns.filter((c) => c.kind === 'done' || c.kind === 'dropped').map((c) => c.id));
     const open = board.cards.filter((card) => !closed.has(card.column));
-    return { count: { text: t('app.open', { count: open.length }), check: 0 }, first: open.slice(0, 4).map((card: Card) => card.title) };
+    const glance: Glance = { count: { text: t('app.open', { count: open.length }), check: 0 }, first: open.slice(0, 4).map((card: Card) => card.title) };
+    if (!board.next) return glance;
+    // A pipeline as Pipedrive sums one: each open stage, how many and their value; what closes this month.
+    const sumField = faceFields(board).find((f) => f.type === 'number');
+    const money = (cards: Card[]) => {
+      const sum = sumField ? cardSum(board, cards, sumField, today) : null;
+      return { n: sum ?? 0, text: sum === null || !sumField ? '' : formatNumber(sum, sumField.format) };
+    };
+    const stages = board.columns.filter((c) => !closed.has(c.id)).map((c) => ({ column: c, cards: open.filter((card) => card.column === c.id) }));
+    const top = Math.max(1, ...stages.map((s) => money(s.cards).n));
+    const month = today.slice(0, 7);
+    const closing = open.filter((card) => card.due?.slice(0, 7) === month).sort((a, b) => (a.due! < b.due! ? -1 : 1));
+    const valueOf = (card: Card) => (sumField ? cardValue(board, card, sumField, today) : null);
+    return {
+      ...glance,
+      count: { text: [t('app.open', { count: open.length }), money(open).text].filter(Boolean).join(' · '), check: 0 },
+      pipe: stages.map((s) => ({ name: s.column.name, count: s.cards.length, sum: money(s.cards).text, share: money(s.cards).n / top })),
+      closing: closing.slice(0, 4).map((card) => {
+        const v = valueOf(card);
+        return { name: card.title, said: [typeof v === 'number' && sumField ? formatNumber(v, sumField.format) : '', dayWords(card.due!)].filter(Boolean).join(' · ') };
+      }),
+      closingSum: [t('app.deals', { count: closing.length }), money(closing).text].filter(Boolean).join(' · '),
+    };
   }
   if (screen.kind === 'note') return null;
   if (screen.kind === 'folder') {
@@ -81,7 +114,9 @@ function glanceOf(screen: AppScreen, collections: Record<string, Collection>, bo
   const computer = computerFor(collection, all, boards, today);
   const rolled = computer.withValues(collection.dir) ?? collection;
   // The view it opens on, its menu's or its own, when it is a table: its records and its order; a calendar shows them all.
-  const view = schema.views?.find((v) => v.id === (screen.view ?? schema.defaultView) && v.kind !== 'calendar');
+  // Its Home setting may list another view: a CRM's companies, those gone quiet.
+  const homeView = schema.home?.view ? schema.views?.find((v) => v.id === schema.home!.view) : undefined;
+  const view = homeView ?? schema.views?.find((v) => v.id === (screen.view ?? schema.defaultView) && v.kind !== 'calendar');
   const shown = view ? rolled.records.filter((r) => matchesConditions(r, schema, view.conditions, today)) : rolled.records;
   const sorted = view?.sort ? sortRecords(shown, schema, view.sort, today) : shown;
   const check = collection.records.filter((r) => recordProblems(r, schema).length + computer.checks(collection.dir, r).length > 0).length;
@@ -101,6 +136,7 @@ function glanceOf(screen: AppScreen, collections: Record<string, Collection>, bo
       check,
     },
     first: sorted.slice(0, 4).map(recordTitle),
+    ...(homeView && { title: homeView.name }),
   };
   // A box that says values (design/more-apps.md 4.1): a balance beside each account and their total, a month's sums.
   const home = schema.home;
@@ -278,11 +314,56 @@ function AppHome({ modules, shows, collections, boards, notes, today, due, actio
             {modules[0]!.screens.map((s) => {
               const glance = glances.get(screenKey(s));
               if (glance?.off) return null;
+              // A pipeline's own two boxes, as Pipedrive's: its stages with their sums, and what closes this month.
+              if (glance?.pipe) {
+                return [
+                  <button key={screenKey(s)} type="button" className="app-tile" onClick={(event) => onPick(event, modules[0]!, s)}>
+                    <span className="h">
+                      <Icon name="board" />
+                      {t('app.pipeline')}
+                    </span>
+                    <b>{glance.count.text}</b>
+                    <span className="pipe">
+                      {glance.pipe.map((stage) => (
+                        <span key={stage.name}>
+                          <span className="t">{stage.name}</span>
+                          <span className="b">
+                            <i style={{ width: `${Math.round(stage.share * 100)}%` }} />
+                          </span>
+                          <span className="n">{stage.count}</span>
+                          <span className="v">{stage.sum}</span>
+                        </span>
+                      ))}
+                    </span>
+                  </button>,
+                  <button key={`${screenKey(s)}#closing`} type="button" className="app-tile" onClick={(event) => onPick(event, modules[0]!, s)}>
+                    <span className="h">
+                      <Icon name="calendar" />
+                      {t('app.closing')}
+                    </span>
+                    <b>{glance.closingSum}</b>
+                    {glance.closing && glance.closing.length > 0 ? (
+                      <span className="rs vals">
+                        {glance.closing.map((row) => (
+                          <span key={row.name}>
+                            <span className="t">{row.name}</span>
+                            <span className="faint">{row.said}</span>
+                          </span>
+                        ))}
+                      </span>
+                    ) : (
+                      <span className="rs">
+                        <span className="faint">{t('app.noneClosing')}</span>
+                      </span>
+                    )}
+                  </button>,
+                ];
+              }
               return (
                 <button key={screenKey(s)} type="button" className="app-tile" onClick={(event) => onPick(event, modules[0]!, s)}>
                   <span className="h">
                     <Icon name={screenIcon(s)} />
-                    {s.name}
+                    {glance?.title ?? s.name}
                   </span>
                   {glance?.sums ? (
                     <span className="sums">

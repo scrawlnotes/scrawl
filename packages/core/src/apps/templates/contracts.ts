@@ -77,8 +77,8 @@ export const contracts: AppTemplate = {
     const ends: View = { id: 'ends', name: 'Ends', kind: 'calendar', calendar: { start: 'ends', ...(kinds.length > 0 && { color: 'type' }), upcoming: false }, conditions: active };
     app.view('contracts', ends);
 
-    app.block('companies', { block: 'linked', collection: path, style: 'list', fields: ['status', 'ends'], sort: 'ends' });
-    if (contact) app.block('people', { block: 'linked', collection: path, style: 'list', fields: ['status', 'ends'], sort: 'ends' });
+    app.block('companies', { block: 'linked', collection: path, style: 'list', fields: ['status', 'ends'], sort: 'ends', column: 3 });
+    if (contact) app.block('people', { block: 'linked', collection: path, style: 'list', fields: ['status', 'ends'], sort: 'ends', column: 3 });
 
     app.rule('contracts', { kind: 'check', name: 'Notice passed; it renews', src: 'check("cancel_by", () => status != "Active" || !auto_renews || empty(cancel_by) || cancel_by >= today(), "Notice passed; it renews")' });
     app.rule('contracts', {

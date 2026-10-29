@@ -52,7 +52,7 @@ export const support: AppTemplate = {
     app.field('requests', link('person', 'Person', app.path('people')));
     if (channels.length > 0) app.field('requests', select('channel', 'Channel', channels, { email: 'yellow', phone: 'blue', chat: 'green', 'web form': 'purple', social: 'pink', 'marketplace questions': 'orange', reviews: 'teal' }));
     app.field('requests', select('type', 'Type', ['question', 'problem', 'request'], { question: 'blue', problem: 'red', request: 'purple' }));
-    for (const role of ['companies', 'people']) if (app.hasPiece(role)) app.block(role, { block: 'cards' });
+    for (const role of ['companies', 'people']) if (app.hasPiece(role)) app.block(role, { block: 'cards', column: 3 });
     if (answers.feedback !== false) feedback(app);
     if (answers.replies !== false) for (const [name, text] of REPLIES) app.note('saved-replies', name, text);
 

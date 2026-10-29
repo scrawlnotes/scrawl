@@ -17,9 +17,15 @@ export interface PieceInfo {
 }
 
 export const PIECES: { [role: string]: PieceInfo } = {
-  companies: { kind: 'collection', name: 'Companies', singular: 'company', about: 'the companies you work with.' },
-  people: { kind: 'collection', name: 'People', singular: 'person', about: 'the people you talk to.' },
-  activities: { kind: 'collection', name: 'Activities', singular: 'activity', about: 'every call, meeting, email and note, with its day.' },
+  companies: {
+    kind: 'collection',
+    name: 'Companies',
+    singular: 'company',
+    about: 'the companies you work with.',
+    hidden: ['last_contact', 'last_said', 'people_count', 'won', 'open_value', 'deal_count', 'stage', 'said', 'quiet'],
+  },
+  people: { kind: 'collection', name: 'People', singular: 'person', about: 'the people you talk to.', hidden: ['last_contact', 'last_said', 'said'] },
+  activities: { kind: 'collection', name: 'Activities', singular: 'activity', about: 'every call, meeting, email and note, with its day, and what is planned next.', hidden: ['bucket', 'with_said', 'sub'] },
   deals: { kind: 'board', name: 'Deals', about: 'the deals on their way, a card each, by stage.' },
   products: { kind: 'collection', name: 'Products', singular: 'product', about: 'what you sell or keep, with its price.' },
   orders: { kind: 'collection', name: 'Orders', singular: 'order', about: 'each order and its customer, with its total and what is left to collect.' },
