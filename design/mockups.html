@@ -4225,6 +4225,50 @@ p { margin: 0; max-width: 68ch; }
 .mbs .pp-mrow .r { color: var(--m-dim); font-size: 13px; text-align: right; }
 .mbs .pp-mrow .r.late { color: var(--m-p1); }
 .mbs .pp-mrow .r.left { color: #5cb87a; }
+/* Reading and watching (Oct 29): a screen for each kind, as Sequel, MyAnimeList and StoryGraph have them. */
+.rw-cov { display: grid; place-items: center; width: 28px; height: 40px; border-radius: 4px; background: linear-gradient(160deg, var(--cc), color-mix(in srgb, var(--cc) 45%, #000)); color: #fff; font-size: 11px; font-weight: 700; }
+.ca-row.rw-row { grid-template-columns: 28px minmax(0, 1fr) 250px 64px 150px; }
+.ca-row.rw-row.head { grid-template-columns: 28px minmax(0, 1fr) 250px 64px 150px; }
+.ca-row.rw-film { grid-template-columns: 28px minmax(0, 1fr) 130px 64px 150px; }
+.ca-row.rw-row .tt small, .ca-row.rw-film .tt small { display: block; color: var(--m-faint); font-size: 11.5px; font-weight: 400; }
+.ca-row .rw-sc { color: var(--m-dim); font-variant-numeric: tabular-nums; }
+.ca-row .rw-nx { color: var(--m-dim); font-size: 12px; }
+.ca-row .rw-nx.hot { color: var(--m-accent); }
+.rw-pg { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.rw-pg .n { flex: 0 0 auto; min-width: 92px; color: var(--m-fg); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.rw-pg .bar { flex: 1; height: 4px; border-radius: 2px; background: var(--m-line); overflow: hidden; }
+.rw-pg .bar i { display: block; height: 100%; background: #4fb3d9; }
+.rw-pg .st-btn { padding: 1px 8px; font-size: 11.5px; }
+.rw-pg .st-btn.one { border-color: var(--m-accent); color: var(--m-accent); font-weight: 600; }
+.ca-row.rw-shut { grid-template-columns: minmax(0, 1fr); color: var(--m-faint); font-size: 11px; letter-spacing: .05em; text-transform: uppercase; border-bottom: 0; padding-top: 12px; }
+.ca-row.rw-shut b { margin-left: 6px; color: var(--m-dim); font-weight: 500; letter-spacing: 0; }
+.rw-toast { position: absolute; left: 50%; bottom: 46px; display: flex; align-items: center; gap: 14px; padding: 8px 10px 8px 16px; border-radius: 8px; background: var(--m-fg); color: var(--m-bg); font-size: 12.5px; transform: translateX(-50%); box-shadow: 0 8px 24px rgb(0 0 0 / .35); }
+.rw-toast b { text-decoration: underline; text-underline-offset: 3px; }
+.rw-big { display: flex; align-items: baseline; gap: 8px; padding: 6px 0 2px; }
+.rw-big b { font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.rw-big small { color: var(--m-dim); font-size: 12.5px; }
+.rw-big .st-btn { margin-left: auto; }
+.rw-stars { color: var(--m-accent); letter-spacing: 2px; }
+.rw-stars i { color: var(--m-line); font-style: normal; }
+.rw-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.rw-chips span { padding: 2px 9px; border: 1px solid var(--m-line); border-radius: 11px; color: var(--m-dim); font-size: 12px; }
+.rw-chips span.on { border-color: var(--m-accent); color: var(--m-fg); }
+.rw-help { display: block; margin: -4px 0 2px; color: var(--m-faint); font-size: 11.5px; }
+.rw-home { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; max-width: 980px; }
+.rw-home .big { display: flex; align-items: baseline; gap: 6px; padding: 2px 0 6px; }
+.rw-home .big b { font-size: 24px; font-weight: 600; }
+.rw-home .big small { color: var(--m-dim); font-size: 12px; }
+.mbs .rw-mrow { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--m-line); }
+.mbs .rw-mrow .rw-cov { width: 34px; height: 48px; }
+.mbs .rw-mrow .tx { flex: 1; min-width: 0; }
+.mbs .rw-mrow .tx b { display: block; font-size: 15.5px; font-weight: 500; }
+.mbs .rw-mrow .tx small { display: block; color: var(--m-faint); font-size: 13px; }
+.mbs .rw-mrow .one { flex: 0 0 auto; padding: 6px 12px; border: 1px solid var(--m-accent); border-radius: 15px; color: var(--m-accent); font-size: 14px; font-weight: 600; }
+.mbs .rw-mgrp { padding: 14px 16px 4px; color: var(--m-faint); font-size: 12px; letter-spacing: .05em; text-transform: uppercase; }
+.mbs .rw-mbig { display: flex; align-items: center; gap: 10px; padding: 4px 16px 12px; }
+.mbs .rw-mbig b { font-size: 26px; font-weight: 600; }
+.mbs .rw-mbig small { flex: 1; color: var(--m-dim); font-size: 13px; }
+.mbs .rw-mbig .one { padding: 8px 16px; border-radius: 18px; background: var(--m-accent); color: var(--m-on-accent); font-size: 15px; font-weight: 600; }
 .ca-row.mp-plan { grid-template-columns: minmax(0, 1fr) 210px 96px 96px 70px 84px; }
 .ca-row.mp-day { grid-template-columns: 150px minmax(0, 1fr) 96px 100px 84px minmax(0, 1fr); }
 .ca-row.mp-today { background: color-mix(in srgb, var(--m-sel) 30%, transparent); }
@@ -5307,6 +5351,30 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-ppview="pptoday">Today</button>
         <button type="button" data-ppview="pphome">Home</button>
         <button type="button" data-ppview="ppphone">Telefon</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="reading">
+    <div class="brief">
+      <div>
+        <span class="letter">SCRAWL APPS · TASLAK</span>
+        <h2>Okuma ve izleme: her tür kendi ekranında</h2>
+        <p>Sequel, MyAnimeList ve StoryGraph gibi. Menüde seçilen her tür bir ekran: <b>Books, Anime, Manga, Series, Films</b>… sonra Lists, Quotes, Years. Ekranda kayıtlar durumuna göre gruplu, durumlar türün diliyle: animede Watching, Plan to watch, On hold (MyAnimeList), kitapta ve mangada Reading, Plan to read, filmde yalnız To watch ve Watched (Sequel). Completed ve Dropped kapalı başlar. İlerleme türüne göre: bölüm "E5 / 28", manga "Ch. 254 / 374 · Vol. 22 / 42" (MyAnimeList), kitap "p. 212 / 476" (StoryGraph). Animede, dizide, mangada <b>+1</b> tek tıkla bir bölüm yazar, toast ve Undo çıkar, son bölümde Completed; kitapta <b>Update</b> sayfayı sorar. Yayını süren için "New episode every Friday": o gün Today'de <b>Watched</b> ile, kaçan birikmez. Bir ekranda eklenen o türle gelir. Home'da her tür bir kutu (Sequel'in Saved'i).</p>
+        <ul class="traits"><li>tür başına ekran</li><li>türün dili</li><li>+1 tek tıkla</li><li>bölüm, cilt, sayfa</li><li>yeni bölüm Today'de</li><li>türe göre alanlar</li><li>tür başına Home kutusu</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Okuma ve izleme görünümü">
+        <button type="button" data-rwview="rwanime">Anime</button>
+        <button type="button" data-rwview="rwplus">+1 basınca</button>
+        <button type="button" data-rwview="rwbooks">Books</button>
+        <button type="button" data-rwview="rwmanga">Manga</button>
+        <button type="button" data-rwview="rwfilms">Films</button>
+        <button type="button" data-rwview="rwwin">Kayıt</button>
+        <button type="button" data-rwview="rwnew">Yeni anime</button>
+        <button type="button" data-rwview="rwtoday">Today</button>
+        <button type="button" data-rwview="rwhome">Home</button>
+        <button type="button" data-rwview="rwphone">Telefon</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -16486,6 +16554,197 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderPp(sectionPp, b.dataset.ppview);
   });
   renderPp(sectionPp, 'ppbdays');
+
+  // Reading and watching (draft, Oct 29): a screen for each kind as Sequel has them, statuses and
+  // progress in each kind's words as MyAnimeList and StoryGraph say them; +1 in a click.
+  var RW_APP = 'Reading and watching';
+  var RW_MODS = ['Home', 'Books', 'Anime', 'Manga', 'Series', 'Films', 'Lists', 'Quotes', 'Years'];
+  function rwTree(on) {
+    return '<div class="tree fxt">' + row({ label: 'Today', ct: 3, on: on === 'today' }) + row({ label: 'Upcoming', ct: 2 }) +
+      opRowT({ sp: true, open: true, label: 'Personal' }) +
+      ahRow(RW_APP, { on: on !== 'today', icon: ICON.quote }) + ahRow('People and birthdays', { icon: ICON.person || ICON.app }) + ahRow('Personal finance', { icon: ICON.app }) + '</div>' + spFoot(null);
+  }
+  function rwCov(c, t) { return '<span class="rw-cov" style="--cc:' + c + '">' + t + '</span>'; }
+  function rwPg(text, share, btn) {
+    // No bar where how many there are is not known yet: One Piece, a manga still coming out.
+    return '<span class="rw-pg"><span class="n">' + text + '</span>' + (share === null ? '<span class="bar" style="visibility:hidden"></span>' : '<span class="bar"><i style="width:' + Math.round(share * 100) + '%"></i></span>') + (btn ?'<span class="st-btn' + (btn === '+1' ? ' one' : '') + '">' + btn + '</span>' : '') + '</span>';
+  }
+  function rwStars(n) { return n ? '★ ' + n : '–'; }
+  function rwGroup(name, n) { return '<div class="ca-row tr-grp"><span>' + name + ' <small>' + n + '</small></span></div>'; }
+  function rwShut(name, n) { return '<div class="ca-row rw-shut"><span>' + ICON.chevr + name + '<b>' + n + '</b></span></div>'; }
+  // [cover colour, initials, title, line, progress, share, button, score, next, next is today]
+  var RW_ANIME = {
+    watching: [
+      ['#d06a9a', 'Da', 'Dandadan', 'TV · 2024 · Netflix', 'E6 / 12', 0.5, '+1', 0, 'New episode today', true],
+      ['#6aa5f0', 'Fr', 'Frieren: Beyond Journey\'s End', 'TV · 2023 · Crunchyroll', 'E17 / 28', 0.61, '+1', 0, '11 to go'],
+      ['#e0a040', 'OP', 'One Piece', 'TV · 1999 · Crunchyroll', 'E1088', null, '+1', 9, 'Every Sunday']
+    ],
+    plan: [
+      ['#5cb87a', 'VS', 'Vinland Saga', 'TV · 2019 · Netflix', '24 episodes', 0, '', 0, 'Ayşe recommended'],
+      ['#b48ef0', 'MP', 'Mob Psycho 100', 'TV · 2016 · Crunchyroll', '12 episodes', 0, '', 0, ''],
+      ['#4fb3d9', 'CB', 'Cowboy Bebop', 'TV · 1998 · Netflix', '26 episodes', 0, '', 0, '']
+    ]
+  };
+  function rwRow(r) {
+    return '<div class="ca-row rw-row">' + rwCov(r[0], r[1]) + '<span class="tt">' + r[2] + '<small>' + r[3] + '</small></span>' +
+      (r[5] !== 0 || r[6] ? rwPg(r[4], r[5], r[6]) : '<span class="calc">' + r[4] + '</span>') +
+      '<span class="rw-sc">' + rwStars(r[7]) + '</span><span class="rw-nx' + (r[9] ? ' hot' : '') + '">' + (r[8] || '') + '</span></div>';
+  }
+  function rwScreen(on, views, head, rows) {
+    return '<div class="ah">' + ahTop(RW_APP, ICON.quote, RW_MODS, on) + ahScreen(views, head, rows) + '</div>';
+  }
+  function rwAnime() {
+    var head = '<div class="ca-row rw-row head"><span></span><span>Title</span><span>Progress</span><span>Score</span><span></span></div>';
+    var rows = rwGroup('Watching', 3) + RW_ANIME.watching.map(rwRow).join('') +
+      rwGroup('Plan to watch', 5) + RW_ANIME.plan.map(rwRow).join('') +
+      rwGroup('On hold', 1) + rwRow(['#8a8fa0', 'AT', 'Attack on Titan', 'TV · 2013 · Crunchyroll', 'E52 / 89', 0.58, '+1', 8, 'on hold since 2 Aug']) +
+      rwShut('Completed', 14) + rwShut('Dropped', 2);
+    return rwScreen('Anime', ['All', 'Airing'], head, rows);
+  }
+  function rwBooks() {
+    var head = '<div class="ca-row rw-row head"><span></span><span>Title</span><span>Progress</span><span>Score</span><span></span></div>';
+    var rows = rwGroup('Reading', 2) +
+      rwRow(['#e0a040', 'PH', 'Project Hail Mary', 'Andy Weir · 476 pages', 'p. 212 / 476', 0.45, 'Update', 0, 'since 12 Oct']) +
+      rwRow(['#b48ef0', 'KM', 'Kürk Mantolu Madonna', 'Sabahattin Ali · 160 pages', 'p. 64 / 160', 0.4, 'Update', 0, 'since 25 Oct']) +
+      rwGroup('Plan to read', 7) +
+      rwRow(['#d06a9a', 'Du', 'Dune', 'Frank Herbert · 617 pages', '617 pages', 0, '', 0, 'Can recommended']) +
+      rwRow(['#5cb87a', 'Tu', 'Tutunamayanlar', 'Oğuz Atay · 724 pages', '724 pages', 0, '', 0, '']) +
+      rwShut('Completed', 11) + rwShut('Dropped', 1);
+    return rwScreen('Books', ['All', 'Lent'], head, rows);
+  }
+  function rwManga() {
+    var head = '<div class="ca-row rw-row head"><span></span><span>Title</span><span>Chapters · Volumes</span><span>Score</span><span></span></div>';
+    var rows = rwGroup('Reading', 2) +
+      rwRow(['#8a8fa0', 'Be', 'Berserk', 'Kentaro Miura · Manga Plus', 'Ch. 254 / 374 · Vol. 22 / 42', 0.68, '+1', 10, '']) +
+      rwRow(['#d06a9a', 'CM', 'Chainsaw Man', 'Tatsuki Fujimoto · Manga Plus', 'Ch. 160', null, '+1', 0, 'Every Wednesday']) +
+      rwGroup('Plan to read', 3) +
+      rwRow(['#6aa5f0', 'Va', 'Vagabond', 'Takehiko Inoue · paper', '37 volumes', 0, '', 0, '']) +
+      rwShut('Completed', 4);
+    return rwScreen('Manga', ['All', 'Airing'], head, rows);
+  }
+  function rwFilms() {
+    var head = '<div class="ca-row rw-film head"><span></span><span>Title</span><span>Where</span><span>Score</span><span>Recommended by</span></div>';
+    var f = function (c, i, t, l, w, s, d) { return '<div class="ca-row rw-film">' + rwCov(c, i) + '<span class="tt">' + t + '<small>' + l + '</small></span><span class="calc">' + w + '</span><span class="rw-sc">' + rwStars(s) + '</span><span class="calc">' + d + '</span></div>'; };
+    var rows = rwGroup('To watch', 6) +
+      f('#e0a040', 'DP', 'Dune: Part Two', 'Denis Villeneuve · 2024 · 2 h 46 min', 'Max', 0, 'Can Demir') +
+      f('#5cb87a', 'PD', 'Perfect Days', 'Wim Wenders · 2023 · 2 h 4 min', 'Mubi', 0, '–') +
+      f('#6aa5f0', 'KU', 'Kış Uykusu', 'Nuri Bilge Ceylan · 2014 · 3 h 16 min', 'Netflix', 0, 'Ayşe Kaya') +
+      rwShut('Watched', 24);
+    return rwScreen('Films', ['All'], head, rows);
+  }
+  function rwPlus() {
+    var view = rwAnime().replace('E6 / 12', 'E7 / 12').replace('width:50%', 'width:58%').replace('New episode today', 'Next on Friday').replace('rw-nx hot', 'rw-nx');
+    return view + '<div class="rw-toast">Dandadan · episode 7 watched <b>Undo</b></div>';
+  }
+  /** MyAnimeList's page: the line under the title; the progress and +1, its days, its quotes beside the fields. */
+  function rwWin() {
+    var seg = '<span class="x2-seg">' + ['Watching', 'Plan to watch', 'On hold', 'Completed', 'Dropped'].map(function (s, i) { return '<span' + (i === 0 ? ' class="on"' : '') + '>' + s + '</span>'; }).join('') + '</span>';
+    var left = ccProp('Status', seg) +
+      '<div class="cc-two">' + ccProp('Episodes', '28') + ccProp('Score', '<span class="rw-stars">★★★★<i>★</i></span>') + '</div>' +
+      ccProp('Genres', '<span class="rw-chips"><span class="on">Adventure</span><span class="on">Fantasy</span><span class="on">Drama</span></span>') +
+      '<div class="cc-two">' + ccProp('Where', 'Crunchyroll', { dd: true }) + ccProp('Its link', '<span class="lk">crunchyroll.com/frieren</span>') + '</div>' +
+      '<div class="cc-two">' + ccProp('New episode every', '<span class="calc">finished airing</span>') + ccProp('Info', '<span class="lk">myanimelist.net/anime/52991</span>') + '</div>' +
+      ccProp('Recommended by', 'Ayşe Kaya', { dd: true }) +
+      '<div class="jb-desc"><b>What I think</b>Slow and quiet in the best way; the flashbacks to Himmel land every time.</div>';
+    var tl = function (d, a, b) { return '<div class="x2-day">' + d + '</div><div class="x2-tl" style="--tc:#6aa5f0"><span class="tm"></span><span class="ic">▶</span><span class="tx"><b>' + a + '</b><small>' + b + '</small></span></div>'; };
+    var progress = '<div class="x2-blk"><div class="x2-sec">Progress<small>started 2 Oct</small></div>' +
+      '<div class="rw-big"><b>E17</b><small>of 28 · 11 to go</small><span class="st-btn go">+1</span></div>' + rwPg('61%', 0.61) + '</div>';
+    var days = '<div class="x2-blk"><div class="x2-sec">Watched<small>17 episodes</small></div>' +
+      tl('Today', 'Episodes 15–17', '3 episodes') + tl('Sat, 24 Oct', 'Episodes 12–14', '3 episodes') + tl('Sun, 18 Oct', 'Episodes 9–11', '3 episodes') + '</div>';
+    var quotes = '<div class="x2-blk"><div class="x2-sec">Quotes<small>1</small><span class="r">+ Add</span></div>' +
+      '<div class="jb-desc" style="border:0;padding:4px 0">"Life is a journey of making memories." <span class="calc">· E1</span></div></div>';
+    return '<div class="ovl center"><div class="rmod cc-rm" style="width:900px"><div class="cp-head">' + ICON.collection + '<span>Anime · ' + RW_APP + '</span><span class="more">···</span><span class="x">×</span></div>' +
+      '<div class="x2-head"><b>Frieren: Beyond Journey\'s End</b><small>Anime · 2023 · 28 episodes · Crunchyroll · watching since 2 Oct</small></div>' +
+      '<div class="jb-cols"><div>' + left + '</div><div>' + progress + days + quotes + '</div></div>' +
+      '<div class="rm-foot"><span class="st-btn">Cancel</span></div></div></div>';
+  }
+  /** Added from Anime: an anime, nothing asked about its kind. */
+  function rwNew() {
+    var seg = '<span class="x2-seg"><span>Watching</span><span class="on">Plan to watch</span><span>Completed</span></span>';
+    var days = '<span class="x2-seg">' + ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(function (d) { return '<span' + (d === 'Thu' ? ' class="on"' : '') + '>' + d + '</span>'; }).join('') + '</span>';
+    var body = ccProp('Title', 'Dandadan', { req: true }) +
+      '<div class="cc-two">' + ccProp('Episodes', '12') + ccProp('Where', 'Netflix', { dd: true }) + '</div>' +
+      ccProp('Status', seg) +
+      ccProp('New episode every', days) + '<span class="rw-help">While it is airing: that day it comes to Today. Left empty, it does not.</span>' +
+      ccProp('Recommended by', '', { dd: true });
+    return x2Window('New anime · Anime', body, '<span class="st-btn">Cancel</span><span class="st-btn go">Create</span>');
+  }
+  function rwToday() {
+    var body = '<div class="tasksv"><div class="th"><b>Today</b><span class="c3-date">Thu, Oct 29</span><button type="button" class="add">Add task</button></div><div class="tl">' +
+      '<div class="sec">Today <small>3</small></div>' +
+      pfRecRow('#d06a9a', 'Dandadan · E7 out', '<span>' + ICON.collection + 'Anime</span><span>Netflix · you are at E6</span>', '<span class="st-btn go">Watched</span>') +
+      pfRecRow('#d06a9a', 'Chainsaw Man · Ch. 161 out', '<span>' + ICON.collection + 'Manga</span><span>Manga Plus · you are at Ch. 160</span>', '<span class="st-btn go">Read</span>') +
+      pfRecRow('#e0a040', 'Dune: Part Three · comes out today', '<span>' + ICON.collection + 'Films</span><span>In cinemas</span>') +
+      '<div class="qa">+ Add task</div></div></div>';
+    return '<aside class="side">' + rwTree('today') + '</aside><section class="main"><div class="panes">' + pane(tab('tasks', 'Today', 'x', true) + '<div class="tab plus">+</div>', body) + '</div>' +
+      '<div class="status"><span>3 records</span>' + syncStatus(false, null) + '</div></section>';
+  }
+  /** Sequel's Saved: a box for each kind, what is going on in it first. */
+  function rwHome() {
+    var today = '<div class="ah-cap">Today <small>2</small></div><div class="ah-today" style="max-width:980px">' +
+      ahTr('#d06a9a', 'Dandadan · E7 out', 'Anime · Netflix', '<span class="st-btn go">Watched</span>') +
+      ahTr('#d06a9a', 'Chainsaw Man · Ch. 161 out', 'Manga · Manga Plus', '<span class="st-btn go">Read</span>') + '</div>';
+    var box = function (name, big, sub, rows) {
+      return '<div class="ah-card"><h4>' + ICON.collection + name + '<small>' + sub + '</small></h4><div class="big"><b>' + big[0] + '</b><small>' + big[1] + '</small></div>' +
+        rows.map(function (r) { return '<div class="pf-hr"><span class="t">' + r[0] + '</span><span class="calc">' + r[1] + '</span></div>'; }).join('') + '</div>';
+    };
+    var cards = '<div class="rw-home">' +
+      box('Books', ['2', 'reading'], '7 to read', [['Project Hail Mary', 'p. 212 / 476'], ['Kürk Mantolu Madonna', 'p. 64 / 160']]) +
+      box('Anime', ['3', 'watching'], '5 to watch', [['Dandadan', 'E6 / 12'], ['Frieren', 'E17 / 28'], ['One Piece', 'E1088']]) +
+      box('Manga', ['2', 'reading'], '3 to read', [['Berserk', 'Ch. 254 / 374'], ['Chainsaw Man', 'Ch. 160']]) +
+      box('Series', ['1', 'watching'], '4 to watch', [['Severance', 'S2 · E6 / 10']]) +
+      box('Films', ['6', 'to watch'], '24 watched', [['Dune: Part Two', 'Max'], ['Perfect Days', 'Mubi'], ['Kış Uykusu', 'Netflix']]) +
+      box('2026', ['14', 'of 24 finished'], 'on track', [['At this pace', '17 by the end'], ['This week', '212 pages · 9 episodes']]) + '</div>';
+    return '<div class="ah">' + ahTop(RW_APP, ICON.quote, RW_MODS, 'Home') + '<div class="ah-home">' + today + '<div class="ah-cap">Reading and watching</div>' + cards + '</div></div>';
+  }
+  function rwPhone() {
+    var nav = '<div class="mb-nav"><span class="back">' + ICON.chevl + RW_APP + '</span><span class="acts"></span></div>';
+    var mrow = function (c, i, t, s, one) { return '<div class="rw-mrow">' + rwCov(c, i) + '<span class="tx"><b>' + t + '</b><small>' + s + '</small></span>' + (one ? '<span class="one">+1</span>' : '') + '</div>'; };
+    var list = mbPage(nav + '<div class="mb-rhead"><h2>Anime</h2><small>3 watching · 5 to watch</small></div>' +
+      '<div class="mb-ctabs"><span class="mb-ct on">All</span><span class="mb-ct">Airing</span></div>',
+      '<div class="rw-mgrp">Watching</div>' +
+      mrow('#d06a9a', 'Da', 'Dandadan', 'E6 / 12 · new episode today', true) + mrow('#6aa5f0', 'Fr', 'Frieren', 'E17 / 28 · 11 to go', true) + mrow('#e0a040', 'OP', 'One Piece', 'E1088 · every Sunday', true) +
+      '<div class="rw-mgrp">Plan to watch</div>' + mrow('#5cb87a', 'VS', 'Vinland Saga', '24 episodes · Netflix') + mrow('#b48ef0', 'MP', 'Mob Psycho 100', '12 episodes') +
+      '<div class="rw-mgrp">' + 'Completed 14 · Dropped 2' + '</div>');
+    var top = '<div class="mb-nav"><span class="back">' + ICON.chevl + 'Anime</span><span class="acts"></span></div>' +
+      '<div class="mb-rhead"><h2>Frieren</h2><small>Anime · 2023 · 28 episodes · Crunchyroll</small></div>' +
+      '<div class="rw-mbig"><b>E17</b><small>of 28 · 11 to go</small><span class="one">+1</span></div>' +
+      '<div class="mb-ctabs"><span class="mb-ct">Details</span><span class="mb-ct on">Watched<small>17</small></span><span class="mb-ct">Quotes<small>1</small></span></div>';
+    var win = mbPage(top, '<div class="x2-mday">Today</div><div class="x2-mtl" style="--tc:#6aa5f0"><span class="tm"></span><span class="ic">▶</span><span><b>Episodes 15–17</b><small>3 episodes</small></span></div>' +
+      '<div class="x2-mday">Sat, 24 Oct</div><div class="x2-mtl" style="--tc:#6aa5f0"><span class="tm"></span><span class="ic">▶</span><span><b>Episodes 12–14</b><small>3 episodes</small></span></div>');
+    return mbPhone('Anime: gruplar ve +1', list, '') + mbPhone('Kayıt: ilerleme ve +1', win, '');
+  }
+  var RW_VIEWS = {
+    rwanime: function () { return ahFrame(rwTree(), 'app', RW_APP, rwAnime(), '25 anime'); },
+    rwplus: function () { return ahFrame(rwTree(), 'app', RW_APP, rwPlus(), '25 anime'); },
+    rwbooks: function () { return ahFrame(rwTree(), 'app', RW_APP, rwBooks(), '21 books'); },
+    rwmanga: function () { return ahFrame(rwTree(), 'app', RW_APP, rwManga(), '9 manga'); },
+    rwfilms: function () { return ahFrame(rwTree(), 'app', RW_APP, rwFilms(), '30 films'); },
+    rwwin: function () { return ahFrame(rwTree(), 'app', RW_APP, rwAnime(), '25 anime', rwWin()); },
+    rwnew: function () { return ahFrame(rwTree(), 'app', RW_APP, rwAnime(), '25 anime', rwNew()); },
+    rwtoday: rwToday,
+    rwhome: function () { return ahFrame(rwTree(), 'app', RW_APP, rwHome(), '9 screens'); }
+  };
+  function renderRw(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (view === 'rwphone') {
+      mock.className = 'mock dir-a phones four mbs';
+      mock.innerHTML = rwPhone();
+    } else {
+      mock.className = 'mock dir-a' + (view === 'rwtoday' ? '' : ' wider');
+      mock.innerHTML = RW_VIEWS[view]();
+    }
+    section.querySelectorAll('.brief [data-rwview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.rwview === view));
+    });
+  }
+  var sectionRw = document.querySelector('.dir[data-dir="reading"]');
+  sectionRw.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-rwview]');
+    if (b) renderRw(sectionRw, b.dataset.rwview);
+  });
+  renderRw(sectionRw, 'rwanime');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });

@@ -57,7 +57,7 @@ const MOST: { [id in TemplateId]: Answers } = {
   split: { people: ['Ayşe', 'Can', 'Deniz'], methods: 'all', finance: true },
   jobs: {},
   people: { anniversaries: true, touch: 'Every month' },
-  reading: { progress: true, goal: '24', quotes: true, lending: true, releases: true },
+  reading: { goal: '24', quotes: true, lending: true, releases: true },
   habits: { goals: true },
   sport: { sets: true, body: true, races: true },
   gym: { days: true, sets: true },
@@ -91,7 +91,7 @@ const LEAST: { [id in TemplateId]: Answers } = {
   split: { people: [], methods: 'equal', finance: false },
   jobs: { stages: [], follow: '7' },
   people: { anniversaries: false, touch: 'off' },
-  reading: { types: [], services: [], progress: false, goal: 'none', quotes: false, lending: false, releases: false },
+  reading: { types: [], services: [], goal: 'none', quotes: false, lending: false, releases: false },
   habits: { habits: [], goals: false },
   sport: { sports: [], body: false, races: false },
   gym: { days: false, sets: false },
@@ -1011,29 +1011,43 @@ describe('apps', () => {
     expect(due.map((d) => [d.record.name, d.start])).toEqual(expect.arrayContaining([['Ayşe', '2026-11-03'], ['Can', '2026-11-12']]));
   });
 
-  it('keeps reading and watching: Update to the last page, the year and its days in a row, a friend’s pick, a lent book, what comes out', async () => {
+  it('keeps reading and watching: +1 an episode, Watched in Today on its day, Update to the last page, the year, a friend’s pick, a lent book, what comes out', async () => {
     const { agent } = await world();
     await createTool(agent, { kind: 'app', name: 'Shelf', templates: ['people', 'reading'], answers: { reading: { goal: '24', lending: true } } });
     await saveRecordTool(agent, { collection: 'Shelf/People', values: { name: 'Ayşe' } });
-    const dune = await saveRecordTool(agent, { collection: 'Shelf/Library', values: { name: 'Dune', type: 'Book', by: 'Frank Herbert', total: 600, status: 'Up next', recommended: 'Ayşe', where: 'Kindle' } });
-    expect(dune.data.record.values).toMatchObject({ unit: 'pages', recommended: expect.objectContaining({ name: 'Ayşe' }) });
+    // An anime going on, out every Wednesday: +1 an episode, said as one; on its day in Today with Watched, the next one written by it.
+    const anime = await saveRecordTool(agent, { collection: 'Shelf/Library', values: { name: 'Dandadan', type: 'Anime', total: 12, year: 2024, where: 'Netflix', status: 'In progress', airs: ['Wed'] } });
+    expect(anime.data.record.values).toMatchObject({ status_said: 'Watching', line: '2024 · Netflix', next_episode: 'New episode today', note_said: 'New episode today' });
+    const due = (await dueRecordsTool(agent, { from: '2026-10-21', to: '2026-10-21' })).data.records as { view: string; record: { name: string } }[];
+    expect(due.map((d) => [d.record.name, d.view])).toEqual([['Dandadan', 'New episodes']]);
+    // Watched in Today writes the day in the log, From Today, and the episode with it.
+    await saveRecordTool(agent, { collection: 'Shelf/Log', values: { item: 'Dandadan', date: '2026-10-21', amount: 1, aired: true } });
+    expect((await recordsTool(agent, { collection: 'Shelf/Library', where: [{ field: 'name', op: 'is', value: 'Dandadan' }] })).data.records[0]!.values).toMatchObject({ done: 1, status: 'In progress' });
+    expect((await dueRecordsTool(agent, { from: '2026-10-21', to: '2026-10-21' })).data.records).toEqual([]);
+    const plus = await saveRecordTool(agent, { collection: 'Shelf/Library', id: anime.data.record.id, action: '+1' });
+    expect([plus.data.record.values.done, plus.data.record.values.progress_said, plus.data.action?.done]).toEqual([2, 'E2 / 12', 'Dandadan · episode 2 watched']);
+    // A film is only to watch or watched.
+    const film = await saveRecordTool(agent, { collection: 'Shelf/Library', values: { name: 'Perfect Days', type: 'Film', status: 'In progress' } });
+    expect(film.data.record.values.status).toBe('Want');
+    const dune = await saveRecordTool(agent, { collection: 'Shelf/Library', values: { name: 'Dune', type: 'Book', by: 'Frank Herbert', total: 600, recommended: 'Ayşe', where: 'Kindle' } });
+    expect(dune.data.record.values).toMatchObject({ unit: 'pages', status: 'Want', line: 'Frank Herbert · 600 pages', note_said: 'Ayşe recommended', recommended: expect.objectContaining({ name: 'Ayşe' }) });
     const id = dune.data.record.id;
     const update = (now: number) => saveRecordTool(agent, { collection: 'Shelf/Library', id, action: 'Update', input: { now } });
     expect((await update(150)).data.record.values).toMatchObject({ done: 150, percent: 0.25, status: 'In progress', started: '2026-10-21' });
     expect((await update(600)).data.record.values).toMatchObject({ done: 600, status: 'Done', finished: '2026-10-21', read_in: expect.objectContaining({ name: '2026' }) });
-    expect((await recordsTool(agent, { collection: 'Shelf/Log', sort: { field: 'amount' } })).data.records.map((l) => [l.name, l.values.amount])).toEqual([
+    expect((await recordsTool(agent, { collection: 'Shelf/Log', where: [{ field: 'unit', op: 'is', value: 'pages' }], sort: { field: 'amount' } })).data.records.map((l) => [l.name, l.values.amount])).toEqual([
       ['Dune · 150 pages', 150],
       ['Dune · 450 pages', 450],
     ]);
     const year = (await recordsTool(agent, { collection: 'Shelf/Years' })).data.records[0]!;
-    expect(year.values).toMatchObject({ name: '2026', target: 24, finished: 1, pages: 600, streak: 1, days_now: 1, projected: 1, pace: 'Behind' });
+    expect(year.values).toMatchObject({ name: '2026', target: 24, finished: 1, pages: 600, episodes: 2, streak: 1, days_now: 1, projected: 1, pace: 'Behind', said: '1 of 24 finished · behind' });
     const rated = await saveRecordTool(agent, { collection: 'Shelf/Library', id, values: { rating: 7 } });
-    expect(rated.data.record.problems).toEqual([{ kind: 'check', field: 'rating', text: 'A rating is from 1 to 5' }]);
-    const lent = await saveRecordTool(agent, { collection: 'Shelf/Library', values: { name: 'Solaris', lent_to: 'Can', lent_on: '2026-09-01', back_by: '2026-10-01' } });
+    expect(rated.data.record.problems).toEqual([{ kind: 'check', field: 'rating', text: 'A score is from 1 to 5' }]);
+    const lent = await saveRecordTool(agent, { collection: 'Shelf/Library', values: { name: 'Solaris', type: 'Book', lent_to: 'Can', lent_on: '2026-09-01', back_by: '2026-10-01' } });
     expect(lent.data.record.problems).toEqual([{ kind: 'check', field: 'back_by', text: 'Can has it since 2026-09-01' }]);
     await saveRecordTool(agent, { collection: 'Shelf/Library', values: { name: 'Dune: Part Three', type: 'Film', release: '2026-12-18' } });
-    const due = (await dueRecordsTool(agent, { from: '2026-10-21', to: '2026-12-31' })).data.records as { start: string; view: string; record: { name: string } }[];
-    expect(due.map((d) => [d.record.name, d.view, d.start])).toEqual([['Dune: Part Three', 'Coming out', '2026-12-18']]);
+    const coming = (await dueRecordsTool(agent, { from: '2026-10-22', to: '2026-12-31' })).data.records as { start: string; view: string; record: { name: string } }[];
+    expect(coming.map((d) => [d.record.name, d.view, d.start])).toEqual([['Dune: Part Three', 'Coming out', '2026-12-18']]);
     expect((await saveRecordTool(agent, { collection: 'Shelf/Quotes', values: { name: 'Fear is the mind-killer.', item: 'Dune', where: 'p. 8' } })).data.record.values.item).toMatchObject({ name: 'Dune' });
   });
 

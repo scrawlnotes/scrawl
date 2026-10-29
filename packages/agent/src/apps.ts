@@ -58,7 +58,8 @@ async function menuFor(space: AgentSpace, folder: string, app: AppFile, given: u
   const local = (path: string) => (path.startsWith(`${folder}/`) ? path.slice(folder.length + 1) : path);
   const { pieces } = await appPieces(space.fs, folder);
   const there = new Set(pieces.map((p) => local(p.path)));
-  const missing = [...menu.modules.flatMap((m) => m.screens.map((s) => local(s.path))), ...(menu.hidden ?? []).map(local)].filter((p) => !there.has(p));
+  // A hidden screen that opens on a view is its path, `#`, its view.
+  const missing = [...menu.modules.flatMap((m) => m.screens.map((s) => local(s.path))), ...(menu.hidden ?? []).map((p) => local(p.split('#')[0]!))].filter((p) => !there.has(p));
   if (missing.length > 0) throw new Refusal(`Not in ${folder}: ${missing.join(', ')}; a screen is a collection, a board or a note in the app's folder`, { inTheApp: [...there] });
   const own = app.templates.map((x) => x.id);
   const templateOf = (name: string) => own.find((id) => fold(t(APP_TEMPLATES[id].short)) === fold(name) || fold(t(APP_TEMPLATES[id].name)) === fold(name));

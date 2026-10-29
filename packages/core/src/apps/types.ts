@@ -1,6 +1,6 @@
 import type { MessageKey } from '@scrawlnotes/i18n';
 import type { ColumnKind } from '../board';
-import type { Field, HomeTile, LayoutBlock, NumberFormat, View } from '../collection';
+import type { Field, HomeTile, LayoutBlock, NumberFormat, Schema, View } from '../collection';
 import type { PieceInfo } from './pieces';
 
 // An app is a folder of collections, boards, notes and rules set up from ready templates that
@@ -121,7 +121,7 @@ export interface AppTemplate {
    * Its module's menu in the app's tab (design/app-home.md 9): the roles of its screens, in their
    * order, those it sets up shown; a piece that is another's lines, or its About note, is not one.
    */
-  menu: readonly string[];
+  menu: readonly MenuEntry[] | ((answers: Answers) => readonly MenuEntry[]);
   /** What its answers call its own pieces, where they name them: Memberships for Subscriptions. */
   names?: (answers: Answers, app: Chosen) => { [role: string]: Pick<PieceInfo, 'name' | 'singular' | 'about'> };
   /** Adds its fields, blocks, rules and records to the pieces, and its section to the About note. */
@@ -175,6 +175,8 @@ export interface AppDraft extends Chosen {
   newForm(role: string, keys: string[]): void;
   /** The record's window opens with its name as its title and this field's line under it. */
   head(role: string, sub: string, steps?: string): void;
+  /** What each row says small under its name, and the field of its picture beside it: "TV · 2024 · Netflix" and a cover. */
+  line(role: string, sub: string, cover?: string): void;
   /** The record's window keeps only what is attached to it, a receipt, or no notes at all. */
   notes(role: string, notes: 'attach' | false): void;
   /** Adds a rule to a collection's `_rules.js`, once by its name. */
@@ -201,7 +203,12 @@ export interface InstalledTemplate {
 export interface MenuScreenFile {
   path: string;
   view?: string;
+  /** What a screen that opens on a view is called: Books, Anime; else its piece's name. */
+  name?: string;
 }
+
+/** A screen of a template's menu: a role, or a role opened on one of its views and called by its name (Reading's Books, Anime). */
+export type MenuEntry = string | { role: string; view: string; name: string };
 
 /** A module of an app's menu as `_app.json` keeps it: its name, the template it is of when it is one's, its screens in order. */
 export interface MenuModuleFile {
@@ -213,7 +220,7 @@ export interface MenuModuleFile {
 /** An app's menu as the person set it with Edit menu (design/app-home.md 6, 8.1); without one, the templates' menu. */
 export interface AppMenuFile {
   modules: MenuModuleFile[];
-  /** The screens hidden, by path in the app's folder: in the menu nowhere, their files where they are. */
+  /** The screens hidden, by path in the app's folder, `#` and its view after it for one that opens on a view: in the menu nowhere, their files where they are. */
   hidden?: string[];
   /** What Home shows: Today and the module cards, both unless false. */
   home?: { today?: boolean; cards?: boolean };
@@ -282,6 +289,7 @@ export interface CollectionPart {
   places?: { [key: string]: number };
   /** Its window's title the record's name with this line under it. */
   head?: { sub: string; steps?: string };
+  line?: Schema['line'];
   /** Its window's notes: only what is attached, or none. */
   notes?: 'attach' | false;
   /** The fields a new record's window asks. */

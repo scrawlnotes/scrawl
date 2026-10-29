@@ -439,9 +439,9 @@ describe('looking at records', () => {
     expect(records.filter((r) => matchesQuery(r, schema, '  ')).length).toBe(3);
   });
 
-  it('sorts by a field, empty values last, ties by name', () => {
-    expect(sortRecords(records, schema, { key: 'status', dir: 'asc' }).map((r) => r.name)).toEqual(['Globex', 'Acme', 'Initech']);
-    expect(sortRecords(records, schema, { key: 'status', dir: 'desc' }).map((r) => r.name)).toEqual(['Acme', 'Globex', 'Initech']);
+  it('sorts by a field, a choice in the order of its options, empty values last, ties by name', () => {
+    expect(sortRecords(records, schema, { key: 'status', dir: 'asc' }).map((r) => r.name)).toEqual(['Acme', 'Globex', 'Initech']);
+    expect(sortRecords(records, schema, { key: 'status', dir: 'desc' }).map((r) => r.name)).toEqual(['Globex', 'Acme', 'Initech']);
     expect(sortRecords(records, schema, { key: 'name', dir: 'desc' }).map((r) => r.name)).toEqual(['Initech', 'Globex', 'Acme']);
     expect(sortRecords(records, schema, { key: 'code', dir: 'asc' }).map((r) => r.name)).toEqual(['Acme', 'Globex', 'Initech']);
   });

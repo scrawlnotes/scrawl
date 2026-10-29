@@ -1,7 +1,7 @@
 import { t } from '@scrawlnotes/i18n';
 import { describe, expect, it } from 'vitest';
 import { parseBoard } from '../board';
-import { addRecord, type Collection, createCollection, loadCollection, parseSchema, type Record, serializeSchema, stepCounts } from '../collection';
+import { addRecord, type Collection, createCollection, loadCollection, offeredOptions, optionName, parseSchema, type Record, serializeSchema, stepCounts, viewValues } from '../collection';
 import { dueRecords, repeatCalendar } from '../calendar';
 import { planSave, recordWith, type RuleSpaceNow } from '../run';
 import { Computer } from '../compute';
@@ -10,7 +10,7 @@ import { settleSchema } from '../fields';
 import { linksIn, resolveHref } from '../links';
 import { APP_FILE, APP_ICONS, AppProblems, type FoundApp, planApp } from './build';
 import { installApp, undoApp } from './install';
-import { appIcon, type AppPiece, hiddenOnForm, homeOf, linesBlocks, menuEditOf, menuFileOf, menuOf, screenKey, showsLines, unplacedOf } from './menu';
+import { appIcon, type AppPiece, hiddenOnForm, homeOf, linesBlocks, menuEditOf, menuEntries, menuFileOf, menuOf, screenKey, showsLines, unplacedOf } from './menu';
 import { PIECES } from './pieces';
 import { jobOf } from './templates/home';
 import { apartProblem, fitsWith, goTogether, readAnswers, TEMPLATES } from './questions';
@@ -68,7 +68,7 @@ const MOST: { [id in TemplateId]: Answers } = {
   split: { people: ['Ayşe', 'Can', 'Deniz'], methods: 'all', finance: true },
   jobs: {},
   people: { anniversaries: true, touch: 'Every month' },
-  reading: { progress: true, goal: '24', quotes: true, lending: true, releases: true },
+  reading: { goal: '24', quotes: true, lending: true, releases: true },
   habits: { goals: true },
   sport: { sets: true, body: true, races: true },
   gym: { days: true, sets: true },
@@ -102,7 +102,7 @@ const LEAST: { [id in TemplateId]: Answers } = {
   split: { people: [], methods: 'equal', finance: false },
   jobs: { stages: [] },
   people: { anniversaries: false, touch: 'off' },
-  reading: { types: [], services: [], progress: false, goal: 'none', quotes: false, lending: false, releases: false },
+  reading: { types: [], services: [], goal: 'none', quotes: false, lending: false, releases: false },
   habits: { habits: [], goals: false },
   sport: { sports: [], body: false, races: false },
   gym: { days: false, sets: false },
@@ -427,14 +427,46 @@ describe('setting up an app', () => {
     expect(plan.created.map((c) => c.path)).not.toContain('Jobs/Companies');
   });
 
-  it('sets up Reading and watching with the services of the region, and this year from its first day with its goal', () => {
+  it('sets up Reading and watching with the services of the region, this year with its goal, and a screen for each kind', async () => {
     expect(readAnswers(TEMPLATES.reading, new Set(['reading']), {}, 'TR').answers.services).toEqual(['Netflix', 'Disney+', 'Prime Video', 'Max', 'Exxen', 'TOD', 'Gain', 'Mubi', 'YouTube', 'Crunchyroll', 'Webtoon', 'Kindle', 'Paper']);
     expect(readAnswers(TEMPLATES.reading, new Set(['reading']), {}, 'US').answers.services).toContain('Hulu');
     const plan = planApp({ name: 'Shelf', templates: [{ id: 'reading', answers: { goal: '24' } }] }, { ids, today: '2026-10-23' });
     const year = plan.files.find((f) => f.path.startsWith('Shelf/Years/') && f.path.endsWith('.md'))!.text;
     expect([/name: (.*)/.exec(year)![1], /start: (.*)/.exec(year)![1], /target: (.*)/.exec(year)![1]]).toEqual(['"2026"', '2026-01-01', '24']);
     const library = parseSchema(plan.files.find((f) => f.path === 'Shelf/Library/_collection.json')!.text);
-    expect(library.views!.map((v) => v.name)).toEqual(['Coming out', 'Up next', 'In progress', 'Finished this year', 'By type', 'By where', 'Finished']);
+    // A view for each kind, its works by their status, what is over closed; +1 where it goes a part at a time.
+    expect(library.views!.filter((v) => !v.hidden).map((v) => [v.name, v.button ?? null])).toEqual([
+      ['Books', 'Update'],
+      ['Films', null],
+      ['Series', '+1'],
+      ['Anime', '+1'],
+      ['Manga', '+1'],
+      ['Webtoons', '+1'],
+      ['Podcasts', '+1'],
+      ['Games', null],
+    ]);
+    expect(library.views!.find((v) => v.id === 'anime')).toMatchObject({ conditions: [{ field: 'type', op: 'is', value: ['Anime'] }], group: 'status', closed: ['Done', 'Dropped'] });
+    expect(library.line).toEqual({ sub: 'line', cover: 'cover' });
+    // The statuses in each kind's words; a film only to watch or watched.
+    const status = library.fields.find((f) => f.key === 'status')!;
+    expect([offeredOptions(status, { type: 'Anime' }).map((o) => optionName(status, o, { type: 'Anime' })), offeredOptions(status, { type: 'Film' }).map((o) => optionName(status, o, { type: 'Film' }))]).toEqual([
+      ['Watching', 'Plan to watch', 'On hold', 'Completed', 'Dropped'],
+      ['To watch', 'Watched'],
+    ]);
+    // Each kind a screen of the library on its view, called by its name; only the kinds chosen.
+    const fs = new MemoryFs();
+    await installApp(fs, planApp({ name: 'Otaku', templates: [{ id: 'reading', answers: { types: ['Anime', 'Manga'] } }] }, { ids }));
+    const found = (await findApp(fs, 'Otaku'))!;
+    const screens = menuOf(found.app, 'Otaku', [...found.pieces].map(([role, p]) => ({ kind: p.kind, path: p.path, role })))[0]!.screens;
+    expect(screens.map((s) => [s.name, screenKey(s)])).toEqual([
+      ['Anime', 'Otaku/Library#anime'],
+      ['Manga', 'Otaku/Library#manga'],
+      ['Lists', 'Otaku/Lists'],
+      ['Quotes', 'Otaku/Quotes'],
+      ['Years', 'Otaku/Years'],
+    ]);
+    // A record made on the Anime screen is an anime.
+    expect(viewValues(library.views!.find((v) => v.id === 'anime'), library)).toEqual({ type: 'Anime' });
   });
 
   it('says what is wrong with what it was given', () => {
@@ -550,7 +582,7 @@ describe('the menu of an app', () => {
 
   it('has no line in any template’s menu, and only pieces there are', () => {
     for (const id of TEMPLATE_IDS) {
-      for (const role of TEMPLATES[id].menu) {
+      for (const { role } of [MOST, LEAST].flatMap((answers) => menuEntries(TEMPLATES[id], answers[id] ?? {}))) {
         expect(PIECES[role], `${id}: ${role}`).toBeDefined();
         expect(PIECES[role]!.lines, `${id}: ${role}`).toBeUndefined();
       }
@@ -564,7 +596,8 @@ describe('the menu of an app', () => {
         await installApp(fs, planApp({ name: 'A', currencies: ['EUR'], templates: [{ id, answers: answers[id] }] }, { ids }));
         const found = (await findApp(fs, 'A'))!;
         const menu = menuOf(found.app, 'A', piecesOf(found));
-        const screens = menu.flatMap((m) => m.screens.map((s) => s.role!));
+        // Reading's kinds are screens of one collection, each on its view.
+        const screens = [...new Set(menu.flatMap((m) => m.screens.map((s) => s.role!)))];
         const wanted = [...found.pieces.keys()].filter((role) => !PIECES[role]!.lines);
         expect(screens.slice().sort(), id).toEqual(wanted.sort());
         expect(menu.map((m) => m.name)).toEqual(screens.length > 0 ? [t(TEMPLATES[id].short)] : []);

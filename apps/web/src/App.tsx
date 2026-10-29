@@ -15,6 +15,7 @@ import {
   menuOf,
   PIECES,
   screenKey,
+  viewValues,
   asksAnything,
   assigneesOf,
   choosesAnything,
@@ -1924,7 +1925,13 @@ export function App() {
     if (boardPathOf(id) !== null) return setBoardAdding((n) => n + 1);
     if (keysPathOf(id) !== null) return setKeysAdding((n) => n + 1);
     const collectionDir = collectionPathOf(id);
-    if (collectionDir !== null) return setNewRecord({ dir: collectionDir });
+    if (collectionDir !== null) {
+      // What the view it is looked at on asks of a record: an anime on Anime (design/more-apps.md 4.8).
+      const schema = collections[collectionDir]?.schema;
+      const viewId = phoneScreen?.path === collectionDir ? phoneScreen.view : collectionLooks[collectionDir]?.view;
+      const view = schema?.views?.find((v) => v.id === (viewId === undefined ? schema.defaultView : viewId));
+      return setNewRecord({ dir: collectionDir, ...(schema && view && { values: viewValues(view, schema) }) });
+    }
     if (id === TODAY) return setQuickAdd({ list: INBOX_TASKS, section: null, due: today });
     if (id === UPCOMING) return setQuickAdd({ list: INBOX_TASKS, section: null, due: upcomingView === 'calendar' ? upDay : addDays(today, 1) });
     const list = listOf(id);
@@ -2351,6 +2358,14 @@ export function App() {
   // Worked out once, as Edit menu opens: what it starts from.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const editMenu = useMemo(() => (dialog?.kind === 'editMenu' ? menuEditFor(dialog.folder) : null), [dialog]);
+  // On a phone, the app's screen a collection's page was opened as, while it is open: Reading's Anime is that view only.
+  const [screenOpened, setScreenOpened] = useState<{ screen: AppScreen; from: string | null } | null>(null);
+  const phoneScreen = screenOpened?.screen ?? null;
+  const setPhoneScreen = (screen: AppScreen | null) => setScreenOpened(screen && { screen, from: active });
+  // Gone elsewhere than the app it was opened from and its page, it is the collection again.
+  useEffect(() => {
+    if (screenOpened && active !== collectionTab(screenOpened.screen.path) && active !== screenOpened.from) setScreenOpened(null);
+  }, [active, screenOpened]);
   // A screen opening on a view of its collection: the collection is looked at on that view.
   const lookAtScreen = (screen: AppScreen | undefined) => {
     if (screen?.kind === 'collection' && screen.view) session.lookAtCollection(screen.path, { ...collectionLooks[screen.path], view: screen.view });
@@ -2409,9 +2424,10 @@ export function App() {
     const shown = collections[screen.path];
     return shown ? (
       <CollectionView
-        key={screen.path}
+        key={screenKey(screen)}
         collection={shown}
         embedded
+        screen={screen}
         today={today}
         look={collectionLooks[screen.path]}
         onLook={(look) => session.lookAtCollection(screen.path, look)}
@@ -2806,6 +2822,7 @@ export function App() {
       <CollectionView
         key={collectionPath}
         collection={collection}
+        screen={phoneScreen?.path === collectionPath ? phoneScreen : undefined}
         today={today}
         look={collectionLooks[collectionPath]}
         onLook={(look) => session.lookAtCollection(collectionPath, look)}
@@ -3136,6 +3153,7 @@ export function App() {
                   actions={taskActions}
                   onScreen={(screen) => {
                     lookAtScreen(screen);
+                    setPhoneScreen(screen.kind === 'collection' && screen.view ? screen : null);
                     if (screen.kind === 'folder') go.folder(screen.path);
                     else go.item(screen.kind === 'collection' ? collectionTab(screen.path) : screen.kind === 'note' ? screen.path : boardOf(screen.path));
                   }}

@@ -50,6 +50,8 @@ import {
   opsFor,
   opTakesValue,
   optionColor,
+  offeredOptions,
+  optionName,
   problemText,
   type Record as Entry,
   recordLabel,
@@ -166,14 +168,14 @@ function useHold() {
 // ---------- values ----------
 
 /** A value as a row shows it: a choice as its chip, links by their names, a day as a day, a person with their initial. */
-function ShownValue({ field, value, today }: { field: Field; value: FieldValue | undefined; today: string }) {
+function ShownValue({ field, value, today, values }: { field: Field; value: FieldValue | undefined; today: string; values?: Entry['values'] }) {
   if (isEmpty(value)) return null;
-  if (field.type === 'select') return <Chip text={valueText(value)} color={optionColor(field, valueText(value))} />;
+  if (field.type === 'select') return <Chip text={optionName(field, valueText(value), values)} color={optionColor(field, valueText(value))} />;
   if (field.type === 'multi-select') {
     return (
       <span className="lbls">
         {(value as string[]).map((item) => (
-          <Chip key={item} text={item} color={optionColor(field, item)} />
+          <Chip key={item} text={optionName(field, item, values)} color={optionColor(field, item)} />
         ))}
       </span>
     );
@@ -199,7 +201,7 @@ function ShownValue({ field, value, today }: { field: Field; value: FieldValue |
 /** A value in the line under a record's name in the list: a choice as its chip, a tick by its field's name. */
 function ListValue({ field, value, today, values }: { field: Field; value: FieldValue | undefined; today: string; values?: Entry['values'] }) {
   if (field.type === 'checkbox') return value === true ? <span>{field.label}</span> : null;
-  if (field.type === 'select' || field.type === 'multi-select') return <ShownValue field={field} value={value} today={today} />;
+  if (field.type === 'select' || field.type === 'multi-select') return <ShownValue field={field} value={value} today={today} values={values} />;
   if (field.type === 'link') return <span>{(Array.isArray(value) ? value : [value]).filter(isLink).map((link) => recordLabel(link)).join(', ')}</span>;
   if (isDay(value)) return <span>{dateLabel(value, today)}</span>;
   if (typeof value === 'number') return <span>{formatNumber(value, field.format, currencyOf(field.format, values))}</span>;
@@ -315,9 +317,9 @@ function FieldRow({ field, value, values, worked, changed, bad, autoFocus, today
           <div className={classes}>
             {label}
             <span className="segs" role="radiogroup" aria-label={field.label}>
-              {(field.options ?? []).map((option) => (
+              {offeredOptions(field, values).map((option) => (
                 <button key={option} type="button" role="radio" aria-checked={value === option} className={value === option ? 'on' : undefined} onClick={() => onChange(option)}>
-                  {option}
+                  {optionName(field, option, values)}
                 </button>
               ))}
             </span>
@@ -333,9 +335,9 @@ function FieldRow({ field, value, values, worked, changed, bad, autoFocus, today
           <div className={classes}>
             {label}
             <span className="segs many" role="group" aria-label={field.label}>
-              {(field.options ?? []).map((option) => (
+              {offeredOptions(field, values).map((option) => (
                 <button key={option} type="button" aria-pressed={on.includes(option)} className={on.includes(option) ? 'on' : undefined} onClick={() => onChange(on.includes(option) ? on.filter((o) => o !== option) : [...on, option])}>
-                  {option}
+                  {optionName(field, option, values)}
                 </button>
               ))}
             </span>
@@ -361,7 +363,7 @@ function FieldRow({ field, value, values, worked, changed, bad, autoFocus, today
         <button type="button" className={classes} onClick={onPick}>
           {label}
           <span className="val">
-            {isEmpty(value) ? <span className="none">{hint}</span> : <ShownValue field={field} value={value} today={today} />}
+            {isEmpty(value) ? <span className="none">{hint}</span> : <ShownValue field={field} value={value} today={today} values={values} />}
             <Icon name="chevron" />
           </span>
         </button>
@@ -474,7 +476,7 @@ function FieldRows({ schema, fields, values, rollups, original, problems, firstF
 }
 
 /** A select's choices in a sheet, each as its chip, the one picked ticked; one is picked and the sheet closes. Several choices have the labels' sheet. */
-function ChoiceSheet({ field, value, about, onChange, onClose }: { field: Field; value: FieldValue; about: string; onChange: (value: FieldValue) => void; onClose: () => void }) {
+function ChoiceSheet({ field, value, about, named = (option) => option, onChange, onClose }: { field: Field; value: FieldValue; about: string; named?: (option: string) => string; onChange: (value: FieldValue) => void; onClose: () => void }) {
   const picked = typeof value === 'string' && value ? value : null;
   // A value the choices do not have, as another tool wrote it, stays there to be taken off.
   const options = [...(field.options ?? []), ...(picked && !field.options?.includes(picked) ? [picked] : [])];
@@ -495,7 +497,7 @@ function ChoiceSheet({ field, value, about, onChange, onClose }: { field: Field;
             {options.map((option) => (
               <button key={option} type="button" className="mb-fr pick" onClick={() => pick(option)}>
                 <span className="in">
-                  <Chip text={option} color={optionColor(field, option)} />
+                  <Chip text={named(option)} color={optionColor(field, option)} />
                 </span>
                 <Tick on={picked === option} />
               </button>
@@ -656,7 +658,7 @@ function FieldPicker({ field, value, about, today, ctx, onChange, onOpen, onClos
       />
     );
   }
-  if (field.type === 'select') return <ChoiceSheet field={field} value={value} about={about} onChange={onChange} onClose={onClose} />;
+  if (field.type === 'select') return <ChoiceSheet field={field.choicesBy ? { ...field, options: offeredOptions(field, ctx.values) } : field} named={(option) => optionName(field, option, ctx.values)} value={value} about={about} onChange={onChange} onClose={onClose} />;
   if (field.type === 'link') return <LinkSheet field={field} value={value} records={field.collection ? choicesOf(field, ctx.records(field.collection) ?? [], ctx.values) : null} onChange={onChange} onOpen={onOpen} onClose={onClose} />;
   if (field.type === 'date' && field.time) return <DateTimeSheet label={field.label} title={about} value={typeof value === 'string' && value ? value : null} today={today} onChange={onChange} onClose={onClose} />;
   if (field.type === 'date') {
@@ -915,6 +917,8 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
               <div className="mb-rbuttons" role="group" aria-label={t('run.buttons')}>
                 {buttons.map((button) => {
                   const state = actionState(collection.rules ?? '', button, computer, dir, { ...record, values: draft.values });
+                  // One that cannot run and says no why is not this record's: a book's Update on an anime.
+                  if (!state.on && !state.hint) return null;
                   return (
                     <button
                       key={button.name}
@@ -1349,6 +1353,8 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
   );
   const title = t('collection.newOne', { singular: singularOf(schema) });
   const typedName = nameField(schema);
+  // A form of a few fields (layout.new) asks its name first too: the window's title is where a computer types it.
+  const rows = typedName && !hiddenOnForm(schema).has(typedName.key) && !fields.some((f) => f.key === typedName.key) ? [typedName, ...fields] : fields;
   // A field an onChange watches, a workout's program: what it adds comes into the form at once,
   // in the place of what it added before, and the fields it sets are set (design/gym.md 4.1).
   const watched = useMemo(() => changesOf(collection.rules), [collection.rules]);
@@ -1403,15 +1409,15 @@ export function PhoneNewRecord({ collection, values, today, actions, onClose }: 
           </button>
         </div>
         <div className="mb-form">
-          {fields.length > 0 && (
+          {rows.length > 0 && (
             <FieldRows
               schema={schema}
-              fields={fields}
+              fields={rows}
               values={draft.values}
               rollups={computer.draft(dir, { id: newId, name: '', path: '' }, draft.values)}
               original={null}
               problems={new Set(checked.map((p) => p.field))}
-              firstFocus={fields.find((f) => f.type !== 'formula' && f.type !== 'checkbox')?.key}
+              firstFocus={rows.find((f) => f.type !== 'formula' && f.type !== 'checkbox')?.key}
               today={today}
               ctx={ctx}
               onChange={setValue}
@@ -1618,9 +1624,13 @@ function LineSheet({ source, block, dir, values, known, today, actions, onDone, 
  * three of the fields the view shows, on the right its number or its day. Grouped, each group has
  * its head with how many and the number added up. A view held opens its menu.
  */
-export function PhoneCollectionList({ name, count, schema, today, fields, records, shown, groups, groupField, closed, filtered, problems, query, views, view, onToggle, onQuery, onPickView, onViewMenu, onViewSheet, onOpen, onAdd, onFields, lines, strip, side, body }: {
+export function PhoneCollectionList({ name, count, schema, today, fields, records, shown, groups, groupField, closed, filtered, problems, query, views, view, own, onToggle, onQuery, onPickView, onViewMenu, onViewSheet, onOpen, onAdd, onFields, lines, strip, button, side, body }: {
   /** On each row's right, in place of a value: a habit's last days, a box each (design/more-apps.md 4.9). */
   strip?: (record: Entry) => ReactNode;
+  /** On each row's right, its view's button where the record can have it pressed: +1 (design/more-apps.md 4.8). */
+  button?: (record: Entry) => ReactNode;
+  /** An app's screen that is its view: no chips of the others (design/more-apps.md 4.8). */
+  own?: boolean;
   /** Beside the name: a calendar's Day and Month. */
   side?: ReactNode;
   /** In place of the list: a calendar. */
@@ -1671,22 +1681,35 @@ export function PhoneCollectionList({ name, count, schema, today, fields, record
     const value = (field: Field) => fieldValueOf(record, field, schema, today);
     const at = right ? value(right) : null;
     const rest = sub.filter((f) => f !== right && !isEmpty(value(f)) && (f.type !== 'checkbox' || value(f) === true)).slice(0, 3);
+    // A collection that says what its rows are, "E6 / 12 · New episode today", says that under the name, its picture beside it.
+    // The view's progress as its bar says it, then what its texts say; else what the collection says of each row.
+    const told = schema.line
+      ? [...sub.filter((f) => f.format?.bar && f.format.caption).map((f) => valueText(record.values[f.format!.caption!] ?? null)), ...sub.filter((f) => !f.format && f.key !== schema.line!.sub && typeof value(f) === 'string').map((f) => valueText(value(f)))].filter(Boolean)
+      : null;
+    const said = told && (told.length > 0 ? told : [valueText(record.values[schema.line!.sub] ?? null)].filter(Boolean));
+    const cover = schema.line?.cover ? valueText(record.values[schema.line.cover] ?? null) : '';
+    const pressed = button?.(record);
     const main = (
       <button key={`${group}\u0000${record.id}`} type="button" className="mb-cr" onClick={() => onOpen(record)}>
+        {/^https?:\/\//.test(cover) && <img className="mb-cover" src={cover} alt="" loading="lazy" />}
         <span className="tx">
           <b>
             {recordTitle(record)}
             {problems.has(record.id) && <i className="flag" aria-label={t('collection.problems', { problems: '' })} />}
           </b>
-          {rest.length > 0 && (
-            <small>
-              {rest.map((f) => (
-                <ListValue key={f.key} field={f} value={value(f)} today={today} values={record.values} />
-              ))}
-            </small>
+          {said ? (
+            said.length > 0 && <small>{said.join(' · ')}</small>
+          ) : (
+            rest.length > 0 && (
+              <small>
+                {rest.map((f) => (
+                  <ListValue key={f.key} field={f} value={value(f)} today={today} values={record.values} />
+                ))}
+              </small>
+            )
           )}
         </span>
-        {strip ? (
+        {pressed ? null : strip ? (
           <span className="rt dstrip">{strip(record)}</span>
         ) : (
           right &&
@@ -1694,6 +1717,15 @@ export function PhoneCollectionList({ name, count, schema, today, fields, record
         )}
       </button>
     );
+    // Its button beside the row, not in it: a button holds no other.
+    if (pressed) {
+      return (
+        <div key={`${group}\u0000${record.id}`} className="mb-crb">
+          {main}
+          {pressed}
+        </div>
+      );
+    }
     if (!lines) return main;
     const on = openLines.has(record.id);
     return (
@@ -1712,7 +1744,7 @@ export function PhoneCollectionList({ name, count, schema, today, fields, record
     const sums = number ? columnSums(group.records, schema, number.key, today) : null;
     return (
       <button key={`g\u0000${group.key}`} type="button" className={closed.has(group.key) ? 'mb-sec mb-gsec closed' : 'mb-sec mb-gsec'} aria-expanded={!closed.has(group.key)} onClick={() => onToggle(group.key)}>
-        <span>{group.key === '' ? t('collection.noValue', { field: groupField?.label ?? '' }) : group.label}</span>
+        <span>{group.key === '' ? t('collection.noValue', { field: groupField?.label ?? '' }) : groupField ? optionName(groupField, group.key, group.records[0]?.values) : group.label}</span>
         <small>{group.records.length}</small>
         {sums !== null && <span className="sum">{sums.map((s) => formatNumber(s.value, number?.format, s.currency)).join(' · ')}</span>}
       </button>
@@ -1743,10 +1775,12 @@ export function PhoneCollectionList({ name, count, schema, today, fields, record
       {!noFields && (
         <div className="mb-views">
           <div className="ch" role="tablist">
-            <button type="button" role="tab" aria-selected={!view} className={view ? 'mb-view' : 'mb-view on'} onClick={() => onPickView(null)}>
-              {t('collection.all')}
-            </button>
-            {views.filter((v) => !v.hidden || view?.id === v.id).map((v) => (
+            {!own && (
+              <button type="button" role="tab" aria-selected={!view} className={view ? 'mb-view' : 'mb-view on'} onClick={() => onPickView(null)}>
+                {t('collection.all')}
+              </button>
+            )}
+            {views.filter((v) => !own && (!v.hidden || view?.id === v.id)).map((v) => (
               <button key={v.id} type="button" role="tab" aria-selected={view?.id === v.id} className={view?.id === v.id ? 'mb-view on' : 'mb-view'} onClick={() => onPickView(v.id)} {...hold(() => onViewMenu(v))}>
                 {v.kind === 'calendar' && <Icon name="calendar" />}
                 {v.name}

@@ -78,6 +78,8 @@ export interface Plan {
   changes: Change[];
   /** What runs on save that stopped: left out, the rest written. */
   stops?: SaveStop[];
+  /** What the button says it did, its `done`: "Dandadan · episode 7 watched". */
+  said?: string;
 }
 
 /** A button that stopped: on which line of the rules, and why. */
@@ -242,7 +244,18 @@ export function planAction(rules: string, name: string, dir: string, recordId: s
   if (missing) throw new RuleStop(t('run.needed', { label: missing.label }), lineAt(rules, missing.at));
   execute({ src: rules, body: action.body, dir, id: recordId, ...(input && { input }) }, o, space, action.when && { node: action.when, name, hint: action.hint, at: action.at });
   const stops = saveChanged(o, space);
-  return { action: name, dir, id: recordId, confirm: action.confirm, changes: o.changes, ...(stops.length > 0 && { stops }) };
+  // What it says it did reads the record as the button and its saves left it.
+  let said = '';
+  if (action.done) {
+    execute({ src: rules, body: [], dir, id: recordId, peek: (value) => {
+      try {
+        said = textOf(value(action.done!)).trim();
+      } catch {
+        said = '';
+      }
+    } }, o, space);
+  }
+  return { action: name, dir, id: recordId, confirm: action.confirm, changes: o.changes, ...(stops.length > 0 && { stops }), ...(said && { said }) };
 }
 
 /** What a button was given for what it asks, as the language reads it: each answer as its question's kind of field holds it. */
@@ -840,6 +853,7 @@ export function planWords(plan: Plan, space: Words): { ask: AskLine[]; done: str
     done.push(...group.done);
   }
   done.push(...main.fields.done);
+  if (plan.said) return { ask, done: plan.said };
   return { ask, done: done.length > 0 ? `${plan.action}: ${done.join(', ')}` : t('run.nothingDone', { name: plan.action }) };
 }
 

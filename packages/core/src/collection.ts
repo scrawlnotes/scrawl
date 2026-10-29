@@ -111,6 +111,13 @@ export interface Field {
   steps?: { end: string[]; no: string[] };
   /** Its label as another field's choice is: a booking's Starts, Departs for a flight and Check in for a hotel (design/more-apps.md 4.5). */
   labelBy?: { field: string; labels: { [option: string]: string } };
+  /**
+   * A choice's options as another field's choice is (design/more-apps.md 4.8): by its value, each
+   * option offered and what it is called then; one not there is not offered. A work's status is
+   * Watching for an anime and Reading for a book, a film only to watch or watched. A value with no
+   * entry offers them all as they are.
+   */
+  choicesBy?: { field: string; by: { [value: string]: { [option: string]: string } } };
   /** Shown before this field on its line, the two as one: an expense's currency before its amount. */
   beside?: string;
   /** A rate said as a sentence, "1 EUR = 37,10 ₺": the field of the currency it is of, and the money it is in. */
@@ -252,6 +259,32 @@ export function stepCounts(field: Field, records: readonly { values: Record['val
   return (field.options ?? []).filter((o) => !end.has(o)).map((o) => [o, records.filter((r) => r.values[field.key] === o).length]);
 }
 
+/** What a choice's options are called and which are offered as the record is (`choicesBy`): an anime's Watching; none for a value with no entry. */
+const choicesFor = (field: Field, values: Record['values'] | undefined) => {
+  const by = field.choicesBy && values ? values[field.choicesBy.field] : null;
+  return typeof by === 'string' ? field.choicesBy!.by[by] : undefined;
+};
+
+/** The options a choice offers as the record is: an anime's five, a film's two (`choicesBy`). */
+export function offeredOptions(field: Field, values: Record['values'] | undefined): string[] {
+  const names = choicesFor(field, values);
+  return (field.options ?? []).filter((o) => !names || o in names);
+}
+
+/** What an option is called as the record is: Watching for an anime's In progress (`choicesBy`). */
+export const optionName = (field: Field, option: string, values: Record['values'] | undefined): string => choicesFor(field, values)?.[option] ?? option;
+
+/** The values a record made in a view starts with, what its conditions ask of one choice: Type Anime on the Anime screen (design/more-apps.md 4.8). */
+export function viewValues(view: View | undefined, schema: Schema): Record['values'] {
+  const values: Record['values'] = {};
+  for (const c of view?.conditions ?? []) {
+    const field = schema.fields.find((f) => f.key === c.field);
+    const one = Array.isArray(c.value) && c.value.length === 1 ? c.value[0]! : null;
+    if (c.op === 'is' && one !== null && field && (field.type === 'select' || field.type === 'multi-select') && (field.options ?? []).includes(one)) values[field.key] = field.type === 'select' ? one : [one];
+  }
+  return values;
+}
+
 /** A field's label as the record is: a booking's Starts, Departs for a flight (`labelBy`). */
 export function fieldLabel(field: Field, values: Record['values']): string {
   const by = field.labelBy ? values[field.labelBy.field] : null;
@@ -385,6 +418,10 @@ export interface View {
   hidden?: boolean;
   /** How many of its records are at each step of this field, over the table: "Saved 6 · Applied 7". */
   counts?: string;
+  /** The groups that start closed, by their value, their count shown: what is finished and dropped (design/more-apps.md 4.8). */
+  closed?: string[];
+  /** The button of its rules each row has, where the record can have it pressed: +1 (design/more-apps.md 4.8). */
+  button?: string;
 }
 
 /**
@@ -427,6 +464,8 @@ export interface Schema {
   home?: HomeTile;
   /** A record's window opens with its name as its title and the line of this field under it, "12–16 Nov · 5 days · in 14 days" (design/more-apps.md 4.5). */
   head?: { sub: string; steps?: string };
+  /** A field said small under each record's name in the table and the list, "TV · 2024 · Netflix"; and one holding its picture's address, beside it (design/more-apps.md 4.8). */
+  line?: { sub: string; cover?: string };
   /** The fields; their order is the order of the table's columns. */
   fields: Field[];
   /** The record screen; unset means one column of every field, then the body. */
@@ -724,6 +763,14 @@ function readField(raw: unknown): Field | null {
   }
   if (type === 'name' && raw.optional === true) field.optional = true;
   if (typeof raw.help === 'string' && raw.help.trim()) field.help = raw.help.trim();
+  if (isRecord(raw.choicesBy) && typeof raw.choicesBy.field === 'string' && isRecord(raw.choicesBy.by)) {
+    const by = Object.fromEntries(
+      Object.entries(raw.choicesBy.by)
+        .filter((e): e is [string, { [key: string]: unknown }] => isRecord(e[1]))
+        .map(([value, names]) => [value, Object.fromEntries(Object.entries(names).filter((n): n is [string, string] => typeof n[1] === 'string' && !!n[1].trim()))]),
+    );
+    if (Object.keys(by).length > 0) field.choicesBy = { field: cleanFieldKey(raw.choicesBy.field), by };
+  }
   if (isRecord(raw.labelBy) && typeof raw.labelBy.field === 'string' && isRecord(raw.labelBy.labels)) {
     const labels = Object.fromEntries(Object.entries(raw.labelBy.labels).filter((e): e is [string, string] => typeof e[1] === 'string' && !!e[1].trim()));
     if (Object.keys(labels).length > 0) field.labelBy = { field: cleanFieldKey(raw.labelBy.field), labels };
@@ -919,6 +966,10 @@ export function parseSchema(text: string): Schema {
   const stepsKey = isRecord(data.head) && typeof data.head.steps === 'string' ? cleanFieldKey(data.head.steps) : '';
   const steps = stepsKey ? fields.find((f) => f.key === stepsKey && f.steps) : undefined;
   if (head && fields.some((f) => f.key === head)) schema.head = { sub: head, ...(steps && { steps: steps.key }) };
+  // What its rows say under their names, and their pictures (design/more-apps.md 4.8).
+  const has = (key: unknown) => (typeof key === 'string' && fields.some((f) => f.key === cleanFieldKey(key)) ? cleanFieldKey(key) : '');
+  const line = isRecord(data.line) ? { sub: has(data.line.sub), cover: has(data.line.cover) } : null;
+  if (line?.sub) schema.line = { sub: line.sub, ...(line.cover && { cover: line.cover }) };
   return schema;
 }
 
@@ -955,6 +1006,9 @@ function readViews(raw: unknown, fields: Field[]): View[] {
     if (changed.length > 0) view.edit = changed;
     if (item.hidden === true) view.hidden = true;
     if (typeof item.counts === 'string' && item.counts.trim()) view.counts = cleanFieldKey(item.counts);
+    const closed = strings(item.closed).filter((s) => s.trim());
+    if (closed.length > 0) view.closed = closed;
+    if (typeof item.button === 'string' && item.button.trim()) view.button = item.button.trim();
     views.push(view);
   }
   return views;
@@ -2038,7 +2092,13 @@ export function sortRecords(records: Record[], schema: Schema, sort: RecordSort,
   const type = field?.type ?? 'text';
   const valueOf = (r: Record): FieldValue | undefined => (field ? fieldValueOf(r, field, schema, today) : r.values[sort.key]);
   // A worked-out field sorts by what it gives: numbers as numbers, the rest as text.
+  // A choice sorts in the order of its options, a work going on before one planned; one not among them after.
+  const rank = (v: FieldValue) => {
+    const i = field?.options?.indexOf(valueText(v)) ?? -1;
+    return i < 0 ? Number.MAX_SAFE_INTEGER : i;
+  };
   const compare = (a: FieldValue, b: FieldValue): number => {
+    if (type === 'select' && field?.options?.length) return rank(a) - rank(b) || valueText(a).localeCompare(valueText(b));
     if ((typeof a === 'number' && typeof b === 'number') || (typeof a === 'boolean' && typeof b === 'boolean') || type === 'number' || type === 'checkbox') return Number(a) - Number(b);
     return valueText(a).localeCompare(valueText(b), undefined, { numeric: true, sensitivity: 'base' });
   };

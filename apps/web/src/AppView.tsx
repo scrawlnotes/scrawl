@@ -12,6 +12,9 @@ import {
   isEmpty,
   type DueRecord,
   matchesConditions,
+  offeredOptions,
+  optionName,
+  viewValues,
   recordProblems,
   type Field,
   type FieldValue,
@@ -82,8 +85,21 @@ function glanceOf(screen: AppScreen, collections: Record<string, Collection>, bo
   const shown = view ? rolled.records.filter((r) => matchesConditions(r, schema, view.conditions, today)) : rolled.records;
   const sorted = view?.sort ? sortRecords(shown, schema, view.sort, today) : shown;
   const check = collection.records.filter((r) => recordProblems(r, schema).length + computer.checks(collection.dir, r).length > 0).length;
+  // A view grouped by a choice, what is over closed, counts what is going on: "3 watching" (design/more-apps.md 4.8).
+  // The first status the kind has: what a film is to watch, as it is never going on.
+  const lead = view?.closed && view.group ? schema.fields.find((f) => f.key === view.group && f.type === 'select' && f.options?.length) : undefined;
+  const kind = shown[0]?.values ?? viewValues(view, schema);
+  const first = lead ? offeredOptions(lead, kind)[0] : undefined;
+  const going = lead && first ? shown.filter((r) => r.values[lead.key] === first) : [];
   const glance: Glance = {
-    count: { text: view && view.conditions.length > 0 ? t('app.inView', { count: shown.length, view: view.name.toLowerCase() }) : String(shown.length), check },
+    count: {
+      text: lead && first
+        ? t('app.inView', { count: going.length, view: optionName(lead, first, kind).toLowerCase() })
+        : view && view.conditions.length > 0
+          ? t('app.inView', { count: shown.length, view: view.name.toLowerCase() })
+          : String(shown.length),
+      check,
+    },
     first: sorted.slice(0, 4).map(recordTitle),
   };
   // A box that says values (design/more-apps.md 4.1): a balance beside each account and their total, a month's sums.

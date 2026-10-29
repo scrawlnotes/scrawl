@@ -12920,6 +12920,56 @@ button.st-li:hover,
   font-size: 12.5px;
 }
 
+/* +1, the one button a row of a work has (design/more-apps.md 4.8): in the accent's outline. */
+.rbtn.one {
+  border-color: var(--sl-accent);
+  background: none;
+  color: var(--sl-accent);
+  font-weight: 600;
+}
+
+/* The view's button in its column, at the end of each row; the cell is as wide as it. */
+.cview td.tbtn,
+.cview th.tbtn {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.cview td.tbtn .rbtn {
+  padding: 1px 9px;
+  font-size: 11.5px;
+}
+
+/* A row's name with what it says under it and its picture before it: a book's author and pages. */
+.cline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cline img {
+  flex: none;
+  width: 28px;
+  height: 40px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.cline > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cline small {
+  overflow: hidden;
+  color: var(--sl-faint);
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .rbtn svg {
   width: 13px;
   height: 13px;

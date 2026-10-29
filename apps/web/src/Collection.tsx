@@ -108,6 +108,9 @@ import {
   unplacedFields,
   valueText,
   timeOf,
+  offeredOptions,
+  optionName,
+  viewValues,
 } from '@scrawlnotes/core';
 import type { ScrawlEditor } from '@scrawlnotes/editor';
 import { locale, t } from '@scrawlnotes/i18n';
@@ -538,14 +541,22 @@ export function Cell({ field, value, ctx, values }: {
   /** The record's values, for a number whose currency is one of its fields. */
   values?: Record['values'];
 }) {
+  // A bar with nothing to measure still says what it says: an anime of no known length at "E1088".
+  if (isEmpty(value) && field.format?.bar && field.format.caption && !isEmpty(values?.[field.format.caption] ?? null)) {
+    return (
+      <span className="pbar">
+        <small>{valueText(values![field.format.caption]!)}</small>
+      </span>
+    );
+  }
   if (isEmpty(value)) return <span className="empty">–</span>;
   if (field.type === 'select' && field.steps) return <StepsDots field={field} value={value ?? null} />;
-  if (field.type === 'select') return <Chip text={valueText(value)} color={optionColor(field, valueText(value))} />;
+  if (field.type === 'select') return <Chip text={optionName(field, valueText(value), values)} color={optionColor(field, valueText(value))} />;
   if (field.type === 'multi-select') {
     return (
       <span className="lbls">
         {(value as string[]).map((item) => (
-          <Chip key={item} text={item} color={optionColor(field, item)} />
+          <Chip key={item} text={optionName(field, item, values)} color={optionColor(field, item)} />
         ))}
       </span>
     );
@@ -655,7 +666,7 @@ function Flagged({ problem, field, record, shown, value, ctx }: {
 // ---------- choices ----------
 
 /** One choice of a select: the box shows it as a chip; a click opens the list of them. */
-function SelectField({ field, value, onChange }: { field: Field; value: string | null; onChange: (value: string | null) => void }) {
+function SelectField({ field, value, named, onChange }: { field: Field; value: string | null; named?: (option: string) => string; onChange: (value: string | null) => void }) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLButtonElement>(null);
   const keys = useRef<((event: KeyboardEvent) => void) | null>(null);
@@ -664,7 +675,7 @@ function SelectField({ field, value, onChange }: { field: Field; value: string |
     ...choiceOptions(field, field.options ?? []),
     // A value the options do not have, as another tool or an older schema wrote it, stays choosable.
     ...(value && !field.options?.includes(value) ? choiceOptions(field, [value]) : []),
-  ];
+  ].map((o) => (named && typeof o.value === 'string' ? { ...o, label: named(o.value) } : o));
   return (
     <>
       <button
@@ -678,7 +689,7 @@ function SelectField({ field, value, onChange }: { field: Field; value: string |
         onClick={() => setOpen(!open)}
         onKeyDown={boxKeys(open, setOpen, keys)}
       >
-        <span className="nm">{value ? <Chip text={value} color={optionColor(field, value)} /> : <span className="none">{t('collection.none')}</span>}</span>
+        <span className="nm">{value ? <Chip text={named ? named(value) : value} color={optionColor(field, value)} /> : <span className="none">{t('collection.none')}</span>}</span>
         <span className="dd" aria-hidden="true">
           ▾
         </span>
@@ -963,6 +974,9 @@ export function FieldInput({ field, value, autoFocus, ctx, currency, onChange, o
   onEnter?: () => void;
 }) {
   const id = `field-${field.key}`;
+  // A choice offers what the record's other choice lets it, by its own names: an anime's Watching (choicesBy).
+  const offered = field.choicesBy ? { ...field, options: offeredOptions(field, ctx.values) } : field;
+  const named = (option: string) => optionName(field, option, ctx.values);
   switch (field.type) {
     case 'link':
       if (field.chips) return <LinkChips field={field} value={isLink(value) || Array.isArray(value) ? (value as Link | Link[]) : null} ctx={ctx} onChange={onChange} />;
@@ -973,30 +987,30 @@ export function FieldInput({ field, value, autoFocus, ctx, currency, onChange, o
       if (field.chips) {
         return (
           <span className="segs" role="radiogroup" aria-label={field.label}>
-            {(field.options ?? []).map((option) => (
+            {(offered.options ?? []).map((option) => (
               <button key={option} type="button" role="radio" aria-checked={value === option} className={value === option ? 'on' : undefined} onClick={() => onChange(option)}>
-                {option}
+                {named(option)}
               </button>
             ))}
           </span>
         );
       }
-      return <SelectField field={field} value={typeof value === 'string' && value ? value : null} onChange={onChange} />;
+      return <SelectField field={offered} value={typeof value === 'string' && value ? value : null} named={named} onChange={onChange} />;
     case 'multi-select':
       // A few chosen side by side, each click taking it or leaving it: a trip's kinds (design/more-apps.md 4.5).
       if (field.chips) {
         const on = Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
         return (
           <span className="segs many" role="group" aria-label={field.label}>
-            {(field.options ?? []).map((option) => (
+            {(offered.options ?? []).map((option) => (
               <button key={option} type="button" aria-pressed={on.includes(option)} className={on.includes(option) ? 'on' : undefined} onClick={() => onChange(on.includes(option) ? on.filter((o) => o !== option) : [...on, option])}>
-                {option}
+                {named(option)}
               </button>
             ))}
           </span>
         );
       }
-      return <ChoicesField id={id} field={field} value={Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []} used={ctx.used?.(field) ?? []} onChange={onChange} />;
+      return <ChoicesField id={id} field={offered} value={Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : []} used={ctx.used?.(field) ?? []} onChange={onChange} />;
     case 'checkbox':
       return (
         <label className="check">
@@ -2255,6 +2269,8 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
         <div key={`actions-${index}`} className="rm-buttons" role="group" aria-label={t('run.buttons')}>
           {buttons.map((button) => {
             const state = actionState(collection.rules ?? '', button, computer, dir, now);
+            // One that cannot run and says no why is not this record's: a book's Update on an anime.
+            if (!state.on && !state.hint) return null;
             return (
               <span key={button.name} className="rbtn-tip">
                 <button type="button" className={state.on ? 'rbtn' : 'rbtn off'} aria-disabled={!state.on} onClick={() => state.on && void press(button.name)}>
@@ -2665,10 +2681,12 @@ const CHANGE = '\u0001';
 /** On a phone, a menu opens from the bottom wherever it was asked for. */
 const NO_POINTER = { preventDefault: () => undefined, clientX: 0, clientY: 0 } as unknown as MouseEvent;
 
-export function CollectionView({ collection, embedded, today, look, onLook, actions, onStatus, fieldsAsked }: {
+export function CollectionView({ collection, embedded, screen, today, look, onLook, actions, onStatus, fieldsAsked }: {
   collection: Collection;
   /** In an app's tab, whose menu says its name (design/app-home.md 5.3). */
   embedded?: boolean;
+  /** The app's screen it is: one that opens on a view keeps to it, with no tabs of the others, by its own name (Reading's Anime). */
+  screen?: { name: string; view?: string };
   today: string;
   look: CollectionLook | undefined;
   onLook: (look: CollectionLook) => void;
@@ -2686,7 +2704,7 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
   const shownAs = useMemo(() => computer.shown(collection.dir), [computer, collection.dir]);
   const asShown = (field: Field) => shownAs.get(field.key) ?? field;
   const records = rolled.records;
-  const name = collectionName(dir);
+  const name = (screen?.view && screen.name) || collectionName(dir);
   const narrow = useNarrow();
   const [query, setQuery] = useState('');
   const [full, setFull] = useState(false);
@@ -2701,7 +2719,8 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
   useEffect(() => {
     if (fieldsAsked) setDesigning(true);
   }, [fieldsAsked]);
-  const [closed, setClosed] = useState<ReadonlySet<string>>(() => new Set());
+  // The groups closed by hand, for the view they were closed in; another view starts as it says.
+  const [toggled, setToggled] = useState<{ view: string | null; closed: ReadonlySet<string> } | null>(null);
   // A record's lines, an order's, open under its row from the ▸ at its start, typed in where they
   // are (design/app-home.md 4.2); which are open is kept on this device. A line opens in its window.
   const lineBlocks = useMemo(() => linesBlocks(schema, (path) => actions.collection(path) ?? undefined), [schema, actions]);
@@ -2716,7 +2735,11 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
   const [adHoc, setAdHoc] = useState<Condition[]>([]);
   const views = schema.views ?? [];
   // Until a view is chosen on this device, the one the schema opens on.
-  const view = views.find((v) => v.id === (look?.view === undefined ? schema.defaultView : look.view)) ?? null;
+  const view = views.find((v) => v.id === (screen?.view ?? (look?.view === undefined ? schema.defaultView : look.view))) ?? null;
+  const ownView = !!screen?.view && view?.id === screen.view;
+  const closed = toggled && toggled.view === (view?.id ?? null) ? toggled.closed : new Set(view?.closed ?? []);
+  // A record made here is what the view asks of it: an anime on the Anime screen (design/more-apps.md 4.8).
+  const fresh = () => viewValues(view ?? undefined, schema);
   const calendarView = view?.kind === 'calendar' ? view : null;
   const nav = useCalendarNav(`${dir}#${view?.id ?? ''}`, calendarView ? firstRange(schema, calendarView) : 'week', today);
   const fieldsByKey = useMemo(() => new Map(schema.fields.map((f) => [f.key, f])), [schema]);
@@ -2889,6 +2912,21 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
   // A row's menu, from its ··· at its end on the row pointed at, or the right click: Open, the
   // buttons of the rules, faint with why when they may not run now, and Delete.
   const buttons = useMemo(() => actionsOf(collection.rules), [collection.rules]);
+  // The view's button on each row that can have it pressed now: +1 on an anime going on (design/more-apps.md 4.8).
+  const viewButton = view?.button ? (buttons.find((b) => b.name === view.button) ?? null) : null;
+  const rowButton = (record: Record) =>
+    viewButton &&
+    actionState(collection.rules ?? '', viewButton, computer, dir, record).on && (
+      <button type="button" className={viewButton.name === '+1' ? 'rbtn one' : 'rbtn'} onClick={(event) => (event.stopPropagation(), actions.pressButton(dir, record.id, viewButton.name))}>
+        {viewButton.name}
+      </button>
+    );
+  // What a row says under its name, and its picture beside it (design/more-apps.md 4.8).
+  const lineOf = (record: Record) => {
+    if (!schema.line) return null;
+    const cover = schema.line.cover ? valueText(record.values[schema.line.cover] ?? null) : '';
+    return { sub: valueText(record.values[schema.line.sub] ?? null), cover: /^https?:\/\//.test(cover) ? cover : '' };
+  };
   const rowMenu = (event: MouseEvent, record: Record) =>
     actions.menu(
       event,
@@ -2954,7 +2992,7 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
     );
   // A record with several choices is in several groups: its row's key tells them apart. A click
   // on the row opens its record; ▸ at its start opens its lines under it.
-  const span = fields.length + 1 + (stripView ? 1 : 0);
+  const span = fields.length + 1 + (stripView ? 1 : 0) + (viewButton ? 1 : 0);
   const row = (record: Record, group = '') => (
     <tr
       key={`${group}\u0000${record.id}`}
@@ -2980,11 +3018,22 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
           )}
           {i === 0 && flag(record)}
           <div className="tc" style={boxOf(field)} title={field.key === TITLE.key ? undefined : cutText(asShown(field), fieldValueOf(record, field, schema, today))}>
-            {cellOf(record, field)}
+            {i === 0 && schema.line ? (
+              <span className="cline">
+                {lineOf(record)!.cover && <img src={lineOf(record)!.cover} alt="" loading="lazy" />}
+                <span>
+                  {cellOf(record, field)}
+                  {lineOf(record)!.sub && <small>{lineOf(record)!.sub}</small>}
+                </span>
+              </span>
+            ) : (
+              cellOf(record, field)
+            )}
           </div>
         </td>,
         i === 0 && stripCell(record),
       ])}
+      {viewButton && <td className="tbtn">{rowButton(record)}</td>}
       <td className="tend">
         <button type="button" className="rmore" title={t('collection.menu')} aria-label={t('collection.menu')} onClick={(event) => (event.stopPropagation(), rowMenu(event, record))}>
           ···
@@ -3026,17 +3075,17 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
         </td>,
         i === 0 && stripView && <td key="days-strip" className="dstrip" />,
       ])}
+      {viewButton && <td className="tbtn" />}
       <td className="tend" />
     </tr>
   );
   // A long plain table shows its first rows and a line for the rest; groups show all of theirs.
   const rows = groups || full || shown.length <= MANY_ROWS ? shown : shown.slice(0, SHOWN_FIRST);
-  const toggle = (key: string) =>
-    setClosed((now) => {
-      const next = new Set(now);
-      if (!next.delete(key)) next.add(key);
-      return next;
-    });
+  const toggle = (key: string) => {
+    const next = new Set(closed);
+    if (!next.delete(key)) next.add(key);
+    setToggled({ view: view?.id ?? null, closed: next });
+  };
 
   const phoneRow = (record: Record, group = '') => (
     <button key={`${group}\u0000${record.id}`} type="button" className="prow" onClick={() => openRecord(record.id)}>
@@ -3060,7 +3109,7 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
       {group.key === '' ? (
         <span>{t('collection.noValue', { field: groupField?.label ?? '' })}</span>
       ) : groupField?.type === 'select' || groupField?.type === 'multi-select' ? (
-        <Chip text={group.label} color={optionColor(groupField, group.key)} />
+        <Chip text={optionName(groupField, group.key, group.records[0]?.values)} color={optionColor(groupField, group.key)} />
       ) : (
         <span>{group.label}</span>
       )}
@@ -3081,7 +3130,7 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
   const newRow = !noFields && (
     <tr className="add">
       <td colSpan={span}>
-        <button type="button" className="cadd" onClick={() => setOpen({ kind: 'new' })}>
+        <button type="button" className="cadd" onClick={() => setOpen({ kind: 'new', values: fresh() })}>
           {t('collection.addRow')}
         </button>
       </td>
@@ -3100,6 +3149,7 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
         <thead>
           <tr>
             {fields.map((field, i) => [head(field, i), i === 0 && stripHead])}
+            {viewButton && <th className="tbtn" />}
             <th className="tend" />
           </tr>
         </thead>
@@ -3226,7 +3276,9 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
           count={
             calendarView && nav.range !== 'month'
               ? new Date(`${nav.focus}T12:00:00`).toLocaleDateString(locale(), { weekday: 'long', month: 'short', day: 'numeric' })
-              : applied.length > 0 || query
+              : ownView && !query
+                ? t('count.records', { count: shown.length })
+                : applied.length > 0 || query
                 ? t('phone.matchOf', { count: shown.length, total: records.length })
                 : t('count.records', { count: records.length })
           }
@@ -3243,6 +3295,8 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
           query={query}
           views={views}
           view={view}
+          own={ownView}
+          {...(viewButton && { button: rowButton })}
           onToggle={toggle}
           onQuery={setQuery}
           onPickView={pickView}
@@ -3273,7 +3327,7 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
           }
           onAdd={() => {
             // On a calendar, a new record starts on the day shown.
-            const values = calendarView ? startingValues(schema, calendarView.calendar!, nav.focus, null) : undefined;
+            const values = calendarView ? startingValues(schema, calendarView.calendar!, nav.focus, null) : fresh();
             if (actions.create) actions.create(dir, values);
             else setOpen({ kind: 'new', values });
           }}
@@ -3346,7 +3400,7 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
     <section className="bv collection-view">
       <header className="th">
         {!embedded && <b>{name}</b>}
-        <span className="count">{t('count.records', { count: records.length })}</span>
+        <span className="count">{t('count.records', { count: ownView ? matching.length : records.length })}</span>
         <label className="search">
           <Icon name="search" />
           <input type="search" spellCheck={false} aria-label={t('collection.search')} placeholder={t('collection.search')} value={query} onChange={(event) => setQuery(event.target.value)} />
@@ -3354,12 +3408,13 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
         <button type="button" className="ghost" onClick={() => setDesigning(true)}>
           {t('collection.fields')}
         </button>
-        <button type="button" className="add" onClick={() => setOpen({ kind: 'new' })}>
+        <button type="button" className="add" onClick={() => setOpen({ kind: 'new', values: fresh() })}>
           {t('collection.addRecord')}
         </button>
       </header>
       <div className="cbar">
-        <span className="views" role="tablist">
+        {/* A screen that opens on a view is that view: no tabs of the others (Reading's Anime). */}
+        {!ownView && <span className="views" role="tablist">
           <button type="button" role="tab" aria-selected={!view} onClick={() => pickView(null)}>
             {t('collection.all')}
           </button>
@@ -3373,7 +3428,7 @@ export function CollectionView({ collection, embedded, today, look, onLook, acti
           <button type="button" className="add-view" title={t('calendar.addView')} aria-label={t('calendar.addView')} onClick={addView}>
             <Icon name="plus" />
           </button>
-        </span>
+        </span>}
         {/* With no fields there is nothing to filter, group or show as a column. */}
         <span className="tools" hidden={noFields}>
           {calendarView && <CalendarNav nav={nav} today={today} />}

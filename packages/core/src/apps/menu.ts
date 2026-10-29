@@ -3,7 +3,7 @@ import type { Collection, LinkedBlock, Schema } from '../collection';
 import { basename, join } from '../fs';
 import { PIECES } from './pieces';
 import { impliedWith, isTemplateId, readAnswers, TEMPLATES } from './questions';
-import type { Answers, AppFile, AppMenuFile, Chosen, TemplateId } from './types';
+import type { Answers, AppFile, AppMenuFile, AppTemplate, Chosen, TemplateId } from './types';
 
 // An app is shown as an app, not as its files (design/app-home.md): its tab has its modules, a
 // template each, and each module its menu, the main screens only. The menu is worked out from the
@@ -59,9 +59,9 @@ function templateModules(app: AppFile, pieces: readonly AppPiece[]): AppModule[]
   const chosen: Chosen = { has: (id) => all.has(id), answers: (id) => all.get(id) ?? {} };
   const screensOf = (id: TemplateId) => {
     const own = new Set(TEMPLATES[id].pieces(all.get(id)!, chosen));
-    return TEMPLATES[id].menu.flatMap((role): AppScreen[] => {
-      const piece = own.has(role) ? byRole.get(role) : undefined;
-      return piece ? [{ ...piece, name: pieceName(piece) }] : [];
+    return menuEntries(TEMPLATES[id], all.get(id)!).flatMap((entry): AppScreen[] => {
+      const piece = own.has(entry.role) ? byRole.get(entry.role) : undefined;
+      return piece ? [{ ...piece, name: entry.name ?? pieceName(piece), ...(entry.view && { view: entry.view }) }] : [];
     });
   };
   const modules = new Map<TemplateId, AppModule>();
@@ -73,6 +73,12 @@ function templateModules(app: AppFile, pieces: readonly AppPiece[]): AppModule[]
     module.screens.push(...screensOf(id).filter((s) => !shown.has(s.path)));
   }
   return [...modules.values()];
+}
+
+/** A template's menu with its answers, each screen its role, and the view it opens on with its name where it is one. */
+export function menuEntries(template: AppTemplate, answers: Answers): { role: string; view?: string; name?: string }[] {
+  const entries = typeof template.menu === 'function' ? template.menu(answers) : template.menu;
+  return entries.map((e) => (typeof e === 'string' ? { role: e } : e));
 }
 
 /** A screen as Edit menu shows it: hidden ones too, faint. */
@@ -109,6 +115,7 @@ export function menuEditOf(app: AppFile, folder: string, pieces: readonly AppPie
     return { modules: [{ key: 'module-0', name: '', screens: own }], home };
   }
   const byPath = new Map(pieces.map((p) => [p.path, p]));
+  // Hidden and placed by the screen, path and view: Reading's Books hidden, its Anime still shown.
   const hidden = new Set((app.menu.hidden ?? []).map((p) => join(folder, p)));
   const modules: MenuEdit['modules'] = app.menu.modules.map((m, i) => ({
     key: m.template ?? `module-${i}`,
@@ -116,17 +123,20 @@ export function menuEditOf(app: AppFile, folder: string, pieces: readonly AppPie
     ...(m.template && { template: m.template }),
     screens: m.screens.flatMap((s) => {
       const piece = byPath.get(join(folder, s.path));
-      return piece ? [{ ...piece, name: pieceName(piece), ...(s.view && { view: s.view }), hidden: hidden.has(piece.path) }] : [];
+      if (!piece) return [];
+      const screen = { ...piece, name: (s.view && s.name) || pieceName(piece), ...(s.view && { view: s.view }) };
+      return [{ ...screen, hidden: hidden.has(screenKey(screen)) }];
     }),
   }));
-  const placed = new Set(modules.flatMap((m) => m.screens.map((s) => s.path)));
+  // A template's screen is placed where the person has its piece, on whatever view; one of a template's views where they have that view.
+  const placed = new Set(modules.flatMap((m) => m.screens.flatMap((s) => [s.path, screenKey(s)])));
   for (const d of derived) {
-    const fresh = d.screens.filter((s) => !placed.has(s.path) && !hidden.has(s.path)).map(shown);
+    const fresh = d.screens.filter((s) => !placed.has(s.view ? screenKey(s) : s.path) && !hidden.has(screenKey(s))).map(shown);
     if (fresh.length === 0) continue;
     const into = modules.find((m) => m.template === d.template);
     if (into) into.screens.push(...fresh);
     else modules.push({ ...d, screens: fresh });
-    for (const s of fresh) placed.add(s.path);
+    for (const s of fresh) placed.add(s.path).add(screenKey(s));
   }
   return { modules, home };
 }
@@ -138,7 +148,7 @@ export function menuOf(app: AppFile, folder: string, pieces: readonly AppPiece[]
     .filter((m) => m.screens.length > 0);
   if (app.menu) return modules;
   // A template's module all of whose screens another before it has, Shared expenses' with Travel, is not one of its own.
-  return modules.filter((m, i) => !m.screens.every((s) => modules.slice(0, i).some((o) => o.screens.some((x) => x.path === s.path))));
+  return modules.filter((m, i) => !m.screens.every((s) => modules.slice(0, i).some((o) => o.screens.some((x) => screenKey(x) === screenKey(s)))));
 }
 
 /** The collections and boards in an app's folder in no module of its menu, lines left out: Edit menu's "In the folder, not in a menu". */
@@ -150,13 +160,13 @@ export function unplacedOf(edit: MenuEdit, pieces: readonly AppPiece[], lines: R
 /** A menu as `_app.json` keeps it: paths in the app's folder, the hidden screens said apart and kept in their module, Home only where it shows less. */
 export function menuFileOf(edit: MenuEdit, folder: string): AppMenuFile {
   const local = (path: string) => (path.startsWith(`${folder}/`) ? path.slice(folder.length + 1) : path);
-  const hidden = [...new Set(edit.modules.flatMap((m) => m.screens.filter((s) => s.hidden).map((s) => local(s.path))))];
+  const hidden = [...new Set(edit.modules.flatMap((m) => m.screens.filter((s) => s.hidden).map((s) => local(screenKey(s)))))];
   const home = { ...(!edit.home.today && { today: false }), ...(!edit.home.cards && { cards: false }) };
   return {
     modules: edit.modules.map((m) => ({
       name: m.name,
       ...(m.template && { template: m.template }),
-      screens: m.screens.map((s) => ({ path: local(s.path), ...(s.view && { view: s.view }) })),
+      screens: m.screens.map((s) => ({ path: local(s.path), ...(s.view && { view: s.view }), ...(s.view && s.name !== pieceName(s) && { name: s.name }) })),
     })),
     ...(hidden.length > 0 && { hidden }),
     ...(Object.keys(home).length > 0 && { home }),

@@ -4608,6 +4608,34 @@ body > .mb-lifted {
   text-align: left;
 }
 
+/* A row with its view's button beside it, +1 (design/more-apps.md 4.8); its picture before its name. */
+.mb-crb {
+  display: flex;
+  align-items: center;
+  padding-right: 16px;
+}
+
+.mb-crb > .mb-cr {
+  flex: 1;
+  min-width: 0;
+}
+
+.mb-crb > .rbtn {
+  flex: none;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 18px;
+  font-size: 14px;
+}
+
+.mb-cover {
+  flex: none;
+  width: 34px;
+  height: 48px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
 /* A row ticked off where it is: its tick, then the row; one not ticked faint and struck through. */
 .mb-tickrow {
   display: flex;

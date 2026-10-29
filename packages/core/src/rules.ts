@@ -64,6 +64,8 @@ export interface ActionRule {
   confirm: boolean;
   /** The sentence under its window's title. */
   say?: Node;
+  /** What its toast says once it has run, worked out over the record as it is then: "Dandadan · episode 7 watched". */
+  done?: Node;
   ask?: AskRule[];
   body: Stmt[];
   at: number;
@@ -217,6 +219,8 @@ function readAction(read: Reader, at: number, before: readonly ActionRule[]): Ac
       action.hint = value.v;
     } else if (entry.key === 'say') {
       action.say = textNode(value, 'rules.actionSay');
+    } else if (entry.key === 'done') {
+      action.done = textNode(value, 'rules.actionDone');
     } else if (entry.key === 'ask') {
       action.ask = readAsk(value);
     } else throw new LangError(t('rules.actionOption', { name: entry.key }), entry.at);
@@ -471,6 +475,7 @@ function checkBody(body: Stmt[], when: Node | undefined, outer: Scope, space: Ru
   // What a button says and the defaults and notes of what it asks read the record, and a note what was typed.
   const reading: Scope = { ...scope, use: 'rule', self: undefined, locals: new Map(asked ? [['input', { record: asked }]] : []), ruleFn };
   if (action?.say) check(action.say, reading);
+  if (action?.done) check(action.done, reading);
   for (const a of action?.ask ?? []) {
     if (a.default) check(a.default, reading);
     if (a.note) check(a.note, reading);

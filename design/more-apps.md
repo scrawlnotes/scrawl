@@ -230,7 +230,21 @@ Kişi için kurulur; para birimi kişisel finansta sorulur.
 
 ### 4.8 Okuma ve izleme listesi (Life)
 
-22 Ekim'de kullanıcının gerçekte tuttuğuna göre genişletildi.
+29 Ekim, Sequel, MyAnimeList ve StoryGraph'ın ekranlarına bakılarak baştan: her tür kendi ekranında. Mockup: `design/mockups.html` › Okuma ve izleme.
+
+- **Tür başına ekran:** kurulumda seçilen her tür menüde bir ekran (Books, Films, Series, Anime, Manga, Webtoons, Podcasts, Games), sonra Lists, Quotes, Years. Altta tek koleksiyon (Library), her ekran onun türe süzülmüş görünümü; listeler, alıntılar ve yıl hedefi bütün türleri sayar. Bir ekranda eklenen kayıt o türle gelir, tür sorulmaz (Sequel'in Movies, Series, Games, Books bölümleri).
+- **Durumlar türün diliyle:** değer aynı (Want, In progress, Paused, Done, Dropped), görünen ad türe göre: anime ve dizide Plan to watch, Watching, On hold, Completed, Dropped (MyAnimeList); kitap, manga ve webtoonda Plan to read, Reading; podcastte Plan to listen, Listening; filmde yalnız To watch ve Watched (Sequel); oyunda Wishlist, Playing, Played. Up next kalktı.
+- **Ekranın listesi:** duruma göre gruplu, sırası In progress, Want, Paused, Done, Dropped; Done ve Dropped kapalı başlar, yalnız sayıları görünür. Satırda kapak, ad ve altında tek satır ("TV · 2024 · Netflix", "Andy Weir · 476 pages"), ilerleme ve çubuğu (toplamı bilinmeyende çubuk yok), +1 ya da Update, puan, bir not ("New episode today", "11 to go", "Every Sunday").
+- **Alanlar türe göre:** kitapta yazar ve sayfa; mangada bölüm ve cilt, "Ch. 254 / 374 · Vol. 22 / 42" (MyAnimeList); dizide sezon ve bölüm, "S2 · E6 / 10" (Sequel); anime ve podcastte bölüm; filmde yönetmen ve süre, ilerleme yok; oyunda platform ve kaç saatte biter. Hepsinde puan, nerede ve linki, bilgi linki, kimin önerdiği. Türler (Genres) türe göre hazır gelir. Ödünç yalnız kitapta ve mangada.
+- **İlerleme:** anime, dizi, manga, webtoon ve podcastte satırda ve pencerede **+1**: bir bölüm yazar, toast ve Undo; sonuncuda Done. Kitapta **Update** sayfayı sorar (StoryGraph). Her ilerleme günlüğe yazılır, pencerede gün gün.
+- **Yeni bölüm:** yayını süren için "New episode every" haftanın günleri; o gün Today'de "Dandadan · E7 out" ve **Watched** (mangada Read), kaçan birikmez. Çıkış günü (Comes out) Today ve Upcoming'de.
+- **Pencere:** başlıkta ad, altında "Anime · 2023 · 28 episodes · Crunchyroll · watching since 2 Oct" (MyAnimeList). Solda durum, puan, türler, nerede, bilgi linki, kimin önerdiği, yorum; sağda ilerleme ve +1, izlenenler gün gün, alıntılar.
+- **Home:** Today satırları; her tür bir kutu, "3 watching" ve ilk kayıtlar ilerlemesiyle (Sequel'in Saved'i); yılın kutusu, "14 of 24 finished · on track".
+- **Sorular:** türler, nerede, yıllık hedef, alıntılar, ödünç, çıkış günleri. "İlerleme tutulsun mu" sorusu kalktı.
+- **Altyapı:** şablon menüsünde bir görünümle açılan ekran, adıyla (`{ role, view, name }`; kişinin menüsünde `name`, gizlenen ekran `yol#görünüm`); görünümüyle açılan ekranda öbür görünümlerin sekmesi yok; görünümün koşulu yeni kaydın değeri (`viewValues`, telefonda + da); seçeneğin adı ve sunulması başka alana göre (`choicesBy`); görünümde kapalı başlayan gruplar (`closed`) ve her satırda bir düğme (`button`); satırın adının altında bir alan ve kapağı (`line`); düğmenin bildirimi (`done`); pencerede düğmeler bir sütunda (`actions` bloğu); seçim sıralaması seçeneklerin sırasıyla; çalışamayan ve nedenini söylemeyen düğme görünmez; Home'da kapalı grubu olan görünüm ilk durumunu sayar ("3 watching"); telefonda birkaç alan soran yeni kayıt adını da sorar.
+- **Mockup'tan farklar:** kapak yalnız linki verilince resim, renkli harf kutusu yok; tür ekranlarında All, Airing, Lent sekmeleri yok (ekran tek görünüm); satırın altında "TV" yok, "2024 · Netflix"; not sütununun başlığı "Note"; pencerede sağda büyük "E17 of 28" yok, Episode kutusu ve +1, izlenenler "Log" listesi; Today'de koleksiyon adı "Library", Watched'ın bildirimi "Frieren: done today"; yeni kayıtta Episodes ile Where alt alta; araç çubuğunda "Filter · 1" ve "Group by Status" görünür.
+
+22 Ekim'deki ilk hâli:
 
 - **Library:** her eser.
   - Tür: Book, Film, Series, Anime, Manga, Webtoon, Podcast, Game.

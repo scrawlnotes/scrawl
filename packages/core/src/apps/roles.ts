@@ -47,7 +47,8 @@ export function readAppMenu(raw: unknown): AppMenuFile | undefined {
   const screenOf = (s: unknown): MenuScreenFile[] => {
     if (typeof s === 'string') return cleanPath(s) ? [{ path: cleanPath(s) }] : [];
     if (!isObject(s) || typeof s.path !== 'string' || !cleanPath(s.path)) return [];
-    return [{ path: cleanPath(s.path), ...(typeof s.view === 'string' && s.view.trim() && { view: s.view.trim() }) }];
+    const view = typeof s.view === 'string' && s.view.trim() ? s.view.trim() : '';
+    return [{ path: cleanPath(s.path), ...(view && { view }), ...(view && typeof s.name === 'string' && s.name.trim() && { name: s.name.trim() }) }];
   };
   const modules = raw.modules.filter(isObject).map(
     (m): MenuModuleFile => ({

@@ -191,6 +191,10 @@ class Draft implements AppDraft {
     this.part(role, 'collection').head = { sub, ...(steps && { steps }) };
   }
 
+  line(role: string, sub: string, cover?: string) {
+    this.part(role, 'collection').line = { sub, ...(cover && { cover }) };
+  }
+
   notes(role: string, notes: 'attach' | false) {
     this.part(role, 'collection').notes = notes;
   }
@@ -289,7 +293,9 @@ function layoutFor(fields: readonly Field[], blocks: readonly (LayoutBlock & { c
   const columnOf = (b: { column?: number }, i: number) => (b.column ?? (given ? 2 : blocks.length >= 5 && i >= Math.ceil(blocks.length / 2) ? 3 : 2));
   const count = Math.max(1, ...blocks.map(columnOf), ...Object.values(placed));
   const items: LayoutItem[][] = Array.from({ length: count }, () => []);
-  items[0]!.push(...ordered.filter((f) => !((placed[f.key] ?? 1) > 1)).map((f) => ({ field: f.key })), ...(actions ? [{ block: 'actions' as const }] : []));
+  // The buttons after the fields, unless the template put them in a column of their own: +1 beside how far (design/more-apps.md 4.8).
+  const own = blocks.some((b) => b.block === 'actions');
+  items[0]!.push(...ordered.filter((f) => !((placed[f.key] ?? 1) > 1)).map((f) => ({ field: f.key })), ...(actions && !own ? [{ block: 'actions' as const }] : []));
   for (const [key, column] of Object.entries(placed)) if (column > 1 && fields.some((f) => f.key === key)) items[column - 1]!.push({ field: key });
   blocks.forEach((b, i) => items[columnOf(b, i) - 1]!.push(strip(b)));
   items[0]!.push(...notes);
@@ -484,7 +490,7 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
       if (part.kind === 'collection') {
         const layout = layoutFor(part.fields, part.blocks, part.rules.some((r) => r.kind === 'action'), part.order, { ...(part.places && { places: part.places }), ...(part.notes !== undefined && { notes: part.notes }) });
         if (layout && part.newForm) layout.new = part.newForm;
-        const schema: Schema = { version: 2, template: matchingTemplate(role), ...(part.singular && { singular: part.singular }), role, ...(part.views.length > 0 && { views: part.views }), ...(part.defaultView && { defaultView: part.defaultView }), ...(part.columns && { columns: part.columns }), ...(part.home && { home: part.home }), ...(part.head && { head: part.head }), fields: part.fields, ...(layout && { layout }) };
+        const schema: Schema = { version: 2, template: matchingTemplate(role), ...(part.singular && { singular: part.singular }), role, ...(part.views.length > 0 && { views: part.views }), ...(part.defaultView && { defaultView: part.defaultView }), ...(part.columns && { columns: part.columns }), ...(part.home && { home: part.home }), ...(part.head && { head: part.head }), ...(part.line && { line: part.line }), fields: part.fields, ...(layout && { layout }) };
         plan.dirs.push(part.path);
         file(join(part.path, COLLECTION_FILE), serializeSchema(schema));
         if (part.rules.length > 0) file(join(part.path, RULES_FILE), rulesText(partName(part), part.rules));
