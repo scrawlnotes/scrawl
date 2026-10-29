@@ -1,4 +1,4 @@
-import { t } from '@scrawlnotes/i18n';
+import { locale, t } from '@scrawlnotes/i18n';
 import type { Field, FieldValue, Link, Schema } from './collection';
 import { clockOf, isDay, dateTimeOf, isYearless, timeOf } from './day';
 
@@ -717,6 +717,14 @@ const FNS: { [name: string]: FnSpec } = {
   text: { args: [1, 1], kind: () => 'text' },
   // A text's number: "12" is 12, a range's top "8–12" is 12 (design/gym.md 4.1).
   number: { args: [1, 1], kind: () => 'number' },
+  // A number as an amount is written, whole and in thousands: 39.150 (design/scrawl-apps.md 3.2).
+  amount: {
+    args: [1, 1],
+    kind: ([a], [n]) => {
+      need(NUMBERISH(a!), t('lang.fnNumber', { fn: 'amount' }), n!);
+      return 'text';
+    },
+  },
   abs: {
     args: [1, 1],
     kind: ([a], [n]) => {
@@ -1596,6 +1604,8 @@ function call(fn: string, args: RV[], env: Env): RV {
     }
     case 'abs':
       return typeof a === 'number' ? Math.abs(a) : null;
+    case 'amount':
+      return typeof a === 'number' && Number.isFinite(a) ? Math.round(a).toLocaleString(locale(), { maximumFractionDigits: 0 }) : null;
     case 'round': {
       if (typeof a !== 'number') return null;
       const places = typeof b === 'number' ? Math.max(0, Math.min(10, Math.trunc(b))) : 0;

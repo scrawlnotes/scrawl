@@ -301,7 +301,7 @@ describe('a button that asks', () => {
     const wrong = (src: string) => rulesProblems(src, scope, where(s))[0]?.message;
     expect(wrong(ASKS.replace('contract * input.share })', 'contract * input.shar })'))).toBe('Grow budget asks no shar; it asks share, line and category.');
     expect(wrong('action("A", { ask: { x: { label: "X" } } }, () => {})')).toMatch(/type/);
-    expect(wrong('action("A", { ask: { x: { type: "colour" } } }, () => {})')).toMatch(/number, text, date, time, choice, link or person/);
+    expect(wrong('action("A", { ask: { x: { type: "colour" } } }, () => {})')).toMatch(/number, text, date, time, choice, link, person, rows or tick/);
     expect(wrong('action("A", { ask: { x: { type: "choice" } } }, () => {})')).toMatch(/options/);
     expect(wrong('action("A", { ask: { x: { type: "link", collection: "Lines" } } }, () => {})')).toMatch(/no collection called Lines/);
     expect(wrong('action("A", { ask: { x: { type: "text", hint: "y" } } }, () => {})')).toMatch(/takes label, type/);

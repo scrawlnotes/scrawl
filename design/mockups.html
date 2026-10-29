@@ -4239,7 +4239,7 @@ p { margin: 0; max-width: 68ch; }
 .cr-acts span.go { border-color: var(--m-accent); background: var(--m-accent); color: var(--m-on-accent); font-weight: 600; }
 .cr-acts span.won { border-color: #5cb87a; color: #5cb87a; font-weight: 600; }
 .cr-acts span.lost { border-color: var(--m-p1); color: var(--m-p1); font-weight: 600; }
-.cr-acts .sp { flex: 1; border: 0; padding: 0; }
+.cr-acts .sp { position: static; flex: 1; width: auto; max-height: none; border: 0; padding: 0; background: none; box-shadow: none; }
 .cr-cols { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.3fr) minmax(0, 0.95fr); gap: 22px; padding: 14px 20px 18px; }
 .cr-cols > div { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .cr-as { padding: 8px 10px; border: 1px solid var(--m-line); border-radius: 8px; }
@@ -4281,6 +4281,69 @@ p { margin: 0; max-width: 68ch; }
 .mbs .cr-mrow i { width: 9px; height: 9px; border-radius: 50%; background: #5cb87a; }
 .mbs .cr-mrow i.late { background: var(--m-p1); }
 .mbs .cr-mrow i.none { width: 0; height: 0; border-radius: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 9px solid var(--m-accent); background: none; }
+/* Sales, Stock and E-commerce (Oct 29): Zoho Invoice and QuickBooks, inFlow and Sortly, Sellbrite and Shopify. */
+.bv .th .sl-sum { margin-left: 4px; color: var(--m-dim); font-size: 12px; }
+.bv .th .sl-sum b { font-size: inherit; font-weight: 600; }
+.pos { color: #5cb87a; }
+.sl-today { color: var(--m-accent); font-weight: 600; }
+.ca-row.sl-ord { grid-template-columns: 76px minmax(0, 1fr) 70px 96px 96px 210px; }
+.sl-st { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.sl-st small { color: var(--m-dim); font-size: 11.5px; white-space: nowrap; }
+.sl-st small.late { color: var(--m-p1); font-weight: 600; }
+.sl-st small.today { color: var(--m-accent); font-weight: 600; }
+.ca-row .lbl, .sl-st .lbl { padding: 0 6px; border-radius: 9px; font-size: 10.5px; line-height: 16px; white-space: nowrap; background: color-mix(in srgb, var(--lc, var(--m-dim)) 18%, transparent); color: var(--lc, var(--m-dim)); }
+.sl-lines .r { display: grid; grid-template-columns: minmax(0, 1fr) 44px 74px 44px 84px; gap: 10px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--m-line); font-size: 12.5px; }
+.sl-lines .r > span:not(.tt):not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+.sl-lines.po .r { grid-template-columns: minmax(0, 1fr) 62px 62px 70px 84px; }
+.sl-lines .r.head { color: var(--m-faint); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; }
+.sl-lines .r.addl { color: var(--m-accent); grid-template-columns: 1fr; }
+.sl-lines .r.addl span { text-align: left; }
+.sl-lines .tt small { display: block; color: var(--m-faint); font-size: 11.5px; }
+.sl-tot { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; padding-top: 8px; font-size: 12.5px; }
+.sl-tot div { display: grid; grid-template-columns: 90px 100px; text-align: right; color: var(--m-dim); font-variant-numeric: tabular-nums; }
+.sl-tot div.b { color: var(--m-fg); font-weight: 600; }
+.sl-tot div.left { color: var(--m-p1); font-weight: 600; }
+.sl-pay { display: grid; grid-template-columns: 70px minmax(0, 1fr) auto; gap: 10px; padding: 6px 0; font-size: 12.5px; }
+.sl-pay .n { font-variant-numeric: tabular-nums; }
+.sl-note { margin: -2px 0 2px; color: var(--m-dim); font-size: 12px; }
+.sl-note b { color: var(--m-fg); }
+.x2-head small .sl-em { color: var(--m-fg); font-weight: 600; }
+.sl-home { overflow: auto; }
+.sl-home .pf-hr .calc { color: var(--m-dim); }
+.sl-cbtn { padding: 6px 0 2px; }
+.ec-tiles .r { display: grid; grid-template-columns: 70px 50px minmax(0, 1fr) minmax(0, 1fr) 50px; gap: 8px; padding: 5px 0; border-top: 1px solid var(--m-line); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.ec-tiles .r.head { border-top: 0; color: var(--m-faint); font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; }
+.ca-row.sk-prod { grid-template-columns: minmax(0, 1fr) 80px 80px 80px 80px 64px; }
+.ca-row.sk-prod .tt small { margin-left: 8px; color: var(--m-faint); font: 11px var(--m-mono); }
+.sk-box { display: inline-block; min-width: 54px; padding: 2px 8px; border: 1px solid var(--m-line); border-radius: 5px; background: var(--m-bg); text-align: right; font-variant-numeric: tabular-nums; box-sizing: border-box; }
+.sk-box.empty { border-style: dashed; min-height: 22px; }
+.sk-count { margin: 4px 20px 0; }
+.cc-col .sk-count { margin: 0; }
+.sk-count .r { display: grid; grid-template-columns: minmax(0, 1fr) 80px 90px 90px; gap: 12px; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--m-line); font-size: 12.5px; }
+.sk-count.rcv .r { grid-template-columns: minmax(0, 1fr) 70px 80px; }
+.sk-count.ret .r { grid-template-columns: minmax(0, 1fr) 50px 70px 130px; }
+.sk-count .r > span:not(.tt):not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+.sk-count .r.head { color: var(--m-faint); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; }
+.sk-dd { display: inline-flex; gap: 6px; padding: 2px 8px; border: 1px solid var(--m-line); border-radius: 5px; font-size: 12px; }
+.sk-ctop { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 12px 20px 4px; }
+.sk-tick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; }
+.sk-tick .tk { display: grid; place-items: center; width: 16px; height: 16px; border-radius: 4px; background: var(--m-accent); color: var(--m-on-accent); font-size: 11px; }
+.sk-tick small { flex-basis: 100%; padding-left: 24px; color: var(--m-faint); font-size: 11.5px; }
+.ec-chips { padding: 0 16px 8px; }
+.ec-chips small { margin-left: 4px; color: var(--m-faint); }
+.ca-row.ec-ord { grid-template-columns: 90px 120px 100px minmax(0, 1fr) 80px 100px; }
+.ec-ch { display: inline-flex; align-items: center; gap: 6px; }
+.ec-ch i { width: 8px; height: 8px; border-radius: 50%; background: var(--cc); }
+.ec-profit { padding: 9px 11px; border: 1px solid var(--m-line); border-radius: 8px; font-size: 12.5px; color: var(--m-dim); }
+.ec-profit b { color: #5cb87a; }
+.mbs .sl-mtot { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 12px 16px; font-size: 14px; color: var(--m-dim); }
+.mbs .sl-mtot b { color: var(--m-fg); text-align: right; font-variant-numeric: tabular-nums; }
+.mbs .sl-mn { font-size: 15px; font-variant-numeric: tabular-nums; }
+.mbs .sl-mbtn { padding: 6px 14px; border-radius: 8px; background: var(--m-accent); color: var(--m-on-accent); font-size: 14px; font-weight: 600; }
+.mbs .sk-box.m { min-width: 64px; padding: 6px 10px; font-size: 15px; }
+.mbs .sk-box.m.empty { min-height: 34px; }
+.mbs .sl-mfoot { padding: 14px 16px; }
+.mbs .sl-mfoot .mb-qact { display: block; text-align: center; }
 /* Reading and watching (Oct 29): a screen for each kind, as Sequel, MyAnimeList and StoryGraph have them. */
 .rw-cov { display: grid; place-items: center; width: 28px; height: 40px; border-radius: 4px; background: linear-gradient(160deg, var(--cc), color-mix(in srgb, var(--cc) 45%, #000)); color: #fff; font-size: 11px; font-weight: 700; }
 .ca-row.rw-row { grid-template-columns: 28px minmax(0, 1fr) 250px 64px 150px; }
@@ -5456,6 +5519,41 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-crview="crtoday">Today</button>
         <button type="button" data-crview="crhome">Home</button>
         <button type="button" data-crview="crphone">Telefon</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="sales2">
+    <div class="brief">
+      <div>
+        <span class="letter">SCRAWL APPS · TASLAK</span>
+        <h2>Satış, stok ve e-ticaret: Zoho Invoice, inFlow ve Sellbrite gibi</h2>
+        <p>Üçü CRM'le tek app'te, ürünler ve siparişler ortak. <b>Sales</b>: listenin üstünde ne tahsil edileceği ve ne kadarının geciktiği; satırda kalan ve "Overdue 12 days". Siparişin aşamaları çubukta (Quote, Confirmed, Delivered, Invoiced, Paid). Teklifte <b>Accept</b> ve <b>Declined</b>, Accept fırsatı da Won yapar. <b>Invoice</b> fatura numarasını sorar, vadeyi müşterinin ödeme vadesinden hesaplar. <b>Record payment</b> kalanı dolu getirir; kısmi ödemede sipariş açık kalır. Müşterinin başlığında borcu, sağ sütunda siparişleri ve + New quote; fırsatta teklifi. <b>Stock</b>: In stock, Committed, Available, On order; Low, sipariş verileni de sayar. <b>Adjust</b> sayılanı ve nedenini sorar, <b>Reorder all</b> tedarikçi başına bir taslak açar. <b>Stock counts</b>: bütün ürünler satır, sayılan tabloda yazılır, Apply farkları yazar, boş kalan değişmez. <b>Receive</b> kalan miktarları dolu sorar, eksik gelen sayı düşürülür. <b>E-commerce</b>: To ship kargoya son güne göre, kanallar çip; <b>Ship</b> kargo firmasını ve takip numarasını sorar; kâr tek satırda; <b>Return</b> kalemleri sorar, iade tutarı kalemlerden. Vadesi gelen tahsilat, gelecek satın alma ve gidecek sipariş Today'de kendi düğmesiyle.</p>
+        <ul class="traits"><li>tahsil edilecek ve geciken</li><li>Invoice ile vade</li><li>Record payment</li><li>teklif fırsatta</li><li>Available ve On order</li><li>toplu sayım</li><li>kısmi kabul</li><li>To ship</li><li>Ship ve Return</li><li>siparişin kârı</li><li>Today'de düğmeler</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Satış, stok ve e-ticaret görünümü">
+        <button type="button" data-slview="slorders">Orders</button>
+        <button type="button" data-slview="slorder">Sipariş</button>
+        <button type="button" data-slview="slpay">Record payment</button>
+        <button type="button" data-slview="slquote">Teklif</button>
+        <button type="button" data-slview="slinvoice">Invoice</button>
+        <button type="button" data-slview="slcompany">Müşteri</button>
+        <button type="button" data-slview="sldeal">Fırsat</button>
+        <button type="button" data-slview="skproducts">Products</button>
+        <button type="button" data-slview="skproduct">Ürün</button>
+        <button type="button" data-slview="skadjust">Adjust</button>
+        <button type="button" data-slview="skcount">Sayım</button>
+        <button type="button" data-slview="skpo">Satın alma</button>
+        <button type="button" data-slview="skreceive">Receive</button>
+        <button type="button" data-slview="ecorders">To ship</button>
+        <button type="button" data-slview="ecorder">Pazaryeri siparişi</button>
+        <button type="button" data-slview="ecship">Ship</button>
+        <button type="button" data-slview="ecreturn">Return</button>
+        <button type="button" data-slview="ecreceived">İade geldi</button>
+        <button type="button" data-slview="sltoday">Today</button>
+        <button type="button" data-slview="slhome">Home</button>
+        <button type="button" data-slview="slphone">Telefon</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -17032,6 +17130,345 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderCr(sectionCr, b.dataset.crview);
   });
   renderCr(sectionCr, 'crdeals');
+
+  // Sales, Stock and E-commerce (draft, Oct 29): one app with the CRM, its products and orders shared.
+  // Sales as Zoho Invoice and QuickBooks: what is to collect over the list, an order's stages in a bar,
+  // Invoice working out its due day from the terms, Record payment with what is left; Stock as inFlow,
+  // Zoho Inventory and Sortly: in stock, committed, available and on order, Adjust with a reason, a count
+  // of every product typed in its table, Receive with the lines left; E-commerce as Sellbrite and Shopify:
+  // To ship by its day, Ship with the carrier, a return of its items, an order's profit in one line.
+  var SL_APP = 'Spare parts';
+  var SL_MODS = ['Home', 'CRM', 'Sales', 'Stock', 'E-commerce'];
+  var SL_MENU = {
+    Sales: ['Orders', 'Payments', 'Products'],
+    Stock: ['Products', 'Purchase orders', 'Stock counts', 'Locations'],
+    'E-commerce': ['Orders', 'Returns', 'Channels']
+  };
+  [['Quote', '#8a8fa0'], ['Confirmed', '#6aa5f0'], ['Delivered', '#b48ef0'], ['Invoiced', '#e0c04a'], ['Paid', '#5cb87a'], ['Declined', '#e5534b'],
+    ['Low', '#f0a54a'], ['Out', '#e5534b'], ['Draft', '#8a8fa0'], ['Ordered', '#6aa5f0'], ['Received', '#5cb87a'], ['Packed', '#4fb3d9'],
+    ['Shipped', '#e07ab0'], ['Requested', '#6aa5f0'], ['Supplier', '#f0a54a'], ['Customer', '#5cb87a']].forEach(function (c) { LC[c[0]] = c[1]; });
+  function slTree(on) {
+    return '<div class="tree fxt">' + row({ label: 'Today', ct: 8, on: on === 'today' }) + row({ label: 'Upcoming', ct: 5 }) +
+      opRowT({ sp: true, label: 'Personal' }) + opRowT({ sp: true, open: true, label: CA_SPACE }) +
+      ahRow(SL_APP, { on: on !== 'today', icon: ICON.app }) + opRowT({ d: 1, folder: true, label: 'Operations' }) + '</div>' + spFoot(null);
+  }
+  function slTop(mod, screen) {
+    return ahTop(SL_APP, ICON.app, SL_MODS, mod, SL_MENU[mod] ? SL_MENU[mod].map(function (s) { return { label: s, on: s === screen }; }) : null);
+  }
+  /** A list: what it says at a glance over it, its views, then its rows. */
+  function slScreen(sum, add, views, on, head, rows, chips) {
+    return '<div class="bv"><div class="th"><span class="srch">' + ICON.find + 'Search…</span><span class="sl-sum">' + sum + '</span><button type="button" class="add">' + add + '</button></div>' +
+      (chips || '') + '<div class="gy-views">' + views.map(function (v) { return '<span' + (v === on ? ' class="on"' : '') + '>' + v + '</span>'; }).join('') + '</div><div class="blist">' + head + rows + '</div></div>';
+  }
+  function slWin(icon, key, where, title, sub, rest, width) {
+    return '<div class="ovl center"><div class="rmod cc-rm" style="width:' + (width || 1000) + 'px"><div class="cp-head">' + ICON[icon] + (key ? '<span class="key">' + key + '</span>' : '') + '<span>' + where + ' · ' + SL_APP + '</span><span class="more">···</span><span class="x">×</span></div>' +
+      '<div class="x2-head"><b>' + title + '</b><small>' + sub + '</small></div>' + rest + '<div class="rm-foot"><span class="st-btn">Cancel</span></div></div></div>';
+  }
+  function slBar(steps, on) {
+    return '<div class="jb-bar">' + steps.map(function (s, i) { return '<span class="' + (i < on ? 'past' : i === on ? 'on' : '') + '">' + s + '</span>'; }).join('') + '</div>';
+  }
+  function slActs(btns) {
+    return '<div class="cr-acts">' + btns.map(function (b) { return b === '|' ? '<span class="sp"></span>' : '<span' + (b[1] ? ' class="' + b[1] + '"' : '') + '>' + b[0] + '</span>'; }).join('') + '</div>';
+  }
+  /** An order's lines: each product with its quantity, price, tax and amount; its totals under them. */
+  function slLines(lines, totals, adding) {
+    return '<div class="x2-blk"><div class="x2-sec">Lines<small>' + lines.length + '</small></div><div class="sl-lines">' +
+      '<div class="r head"><span>Product</span><span>Qty</span><span>Price</span><span>Tax</span><span>Amount</span></div>' +
+      lines.map(function (l) { return '<div class="r"><span class="tt">' + l[0] + (l[4] ? '<small class="' + (l[5] || '') + '">' + l[4] + '</small>' : '') + '</span><span>' + l[1] + '</span><span>' + l[2] + '</span><span class="calc">20%</span><span>' + l[3] + '</span></div>'; }).join('') +
+      (adding ? '<div class="r addl"><span>+ Add line</span></div>' : '') +
+      '<div class="sl-tot">' + totals.map(function (t) { return '<div' + (t[2] ? ' class="' + t[2] + '"' : '') + '><span>' + t[0] + '</span><span>' + t[1] + '</span></div>'; }).join('') + '</div></div></div>';
+  }
+  function slAs(title, n, from, rows, add) {
+    return '<div class="cr-as"><div class="t">' + title + '<small>' + n + '</small>' + (from ? '<span class="from">· ' + from + '</span>' : '') + (add ? '<span class="r">+ ' + add + '</span>' : '') + '</div>' +
+      rows.map(function (r) { return '<div class="row"><span class="tx">' + r[0] + (r[1] ? '<small>' + r[1] + '</small>' : '') + '</span>' + (r[2] ? '<span class="n">' + r[2] + '</span>' : '') + '</div>'; }).join('') + '</div>';
+  }
+  var SL_ORDERS = [
+    ['SO-0009', 'Ankara Holding', 'Oct 2', '₺39.150', '₺19.150', 'Invoiced', 'Overdue 12 days', 'late'],
+    ['SO-0011', 'Globex', 'Oct 13', '₺20.600', '₺20.600', 'Invoiced', 'Due today', 'today'],
+    ['SO-0010', 'Initech', 'Oct 21', '₺4.100', '₺4.100', 'Invoiced', 'Due Nov 20', ''],
+    ['SO-0008', 'Atlas Mekanik', 'Oct 16', '₺960', '₺460', 'Invoiced', 'Due Nov 15', ''],
+    ['SO-0012', 'Kuzey Asansör', 'Oct 24', '₺12.400', '₺12.400', 'Delivered', 'To invoice', ''],
+    ['SO-0013', 'Ankara Holding', 'Oct 27', '₺8.400', '₺8.400', 'Confirmed', '', '']
+  ];
+  function slOrders() {
+    var head = '<div class="ca-row sl-ord head"><span>No</span><span>Customer</span><span>Date</span><span class="num">Total</span><span class="num">Left</span><span>Status</span></div>';
+    var rows = SL_ORDERS.map(function (o) {
+      return '<div class="ca-row sl-ord"><span class="mono">' + o[0] + '</span><span class="tt">' + o[1] + '</span><span class="calc">' + o[2] + '</span><span class="num">' + o[3] + '</span><span class="num">' + o[4] + '</span>' +
+        '<span class="sl-st">' + lbl(o[5]) + (o[6] ? '<small class="' + o[7] + '">' + o[6] + '</small>' : '') + '</span></div>';
+    }).join('');
+    var sum = '₺85.110 to collect · <b class="pf-neg">₺19.150 overdue</b> · ₺31.000 in quotes';
+    return '<div class="ah">' + slTop('Sales', 'Orders') + slScreen(sum, 'New quote', ['Quotes', 'Open', 'To invoice', 'Unpaid', 'Paid'], 'Open', head, rows) + '</div>';
+  }
+  var SL_ORDER_STEPS = ['Quote', 'Confirmed', 'Delivered', 'Invoiced', 'Paid'];
+  function slOrder() {
+    var left = '<div class="cc-two">' + ccProp('Customer', '<span class="lk">Ankara Holding</span>') + ccProp('Deal', '<span class="lk">Workshop restock</span>') + '</div>' +
+      '<div class="cc-two">' + ccProp('Date', 'Oct 2') + ccProp('Payment terms', 'Net 15', { dd: true }) + '</div>' +
+      '<div class="cc-two">' + ccProp('Invoice no', 'INV-2026-0412') + ccProp('Invoiced on', 'Oct 2') + '</div>' +
+      ccProp('Due', '<span class="pf-neg">Oct 17 · 12 days late</span>');
+    var right = slLines([['Brake pad set', 20, '₺850', '₺17.000'], ['Timing belt', 10, '₺1.300', '₺13.000'], ['Oil filter', 25, '₺110', '₺2.750']],
+      [['Subtotal', '₺32.625'], ['Tax', '₺6.525'], ['Total', '₺39.150', 'b'], ['Collected', '₺20.000'], ['Left', '₺19.150', 'left']]) +
+      '<div class="x2-blk"><div class="x2-sec">Payments<small>1</small></div><div class="sl-pay"><span>Oct 20</span><span>Bank transfer</span><span class="n">₺20.000</span></div></div>';
+    return slWin('collection', 'SO-0009', 'Orders', 'SO-0009 · Ankara Holding', 'Invoiced · ₺39.150 · ₺19.150 left · 12 days overdue',
+      slBar(SL_ORDER_STEPS, 3) + slActs([[ICON.plus + 'Record payment', 'go'], '|', ['Cancel order']]) + '<div class="jb-cols"><div>' + left + '</div><div>' + right + '</div></div>');
+  }
+  function slQuote() {
+    var left = '<div class="cc-two">' + ccProp('Customer', '<span class="lk">Acme Lojistik</span>') + ccProp('Deal', '<span class="lk">Spare parts deal</span>') + '</div>' +
+      '<div class="cc-two">' + ccProp('Date', 'Oct 29') + ccProp('Valid until', 'Nov 28') + '</div>' +
+      ccProp('Payment terms', 'Net 30 · Acme Lojistik’s', { dd: true });
+    var right = slLines([['Brake pad set', 30, '₺850', '₺25.500', '32 available'], ['Hydraulic oil 20 l', 6, '₺2.400', '₺14.400', 'Not enough stock: 4 available', 'pf-neg']],
+      [['Subtotal', '₺33.250'], ['Tax', '₺6.650'], ['Total', '₺39.900', 'b']], true);
+    return slWin('collection', 'SO-0014', 'Orders', 'SO-0014 · Acme Lojistik', 'Quote · ₺39.900 · valid until Nov 28, 30 days left',
+      slBar(SL_ORDER_STEPS, 0) + slActs([['Accept', 'won'], ['Declined', 'lost']]) + '<div class="jb-cols"><div>' + left + '</div><div>' + right + '</div></div>');
+  }
+  function slInvoice() {
+    var body = '<div class="cc-two">' + ccProp('Invoice no', 'INV-2026-0418', { req: true }) + ccProp('Invoiced on', 'Today') + '</div>' +
+      '<div class="sl-note">Due <b>Nov 13</b> · Net 15, Kuzey Asansör’s terms</div>';
+    return x2Window('Invoice · SO-0012, Kuzey Asansör', body, '<span class="st-btn">Cancel</span><span class="st-btn go">Invoice</span>');
+  }
+  function slPay() {
+    var body = ccProp('Amount', '₺19.150') + '<div class="sl-note">Left to collect: ₺19.150 of ₺39.150</div>' + ccProp('Paid on', 'Today') +
+      '<div class="cc-prop"><span class="pl">Method</span><div class="cr-chips"><span class="on">Bank transfer</span><span>Card</span><span>Cash</span></div></div>';
+    return x2Window('Record payment · SO-0009, Ankara Holding', body, '<span class="st-btn">Cancel</span><span class="st-btn go">Record</span>');
+  }
+  function slCompany() {
+    var left = ccProp('Phone', '+90 312 555 40 10') + ccProp('Email', '<span class="lk">satinalma@ankaraholding.com</span>') +
+      '<div class="cc-two">' + ccProp('City', 'Ankara') + ccProp('Type', lbl('Customer')) + '</div>' +
+      '<div class="cc-two">' + ccProp('Payment terms', 'Net 15', { dd: true }) + ccProp('Owner', 'Kaan') + '</div>';
+    var mid = '<div class="cr-acts" style="padding:0"><span class="go">' + ICON.plus + 'Log</span><span>Plan</span><span>' + CR_PHONE + 'Call</span><span>' + CR_MAIL + 'Email</span></div>' +
+      '<div class="x2-blk"><div class="x2-sec">Planned<small>1</small></div>' + crPlanRow('Ask about the overdue invoice · SO-0009', 'Today · Call · Can Demir', false) + '</div>' +
+      '<div class="x2-blk"><div class="x2-sec">History</div>' +
+      '<div class="x2-day">Tue, 27 Oct</div>' + crTl('11:00', '📞', '#6aa5f0', 'Call with Can Demir', 'Ordered 8 sets for the second workshop') +
+      '<div class="x2-day">Tue, 20 Oct</div>' + crTl('', '₺', '#5cb87a', 'Paid ₺20.000', 'SO-0009 · Bank transfer') + '</div>';
+    var right = slAs('Orders', 3, 'Sales', [['SO-0009', '<span class="pf-neg">Invoiced · 12 days overdue</span>', '₺19.150 left'], ['SO-0013', 'Confirmed · Oct 27', '₺8.400'], ['SO-0004', 'Paid · Sep 12', '₺12.300']], 'New quote') +
+      slAs('Deals', 1, '', [['Workshop restock', 'Won · Oct 1', '₺39.150']], 'Add') + slAs('People', 2, '', [['Can Demir', 'Purchasing'], ['Zeynep Er', 'Workshop lead']], 'Add');
+    return '<div class="ovl center"><div class="rmod cc-rm" style="width:1060px"><div class="cp-head">' + ICON.collection + '<span>Companies · ' + SL_APP + '</span><span class="more">···</span><span class="x">×</span></div>' +
+      '<div class="x2-head"><b>Ankara Holding</b><small>Customer · Ankara · <span class="pf-neg">₺19.150 to collect · 1 overdue</span> · ₺59.850 this year</small></div>' +
+      '<div class="cr-cols"><div>' + left + '</div><div>' + mid + '</div><div>' + right + '</div></div>' +
+      '<div class="rm-foot"><span class="st-btn">Cancel</span></div></div></div>';
+  }
+  function slDeal() {
+    var left = '<div class="cc-two">' + ccProp('Company', '<span class="lk">Acme Lojistik</span>') + ccProp('Contact', '<span class="lk">Ayşe Kaya</span>') + '</div>' +
+      '<div class="cc-two">' + ccProp('Value', '₺39.900') + ccProp('Expected close', 'Nov 15') + '</div>' + ccProp('Owner', 'Kaan');
+    var right = slAs('Quotes', 1, 'Sales', [['SO-0014 · Quote', 'valid until Nov 28', '₺39.900']], 'Quote') +
+      '<div class="x2-blk"><div class="x2-sec">Next steps<small>1</small><span class="r">+ Plan</span></div>' + crPlanRow('Call about the quote', 'Mon, Nov 2 · Call · Ayşe Kaya') + '</div>' +
+      '<div class="x2-blk"><div class="x2-sec">History<span class="r">+ Log</span></div><div class="x2-day">Thu, 29 Oct</div>' + crTl('10:20', '₺', '#8a8fa0', 'Quote SO-0014', '₺39.900 · valid until Nov 28') + '</div>';
+    return '<div class="ovl center"><div class="rmod cc-rm" style="width:940px"><div class="cp-head">' + ICON.board + '<span class="key">DEA-21</span><span>Deals · ' + SL_APP + '</span><span class="more">···</span><span class="x">×</span></div>' +
+      '<div class="x2-head"><b>Spare parts deal</b><small>Acme Lojistik · ₺39.900 · closes Nov 15 · Accept on its quote wins it</small></div>' + slBar(['Lead', 'Contacted', 'Meeting', 'Proposal'], 3) +
+      '<div class="cr-acts"><span>' + ICON.plus + 'Log</span><span>Plan</span><span class="sp"></span><span class="won">Won</span><span class="lost">Lost</span></div>' +
+      '<div class="jb-cols"><div>' + left + '</div><div>' + right + '</div></div><div class="rm-foot"><span class="st-btn">Cancel</span></div></div></div>';
+  }
+  function slToday() {
+    var c = ICON.collection;
+    var body = '<div class="tasksv"><div class="th"><b>Today</b><span class="c3-date">Thu, Oct 29</span><button type="button" class="add">Add task</button></div><div class="tl">' +
+      '<div class="sec">Overdue <small>3</small></div>' +
+      pfRecRow('#e0c04a', 'SO-0009 · Ankara Holding', '<span class="late">Oct 17</span><span>' + c + 'Orders</span><span>₺19.150 left of ₺39.150</span>', '<span class="st-btn go">Record payment</span>') +
+      pfRecRow('#6aa5f0', 'PO-0031 · Bosch Parts', '<span class="late">Oct 27</span><span>' + c + 'Purchase orders</span><span>3 lines · ₺42.000</span>', '<span class="st-btn go">Receive</span>') +
+      pfRecRow('#f0a54a', 'Trendyol · 10288731', '<span class="late">Oct 28</span><span>' + c + 'Orders</span><span>Brake pad set × 2 · Mert Aydın</span>', '<span class="st-btn go">Ship</span>') +
+      '<div class="sec">Today <small>5</small></div>' +
+      pfRecRow('#e0c04a', 'SO-0011 · Globex', '<span>' + c + 'Orders</span><span>₺20.600 due</span>', '<span class="st-btn go">Record payment</span>') +
+      pfRecRow('#f0a54a', 'Trendyol · 10293847', '<span>' + c + 'Orders</span><span>Brake pad set, Oil filter · Elif Şahin</span>', '<span class="st-btn go">Ship</span>') +
+      pfRecRow('#4fb3d9', 'Hepsiburada · 4410290', '<span>' + c + 'Orders</span><span>Timing belt · Okan Tekin</span>', '<span class="st-btn go">Ship</span>') +
+      pfRecRow('#6aa5f0', 'PO-0033 · Mann Filter', '<span>' + c + 'Purchase orders</span><span>2 lines · ₺9.800</span>', '<span class="st-btn go">Receive</span>') +
+      pfRecRow('#6aa5f0', 'Ask about the overdue invoice', '<span>' + c + 'Activities</span><span>Ankara Holding · Can Demir</span>', '<span class="st-btn go">Done</span>') +
+      '<div class="qa">+ Add task</div></div></div>';
+    return '<aside class="side">' + slTree('today') + '</aside><section class="main"><div class="panes">' + pane(tab('tasks', 'Today', 'x', true) + '<div class="tab plus">+</div>', body) + '</div>' +
+      '<div class="status"><span>8 records</span>' + syncStatus(false, null) + '</div></section>';
+  }
+  function slCard(icon, name, sub, rows, btn) {
+    return '<div class="ah-card"><h4>' + ICON[icon] + name + '<small>' + sub + '</small></h4>' +
+      rows.map(function (r) { return '<div class="pf-hr"><span class="t">' + r[0] + '</span><span class="' + (r[2] || 'calc') + '">' + r[1] + '</span></div>'; }).join('') + (btn ? '<div class="sl-cbtn"><span class="st-btn">' + btn + '</span></div>' : '') + '</div>';
+  }
+  function slHome() {
+    var today = '<div class="ah-cap">Today <small>8</small></div><div class="ah-today" style="max-width:1080px">' +
+      ahTr('#e0c04a', 'SO-0009 · Ankara Holding', '<span class="late">12 days late</span> · ₺19.150 left', '<span class="st-btn go">Record payment</span>') +
+      ahTr('#f0a54a', 'Trendyol · 10288731', '<span class="late">1 day late</span> · Brake pad set × 2', '<span class="st-btn go">Ship</span>') +
+      ahTr('#6aa5f0', 'PO-0031 · Bosch Parts', '<span class="late">2 days late</span> · 3 lines', '<span class="st-btn go">Receive</span>') + '</div>';
+    var grid = function (cards) { return '<div class="pf-home" style="grid-template-columns:repeat(3,minmax(0,1fr));max-width:1080px;margin-bottom:12px">' + cards + '</div>'; };
+    var sales = slCard('tag', 'To collect', '₺85.110 · ₺19.150 overdue', [['SO-0009 · Ankara Holding', '12 days late', 'pf-neg'], ['SO-0011 · Globex', 'today'], ['SO-0008 · Atlas Mekanik', 'Nov 15']]) +
+      slCard('tag', 'Quotes', '3 open · ₺31.000', [['SO-0014 · Acme Lojistik', '₺39.900 · 30 days left'], ['SO-0015 · Initech', '₺2.300 · expires Nov 2']]) +
+      slCard('tag', 'This month', '₺146.300 · 18 orders', [['To invoice', '2 · ₺13.300'], ['Collected', '₺98.400'], ['Best customer', 'Ankara Holding']]);
+    var stock = slCard('stack', 'Low stock', '3 products', [['Oil filter', '4 · reorder at 30', 'pf-neg'], ['Timing belt', 'out · 10 on order'], ['Hydraulic oil 20 l', '4 · reorder at 10', 'pf-neg']], 'Reorder all') +
+      slCard('stack', 'To receive', '2 purchase orders', [['PO-0031 · Bosch Parts', '2 days late', 'pf-neg'], ['PO-0033 · Mann Filter', 'today']]) +
+      slCard('stack', 'In stock', '48 products', [['Stock value', '₺1.184.000'], ['Committed', '₺62.500'], ['On order', '₺51.800']]);
+    var shop = '<div class="ah-card"><h4>' + ICON.globe + 'Sales by day<small>4 channels</small></h4><div class="ec-tiles"><div class="r head"><span></span><span>Orders</span><span>Sales</span><span>Profit</span><span>Margin</span></div>' +
+      [['Today', 6, '₺7.420', '₺2.240', '30%'], ['Yesterday', 9, '₺11.080', '₺3.410', '31%'], ['October', 214, '₺268.400', '₺79.900', '30%']].map(function (r) {
+        return '<div class="r"><span>' + r[0] + '</span><span>' + r[1] + '</span><span>' + r[2] + '</span><span class="pos">' + r[3] + '</span><span class="calc">' + r[4] + '</span></div>';
+      }).join('') + '</div></div>' +
+      slCard('globe', 'To ship', '7 · 3 today · 1 late', [['Trendyol · 10288731', '1 day late', 'pf-neg'], ['Trendyol · 10293847', 'today'], ['Hepsiburada · 4410290', 'today']]) +
+      slCard('globe', 'Returns and payouts', '2 returns waiting', [['Return of 10288112', 'Requested'], ['Trendyol payout', '₺18.420 · Nov 3'], ['Hepsiburada payout', '₺6.900 · Nov 5']]);
+    return '<div class="ah">' + slTop('Home') + '<div class="ah-home sl-home">' + today + '<div class="ah-cap">Sales</div>' + grid(sales) + '<div class="ah-cap">Stock</div>' + grid(stock) + '<div class="ah-cap">E-commerce</div>' + grid(shop) + '</div></div>';
+  }
+
+  var SK_PRODUCTS = [
+    ['Brake pad set', 'PRD-0012', 38, 32, 20, 25, ''], ['Oil filter', 'PRD-0003', 4, 4, 0, 30, 'Low'], ['Timing belt', 'PRD-0021', 0, -2, 10, 10, 'Out'],
+    ['Hydraulic oil 20 l', 'PRD-0040', 4, 4, 0, 10, 'Low'], ['V-belt', 'PRD-0018', 120, 112, 0, 40, ''], ['Air filter', 'PRD-0004', 56, 50, 0, 20, ''], ['Spark plug set', 'PRD-0030', 74, 74, 0, 30, '']
+  ];
+  function skProducts() {
+    var head = '<div class="ca-row sk-prod head"><span>Product</span><span class="num">In stock</span><span class="num">Available</span><span class="num">On order</span><span class="num">Reorder at</span><span></span></div>';
+    var rows = SK_PRODUCTS.map(function (p) {
+      return '<div class="ca-row sk-prod"><span class="tt">' + p[0] + '<small>' + p[1] + '</small></span><span class="num">' + p[2] + '</span><span class="num' + (p[3] < 0 ? ' pf-neg' : '') + '">' + p[3] + '</span><span class="num calc">' + (p[4] || '—') + '</span><span class="num calc">' + p[5] + '</span><span>' + (p[6] ? lbl(p[6]) : '') + '</span></div>';
+    }).join('');
+    return '<div class="ah">' + slTop('Stock', 'Products') + slScreen('48 products · ₺1.184.000 in stock · <b class="pf-neg">3 low</b>', 'New product', ['All', 'Low stock'], 'All', head, rows) + '</div>';
+  }
+  function skProduct() {
+    var left = '<div class="cc-two">' + ccProp('Code', 'PRD-0012') + ccProp('Unit', 'piece', { dd: true }) + '</div>' +
+      '<div class="cc-two">' + ccProp('Price', '₺850') + ccProp('Tax %', '20') + '</div>' +
+      '<div class="cc-two">' + ccProp('Cost', '₺520') + ccProp('Supplier', '<span class="lk">Bosch Parts</span>') + '</div>' +
+      '<div class="cc-two">' + ccProp('Reorder at', '25') + ccProp('Reorder quantity', '50') + '</div>';
+    var tl = function (t, c, a, b) { return '<div class="x2-tl" style="--tc:' + c + '"><span class="tm">' + t + '</span><span class="ic">' + (t.charAt(0) === '+' ? '↓' : '↑') + '</span><span class="tx"><b>' + a + '</b><small>' + b + '</small></span></div>'; };
+    var right = slAs('By location', 2, '', [['Main warehouse', '6 committed', '30'], ['Second warehouse', '', '8']], '') +
+      '<div class="x2-blk"><div class="x2-sec">Movements</div>' +
+      '<div class="x2-day">Today</div>' + tl('−4', '#e5534b', 'Sale · SO-0013', 'Ankara Holding · Main warehouse') +
+      '<div class="x2-day">Tue, 27 Oct</div>' + tl('+50', '#5cb87a', 'Purchase · PO-0029', 'Bosch Parts · ₺520 each') +
+      '<div class="x2-day">Tue, 20 Oct</div>' + tl('−2', '#8a8fa0', 'Adjust · Damaged', 'Kaan · counted 36') + tl('−20', '#e5534b', 'Sale · SO-0009', 'Ankara Holding') + '</div>';
+    return slWin('collection', 'PRD-0012', 'Products', 'Brake pad set', '38 in stock · 6 committed · <span class="sl-em">32 available</span> · 20 on order',
+      slActs([['Adjust', 'go'], ['Transfer'], ['Reorder']]) + '<div class="jb-cols"><div>' + left + '</div><div>' + right + '</div></div>', 940);
+  }
+  function skAdjust() {
+    var body = '<div class="cc-two">' + ccProp('Counted', '36') + ccProp('Location', 'Main warehouse', { dd: true }) + '</div>' + '<div class="sl-note">Now 38 · <b class="pf-neg">2 less</b></div>' +
+      '<div class="cc-prop"><span class="pl">Why</span><div class="cr-chips"><span>Count</span><span class="on">Damaged</span><span>Lost</span><span>Found</span><span>Other</span></div></div>';
+    return x2Window('Adjust · Brake pad set', body, '<span class="st-btn">Cancel</span><span class="st-btn go">Adjust</span>');
+  }
+  function skCount() {
+    var rows = [['Air filter', 56, '56', ''], ['Brake pad set', 30, '28', '−2'], ['Hydraulic oil 20 l', 4, '4', ''], ['Oil filter', 4, '6', '+2'], ['Spark plug set', 74, '', ''], ['Timing belt', 0, '', ''], ['V-belt', 120, '', '']];
+    var table = '<div class="sk-count"><div class="r head"><span>Product</span><span>In stock</span><span>Counted</span><span>Difference</span></div>' +
+      rows.map(function (r) { return '<div class="r"><span class="tt">' + r[0] + '</span><span class="calc">' + r[1] + '</span><span><span class="sk-box' + (r[2] ? '' : ' empty') + '">' + (r[2] || '&nbsp;') + '</span></span><span class="' + (r[3].charAt(0) === '−' ? 'pf-neg' : 'pos') + '">' + r[3] + '</span></div>'; }).join('') + '</div>';
+    var top = '<div class="sk-ctop">' + ccProp('Location', 'Main warehouse', { dd: true }) + ccProp('Date', 'Today') + ccProp('By', 'Kaan') + '</div>';
+    return '<div class="ovl center"><div class="rmod cc-rm" style="width:760px"><div class="cp-head">' + ICON.collection + '<span class="key">CNT-0004</span><span>Stock counts · ' + SL_APP + '</span><span class="more">···</span><span class="x">×</span></div>' +
+      '<div class="x2-head"><b>Main warehouse · Oct 29</b><small>4 of 48 counted · 2 differ · a product left empty stays as it is</small></div>' + top + table +
+      '<div class="rm-foot"><span class="st-btn">Cancel</span><span class="st-btn go">Apply 2 differences</span></div></div></div>';
+  }
+  function skPO() {
+    var left = ccProp('Supplier', '<span class="lk">Bosch Parts</span>') + '<div class="cc-two">' + ccProp('Ordered on', 'Oct 20') + ccProp('Expected', '<span class="pf-neg">Oct 27</span>') + '</div>' + ccProp('Location', 'Main warehouse', { dd: true });
+    var lines = '<div class="x2-blk"><div class="x2-sec">Lines<small>3</small></div><div class="sl-lines po"><div class="r head"><span>Product</span><span>Ordered</span><span>Received</span><span>Cost</span><span>Amount</span></div>' +
+      [['Brake pad set', 50, 0, '₺520', '₺26.000'], ['Timing belt', 10, 0, '₺800', '₺8.000'], ['Oil filter', 100, 0, '₺80', '₺8.000']].map(function (l) {
+        return '<div class="r"><span class="tt">' + l[0] + '</span><span>' + l[1] + '</span><span class="calc">' + l[2] + '</span><span>' + l[3] + '</span><span>' + l[4] + '</span></div>';
+      }).join('') + '<div class="sl-tot"><div class="b"><span>Total</span><span>₺42.000</span></div></div></div></div>';
+    return slWin('collection', 'PO-0031', 'Purchase orders', 'PO-0031 · Bosch Parts', 'Ordered · ₺42.000 · expected Oct 27, <span class="pf-neg">2 days late</span>',
+      slBar(['Draft', 'Ordered', 'Received'], 1) + slActs([['Receive', 'go'], '|', ['Cancel order']]) + '<div class="jb-cols"><div>' + left + '</div><div>' + lines + '</div></div>', 900);
+  }
+  function skReceive() {
+    var body = '<div class="sk-count rcv"><div class="r head"><span>Product</span><span>Ordered</span><span>Came</span></div>' +
+      [['Brake pad set', 50, '50'], ['Timing belt', 10, '6'], ['Oil filter', 100, '100']].map(function (l) {
+        return '<div class="r"><span class="tt">' + l[0] + '</span><span class="calc">' + l[1] + '</span><span><span class="sk-box">' + l[2] + '</span></span></div>';
+      }).join('') + '</div>' + '<div class="cc-two">' + ccProp('Received on', 'Today') + ccProp('Into', 'Main warehouse', { dd: true }) + '</div>' +
+      '<div class="sl-note">4 timing belts are still to come: the order stays open as Partially received.</div>';
+    return x2Window('Receive · PO-0031, Bosch Parts', body, '<span class="st-btn">Cancel</span><span class="st-btn go">Receive</span>');
+  }
+
+  var EC_ORDERS = [
+    ['1 day late', 'late', 'Trendyol', '10288731', 'Brake pad set × 2', '₺1.700', 'Confirmed'],
+    ['Today', 'today', 'Trendyol', '10293847', 'Brake pad set, Oil filter', '₺1.240', 'Packed'],
+    ['Today', 'today', 'Hepsiburada', '4410290', 'Timing belt', '₺1.300', 'Confirmed'],
+    ['Today', 'today', 'Own site', '#1092', 'Spark plug set × 2', '₺980', 'Packed'],
+    ['Tomorrow', '', 'Trendyol', '10294410', 'Air filter', '₺420', 'Confirmed'],
+    ['Tomorrow', '', 'Amazon', '405-118230', 'V-belt × 3', '₺1.170', 'Confirmed'],
+    ['Sat, Oct 31', '', 'Trendyol', '10295003', 'Oil filter × 4', '₺440', 'Confirmed']
+  ];
+  var EC_CH = { Trendyol: '#f0a54a', Hepsiburada: '#4fb3d9', Amazon: '#e0c04a', 'Own site': '#b48ef0' };
+  function ecOrders() {
+    var chips = '<div class="cr-chips ec-chips"><span class="on">All<small>7</small></span><span>Trendyol<small>4</small></span><span>Hepsiburada<small>1</small></span><span>Amazon<small>1</small></span><span>Own site<small>1</small></span></div>';
+    var head = '<div class="ca-row ec-ord head"><span>Ship by</span><span>Channel</span><span>Order no</span><span>Items</span><span class="num">Total</span><span>Status</span></div>';
+    var rows = EC_ORDERS.map(function (o) {
+      return '<div class="ca-row ec-ord"><span class="' + (o[1] === 'late' ? 'pf-neg' : o[1] === 'today' ? 'sl-today' : 'calc') + '">' + o[0] + '</span><span class="ec-ch" style="--cc:' + EC_CH[o[2]] + '"><i></i>' + o[2] + '</span><span class="mono">' + o[3] + '</span><span class="tt">' + o[4] + '</span><span class="num">' + o[5] + '</span><span>' + lbl(o[6]) + '</span></div>';
+    }).join('');
+    return '<div class="ah">' + slTop('E-commerce', 'Orders') + slScreen('7 to ship · 3 today · <b class="pf-neg">1 late</b>', 'New order', ['To ship', 'Shipped', 'Delivered', 'Cancelled'], 'To ship', head, rows, chips) + '</div>';
+  }
+  function ecOrder() {
+    var left = '<div class="cc-two">' + ccProp('Channel', '<span class="ec-ch" style="--cc:#f0a54a"><i></i>Trendyol</span>') + ccProp('Order no', '10293847') + '</div>' +
+      '<div class="cc-two">' + ccProp('Customer', 'Elif Şahin · İzmir') + ccProp('Date', 'Oct 28') + '</div>' +
+      '<div class="cc-two">' + ccProp('Ship by', 'Today') + ccProp('Carrier', 'Yurtiçi Kargo', { dd: true }) + '</div>' + ccProp('Tracking no', '');
+    var right = slLines([['Brake pad set', 1, '₺850', '₺850'], ['Oil filter', 3, '₺130', '₺390']], [['Total', '₺1.240', 'b']]) +
+      '<div class="ec-profit">₺1.240 · commission ₺248 · shipping ₺60 · cost ₺520 → <b>₺412 profit · 33%</b></div>' +
+      '<div class="sl-note">Payout ₺992 on Nov 12, 14 days after it is delivered</div>';
+    return slWin('collection', 'SO-0102', 'Orders', 'Trendyol · 10293847', 'Packed · ship by today · Elif Şahin, İzmir',
+      slActs([['Ship', 'go'], '|', ['Cancel order']]) + '<div class="jb-cols"><div>' + left + '</div><div>' + right + '</div></div>', 940);
+  }
+  function ecShip() {
+    var body = '<div class="cc-prop"><span class="pl">Carrier</span><div class="cr-chips"><span class="on">Yurtiçi Kargo</span><span>Aras Kargo</span><span>MNG Kargo</span><span>PTT Kargo</span></div></div>' +
+      '<div class="cc-two">' + ccProp('Tracking no', '7340 1129 5582') + ccProp('Shipped on', 'Today') + '</div>';
+    return x2Window('Ship · Trendyol 10293847', body, '<span class="st-btn">Cancel</span><span class="st-btn go">Ship</span>');
+  }
+  function ecReturn() {
+    var body = '<div class="sk-count ret"><div class="r head"><span>Item</span><span>Sent</span><span>Back</span><span>Why</span></div>' +
+      [['Brake pad set', 1, '1', 'Wrong item'], ['Oil filter', 3, '0', '']].map(function (l) {
+        return '<div class="r"><span class="tt">' + l[0] + '</span><span class="calc">' + l[1] + '</span><span><span class="sk-box">' + l[2] + '</span></span><span>' + (l[3] ? '<span class="box sk-dd">' + l[3] + '<span class="dd">▾</span></span>' : '<span class="calc">—</span>') + '</span></div>';
+      }).join('') + '</div>' + '<div class="sl-note">Refund <b>₺850</b>, from the items coming back</div>';
+    return x2Window('Return · Trendyol 10288112', body, '<span class="st-btn">Cancel</span><span class="st-btn go">Add return</span>');
+  }
+  function ecReceived() {
+    var body = '<div class="sl-note" style="margin:0">Brake pad set × 1 came back</div>' +
+      '<label class="sk-tick"><span class="tk on">✓</span>Back in stock<small>Main warehouse · take it off when it is damaged</small></label>';
+    return x2Window('Received · Return of 10288112', body, '<span class="st-btn">Cancel</span><span class="st-btn go">Received</span>');
+  }
+
+  function slPhone() {
+    var nav = function (back) { return '<div class="mb-nav"><span class="back">' + ICON.chevl + back + '</span><span class="acts"></span></div>'; };
+    var acc = 'background:var(--m-accent);color:var(--m-on-accent)';
+    var order = mbPage(nav('Orders') + '<div class="mb-rhead"><h2>SO-0009</h2><small>Ankara Holding · Invoiced · <span class="pf-neg">12 days overdue</span></small></div>' +
+      '<div class="mb-qacts"><span class="mb-qact" style="' + acc + '">Record payment</span></div>',
+      '<div class="sl-mtot"><span>Total</span><b>₺39.150</b><span>Collected</span><b>₺20.000</b><span>Left</span><b class="pf-neg">₺19.150</b></div>' +
+      '<div class="x2-mday">Lines</div>' + [['Brake pad set', '20 × ₺850', '₺17.000'], ['Timing belt', '10 × ₺1.300', '₺13.000'], ['Oil filter', '25 × ₺110', '₺2.750']].map(function (l) {
+        return '<div class="cr-mrow"><span class="tx"><b>' + l[0] + '</b><small>' + l[1] + '</small></span><span class="sl-mn">' + l[2] + '</span></div>'; }).join('') +
+      '<div class="x2-mday">Payments</div><div class="cr-mrow"><span class="tx"><b>₺20.000</b><small>Oct 20 · Bank transfer</small></span></div>');
+    var product = mbPage(nav('Products') + '<div class="mb-rhead"><h2>Brake pad set</h2><small>38 in stock · 32 available · 20 on order</small></div>' +
+      '<div class="mb-qacts"><span class="mb-qact" style="' + acc + '">Adjust</span><span class="mb-qact">Transfer</span><span class="mb-qact">Reorder</span></div>',
+      '<div class="x2-mday">By location</div><div class="cr-mrow"><span class="tx"><b>Main warehouse</b><small>6 committed</small></span><span class="sl-mn">30</span></div><div class="cr-mrow"><span class="tx"><b>Second warehouse</b></span><span class="sl-mn">8</span></div>' +
+      '<div class="x2-mday">Today</div><div class="x2-mtl" style="--tc:#e5534b"><span class="tm">−4</span><span class="ic">↑</span><span><b>Sale · SO-0013</b><small>Ankara Holding</small></span></div>' +
+      '<div class="x2-mday">Tue, 27 Oct</div><div class="x2-mtl" style="--tc:#5cb87a"><span class="tm">+50</span><span class="ic">↓</span><span><b>Purchase · PO-0029</b><small>Bosch Parts</small></span></div>');
+    var ship = mbPage(nav(SL_APP) + '<div class="mb-rhead"><h2>To ship</h2><small>7 · 3 today · <span class="pf-neg">1 late</span></small></div>' +
+      '<div class="mb-ctabs"><span class="mb-ct on">All<small>7</small></span><span class="mb-ct">Trendyol<small>4</small></span><span class="mb-ct">Hepsiburada</span><span class="mb-ct">Amazon</span></div>',
+      EC_ORDERS.slice(0, 5).map(function (o) {
+        return '<div class="cr-mrow ec-mrow"><span class="tx"><b>' + o[2] + ' · ' + o[3] + '</b><small>' + o[4] + ' · <span class="' + (o[1] === 'late' ? 'pf-neg' : '') + '">' + o[0].toLowerCase() + '</span></small></span><span class="sl-mbtn">Ship</span></div>';
+      }).join(''));
+    var count = mbPage(nav('Stock counts') + '<div class="mb-rhead"><h2>Main warehouse</h2><small>4 of 48 counted · 2 differ</small></div>',
+      [['Air filter', 56, '56', ''], ['Brake pad set', 30, '28', '−2'], ['Hydraulic oil 20 l', 4, '4', ''], ['Oil filter', 4, '6', '+2'], ['Spark plug set', 74, '', ''], ['Timing belt', 0, '', '']].map(function (r) {
+        return '<div class="cr-mrow"><span class="tx"><b>' + r[0] + '</b><small>' + r[1] + ' in stock' + (r[3] ? ' · <span class="' + (r[3].charAt(0) === '−' ? 'pf-neg' : 'pos') + '">' + r[3] + '</span>' : '') + '</small></span><span class="sk-box m' + (r[2] ? '' : ' empty') + '">' + (r[2] || '&nbsp;') + '</span></div>';
+      }).join('') + '<div class="sl-mfoot"><span class="mb-qact" style="' + acc + '">Apply 2 differences</span></div>');
+    return mbPhone('Sipariş: kalan ve Record payment', order, '') + mbPhone('Ürün: sayılar, Adjust', product, '') + mbPhone('To ship: kanala göre, Ship', ship, '') + mbPhone('Sayım: sayılan yazılır', count, '');
+  }
+  var SL_VIEWS = {
+    slorders: function () { return ahFrame(slTree(), 'app', SL_APP, slOrders(), '6 open orders'); },
+    slorder: function () { return ahFrame(slTree(), 'app', SL_APP, slOrders(), '6 open orders', slOrder()); },
+    slpay: function () { return ahFrame(slTree(), 'app', SL_APP, slOrders(), '6 open orders', slOrder() + slPay()); },
+    slquote: function () { return ahFrame(slTree(), 'app', SL_APP, slOrders(), '6 open orders', slQuote()); },
+    slinvoice: function () { return ahFrame(slTree(), 'app', SL_APP, slOrders(), '6 open orders', slInvoice()); },
+    slcompany: function () { return ahFrame(slTree(), 'app', SL_APP, slOrders(), '6 open orders', slCompany()); },
+    sldeal: function () { return ahFrame(slTree(), 'app', SL_APP, slOrders(), '6 open orders', slDeal()); },
+    skproducts: function () { return ahFrame(slTree(), 'app', SL_APP, skProducts(), '48 products'); },
+    skproduct: function () { return ahFrame(slTree(), 'app', SL_APP, skProducts(), '48 products', skProduct()); },
+    skadjust: function () { return ahFrame(slTree(), 'app', SL_APP, skProducts(), '48 products', skProduct() + skAdjust()); },
+    skcount: function () { return ahFrame(slTree(), 'app', SL_APP, skProducts(), '48 products', skCount()); },
+    skpo: function () { return ahFrame(slTree(), 'app', SL_APP, skProducts(), '48 products', skPO()); },
+    skreceive: function () { return ahFrame(slTree(), 'app', SL_APP, skProducts(), '48 products', skPO() + skReceive()); },
+    ecorders: function () { return ahFrame(slTree(), 'app', SL_APP, ecOrders(), '7 to ship'); },
+    ecorder: function () { return ahFrame(slTree(), 'app', SL_APP, ecOrders(), '7 to ship', ecOrder()); },
+    ecship: function () { return ahFrame(slTree(), 'app', SL_APP, ecOrders(), '7 to ship', ecOrder() + ecShip()); },
+    ecreturn: function () { return ahFrame(slTree(), 'app', SL_APP, ecOrders(), '7 to ship', ecReturn()); },
+    ecreceived: function () { return ahFrame(slTree(), 'app', SL_APP, ecOrders(), '7 to ship', ecReceived()); },
+    sltoday: slToday,
+    slhome: function () { return ahFrame(slTree(), 'app', SL_APP, slHome(), '3 modules'); }
+  };
+  function renderSl(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (view === 'slphone') {
+      mock.className = 'mock dir-a phones four mbs';
+      mock.innerHTML = slPhone();
+    } else {
+      mock.className = 'mock dir-a' + (view === 'sltoday' ? '' : ' wider');
+      mock.innerHTML = SL_VIEWS[view]();
+    }
+    section.querySelectorAll('.brief [data-slview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.slview === view));
+    });
+  }
+  var sectionSl = document.querySelector('.dir[data-dir="sales2"]');
+  sectionSl.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-slview]');
+    if (b) renderSl(sectionSl, b.dataset.slview);
+  });
+  renderSl(sectionSl, 'slorders');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });

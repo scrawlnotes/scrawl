@@ -110,6 +110,7 @@ import {
   timeOf,
   offeredOptions,
   optionName,
+  viewSumParts,
   viewValues,
 } from '@scrawlnotes/core';
 import type { ScrawlEditor } from '@scrawlnotes/editor';
@@ -167,6 +168,8 @@ export interface CollectionActions {
   removeRecord: (dir: string, record: Record) => void;
   /** Runs a button of the collection's rules on a record as it is written: asks first when it says so; says what it did, with Undo, or where it stopped. */
   pressButton: (dir: string, id: string, name: string, given?: Record['values']) => void;
+  /** Runs a button on each of the records in turn, those it may run on; says how many, with one Undo for all (View.all, Reorder all). */
+  pressAll?: (dir: string, ids: string[], name: string) => void;
   /** A repeating calendar's day (design/gym.md 4.3): Start opens the record that closes it, the other button writes it closed. */
   startDay?: (due: DueRecord) => void;
   skipDay?: (due: DueRecord) => void;
@@ -299,6 +302,33 @@ function TextCell({ field, value, onChange }: { field: Field; value: string; onC
   );
 }
 
+/** A number the table changes where it is (design/scrawl-apps.md 3.6): what was counted, written as it is left or Enter is pressed; Esc puts it back, an empty box is nothing. */
+function NumberCell({ field, value, onChange }: { field: Field; value: number | null; onChange: (value: FieldValue) => void }) {
+  const [typed, setTyped] = useState(value === null ? '' : String(value));
+  useEffect(() => setTyped(value === null ? '' : String(value)), [value]);
+  const done = () => {
+    const next = typed.trim() === '' ? null : Number(typed.replace(',', '.'));
+    if (next !== null && !Number.isFinite(next)) return setTyped(value === null ? '' : String(value));
+    if (next !== value) onChange(next);
+  };
+  return (
+    <input
+      className="ttext tnum"
+      inputMode="decimal"
+      aria-label={field.label}
+      value={typed}
+      onClick={(event) => event.stopPropagation()}
+      onChange={(event) => setTyped(event.target.value)}
+      onBlur={done}
+      onKeyDown={(event) => {
+        event.stopPropagation();
+        if (event.key === 'Enter') event.currentTarget.blur();
+        if (event.key === 'Escape') setTyped(value === null ? '' : String(value));
+      }}
+    />
+  );
+}
+
 function ChangeCell({ field, value, onChange }: { field: Field; value: FieldValue | undefined; onChange: (value: FieldValue) => void }) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLButtonElement>(null);
@@ -312,6 +342,7 @@ function ChangeCell({ field, value, onChange }: { field: Field; value: FieldValu
     );
   }
   if (field.type === 'text') return <TextCell field={field} value={typeof value === 'string' ? value : ''} onChange={onChange} />;
+  if (field.type === 'number') return <NumberCell field={field} value={typeof value === 'number' ? value : null} onChange={onChange} />;
   const now = typeof value === 'string' && value ? value : null;
   const options: Option[] = [
     ...(!field.required ? [{ value: null, label: t('collection.none'), chip: false }] : []),
@@ -521,6 +552,27 @@ export function StepsDots({ field, value }: { field: Field; value: FieldValue })
 }
 
 /** How many are at each step, as Teal heads its list: "6 Saved · 7 Applied". */
+/** The chips over a view (View.chips): All, then each value its records have, with how many; one picked shows only its records. */
+export function ViewChips({ values, order, on, onPick }: { values: string[]; order: string[]; on: string | null; onPick: (value: string | null) => void }) {
+  const counts = new Map<string, number>();
+  for (const v of values) if (v) counts.set(v, (counts.get(v) ?? 0) + 1);
+  const shown = [...order.filter((o) => counts.has(o)), ...[...counts.keys()].filter((k) => !order.includes(k))];
+  return (
+    <div className="view-chips" role="group">
+      <button type="button" aria-pressed={!on} className={!on ? 'on' : undefined} onClick={() => onPick(null)}>
+        {t('collection.all')}
+        <small>{values.length}</small>
+      </button>
+      {shown.map((v) => (
+        <button key={v} type="button" aria-pressed={on === v} className={on === v ? 'on' : undefined} onClick={() => onPick(on === v ? null : v)}>
+          {v}
+          <small>{counts.get(v)}</small>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function StepStrip({ counts }: { counts: [string, number][] }) {
   return (
     <div className="step-strip">
@@ -550,7 +602,7 @@ export function Cell({ field, value, ctx, values }: {
     );
   }
   if (isEmpty(value)) return <span className="empty">–</span>;
-  if (field.type === 'select' && field.steps) return <StepsDots field={field} value={value ?? null} />;
+  if (field.type === 'select' && field.steps && !field.steps.chip) return <StepsDots field={field} value={value ?? null} />;
   if (field.type === 'select') return <Chip text={optionName(field, valueText(value), values)} color={optionColor(field, valueText(value))} />;
   if (field.type === 'multi-select') {
     return (
@@ -1161,11 +1213,11 @@ function LinkedRecords({ block, dir, record, today, actions, drafts, hint, onOpe
   const ctx: ValueContext = { records: actions.records, collection: actions.collection, openLink: actions.openLink };
   const head = (count: number | null) => (
     <div className="blk-h">
-      <span>{name}</span>
+      <span>{block.title ?? name}</span>
       {count !== null && <small>{count}</small>}
       {source && (
         <button type="button" className="addl" onClick={() => onAdd(source)}>
-          {t('collection.addOne', { singular: singularOf(source.schema) })}
+          {block.add ? t('collection.addNamed', { name: block.add }) : t('collection.addOne', { singular: singularOf(source.schema) })}
         </button>
       )}
     </div>
@@ -1705,7 +1757,7 @@ export function LinkedTable({ block, source, dir, record, today, actions, drafts
   return (
     <div className="blk ltable">
       <div className="blk-h">
-        <span>{collectionName(block.collection)}</span>
+        <span>{block.title ?? collectionName(block.collection)}</span>
         <small>{blockCount()}</small>
       </div>
       <div className="ltable-scroll" hidden={rows.length === 0}>
@@ -1805,7 +1857,7 @@ export function LinkedTable({ block, source, dir, record, today, actions, drafts
       {/* In groups each group has its own + Add; with none yet, the table has it. */}
       {(!block.group?.length || rows.length === 0) && (
         <button type="button" className="cadd" onClick={() => startAdding(null)}>
-          {t(lines ? 'collection.addLine' : 'collection.addRow')}
+          {block.add ? t('collection.addNamed', { name: block.add }) : t(lines ? 'collection.addLine' : 'collection.addRow')}
         </button>
       )}
     </div>
@@ -2306,6 +2358,15 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
   const entry = (layoutItem: LayoutItem, index: number): ReactNode => {
     if ('field' in layoutItem) return item(layoutItem.field, index);
     if (layoutItem.block === 'body') return body(index, !!layoutItem.attach);
+    if (layoutItem.block === 'note') {
+      // A formula's sentence in a box: an order's profit (design/calendar.md 7).
+      const said = valueText((computed as Record['values'])[layoutItem.of] ?? null);
+      return said ? (
+        <p key={`note-${index}`} className="rm-note">
+          {said}
+        </p>
+      ) : null;
+    }
     if (layoutItem.block === 'actions') {
       if (!record || buttons.length === 0) return null;
       const now = { ...record, values: draft.values };
@@ -2792,8 +2853,16 @@ export function CollectionView({ collection, embedded, screen, today, look, onLo
   const [adHoc, setAdHoc] = useState<Condition[]>([]);
   const views = schema.views ?? [];
   // Until a view is chosen on this device, the one the schema opens on.
-  const view = views.find((v) => v.id === (screen?.view ?? (look?.view === undefined ? schema.defaultView : look.view))) ?? null;
-  const ownView = !!screen?.view && view?.id === screen.view;
+  // A screen opened on a view of a set has the set's views as its tabs, one picked kept until the screen closes (Sales' Quotes, Open, Unpaid).
+  const screenView = screen?.view ? views.find((v) => v.id === screen.view) : undefined;
+  const setViews = screenView?.set ? views.filter((v) => v.set === screenView.set) : null;
+  const [setPicked, setSetPicked] = useState<string | null>(null);
+  const view = views.find((v) => v.id === ((setViews && setPicked) || (screen?.view ?? (look?.view === undefined ? schema.defaultView : look.view)))) ?? null;
+  const ownView = !!screen?.view && (view?.id === screen.view || !!setViews?.some((v) => v.id === view?.id));
+  // The chip picked over the view, by the value it shows; none for all of them (an order's channel).
+  const [chip, setChip] = useState<{ view: string; value: string } | null>(null);
+  const chipField = view?.chips ? schema.fields.find((f) => f.key === view.chips) : undefined;
+  const chipOn = chip && chip.view === view?.id ? chip.value : null;
   const closed = toggled && toggled.view === (view?.id ?? null) ? toggled.closed : new Set(view?.closed ?? []);
   // A record made here is what the view asks of it: an anime on the Anime screen (design/more-apps.md 4.8).
   const fresh = () => viewValues(view ?? undefined, schema);
@@ -2829,9 +2898,12 @@ export function CollectionView({ collection, embedded, screen, today, look, onLo
     setFull(false);
   };
 
+  const viewed = useMemo(() => records.filter((r) => matchesConditions(r, schema, state.conditions, today)), [records, schema, state.conditions, today]);
+  const chipOf = (r: Record) => (chipField ? valueText(r.values[chipField.key] ?? null) : '');
   const matching = useMemo(
-    () => records.filter((r) => matchesConditions(r, schema, state.conditions, today) && matchesQuery(r, schema, query)),
-    [records, schema, state.conditions, query, today],
+    () => viewed.filter((r) => (!chipOn || chipOf(r) === chipOn) && matchesQuery(r, schema, query)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [viewed, schema, query, chipOn, chipField],
   );
   const shown = useMemo(() => sortRecords(matching, schema, state.sort, today), [matching, schema, state.sort, today]);
   const groups = useMemo(() => (state.group ? groupRecords(shown, schema, state.group, today, shownAs.get(state.group)) : null), [shown, schema, state.group, today, shownAs]);
@@ -3128,7 +3200,8 @@ export function CollectionView({ collection, embedded, screen, today, look, onLo
         ]
       : [row(record, group)];
   const sums = fields.map((f) => columnSums(shown, schema, f.key, today));
-  const hasSums = sums.some((v) => v !== null);
+  // A view that says its sums over it has no row of them under it.
+  const hasSums = !view?.sums && sums.some((v) => v !== null);
   // Money in each record's own currency is summed one currency a line, in the order of its choices.
   const sumText = (field: Field, of: Sum[] | null) => (
     <span className={of && of.length > 1 ? 'num split' : 'num'}>
@@ -3344,7 +3417,9 @@ export function CollectionView({ collection, embedded, screen, today, look, onLo
         <PhoneCollectionList
           name={name}
           count={
-            calendarView && nav.range !== 'month'
+            view?.sums
+              ? viewSumParts(view.sums, records, { fields: schema.fields.map(asShown) }, today).map((p) => p.text).join(' · ')
+              : calendarView && nav.range !== 'month'
               ? new Date(`${nav.focus}T12:00:00`).toLocaleDateString(locale(), { weekday: 'long', month: 'short', day: 'numeric' })
               : ownView && !query
                 ? t('count.records', { count: shown.length })
@@ -3363,13 +3438,19 @@ export function CollectionView({ collection, embedded, screen, today, look, onLo
           filtered={applied.length > 0}
           problems={problems}
           query={query}
-          views={views}
+          views={setViews ?? views}
           view={view}
-          own={ownView}
+          own={ownView && !setViews}
+          set={!!setViews}
+          chips={
+            chipField ? (
+              <ViewChips values={viewed.map(chipOf)} order={chipField.options ?? (actions.records(chipField.collection ?? '') ?? []).map((r) => recordTitle(r))} on={chipOn} onPick={(value) => setChip(value && view ? { view: view.id, value } : null)} />
+            ) : undefined
+          }
           {...(viewButton && { button: rowButton })}
           onToggle={toggle}
           onQuery={setQuery}
-          onPickView={pickView}
+          onPickView={(id) => (setViews ? setSetPicked(id) : pickView(id))}
           onViewMenu={phoneViewMenu}
           onViewSheet={() => setViewing(true)}
           onOpen={(record) => (actions.show ? actions.show(dir, record.id) : openRecord(record.id))}
@@ -3470,7 +3551,18 @@ export function CollectionView({ collection, embedded, screen, today, look, onLo
     <section className="bv collection-view">
       <header className="th">
         {!embedded && <b>{name}</b>}
-        <span className="count">{t('count.records', { count: ownView ? matching.length : records.length })}</span>
+        {view?.sums ? (
+          <span className="count sums">
+            {viewSumParts(view.sums, records, { fields: schema.fields.map(asShown) }, today).map((p, i) => (
+              <Fragment key={i}>
+                {i > 0 && ' · '}
+                <span className={p.warn ? 'warn' : undefined}>{p.text}</span>
+              </Fragment>
+            ))}
+          </span>
+        ) : (
+          <span className="count">{t('count.records', { count: ownView ? matching.length : records.length })}</span>
+        )}
         <label className="search">
           <Icon name="search" />
           <input type="search" spellCheck={false} aria-label={t('collection.search')} placeholder={t('collection.search')} value={query} onChange={(event) => setQuery(event.target.value)} />
@@ -3478,12 +3570,26 @@ export function CollectionView({ collection, embedded, screen, today, look, onLo
         <button type="button" className="ghost" onClick={() => setDesigning(true)}>
           {t('collection.fields')}
         </button>
+        {view?.all && actions.pressAll && matching.length > 0 && (
+          <button type="button" className="ghost" onClick={() => actions.pressAll!(dir, matching.map((r) => r.id), view.all!)}>
+            {t('run.allOf', { name: view.all })}
+          </button>
+        )}
         <button type="button" className="add" onClick={() => setOpen({ kind: 'new', values: fresh() })}>
           {t('collection.addRecord')}
         </button>
       </header>
       <div className="cbar">
         {/* A screen that opens on a view is that view: no tabs of the others (Reading's Anime). */}
+        {setViews && (
+          <span className="views" role="tablist">
+            {setViews.map((v) => (
+              <button key={v.id} type="button" role="tab" aria-selected={view?.id === v.id} onClick={() => setSetPicked(v.id)}>
+                {v.name}
+              </button>
+            ))}
+          </span>
+        )}
         {!ownView && <span className="views" role="tablist">
           <button type="button" role="tab" aria-selected={!view} onClick={() => pickView(null)}>
             {t('collection.all')}
@@ -3536,6 +3642,14 @@ export function CollectionView({ collection, embedded, screen, today, look, onLo
         const field = schema.fields.find((f) => f.key === view.counts && f.steps);
         return field ? <StepStrip counts={stepCounts(field, collection.records)} /> : null;
       })()}
+      {chipField && (
+        <ViewChips
+          values={viewed.map(chipOf)}
+          order={chipField.options ?? (actions.records(chipField.collection ?? '') ?? []).map((r) => recordTitle(r))}
+          on={chipOn}
+          onPick={(value) => setChip(value && view ? { view: view.id, value } : null)}
+        />
+      )}
       {calendarView ? (
         <CollectionCalendar
           collection={rolled}

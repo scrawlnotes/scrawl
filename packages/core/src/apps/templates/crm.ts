@@ -239,7 +239,7 @@ export const crm: AppTemplate = {
           key: 'said',
           label: 'Says',
           type: 'formula',
-          formula: `stage + (empty(city) ? "" : " · " + city) + (people_count > 0 ? " · " + text(people_count) + (people_count == 1 ? " person" : " people") : "") + (empty(last_said) ? "" : " · " + last_said)`,
+          formula: `stage + (empty(city) ? "" : " · " + city) + (people_count > 0 ? " · " + text(people_count) + (people_count == 1 ? " person" : " people") : "")${app.has('sales') ? ' + (empty(sales_said) ? "" : " · " + sales_said)' : ''} + (empty(last_said) ? "" : " · " + last_said)`,
         },
       );
       app.field('companies', { key: 'quiet', label: 'Gone quiet', type: 'formula', formula: `${customer} && (empty(last_contact) || today() - day(last_contact) > 30)` });

@@ -39,6 +39,7 @@ import {
   type AppPlan,
   type Audience,
   audienceOf,
+  type BoardAdd,
   type BoardSetup,
   type BoardPart,
   type CollectionPart,
@@ -175,6 +176,12 @@ class Draft implements AppDraft {
     this.part(role, 'collection').home = tile;
   }
 
+  /** Another box of the collection on Home, of one of its views (Schema.homes). */
+  homeTiles(role: string, tiles: HomeTile[]) {
+    const part = this.part(role, 'collection');
+    part.homes = [...(part.homes ?? []), ...tiles.map((tile) => ({ ...tile, ...(this.building && { of: this.building }) }))];
+  }
+
   formOrder(role: string, keys: string[]) {
     this.part(role, 'collection').order = keys;
   }
@@ -225,6 +232,11 @@ class Draft implements AppDraft {
     if (look.blocks) part.blocks = look.blocks;
     if (look.wins) part.wins = look.wins;
     if (look.press) part.press = look.press;
+  }
+
+  boardAdd(role: string, add: BoardAdd) {
+    const part = this.part(role, 'board');
+    part.added = { ...part.added, ...add, blocks: [...(part.added?.blocks ?? []), ...(add.blocks ?? [])] };
   }
 
   note(role: string, name: string, text: string) {
@@ -303,7 +315,8 @@ function layoutFor(fields: readonly Field[], blocks: readonly (LayoutBlock & { c
   const own = blocks.some((b) => b.block === 'actions');
   items[0]!.push(...ordered.filter((f) => !((placed[f.key] ?? 1) > 1)).map((f) => ({ field: f.key })), ...(actions && !own ? [{ block: 'actions' as const }] : []));
   for (const [key, column] of Object.entries(placed)) if (column > 1 && fields.some((f) => f.key === key)) items[column - 1]!.push({ field: key });
-  blocks.forEach((b, i) => items[columnOf(b, i) - 1]!.push(strip(b)));
+  // The buttons put in the first column come over its fields, under the title: an order's Record payment (design/scrawl-apps.md 3.2).
+  blocks.forEach((b, i) => (b.block === 'actions' && columnOf(b, i) === 1 ? items[0]!.unshift(strip(b)) : items[columnOf(b, i) - 1]!.push(strip(b))));
   items[0]!.push(...notes);
   // A column nothing is put in is not there: a supplier's window with no CRM has its cards on the right of its fields.
   const kept = items.filter((list, i) => i === 0 || list.length > 0);
@@ -498,7 +511,7 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
       if (part.kind === 'collection') {
         const layout = layoutFor(part.fields, part.blocks, part.rules.some((r) => r.kind === 'action'), part.order, { ...(part.places && { places: part.places }), ...(part.notes !== undefined && { notes: part.notes }) });
         if (layout && part.newForm) layout.new = part.newForm;
-        const schema: Schema = { version: 2, template: matchingTemplate(role), ...(part.singular && { singular: part.singular }), role, ...(part.views.length > 0 && { views: part.views }), ...(part.defaultView && { defaultView: part.defaultView }), ...(part.columns && { columns: part.columns }), ...(part.home && { home: part.home }), ...(part.head && { head: part.head }), ...(part.line && { line: part.line }), fields: part.fields, ...(layout && { layout }) };
+        const schema: Schema = { version: 2, template: matchingTemplate(role), ...(part.singular && { singular: part.singular }), role, ...(part.views.length > 0 && { views: part.views }), ...(part.defaultView && { defaultView: part.defaultView }), ...(part.columns && { columns: part.columns }), ...(part.home && { home: part.home }), ...(part.homes && { homes: part.homes }), ...(part.head && { head: part.head }), ...(part.line && { line: part.line }), fields: part.fields, ...(layout && { layout }) };
         plan.dirs.push(part.path);
         file(join(part.path, COLLECTION_FILE), serializeSchema(schema));
         if (part.rules.length > 0) file(join(part.path, RULES_FILE), rulesText(partName(part), part.rules));
@@ -517,8 +530,9 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
           role,
           ...(part.next && { next: part.next }),
           ...(part.dropAsks && { dropAsks: part.dropAsks }),
-          ...(part.blocks && { blocks: part.blocks }),
-          ...(part.wins && { wins: part.wins }),
+          ...((part.blocks || part.added?.blocks?.length) && { blocks: [...(part.blocks ?? []), ...(part.added?.blocks ?? [])] }),
+          ...(part.wins && { wins: { ...part.wins, ...(part.added?.back && { back: part.added.back }) } }),
+          ...(part.added?.loses && { loses: part.added.loses }),
           ...(part.press && { press: part.press }),
           cards: [],
         };
@@ -631,9 +645,14 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
         fields.push(field);
         put.push(field);
       }
-      if (put.length > 0) {
-        file(part.path, `${JSON.stringify({ ...data, fields }, null, 2)}\n`, was.text);
-        added.push(t('apps.addedFields', { count: put.length }));
+      // What another template adds to it, once: Sales' Quotes on a deal set up before.
+      const blocks = (part.added?.blocks ?? []).filter((b) => !(data.blocks ?? []).some((o) => o.collection === b.collection && o.title === b.title));
+      const back = part.added?.back && data.wins && !data.wins.back ? part.added.back : undefined;
+      const loses = part.added?.loses && !data.loses ? part.added.loses : undefined;
+      if (put.length > 0 || blocks.length > 0 || back || loses) {
+        const next = { ...data, fields, ...(blocks.length > 0 && { blocks: [...(data.blocks ?? []), ...blocks] }), ...(back && { wins: { ...data.wins!, back } }), ...(loses && { loses }) };
+        file(part.path, `${JSON.stringify(next, null, 2)}\n`, was.text);
+        if (put.length > 0) added.push(t('apps.addedFields', { count: put.length }));
       }
       boards[part.path] = { fields, columns: data.columns ?? [] };
     } else {

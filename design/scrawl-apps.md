@@ -227,6 +227,29 @@ Ortak olmasa da başka şablonun parçasına bağlananlar: Demirbaşın tedarik�
 
 ### 3.2 Satış ve faturalama
 
+29 Ekim, Zoho Invoice, QuickBooks Online, Pipedrive, Odoo Sales ve Invoice Ninja'nın ekranlarına bakılarak baştan; Stok (3.6) ve E-ticaretle (`design/calendar.md` 7) birlikte, üçü CRM'le tek app'te. Mockup: `design/mockups.html` › Satış, stok ve e-ticaret. Roadmap ROA-338, deneme ROA-339.
+
+- **Orders listesi:** üstte bir cümle (QuickBooks'un şeridi): "₺85.110 to collect · ₺19.150 overdue · ₺31.000 in quotes". Sekmeler Quotes, Open, To invoice, Unpaid, Paid. Sütunlar No, Customer, Date, Total, Left, Status; Status çipinin yanında "Overdue 12 days", "Due today", "Due Nov 20", "To invoice" (Invoice Ninja'nın sütunları).
+- **Yeni teklif ya da sipariş:** müşteri, kalemler, toplamlar; numara ve tarih kendiliğinden, teklifte Valid until 30 gün sonrası (Odoo, Invoice Ninja). Kalem ürün seçilince fiyat ve vergiyle; stok yetmeyen kalemin altında "Not enough stock: 4 available".
+- **Siparişin penceresi:** başlıkta "Invoiced · ₺39.150 · ₺19.150 left · 12 days overdue", altında aşama çubuğu (Quote, Confirmed, Delivered, Invoiced, Paid). Düğmeler duruma göre:
+  - **Accept** (teklifi Confirmed yapar, fırsatı Won) ve **Declined** (fırsatı Lost, nedeni sorulur); Zoho'nun tek tıkla Convert'i.
+  - **Invoice:** fatura numarasını ve günü (bugün) sorar; vadeyi müşterinin ödeme vadesinden hesaplar ("Due Nov 13 · Net 15, Kuzey Asansör's terms"), Invoiced yapar.
+  - **Record payment:** tutar (kalan dolu), gün (bugün), yöntem çiplerle (Bank transfer, Card, Cash); kısmi ödemede sipariş açık kalır, kalan yazar; bir şey kalmayınca Paid (Odoo, QuickBooks).
+  - Solda Customer, Deal, Date, Payment terms, Invoice no, Invoiced on, Due (geçmişse kırmızı); sağda kalemler ve toplamlar (Subtotal, Tax, Total, Collected, Left), altında tahsilatlar.
+- **Today:** vadesi gelen fatura o gün Record payment ile; geçen ödenene kadar Overdue'da. Upcoming'de vadesi gelecekler; teklifler girmez.
+- **Müşteri (Companies):** başlıkta "₺19.150 to collect · 1 overdue · ₺59.850 this year"; sağ sütunda Orders (Sales'ten), her biri durumu ve kalanıyla, + New quote o müşteriye teklif açar. Şirkete Payment terms (Due on receipt, Net 15, Net 30, Net 60), boşsa kurulumdaki.
+- **CRM'le:** fırsatın penceresinde Quotes bloğu, + Quote şirketi ve fırsatı seçili teklif açar; teklif Accept edilince fırsat Won, Declined olunca Lost; fırsat Won'a çekilince açık teklifi Confirmed.
+- **Home:** To collect (en eski vadeler), Quotes (açık teklifler), This month (To invoice, Collected, en çok alan müşteri).
+- **Sorular:** bugünküler ve **Payment terms** (Net 30).
+- **Altyapı** (Satış, Stok ve E-ticaret için birlikte, 29 Ekim):
+  - Düğme sorusunda `rows`: bağlı kayıtları satır satır sorar (Receive'de gelenler, Return'de dönenler ve nedenleri), `show`, `from`, `why`; ajan satırları adıyla verir (`{ row, count, why }`). Tik sorusu `tick`.
+  - Tabloda sayı yazılır (`edit`), sayımın Counted'ı.
+  - Görünümde `sums` (üstte tek satır, "to collect · overdue"; `one` tekil adı, `by` en çok olan, `per` oran), `chips` (kanal çipleri, sayılarıyla), `set` (bir ekranın sekmeleri, All yok), `all` (Reorder all: düğme görünümdeki her kayda sırayla).
+  - Home'da kutu başına `title`, `head`, `lines`, `periods` (Today, Yesterday, bu ay); bir koleksiyonun birden çok kutusu (`homes`), her biri kendi şablonunun modülünde; çok modüllü app'te Home modül modül kutular.
+  - Panoda `wins.back` ve `loses`: kazanılan fırsat teklifini Confirmed, kaybedilen Declined yapar; kuralda `move(kart, sütun, değerler)` ve bağlantıyla kart (`move(deal, "Won")`), kartın alanı okunur (`deal.company`).
+  - Bağlı blokta `add` (+ New quote, + Quote) ve `title`; `note` bloğu (formül cümlesi kutuda: kâr, toplamlar); ilk sütuna konan düğmeler alanların üstünde; adımlı seçim tabloda çip (`steps.chip`); formül dilinde `amount()`.
+- **Mockup'tan kalan farklar:** sipariş listesinde Date ham gün olarak; ürün listesinde kod ayrı sütunda; kalemler tablosunda "Not enough stock" kalemin penceresinde (tabloda değil); Home'da hakedişler sipariş sipariş (kanal kanal değil), iadeler ayrı kutuda.
+
 Teklif, sipariş ve tahsilatı izler. Faturayı kesmez; fatura muhasebe programından kesilir, numarası burada tutulur.
 
 | Parça | Tür | İçinde | Hesaplanan |
@@ -319,6 +342,18 @@ Para tek yerde durur: satış tahsilatları, tedarikçi borçları, projenin ve 
   5. **Fatura kesilince beklenen tahsilat otomatik açılsın mı?** Satış seçildiyse ve vadeli takip evetse; evet (varsayılan).
 
 ### 3.6 Stok ve satın alma
+
+29 Ekim, Sortly, inFlow, Zoho Inventory ve Katana'nın ekranlarına bakılarak baştan, Satış (3.2) ve E-ticaretle birlikte. Mockup: `design/mockups.html` › Satış, stok ve e-ticaret.
+
+- **Ürünün sayıları** (inFlow, Zoho, Katana): In stock (girişler − çıkışlar), Committed (onaylanmış, gitmemiş siparişlerin kalemleri), Available (In stock − Committed), On order (sipariş verilmiş satın almalarda gelecek). Low, Available + On order'a bakar (inFlow'un Anticipated'ı): sipariş verilmiş ürün düşük görünmez. Out, Available sıfır ya da altında.
+- **Products:** üstte "48 products · ₺1.184.000 in stock · 3 low"; sütunlar Product (kodu yanında), In stock, Available, On order, Reorder at, Low/Out çipi; görünümler All ve Low stock. Low stock'ta **Reorder all**.
+- **Ürünün penceresi:** başlıkta "38 in stock · 6 committed · 32 available · 20 on order"; düğmeler Adjust, Transfer (depo varsa), Reorder; solda Code, Unit, Price, Tax %, Cost, Supplier, Reorder at, Reorder quantity; sağda depo depo stok ve hareketler gün gün.
+- **Adjust:** sayılan toplamı sorar ("Now 38 · 2 less"), nedeni çiplerle (Count, Damaged, Lost, Found, Other; Sortly, inFlow), depo varsa deposu.
+- **Reorder:** tedarikçinin taslak satın alma siparişi varsa ürünü ona ekler, yoksa açar; miktar Reorder quantity, boşsa Reorder at'a çıkaracak kadar. **Reorder all** düşük ürünlerin hepsine basar, her tedarikçiye tek taslak (inFlow, Zoho).
+- **Stock counts** (Sortly, inFlow, Katana, Odoo): sayım açılınca bütün ürünler (depo varsa o deponunkiler) satır, her birinde bugünkü stok; sayılan tabloda yazılır, fark yanında renkli; **Apply** farkları Count nedenli düzeltme olarak yazar, boş satır değişmez.
+- **Satın alma:** Draft, Ordered, Partially received, Received, Cancelled. **Receive** kalemleri kalan miktarlarıyla dolu sorar (Sortly, Katana); eksik gelen düşürülür, sipariş Partially received kalır; gelenler giriş hareketi, ürünün maliyeti son alış fiyatı (inFlow). Beklenen günü gelen Today'de Receive ile, geciken Overdue'da.
+- **Menü:** Products, Purchase orders, Stock counts, depo varsa Locations. Hareketler ve depo stokları menüden çıkar, ürünün ve deponun penceresinde. Tedarikçiler Companies'te Supplier türüyle; satın almada yalnız onlar önerilir.
+- **Home:** Low stock (Reorder all), To receive, In stock (Stock value, Committed, On order).
 
 Stok elle yazılmaz, hareketlerden hesaplanır.
 

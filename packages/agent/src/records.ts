@@ -1,4 +1,6 @@
 import {
+  type AskAnswers,
+  type RowAnswer,
   addDays,
   calendarStarts,
   dayInToday,
@@ -135,14 +137,40 @@ async function surroundings(fs: VaultFs, except: string): Promise<{ collections:
 }
 
 /** What an agent gave for what a button asks, each answer as its question takes it: a link by its record's name, code or id. */
-function answersFor(action: ActionRule | undefined, input: { [key: string]: unknown } | undefined, world: RuleSpaceNow, dir: string): CollectionRecord['values'] {
+function answersFor(action: ActionRule | undefined, input: { [key: string]: unknown } | undefined, world: RuleSpaceNow, dir: string, recordId = ''): AskAnswers {
   const asks = action?.ask ?? [];
   const unknown = Object.keys(input ?? {}).filter((key) => !asks.some((a) => a.key === key));
   if (unknown.length > 0) throw new Refusal(asks.length > 0 ? `${action!.name} asks no ${unknown.join(', ')}; it asks ${asks.map((a) => a.key).join(', ')}` : `${action?.name ?? 'The button'} asks nothing; leave input out`);
-  const out: CollectionRecord['values'] = {};
+  const out: AskAnswers = {};
   for (const a of asks) {
     const raw = input?.[a.key];
     if (raw === undefined || raw === null || raw === '') continue;
+    if (a.type === 'rows') {
+      // Rows by their name, their product's name, their code or id, each with its number: those left out come to 0.
+      const path = pathNamed(world.collections.map((c) => c.dir), a.collection!, dir);
+      const source = world.collections.find((c) => c.dir === path);
+      const record = world.collections.find((c) => c.dir === dir)?.records.find((r) => r.id === recordId);
+      if (!source || !record) throw new Refusal(`There is no collection called ${a.collection} for ${a.key}`);
+      const rows = linkedRecords(source, dir, record);
+      if (!Array.isArray(raw)) throw new Refusal(`${a.key} takes its rows as a list: [{ "row": "${rows[0]?.name ?? 'Rail'}", "count": 6 }]`);
+      const given = new Map<string, { count: number; why: string | null }>();
+      for (const item of raw as unknown[]) {
+        const each = (item ?? {}) as { row?: unknown; count?: unknown; why?: unknown };
+        const said = String(each.row ?? '').trim().toLowerCase();
+        const row = rows.find((r) => r.id === each.row || r.name.toLowerCase() === said || r.code.toLowerCase() === said || Object.values(r.values).some((v) => isLink(v) && v.name.toLowerCase() === said));
+        if (!row) throw new Refusal(`${a.key} has no row ${String(each.row)}; its rows are ${rows.map((r) => r.name).join(', ')}`);
+        const count = typeof each.count === 'number' ? each.count : Number(each.count);
+        if (!Number.isFinite(count) || count < 0) throw new Refusal(`${a.key} takes a count of 0 or more for each row`);
+        if (each.why !== undefined && each.why !== null && !a.why?.options.includes(String(each.why))) throw new Refusal(`why is one of ${(a.why?.options ?? []).join(', ')}`);
+        given.set(row.id, { count, why: each.why === undefined || each.why === null ? null : String(each.why) });
+      }
+      out[a.key] = rows.map((r): RowAnswer => ({ id: r.id, count: given.get(r.id)?.count ?? 0, ...(a.why && { why: given.get(r.id)?.why ?? null }) }));
+      continue;
+    }
+    if (a.type === 'tick') {
+      out[a.key] = raw === true || raw === 'true';
+      continue;
+    }
     if (a.type === 'number') {
       const n = typeof raw === 'number' ? raw : Number(raw);
       if (!Number.isFinite(n)) throw new Refusal(`${a.key} takes a number`);
@@ -432,7 +460,7 @@ export async function saveRecordTool(agent: Agent, args: { space?: string; colle
     let pressed: { action: string; done: string; changes: string[]; stopped?: string[] };
     try {
       if (!home?.rules) throw new RuleStop(`There is no button called ${args.action} in the rules of ${element.path}.`, 0);
-      const answers = answersFor(actionsOf(home.rules).find((a) => a.name === args.action), args.input, world, element.path);
+      const answers = answersFor(actionsOf(home.rules).find((a) => a.name === args.action), args.input, world, element.path, record.id);
       const plan = planAction(home.rules, args.action, element.path, record.id, world, answers);
       const words = planWords(plan, world);
       await writePlan(space.fs, plan, world, () => nowOf(agent), me);

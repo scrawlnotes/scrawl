@@ -21513,3 +21513,158 @@ button.ppl:hover {
 .yearless input {
   width: 110px;
 }
+
+/* Sales, Stock and E-commerce (design/scrawl-apps.md 3.2, 3.6; design/calendar.md 7). */
+/* What is said over a view in one line: "₺85.110 to collect · ₺19.150 overdue". */
+.th .count.sums .warn {
+  color: var(--sl-p1);
+  font-weight: 600;
+}
+
+/* A view's chips, an order's channels, each with how many: one picked shows only its records. */
+.view-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 16px 8px;
+}
+
+.view-chips button {
+  padding: 3px 11px;
+  border: 1px solid var(--sl-line);
+  border-radius: 14px;
+  color: var(--sl-dim);
+  font-size: 12.5px;
+}
+
+.view-chips button small {
+  margin-left: 5px;
+  color: var(--sl-faint);
+  font-size: 11.5px;
+}
+
+.view-chips button.on {
+  border-color: var(--sl-accent);
+  background: color-mix(in srgb, var(--sl-accent) 16%, transparent);
+  color: var(--sl-fg);
+  font-weight: 600;
+}
+
+/* A number typed where it is: what was counted. */
+.rtable .ttext.tnum {
+  min-width: 64px;
+  width: 80px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A formula's sentence in a box: an order's profit, its totals. */
+.rm-note {
+  margin: 4px 0 8px;
+  padding: 8px 11px;
+  border: 1px solid var(--sl-line);
+  border-radius: 8px;
+  color: var(--sl-dim);
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A question of rows: a purchase order's lines as they came, an order's items coming back. */
+.ask-rows {
+  display: grid;
+  gap: 4px 12px;
+  align-items: center;
+  margin: 2px 0 10px;
+  font-size: 12.5px;
+}
+
+.ask-rows .hd {
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ask-rows .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.ask-rows .dim {
+  color: var(--sl-dim);
+}
+
+.ask-rows input.num {
+  width: 100%;
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  background: var(--sl-bg);
+  color: var(--sl-fg);
+  font: inherit;
+  box-sizing: border-box;
+}
+
+.ask-rows input.num:focus {
+  border-color: var(--sl-accent);
+  outline: none;
+}
+
+/* A box on Home: what it says beside its name, its days, its button over all its records. */
+.app-tile .h .hs {
+  margin-left: auto;
+  color: var(--sl-faint);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.app-tile .h .hs .warn {
+  color: var(--sl-p1);
+  font-size: 11.5px;
+}
+
+.app-tile .periods {
+  display: grid;
+  gap: 0 10px;
+  margin-top: 8px;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.app-tile .periods > span {
+  padding: 5px 0;
+  border-top: 1px solid var(--sl-line);
+}
+
+.app-tile .periods .ph {
+  border-top: 0;
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.app-tile .periods .n {
+  text-align: right;
+}
+
+.app-tile .tile-btn {
+  margin-top: 8px;
+}
+
+.app-tile .tile-btn button {
+  padding: 3px 11px;
+  border: 1px solid var(--sl-line);
+  border-radius: 6px;
+  color: var(--sl-fg);
+  font-size: 12px;
+}
+
+.app-tile .tile-btn button:hover {
+  border-color: var(--sl-accent);
+}
+
+div.app-tile[role='button'] {
+  cursor: pointer;
+}

@@ -110,7 +110,7 @@ export interface Field {
    * of its steps on the form, a line of dots in a table; `end` the options after the line, the
    * ones it stops at (Accepted, Rejected), `no` those of them that end it badly.
    */
-  steps?: { end: string[]; no: string[] };
+  steps?: { end: string[]; no: string[]; chip?: true };
   /** Its label as another field's choice is: a booking's Starts, Departs for a flight and Check in for a hotel (design/more-apps.md 4.5). */
   labelBy?: { field: string; labels: { [option: string]: string } };
   /**
@@ -241,7 +241,11 @@ type LayoutBlockKind =
       button?: string;
       /** On a phone, the tab it is in with the blocks of the same tab: a company's Activity, its planned and its history (design/scrawl-apps.md 3.1). */
       tab?: string;
+      /** What its + Add is called: New quote on a customer, Quote on a deal (design/scrawl-apps.md 3.2). */
+      add?: string;
     }
+  /** A formula's text said as a line in a box, not as a field: an order's profit, "₺1.240 · commission ₺248 → ₺412 profit" (design/calendar.md 7). */
+  | { block: 'note'; of: string }
   /** The cards that link to the record and the tasks about it; with `board`, only that board's cards, under its name, + Add making one (a company's Deals). */
   | { block: 'cards'; board?: string; tab?: string }
   /** The record's subtasks; `title` and `add` call them by another name: a goal's Steps, Add step. */
@@ -433,13 +437,42 @@ export interface View {
   button?: string;
   /** Its button is a round ring at the start of each row, as a list of things to do has it: a CRM's activities' Done. */
   ring?: true;
+  /**
+   * What is said over its table in one line (design/scrawl-apps.md 3.2), each part over the
+   * collection's records: "₺85.110 to collect · ₺19.150 overdue · 3 low".
+   */
+  sums?: ViewSum[];
+  /** The field whose values are chips over the table, each with its count, one picked shows only its records: an order's channel (design/calendar.md 7). */
+  chips?: string;
+  /** The views of the same set are the tabs of a screen that opens on one of them, and no All: Sales' Quotes, Open, To invoice (design/scrawl-apps.md 3.2). */
+  set?: string;
+  /** Its button pressed on each of its records in turn, from one button over the table: Reorder all (design/scrawl-apps.md 3.6). */
+  all?: string;
+}
+
+/**
+ * A part of the line over a view: how many records meet its conditions, or, with `field`, what
+ * their values of it add up to, then its label; `warn` says it in red. One that comes to nothing
+ * is left out.
+ */
+export interface ViewSum {
+  label: string;
+  field?: string;
+  conditions?: Condition[];
+  warn?: true;
+  /** What it says is the value of this field whose records come to most: the best customer. */
+  by?: string;
+  /** What it comes to over what `per` comes to, as a share: a margin, the profit over the sales. */
+  per?: string;
+  /** Its label when it counts one: "1 product". */
+  one?: string;
 }
 
 /**
  * Whether a field can be changed in a table, where a row opens its record: a tick turns at a
  * click, a choice is picked from its list. A table changes the ones it is told to, none unless.
  */
-export const changesInTable = (field: Field) => field.type === 'checkbox' || field.type === 'select' || field.type === 'text';
+export const changesInTable = (field: Field) => field.type === 'checkbox' || field.type === 'select' || field.type === 'text' || field.type === 'number';
 
 /** Column widths in pixels, by field key. */
 export interface ColumnWidths {
@@ -473,6 +506,8 @@ export interface Schema {
   columns?: string[];
   /** What its box on its app's Home says (design/more-apps.md 4.1). */
   home?: HomeTile;
+  /** More boxes of it on its app's Home, each of a view: To collect, Quotes, This month (design/scrawl-apps.md 3.2). */
+  homes?: HomeTile[];
   /** A record's window opens with its name as its title and the line of this field under it, "12–16 Nov · 5 days · in 14 days" (design/more-apps.md 4.5). */
   head?: { sub: string; steps?: string };
   /** A field said small under each record's name in the table and the list, "TV · 2024 · Netflix"; and one holding its picture's address, beside it (design/more-apps.md 4.8). */
@@ -771,7 +806,7 @@ function readField(raw: unknown): Field | null {
   if (type === 'date' && raw.yearless === true && raw.time !== true) field.yearless = true;
   if (type === 'select' && (raw.steps === true || isRecord(raw.steps))) {
     const given = isRecord(raw.steps) ? raw.steps : {};
-    field.steps = { end: strings(given.end), no: strings(given.no) };
+    field.steps = { end: strings(given.end), no: strings(given.no), ...(given.chip === true && { chip: true }) };
   }
   if (type === 'name' && raw.optional === true) field.optional = true;
   if (typeof raw.help === 'string' && raw.help.trim()) field.help = raw.help.trim();
@@ -827,6 +862,7 @@ function readBlock(raw: { [key: string]: unknown }): LayoutBlockKind | null {
   if (raw.block === 'body') return { block: 'body', ...(raw.attach === true && { attach: true }) };
   if (raw.block === 'cards') return { block: 'cards', ...(typeof raw.board === 'string' && raw.board.trim() && { board: raw.board.trim() }), ...tabOf(raw) };
   if (raw.block === 'actions') return { block: 'actions' };
+  if (raw.block === 'note' && typeof raw.of === 'string' && raw.of.trim()) return { block: 'note', of: cleanFieldKey(raw.of) };
   if (raw.block === 'days') {
     const fields = strings(raw.fields).map(cleanFieldKey).filter(Boolean);
     return { block: 'days', ...(fields.length > 0 && { fields }) };
@@ -852,11 +888,12 @@ function readBlock(raw: { [key: string]: unknown }): LayoutBlockKind | null {
       ...(raw.choose === true && typeof raw.instead === 'string' && { instead: cleanFieldKey(raw.instead) }),
       ...(raw.numbered === true && { numbered: true }),
       ...(Array.isArray(raw.where) && { where: raw.where.map((c) => readCondition(c)).filter((c): c is Condition => c !== null) }),
-      ...((raw.look !== undefined || Array.isArray(raw.where)) && typeof raw.title === 'string' && raw.title.trim() && { title: raw.title.trim() }),
+      ...(typeof raw.title === 'string' && raw.title.trim() && { title: raw.title.trim() }),
       ...((raw.look === 'days' || raw.look === 'checklist' || raw.look === 'split') && { look: raw.look }),
       ...keysOf(raw, ['time', 'end', 'icon', 'sub', 'pick', 'person', 'amount', 'parts', 'mode', 'total']),
       ...wordsOf(raw, ['icons', 'startSaid', 'endSaid']),
       ...(typeof raw.button === 'string' && raw.button.trim() && { button: raw.button.trim() }),
+      ...(typeof raw.add === 'string' && raw.add.trim() && { add: raw.add.trim() }),
       ...tabOf(raw),
     };
   }
@@ -986,6 +1023,8 @@ export function parseSchema(text: string): Schema {
   if (columns.length > 0) schema.columns = columns;
   const home = readHome(data.home, fields);
   if (home) schema.home = home;
+  const homes = (Array.isArray(data.homes) ? data.homes : []).map((h) => readHome(h, fields)).filter((h): h is HomeTile => !!h);
+  if (homes.length > 0) schema.homes = homes;
   const head = isRecord(data.head) && typeof data.head.sub === 'string' ? cleanFieldKey(data.head.sub) : '';
   // Its stages under its title, a job application's (design/more-apps.md 4.6).
   const stepsKey = isRecord(data.head) && typeof data.head.steps === 'string' ? cleanFieldKey(data.head.steps) : '';
@@ -1007,6 +1046,18 @@ export function readCondition(raw: unknown, fields?: Field[]): Condition | null 
   if (!key || (fields && !fields.some((f) => f.key === key))) return null;
   const value = typeof raw.value === 'string' || typeof raw.value === 'number' ? raw.value : Array.isArray(raw.value) ? strings(raw.value) : undefined;
   return { field: key, op: raw.op as ConditionOp, ...(value !== undefined && { value }) };
+}
+
+/** The parts of a line over a view, or of a box on Home, as a file has them; a part naming a field not there is left out. */
+function readSums(raw: unknown, fields: Field[]): ViewSum[] {
+  const key = (v: unknown) => (typeof v === 'string' && fields.some((f) => f.key === cleanFieldKey(v)) ? cleanFieldKey(v) : '');
+  return (Array.isArray(raw) ? raw : []).flatMap((s): ViewSum[] => {
+    if (!isRecord(s) || typeof s.label !== 'string') return [];
+    const field = key(s.field);
+    if (s.field !== undefined && !field) return [];
+    const where = (Array.isArray(s.conditions) ? s.conditions : []).map((c) => readCondition(c, fields)).filter((c): c is Condition => c !== null);
+    return [{ label: s.label.trim(), ...(field && { field }), ...(where.length > 0 && { conditions: where }), ...(s.warn === true && { warn: true }), ...(key(s.by) && { by: key(s.by) }), ...(key(s.per) && { per: key(s.per) }), ...(typeof s.one === 'string' && s.one.trim() && { one: s.one.trim() }) }];
+  });
 }
 
 /** The views of a schema file; a view with a broken condition keeps the rest of them. */
@@ -1035,6 +1086,11 @@ function readViews(raw: unknown, fields: Field[]): View[] {
     if (closed.length > 0) view.closed = closed;
     if (typeof item.button === 'string' && item.button.trim()) view.button = item.button.trim();
     if (view.button && item.ring === true) view.ring = true;
+    const sums = readSums(item.sums, fields);
+    if (sums.length > 0) view.sums = sums;
+    if (typeof item.chips === 'string' && fields.some((f) => f.key === cleanFieldKey(item.chips as string) && (f.type === 'link' || f.type === 'select'))) view.chips = cleanFieldKey(item.chips);
+    if (typeof item.set === 'string' && item.set.trim()) view.set = item.set.trim();
+    if (typeof item.all === 'string' && item.all.trim()) view.all = item.all.trim();
     views.push(view);
   }
   return views;
@@ -1145,6 +1201,16 @@ export interface HomeTile {
   counts?: string;
   /** The view whose records the box lists, by its id, and whose name it has: a CRM's Gone quiet (design/scrawl-apps.md 3.1). */
   view?: string;
+  /** What the box is called, in place of its view's or its screen's name: To collect. */
+  title?: string;
+  /** What it says beside its name, over its view's records: "₺85.110 · ₺19.150 overdue" (design/scrawl-apps.md 3.2). */
+  head?: ViewSum[];
+  /** Its lines in place of its records, each a label and what it comes to: To invoice, Collected, Best customer. */
+  lines?: ViewSum[];
+  /** A small table of days, Today, Yesterday and this month, each a row of what its records of that day by `date` come to (design/calendar.md 7). */
+  periods?: { date: string; columns: ViewSum[] };
+  /** The template whose module it is in on Home, of a piece several share: Sales' To collect, E-commerce's To ship. */
+  of?: string;
 }
 
 function readHome(raw: unknown, fields: Field[]): HomeTile | undefined {
@@ -1154,7 +1220,25 @@ function readHome(raw: unknown, fields: Field[]): HomeTile | undefined {
   const sub = known(raw.sub);
   const totals = strings(raw.totals).map((k) => known(k)).filter((k): k is string => !!k);
   const empty = typeof raw.empty === 'string' && raw.empty.trim() ? raw.empty.trim() : undefined;
-  const home: HomeTile = { ...(value && { value }), ...(sub && { sub }), ...(value && raw.total === true && { total: true }), ...(totals.length > 0 && { totals }), ...(value && raw.filled === true && { filled: true }), ...(empty && { empty }), ...(raw.first === true && { first: true }), ...(raw.off === true && { off: true }), ...(known(raw.counts) && { counts: known(raw.counts)! }), ...(typeof raw.view === 'string' && raw.view.trim() && { view: raw.view.trim() }) };
+  const sums = (list: unknown) => readSums(list, fields);
+  const periods = isRecord(raw.periods) && known(raw.periods.date) ? { date: known(raw.periods.date)!, columns: sums(raw.periods.columns) } : undefined;
+  const home: HomeTile = {
+    ...(value && { value }),
+    ...(sub && { sub }),
+    ...(value && raw.total === true && { total: true }),
+    ...(totals.length > 0 && { totals }),
+    ...(value && raw.filled === true && { filled: true }),
+    ...(empty && { empty }),
+    ...(raw.first === true && { first: true }),
+    ...(raw.off === true && { off: true }),
+    ...(known(raw.counts) && { counts: known(raw.counts)! }),
+    ...(typeof raw.view === 'string' && raw.view.trim() && { view: raw.view.trim() }),
+    ...(typeof raw.title === 'string' && raw.title.trim() && { title: raw.title.trim() }),
+    ...(sums(raw.head).length > 0 && { head: sums(raw.head) }),
+    ...(sums(raw.lines).length > 0 && { lines: sums(raw.lines) }),
+    ...(periods && periods.columns.length > 0 && { periods }),
+    ...(typeof raw.of === 'string' && raw.of.trim() && { of: raw.of.trim() }),
+  };
   return Object.keys(home).length > 0 ? home : undefined;
 }
 
@@ -1939,6 +2023,44 @@ function namesOf(value: FieldValue | undefined): string[] {
   if (isLink(value)) return [value.name, value.id, ...(value.code ? [value.code] : [])];
   if (Array.isArray(value)) return value.flatMap((v) => (isLink(v) ? [v.name, v.id, ...(v.code ? [v.code] : [])] : [v]));
   return [String(value)];
+}
+
+/**
+ * The parts of the line over a view (View.sums), over records whose worked-out values are in them:
+ * "₺85.110 to collect", "3 low"; a part that comes to nothing is left out.
+ */
+export function viewSumParts(sums: readonly ViewSum[], records: readonly Pick<Record, 'values'>[], schema: Pick<Schema, 'fields'>, today: string): { text: string; warn: boolean }[] {
+  return sums.flatMap((s) => {
+    const said = sumValue(s, records, schema, today);
+    const label = said === '1' && !s.field && s.one ? s.one : s.label;
+    return said === null ? [] : [{ text: label ? `${said} ${label}` : said, warn: !!s.warn }];
+  });
+}
+
+/**
+ * What one part comes to, written: a count, a sum in its field's format, a share of another sum,
+ * or the value whose records come to most; null for nothing.
+ */
+export function sumValue(s: ViewSum, records: readonly Pick<Record, 'values'>[], schema: Pick<Schema, 'fields'>, today: string): string | null {
+  const meeting = records.filter((r) => (s.conditions ?? []).every((c) => matchesCondition(r, schema, c, today)));
+  const field = s.field ? schema.fields.find((f) => f.key === s.field) : undefined;
+  const of = (rs: readonly Pick<Record, 'values'>[], f: Field | undefined) => (f ? rs.reduce((sum, r) => sum + (typeof r.values[f.key] === 'number' ? (r.values[f.key] as number) : 0), 0) : rs.length);
+  if (s.by) {
+    const totals = new Map<string, number>();
+    for (const r of meeting) {
+      const name = valueText(r.values[s.by] ?? null);
+      if (name) totals.set(name, (totals.get(name) ?? 0) + of([r], field));
+    }
+    const best = [...totals].sort((a, b) => b[1] - a[1])[0];
+    return best ? best[0] : null;
+  }
+  const total = of(meeting, field);
+  if (s.per) {
+    const whole = of(meeting, schema.fields.find((f) => f.key === s.per));
+    return whole ? formatNumber(total / whole, { style: 'percent', decimals: 0 }) : null;
+  }
+  if (total === 0) return null;
+  return field ? formatNumber(total, field.format) : String(total);
 }
 
 /** Whether one condition holds for a record. */

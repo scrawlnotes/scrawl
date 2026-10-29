@@ -149,10 +149,10 @@ describe('setting up an app', () => {
       ['crm', ['Companies', 'People', 'Activities', 'Deals']],
       ['sales', ['Products', 'Orders', 'Order lines', 'Payments']],
       ['support', ['Requests', 'Feedback', 'Saved replies']],
-      ['stock', ['Stock movements', 'Purchase orders', 'Purchase order lines']],
+      ['stock', ['Stock movements', 'Stock counts', 'Purchase orders', 'Purchase order lines']],
     ]);
     expect(plan.templates[1]!.pieces[0]).toMatchObject({ name: 'Products', with: ['stock'] });
-    expect(plan.templates.find((s) => s.id === 'stock')!.buttons).toEqual(['Correct stock', 'Reorder']);
+    expect(plan.templates.find((s) => s.id === 'stock')!.buttons).toEqual(['Adjust', 'Apply', 'Reorder', 'Order', 'Receive', 'Cancel order']);
   });
 
   it('sets up the calendars of design/calendar.md 5, with their days, colors and conditions', () => {
@@ -172,10 +172,10 @@ describe('setting up an app', () => {
     );
     expect(Object.fromEntries(calendars)).toEqual({
       activities: { start: 'when', color: 'type', upcoming: true, button: 'Done', words: ['with_said'], conditions: [{ field: 'done', op: 'false' }] },
-      orders: { start: 'due', color: 'status', upcoming: false, conditions: [{ field: 'status', op: 'is-not', value: ['Paid', 'Cancelled'] }] },
+      orders: { start: 'due', color: 'status', upcoming: true, button: 'Record payment', words: ['customer', 'state'], conditions: [{ field: 'status', op: 'is', value: ['Invoiced'] }] },
       payments: { start: 'due', color: 'direction', upcoming: true, conditions: [{ field: 'status', op: 'is-not', value: ['Paid'] }] },
       projects: { start: 'start', end: 'end', color: 'status', upcoming: false, conditions: [{ field: 'status', op: 'is-not', value: ['Done', 'Cancelled'] }] },
-      'purchase-orders': { start: 'expected', color: 'status', upcoming: true, conditions: [{ field: 'status', op: 'is', value: ['Ordered'] }] },
+      'purchase-orders': { start: 'expected', color: 'status', upcoming: true, button: 'Receive', words: ['supplier', 'total'], conditions: [{ field: 'status', op: 'is', value: ['Ordered', 'Partially received'] }] },
       releases: { start: 'planned', color: 'status', upcoming: false, conditions: [{ field: 'status', op: 'is', value: ['Planned'] }] },
       interviews: { start: 'date', color: 'type', upcoming: true, conditions: [] },
       maintenance: { start: 'date', color: 'type', upcoming: true, conditions: [{ field: 'status', op: 'is', value: ['Planned'] }] },
@@ -239,11 +239,24 @@ describe('setting up an app', () => {
     const plan = planApp({ name: 'Shop', currencies: ['TRY'], templates: [{ id: 'ecommerce' }] }, { ids });
     expect(plan.templates.map((t) => t.id)).toEqual(['sales', 'ecommerce']);
     const orders = parseSchema(plan.files.find((file) => file.path === 'Shop/Orders/_collection.json')!.text);
-    expect(orders.fields.find((f) => f.key === 'status')!.options).toEqual(['Quote', 'Confirmed', 'Packed', 'Shipped', 'Delivered', 'Invoiced', 'Paid', 'Cancelled']);
-    expect(orders.views!.map((v) => [v.name, v.calendar!.start, v.calendar!.upcoming])).toEqual([
-      ['Calendar', 'due', false],
-      ['To ship', 'ship_by', true],
+    expect(orders.fields.find((f) => f.key === 'status')!.options).toEqual(['Quote', 'Confirmed', 'Packed', 'Shipped', 'Delivered', 'Invoiced', 'Paid', 'Declined', 'Cancelled']);
+    expect(orders.views!.filter((v) => v.kind === 'calendar').map((v) => [v.name, v.calendar!.start, v.calendar!.upcoming, v.calendar!.button])).toEqual([
+      ['Due', 'due', true, 'Record payment'],
+      ['To ship', 'ship_by', true, 'Ship'],
     ]);
+    // Sales' tabs and E-commerce's are sets of their own, each with what is said over it.
+    expect(orders.views!.filter((v) => v.set).map((v) => [v.set, v.name])).toEqual([
+      ['sales', 'Quotes'],
+      ['sales', 'Open'],
+      ['sales', 'To invoice'],
+      ['sales', 'Unpaid'],
+      ['sales', 'Paid'],
+      ['shipping', 'To ship'],
+      ['shipping', 'Shipped'],
+      ['shipping', 'Delivered'],
+      ['shipping', 'Cancelled'],
+    ]);
+    expect(orders.views!.find((v) => v.id === 'to-ship')).toMatchObject({ chips: 'channel', sums: [{ label: 'to ship' }, { label: 'today' }, { label: 'late', warn: true }] });
     expect(plan.files.some((file) => file.path === 'Shop/Channels/_collection.json')).toBe(true);
   });
 
@@ -262,10 +275,10 @@ describe('setting up an app', () => {
     const field = (schema: ReturnType<typeof parseSchema>, key: string) => schema.fields.find((f) => f.key === key)!;
     // A choice someone added stays where it is; the new ones come after the ones they follow.
     const { plan, orders } = await setUp((schema) => field(schema, 'status').options!.push('Returned'));
-    expect(field(orders, 'status').options).toEqual(['Quote', 'Confirmed', 'Packed', 'Shipped', 'Delivered', 'Invoiced', 'Paid', 'Cancelled', 'Returned']);
+    expect(field(orders, 'status').options).toEqual(['Quote', 'Confirmed', 'Packed', 'Shipped', 'Delivered', 'Invoiced', 'Paid', 'Declined', 'Cancelled', 'Returned']);
     expect(field(orders, 'status').colors).toMatchObject({ Packed: 'teal', Shipped: 'pink' });
-    expect(field(orders, 'remaining').formula).toBe('total - commission - collected');
-    expect(plan.changed.find((c) => c.startsWith('Orders:'))).toMatch(/2 choices, 1 formula worked out anew/);
+    expect(field(orders, 'remaining').formula).toBe('status != "Paid" && status != "Cancelled" && status != "Quote" && status != "Declined" ? total - commission - collected : 0');
+    expect(plan.changed.find((c) => c.startsWith('Orders:'))).toMatch(/2 choices, 2 formulas worked out anew/);
     // A formula someone changed is theirs.
     const own = await setUp((schema) => (field(schema, 'remaining').formula = 'total - collected - 0'));
     expect(field(own.orders, 'remaining').formula).toBe('total - collected - 0');
@@ -612,14 +625,14 @@ describe('the menu of an app', () => {
     const menu = menuOf(found.app, 'Spare parts', piecesOf(found));
     expect(menu.map((m) => [m.name, m.screens.map((s) => s.name)])).toEqual([
       ['CRM', ['Deals', 'Companies', 'People', 'Activities']],
-      ['Sales', ['Orders', 'Payments', 'Companies', 'Products']],
-      ['Stock', ['Products', 'Stock movements', 'Purchase orders', 'Companies']],
+      ['Sales', ['Orders', 'Payments', 'Products', 'Companies']],
+      ['Stock', ['Products', 'Purchase orders', 'Stock counts', 'Companies']],
     ]);
     // Order lines and Purchase order lines are lines: in no module.
     expect(menu.flatMap((m) => m.screens.map((s) => s.name))).not.toContain('Order lines');
     // What a piece is called now is its name in the menu.
     const renamed = menuOf(found.app, 'Spare parts', piecesOf(found).map((p) => (p.role === 'companies' ? { ...p, path: 'Spare parts/Customers' } : p)));
-    expect(renamed[1]!.screens.map((s) => s.name)).toEqual(['Orders', 'Payments', 'Customers', 'Products']);
+    expect(renamed[1]!.screens.map((s) => s.name)).toEqual(['Orders', 'Payments', 'Products', 'Customers']);
   });
 });
 
@@ -652,7 +665,7 @@ describe('the menu the person sets', () => {
     expect(found.app.menu).toEqual(file);
     const menu = menuOf(found.app, 'Spare parts', piecesOf(found));
     expect(names(menu)).toEqual([
-      ['Selling', ['Orders', 'Companies', 'Products']],
+      ['Selling', ['Orders', 'Products', 'Companies']],
       ['CRM', ['Deals', 'Companies', 'People', 'Activities']],
     ]);
     expect(menu[0]!.screens[0]).toMatchObject({ view: 'open' });
@@ -889,10 +902,10 @@ describe('installing an app', () => {
     const found = await findApp(fs, 'Atlas');
     expect(found!.pieces.get('products')!.path).toBe('Atlas/Shop/Goods');
     const plan = planApp({ name: '', templates: [{ id: 'stock' }] }, { found: found!, ids });
-    expect(plan.changed).toEqual(['Companies: 2 blocks on its screen', 'Goods: 8 fields, 1 block on its screen, 3 rules', 'Orders: 1 rule', 'Order lines: 1 rule']);
+    expect(plan.changed).toEqual(['Companies: 1 block on its screen', 'Goods: 16 fields, 2 blocks on its screen, 2 rules', 'Orders: 1 rule', 'Order lines: 1 field, 1 rule']);
     // The summary of what is added: a piece each, the About note's new section; what is set up, without what the app has.
     expect(plan.added.map((a) => `${a.name}: ${a.what}`)).toEqual([...plan.changed, 'About Atlas: a section at its end']);
-    expect(plan.templates.map((s) => [s.id, s.pieces.map((p) => p.name)])).toEqual([['stock', ['Stock movements', 'Purchase orders', 'Purchase order lines']]]);
+    expect(plan.templates.map((s) => [s.id, s.pieces.map((p) => p.name)])).toEqual([['stock', ['Stock movements', 'Stock counts', 'Purchase orders', 'Purchase order lines']]]);
     const done = await installApp(fs, plan);
     const goods = parseSchema(await fs.readText('Atlas/Shop/Goods/_collection.json'));
     expect(goods.fields.map((f) => f.key)).toEqual(expect.arrayContaining(['price', 'cost', 'stock']));

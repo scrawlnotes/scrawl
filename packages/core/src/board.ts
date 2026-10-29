@@ -130,6 +130,8 @@ export interface Board {
   blocks?: LinkedBlock[];
   /** A card moved to a done column writes `value` into `field` of the record its `link` points at: a deal won makes its company a customer. */
   wins?: BoardWins;
+  /** What a card dropped writes into the records that link to it: a deal lost declines its quote (design/scrawl-apps.md 3.2). */
+  loses?: BoardBack;
   /** Buttons the card's window has, of the record its link points at, the card given: a deal's Log and Plan, its company's. */
   press?: BoardPress;
   cards: Card[];
@@ -155,7 +157,23 @@ export interface BoardWins {
   link: string;
   field: string;
   value: string;
+  /** The records that link to the card, written too: a deal won confirms its quote (design/scrawl-apps.md 3.2). */
+  back?: BoardBack;
 }
+
+/** The records of a collection whose link points at the card and whose field is one of `from`: their field becomes `value`. */
+export interface BoardBack {
+  collection: string;
+  link: string;
+  field: string;
+  from: string[];
+  value: string;
+}
+
+const readBack = (raw: unknown): BoardBack | undefined =>
+  isObject(raw) && typeof raw.collection === 'string' && typeof raw.link === 'string' && typeof raw.field === 'string' && typeof raw.value === 'string' && Array.isArray(raw.from)
+    ? { collection: raw.collection, link: raw.link, field: raw.field, from: raw.from.filter((v): v is string => typeof v === 'string'), value: raw.value }
+    : undefined;
 
 export type Template = 'software' | 'simple' | 'issues' | 'crm';
 
@@ -268,7 +286,8 @@ export function parseBoard(text: string): Board {
     ...(readNext(data?.next) && { next: readNext(data?.next)! }),
     ...(typeof data?.dropAsks === 'string' && fields.some((f) => f.key === data.dropAsks) && { dropAsks: data.dropAsks }),
     ...(blocks.length > 0 && { blocks }),
-    ...(isObject(data?.wins) && typeof data.wins.link === 'string' && typeof data.wins.field === 'string' && typeof data.wins.value === 'string' && { wins: { link: data.wins.link, field: data.wins.field, value: data.wins.value } }),
+    ...(isObject(data?.wins) && typeof data.wins.link === 'string' && typeof data.wins.field === 'string' && typeof data.wins.value === 'string' && { wins: { link: data.wins.link, field: data.wins.field, value: data.wins.value, ...(readBack(data.wins.back) && { back: readBack(data.wins.back) }) } }),
+    ...(readBack(data?.loses) && { loses: readBack(data!.loses) }),
     ...(readPress(data?.press) && { press: readPress(data?.press)! }),
     cards,
   };
@@ -316,6 +335,19 @@ export function wonChange(board: Board, card: Card, collections: readonly Collec
     return held.includes(wins!.value) ? null : { dir: target!.dir, id: record.id, values: { [into.key]: [...held, wins!.value] } };
   }
   return now === wins!.value ? null : { dir: target!.dir, id: record.id, values: { [into.key]: wins!.value } };
+}
+
+/**
+ * What a card moved into a done or a dropped column writes into the records that link to it
+ * (BoardWins.back, Board.loses): a deal won confirms its quote, one lost declines it.
+ */
+export function followChanges(board: Board, card: Card, kind: ColumnKind, collections: readonly Collection[]): { dir: string; id: string; values: CollectionRecord['values'] }[] {
+  const back = kind === 'done' ? board.wins?.back : kind === 'dropped' ? board.loses : undefined;
+  const target = back && collections.find((c) => c.dir === back.collection);
+  if (!back || !target) return [];
+  return target.records
+    .filter((r) => [r.values[back.link]].flat().some((l) => isLink(l) && l.id === card.id) && typeof r.values[back.field] === 'string' && back.from.includes(r.values[back.field] as string))
+    .map((r) => ({ dir: target.dir, id: r.id, values: { [back.field]: back.value } }));
 }
 
 function emptyBoard(): Board {

@@ -40,8 +40,11 @@ import {
   isDefaultLook,
   BOARD_EXT,
   boardName,
+  followChanges,
   wonChange,
+  type Board,
   type Card,
+  type ColumnKind,
   cardBrief,
   cardRecord,
   cardRef,
@@ -778,6 +781,25 @@ export function App() {
     const said = event.stops.length > 1 ? t('run.savesStopped', { count: event.stops.length }) : t('run.saveStoppedAt', { line: stop.line, message: stop.message, record: stop.record });
     setShown({ title: t('run.stopped', { name: stop.name }), text: event.done ? `${said} ${event.done}.` : said, ...(undo && { undo }), sticky: true, toast: true });
   };
+  // A button pressed on each record of a view in turn, Reorder all: each one sees what the one
+  // before wrote (a draft order to the same supplier); those it may not run on are left; one Undo.
+  const pressAll = (dir: string, ids: string[], name: string) =>
+    void (async () => {
+      const undos: (() => Promise<void>)[] = [];
+      for (const id of ids) {
+        const run = session.planButton(dir, id, name);
+        if (run instanceof RuleStop) continue;
+        undos.push(await session.runButton(run));
+      }
+      if (undos.length === 0) return setShown({ text: t('run.didNone', { name: name.toLowerCase() }), toast: true });
+      setShown({
+        text: t('run.didAll', { name, records: t('count.records', { count: undos.length }) }),
+        undo: () => void (async () => {
+          for (const undo of undos.reverse()) await undo();
+        })(),
+        toast: true,
+      });
+    })();
   const pressButton = (dir: string, id: string, name: string, given?: CollectionRecord['values']) => {
     // One that asks opens its questions first, with the answers given: a deal's Log, the deal picked; what it does is worked out there.
     if (session.askButton(dir, id, name)) return setDialog({ kind: 'askButton', dir, id, name, ...(given && { given }) });
@@ -2052,6 +2074,7 @@ export function App() {
     dueRecords: () => dueRecordsNow,
     moveRecord,
     pressButton: (due, name) => pressButton(due.collection, due.record.id, name),
+    pressAll,
     // Start opens the new record of the day, its link set, so that what its rules fill comes with it.
     startDay: (due) => {
       const closing = closingOf(due);
@@ -2194,6 +2217,7 @@ export function App() {
       ask(t('delete.record'), recordDeleteText(record, lines), () => void session.trashRecord(dir, record));
     },
     pressButton,
+    pressAll,
     // A program's day on its calendar, as in Today: Start, Didn't go, and the workout that closed it.
     startDay: (due) => taskActions.startDay?.(due),
     skipDay: (due) => taskActions.skipDay?.(due),
@@ -2247,9 +2271,14 @@ export function App() {
     const field = whole?.dropAsks ? whole.fields?.find((f) => f.key === whole.dropAsks) : undefined;
     if (field && card && to?.kind === 'dropped' && card.column !== to.id) return setDropping({ board, id, place, field, title: card.title });
     session.moveCard(board, id, place);
-    // A deal won makes its company a customer (Board.wins).
-    const won = whole && card && to?.kind === 'done' && card.column !== to.id ? wonChange(whole, card, Object.values(collections)) : null;
-    if (won) void session.updateRecord(won.dir, won.id, { values: won.values });
+    if (whole && card && to && card.column !== to.id) followMove(whole, card, to.kind);
+  };
+  // A deal won makes its company a customer (Board.wins) and confirms its quote; one lost declines it (Board.loses).
+  const followMove = (whole: Board, card: Card, kind: ColumnKind) => {
+    const all = Object.values(collections);
+    for (const change of [...(kind === 'done' ? [wonChange(whole, card, all)] : []), ...followChanges(whole, card, kind, all)]) {
+      if (change) void session.updateRecord(change.dir, change.id, { values: change.values });
+    }
   };
   const boardActions: BoardActions = {
     addCard: (board, input) => session.addCard(board, input),
@@ -3750,6 +3779,9 @@ export function App() {
           onClose={() => setDropping(null)}
           onDone={(reason, what) => {
             session.moveCard(dropping.board, dropping.id, dropping.place);
+            const whole = boards[dropping.board];
+            const card = whole?.cards.find((c) => c.id === dropping.id);
+            if (whole && card) followMove(whole, card, 'dropped');
             if (reason) session.updateCard(dropping.board, dropping.id, { values: { [dropping.field.key]: reason } });
             if (what) session.addComment(dropping.board, dropping.id, what);
             setDropping(null);

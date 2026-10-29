@@ -13,6 +13,7 @@ import {
   columnOf,
   loadCollection,
   updateRecord,
+  followChanges,
   wonChange,
   currentPhase,
   type Field,
@@ -432,16 +433,28 @@ async function cardPlace(agent: Agent, client: Client, args: CardArgs) {
   };
 }
 
-/** A deal won makes its company a customer (Board.wins): for each card that came into a done column. */
+/**
+ * A deal won makes its company a customer (Board.wins) and confirms its quote (BoardWins.back); one
+ * dropped declines its quote (Board.loses): for each card that came into a done or a dropped column.
+ */
 async function writeWins(fs: VaultFs, before: Board, after: Board, ids: string[]) {
   for (const id of ids) {
     const was = before.cards.find((c) => c.id === id);
     const card = after.cards.find((c) => c.id === id);
-    if (!card || columnOf(after, card)?.kind !== 'done' || (was && columnOf(before, was)?.kind === 'done')) continue;
-    const collection = after.wins && (await loadCollection(fs, (after.fields ?? []).find((f) => f.key === after.wins!.link)?.collection ?? '').catch(() => null));
-    const change = collection ? wonChange(after, card, [collection]) : null;
-    const record = change && collection!.records.find((r) => r.id === change.id);
-    if (record) await updateRecord(fs, collection!.schema, record, { values: change!.values });
+    const kind = card && columnOf(after, card)?.kind;
+    if (!card || (kind !== 'done' && kind !== 'dropped') || (was && columnOf(before, was)?.kind === kind)) continue;
+    const paths = [
+      ...(kind === 'done' && after.wins ? [(after.fields ?? []).find((f) => f.key === after.wins!.link)?.collection ?? ''] : []),
+      ...(kind === 'done' && after.wins?.back ? [after.wins.back.collection] : []),
+      ...(kind === 'dropped' && after.loses ? [after.loses.collection] : []),
+    ].filter(Boolean);
+    const collections = (await Promise.all([...new Set(paths)].map((p) => loadCollection(fs, p).catch(() => null)))).filter((c): c is NonNullable<typeof c> => !!c);
+    const changes = [...(kind === 'done' ? [wonChange(after, card, collections)] : []), ...followChanges(after, card, kind, collections)];
+    for (const change of changes) {
+      const collection = change && collections.find((c) => c.dir === change.dir);
+      const record = collection?.records.find((r) => r.id === change!.id);
+      if (record) await updateRecord(fs, collection!.schema, record, { values: change!.values });
+    }
   }
 }
 

@@ -1,6 +1,6 @@
 import { t } from '@scrawlnotes/i18n';
 import { basename, dirname, join } from './fs';
-import type { Field } from './collection';
+import type { Field, FieldValue } from './collection';
 import { ASK_INPUT, check, type Env, evaluate, isNothing, type Kind, LangError, type Node, type Reader, reader, type Scope, type Stmt, textOf, tokenize, truthy } from './lang';
 
 // A collection's rules: a file beside its schema, `_rules.js`, written in the language of formulas.
@@ -34,8 +34,28 @@ export interface CheckRule {
 }
 
 /** What a question of a button asks for. */
-export const ASK_TYPES = ['number', 'text', 'date', 'time', 'choice', 'link', 'person'] as const;
+export const ASK_TYPES = ['number', 'text', 'date', 'time', 'choice', 'link', 'person', 'rows', 'tick'] as const;
 export type AskType = (typeof ASK_TYPES)[number];
+
+/**
+ * What a question of rows is answered with, a row each (design/scrawl-apps.md 3.6): the row's
+ * record by its id, the number asked of it, and its choice when it asks one. A purchase order's
+ * lines as they came, an order's items coming back and why.
+ */
+export interface RowAnswer {
+  id: string;
+  count: number;
+  why?: string | null;
+}
+
+/** The answers a button is given, by its questions' keys: a field's value, or a question of rows' rows. */
+export type AskAnswers = { [key: string]: FieldValue | RowAnswer[] };
+
+export const isRowAnswers = (value: unknown): value is RowAnswer[] =>
+  Array.isArray(value) && value.every((r) => typeof r === 'object' && r !== null && typeof (r as RowAnswer).id === 'string' && typeof (r as RowAnswer).count === 'number');
+
+/** The fields of a row as the button's body reads it: the record it is, its number, its choice. */
+export const ROW_KEYS = { row: 'row', count: 'count', why: 'why' } as const;
 
 /** A question a button asks before it runs, read in its body as `input.key`. */
 export interface AskRule {
@@ -61,6 +81,16 @@ export interface AskRule {
   section?: string;
   /** A link offers only the records whose field of this key points at the record pressed: a company's deals, its people. */
   within?: string;
+  /**
+   * Rows: the fields of each row shown beside its name, by key, with what their column is called:
+   * a purchase order line's quantity as Ordered. Its `collection` is the rows', the records of it
+   * that link to the record pressed; its label is the number's column, Came.
+   */
+  show?: { key: string; label: string }[];
+  /** Rows: the field of each row its number starts at: what is still to come. */
+  from?: string;
+  /** Rows: a choice asked of each row too, and what its column is called: why it comes back. */
+  why?: { label: string; options: string[] };
   at: number;
 }
 
@@ -285,19 +315,45 @@ function readAsk(value: Node): AskRule[] {
       } else if (part.key === 'within') {
         if (v.k !== 'str' || !v.v.trim()) throw new LangError(t('rules.askWithin'), v.at);
         ask.within = v.v.trim().toLowerCase();
+      } else if (part.key === 'show') {
+        // { quantity: "Ordered" }: a field of the row and its column's name.
+        if (v.k !== 'obj' || v.entries.some((e) => e.value.k !== 'str')) throw new LangError(t('rules.askShow'), v.at);
+        ask.show = v.entries.map((e) => ({ key: e.key, label: (e.value as { v: string }).v }));
+      } else if (part.key === 'from') {
+        if (v.k !== 'str' || !v.v.trim()) throw new LangError(t('rules.askFrom'), v.at);
+        ask.from = v.v.trim();
+      } else if (part.key === 'why') {
+        const label = v.k === 'obj' ? v.entries.find((e) => e.key === 'label')?.value : undefined;
+        const options = v.k === 'obj' ? v.entries.find((e) => e.key === 'options')?.value : undefined;
+        if (label?.k !== 'str' || options?.k !== 'list' || options.items.length === 0 || options.items.some((i) => i.k !== 'str')) throw new LangError(t('rules.askWhy'), v.at);
+        ask.why = { label: label.v, options: options.items.map((i) => (i as { v: string }).v) };
       } else throw new LangError(t('rules.askPart', { name: part.key }), part.at);
     }
     if (!typed) throw new LangError(t('rules.askType'), spec.at);
     if (ask.type === 'choice' && !ask.options) throw new LangError(t('rules.askOptions'), spec.at);
-    if (ask.type === 'link' && !ask.collection) throw new LangError(t('rules.askCollection'), spec.at);
+    if ((ask.type === 'link' || ask.type === 'rows') && !ask.collection) throw new LangError(t('rules.askCollection'), spec.at);
     return ask;
   });
 }
 
 /** A question as a field, for what reads its answer: a choice is a select, a link links to `collection` (a path). */
-export function askField(ask: AskRule, collection?: string): Field {
-  const type = ask.type === 'choice' ? 'select' : ask.type;
+export function askField(ask: AskRule, collection?: string, button = ''): Field {
+  // Rows are read as a list of records of their own: input.lines, each with its row, count and why.
+  if (ask.type === 'rows') return { key: ask.key, label: ask.label, type: 'link', many: true, collection: rowsPath(button, ask.key) };
+  const type = ask.type === 'choice' ? 'select' : ask.type === 'tick' ? 'checkbox' : ask.type;
   return { key: ask.key, label: ask.label, type, ...(ask.options && { options: ask.options }), ...(ask.type === 'link' && { collection: collection ?? ask.collection ?? '' }), ...(ask.type === 'date' && ask.time && { time: true }) } as Field;
+}
+
+/** Where a question of rows' rows are read from as records: the button's answers, then the question. */
+export const rowsPath = (button: string, key: string) => `${ASK_INPUT}${button}/${key}`;
+
+/** The fields of a row of a question of rows, its record in `collection` (a path). */
+export function rowFields(ask: AskRule, collection: string): Field[] {
+  return [
+    { key: ROW_KEYS.row, label: 'Row', type: 'link', collection },
+    { key: ROW_KEYS.count, label: ask.label, type: 'number' },
+    { key: ROW_KEYS.why, label: ask.why?.label ?? 'Why', type: 'select', options: ask.why?.options ?? [] },
+  ];
 }
 
 /** What a rule finds by name in the space: its collections, boards and task lists, by path. */
@@ -349,18 +405,29 @@ function checkBody(body: Stmt[], when: Node | undefined, outer: Scope, space: Ru
   const dir = outer.dir ?? '';
   // What a button asks is read as input, a record whose fields are its questions.
   const asked = action?.ask?.length ? `${ASK_INPUT}${action.name}` : null;
+  const button = action?.name ?? '';
+  const rows = new Map<string, Field[]>();
   const askFields = () =>
     (action?.ask ?? []).map((a) => {
-      if (a.type !== 'link' || !space) return askField(a);
+      if ((a.type !== 'link' && a.type !== 'rows') || !space) return askField(a, undefined, button);
       // A link may point at a board's cards too: an activity's deal (design/scrawl-apps.md 3.1).
-      const path = pathNamed([...space.collections.map((c) => c.dir), ...space.boards.map((b) => b.path)], a.collection!, dir);
+      const path = pathNamed([...space.collections.map((c) => c.dir), ...(a.type === 'link' ? space.boards.map((b) => b.path) : [])], a.collection!, dir);
       if (!path) throw new LangError(t('rules.noCollection', { name: a.collection! }), a.at);
-      return askField(a, path);
+      if (a.type === 'rows') {
+        const fields = space.collections.find((c) => c.dir === path)!.fields;
+        for (const key of [...(a.show ?? []).map((s) => s.key), ...(a.from ? [a.from] : [])]) {
+          if (!fields.some((f) => f.key === key)) throw new LangError(t('rules.noFieldIn', { where: a.collection!, name: key }), a.at);
+        }
+        if (!fields.some((f) => f.type === 'link' && f.collection === dir)) throw new LangError(t('rules.noLinkBack', { name: a.collection! }), a.at);
+        rows.set(rowsPath(button, a.key), rowFields(a, path));
+      }
+      return askField(a, path, button);
     });
   const inputFields = asked ? askFields() : [];
   const scope: Scope = {
     ...outer,
-    schemaOf: (path) => (saving && path === dir ? { fields: [...outer.fields] } : asked && path === asked ? { fields: inputFields } : outer.schemaOf?.(path)),
+    schemaOf: (path) =>
+      saving && path === dir ? { fields: [...outer.fields] } : asked && path === asked ? { fields: inputFields } : rows.has(path) ? { fields: rows.get(path)! } : outer.schemaOf?.(path),
   };
   const collectionArg = (node: Node | undefined, fn: string) => {
     if (!node || node.k !== 'str') throw new LangError(t('rules.nameInQuotes', { fn, what: t('rules.what.collection') }), node?.at ?? 0);
@@ -430,7 +497,9 @@ function checkBody(body: Stmt[], when: Node | undefined, outer: Scope, space: Ru
         return 'any';
       }
       case 'move':
-        args(fn, nodes, 2, 2);
+        // A third, the card's values written with it: why a deal was lost.
+        args(fn, nodes, 2, 3);
+        if (nodes[2] && nodes[2].k !== 'obj') throw new LangError(t('rules.moveValues'), nodes[2].at);
         if (nodes[1]!.k !== 'str') throw new LangError(t('rules.nameInQuotes', { fn, what: t('rules.what.column') }), nodes[1]!.at);
         return 'null';
       case 'subtask':

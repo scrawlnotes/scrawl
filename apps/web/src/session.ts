@@ -160,6 +160,7 @@ import {
   withinSpace,
   type AskLine,
   askOf,
+  type AskAnswers,
   type AskQuestion,
   type Plan,
   planAction,
@@ -3306,7 +3307,7 @@ export class Session {
    * What a button of a collection's rules asks before it runs, for its window, with what was given
    * so far; null for one that asks nothing. A link's collection is its path as the app has it.
    */
-  askButton(dir: string, id: string, name: string, given: CollectionRecord['values'] = {}): { say: string; questions: AskQuestion[] } | null {
+  askButton(dir: string, id: string, name: string, given: AskAnswers = {}): { say: string; questions: AskQuestion[] } | null {
     const rules = this.snapshot.collections[dir]?.rules;
     if (!rules) return null;
     const space = spaceOf(dir);
@@ -3319,7 +3320,7 @@ export class Session {
   }
 
   /** What a button of a collection's rules would do to a record with what it was given, writing nothing; or where its rules stopped, and why. */
-  planButton(dir: string, id: string, name: string, given: CollectionRecord['values'] = {}): ButtonRun | RuleStop {
+  planButton(dir: string, id: string, name: string, given: AskAnswers = {}): ButtonRun | RuleStop {
     const rules = this.snapshot.collections[dir]?.rules;
     if (!rules) return new RuleStop(t('run.noAction', { name }), 0);
     const space = this.ruleSpace(dir);

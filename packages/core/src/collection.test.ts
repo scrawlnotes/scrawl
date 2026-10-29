@@ -713,14 +713,14 @@ describe('linked records as a table', () => {
   });
 
   it('keeps what a table changes where it is: a block’s ticks and choices, a view’s of its fields', () => {
-    const fields = [{ key: 'name', type: 'name' }, { key: 'done', type: 'checkbox' }, { key: 'status', type: 'select', options: ['Done'] }, { key: 'kg', type: 'number' }];
+    const fields = [{ key: 'name', type: 'name' }, { key: 'done', type: 'checkbox' }, { key: 'status', type: 'select', options: ['Done'] }, { key: 'kg', type: 'number' }, { key: 'at', type: 'date' }];
     const block = { block: 'linked', collection: 'Gym/Workout items', style: 'table', edit: ['done'] };
-    const views = [{ id: 'v', name: 'All', conditions: [], edit: ['status', 'kg', 'gone'] }];
+    const views = [{ id: 'v', name: 'All', conditions: [], edit: ['status', 'kg', 'at', 'gone'] }];
     const read = parseSchema(JSON.stringify({ version: 2, fields, views, layout: { columns: [{ sections: [{ items: [block, { ...block, edit: [] }] }] }] } }));
     expect(read.layout!.columns[0]!.sections[0]!.items).toEqual([block, { block: 'linked', collection: 'Gym/Workout items', style: 'table' }]);
-    // A view changes only its ticks and choices: a number or a field it does not have is left out.
-    expect(read.views![0]!.edit).toEqual(['status']);
-    expect(read.fields.map((f) => changesInTable(f))).toEqual([false, true, true, false]);
+    // A view changes its ticks, choices and numbers (a count, design/scrawl-apps.md 3.6): a day or a field it does not have is left out.
+    expect(read.views![0]!.edit).toEqual(['status', 'kg']);
+    expect(read.fields.map((f) => changesInTable(f))).toEqual([false, true, true, true, false]);
   });
 
   it('groups a linked table by a field, and in each by a second in the order the records come', () => {

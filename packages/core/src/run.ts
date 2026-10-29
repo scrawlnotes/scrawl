@@ -1,6 +1,6 @@
 import { t } from '@scrawlnotes/i18n';
 import type { By } from './activity';
-import { addCard, type Board, type Card, cardValue, loadBoard, moveCard, type NewCard, removeCard, saveBoard } from './board';
+import { addCard, type Board, type Card, cardValue, followChanges, loadBoard, moveCard, type NewCard, removeCard, saveBoard, updateCard, wonChange } from './board';
 import {
   addRecord,
   type Collection,
@@ -12,6 +12,7 @@ import {
   isEmpty,
   isLink,
   type Link,
+  linkedRecords,
   linkFieldsTo,
   linkTo,
   nameField,
@@ -26,7 +27,7 @@ import {
 import { Computer, valueFor } from './compute';
 import { basename, join, type VaultFs } from './fs';
 import { type CardRef, dayValue, type Env, equal, evaluate, Fn, fromRuntime, isCardRef, isRef, LangError, type Node, Obj, type Ref, type RV, type Stmt, textOf, toRuntime, truthy } from './lang';
-import { type ActionRule, askField, type AskType, type ChangeRule, lineAt, pathNamed, rulesOf, type SaveRule } from './rules';
+import { type ActionRule, type AskAnswers, askField, type AskRule, type AskType, type ChangeRule, isRowAnswers, lineAt, pathNamed, ROW_KEYS, type RowAnswer, rulesOf, type SaveRule } from './rules';
 import { addSubtask, type NewSubtask } from './subtasks';
 import { addTask, loadList, type NewTask, removeTask, saveList, type Task } from './tasks';
 import { readTrash, restoreFromTrash, trashItem } from './vault';
@@ -57,7 +58,7 @@ export type Change = (
   | { kind: 'remove'; dir: string; id: string }
   | { kind: 'subtask'; dir: string; id: string; subtask: NewSubtask }
   | { kind: 'card'; board: string; id: string; card: NewCard }
-  | { kind: 'move'; board: string; id: string; column: string }
+  | { kind: 'move'; board: string; id: string; column: string; set?: { [key: string]: FieldValue } }
   | { kind: 'task'; list: string; id: string; task: NewTask }
 ) & { by?: string };
 
@@ -234,14 +235,14 @@ function saveChanged(o: Overlay, space: RuleSpaceNow): SaveStop[] {
  * would do, with what runs on save of the records it changes. Throws a RuleStop saying the line
  * and why when it cannot be run through.
  */
-export function planAction(rules: string, name: string, dir: string, recordId: string, space: RuleSpaceNow, given: Record['values'] = {}): Plan {
+export function planAction(rules: string, name: string, dir: string, recordId: string, space: RuleSpaceNow, given: AskAnswers = {}): Plan {
   const action = actionsOf(rules).find((a) => a.name === name);
   if (!action) throw new RuleStop(t('run.noAction', { name }), 0);
   const o = overlayOf(space);
   // A question not given at all takes its default, as the window shows it: an agent may leave out what has one.
-  const answers = action.ask ? { ...Object.fromEntries((askOf(rules, name, dir, recordId, space, given)?.questions ?? []).map((q) => [q.key, q.value])), ...given } : given;
+  const answers: AskAnswers = action.ask ? { ...Object.fromEntries((askOf(rules, name, dir, recordId, space, given)?.questions ?? []).map((q) => [q.key, q.value])), ...given } : given;
   const input = action.ask ? inputOf(action, answers, space, dir) : undefined;
-  const missing = action.ask?.find((a) => a.required && isEmpty(answers[a.key] ?? null));
+  const missing = action.ask?.find((a) => a.required && (a.type === 'rows' ? !(answers[a.key] as RowAnswer[] | undefined)?.some((r) => r.count > 0) : isEmpty((answers[a.key] ?? null) as FieldValue)));
   if (missing) throw new RuleStop(t('run.needed', { label: missing.label }), lineAt(rules, missing.at));
   execute({ src: rules, body: action.body, dir, id: recordId, ...(input && { input }) }, o, space, action.when && { node: action.when, name, hint: action.hint, at: action.at });
   const stops = saveChanged(o, space);
@@ -260,16 +261,56 @@ export function planAction(rules: string, name: string, dir: string, recordId: s
 }
 
 /** What a button was given for what it asks, as the language reads it: each answer as its question's kind of field holds it. */
-function inputOf(action: ActionRule, given: Record['values'], space: RuleSpaceNow, dir: string): Obj {
+function inputOf(action: ActionRule, given: AskAnswers, space: RuleSpaceNow, dir: string): Obj {
   const paths = [...space.collections.map((c) => c.dir), ...Object.keys(space.boards)];
   return new Obj(
     new Map(
-      (action.ask ?? []).map((a) => {
+      (action.ask ?? []).map((a): [string, RV] => {
+        if (a.type === 'rows') {
+          // Each row as a set of values: the record it is, its number, its choice.
+          const path = pathNamed(space.collections.map((c) => c.dir), a.collection!, dir) ?? '';
+          const records = space.collections.find((c) => c.dir === path)?.records ?? [];
+          const rows = isRowAnswers(given[a.key]) ? (given[a.key] as RowAnswer[]) : [];
+          return [
+            a.key,
+            rows.flatMap((r) => {
+              const record = records.find((x) => x.id === r.id);
+              if (!record) return [];
+              const ref: Ref = { ref: true, dir: path, id: record.id, name: record.name, ...(record.code && { code: record.code }) };
+              return [new Obj(new Map<string, RV>([[ROW_KEYS.row, ref], [ROW_KEYS.count, r.count], [ROW_KEYS.why, r.why ?? null]]))];
+            }),
+          ];
+        }
         const field = askField(a, a.type === 'link' ? pathNamed(paths, a.collection!, dir) : undefined);
-        return [a.key, toRuntime(field, given[a.key] ?? null)];
+        return [a.key, toRuntime(field, (given[a.key] ?? null) as FieldValue)];
       }),
     ),
   );
+}
+
+/** The rows of a question of rows: the records of its collection that link to the record pressed, each with what it shows and its number to start with. */
+function rowsOf(a: AskRule, dir: string, recordId: string, space: RuleSpaceNow): { rows: AskRow[]; value: RowAnswer[] } {
+  const path = pathNamed(space.collections.map((c) => c.dir), a.collection!, dir);
+  const collection = space.collections.find((c) => c.dir === path);
+  const record = space.collections.find((c) => c.dir === dir)?.records.find((r) => r.id === recordId);
+  if (!collection || !record) return { rows: [], value: [] };
+  const computer = new Computer(space.collections, space.boards, space.today);
+  const records = linkedRecords(collection, dir, record);
+  const number = (r: Record, key: string) => {
+    const v = fromRuntime(computer.read(collection.dir, r, key));
+    return typeof v === 'number' ? v : 0;
+  };
+  return {
+    rows: records.map((r) => ({ id: r.id, name: recordTitle(r), shown: (a.show ?? []).map((s) => fromRuntime(computer.read(collection.dir, r, s.key))) })),
+    value: records.map((r) => ({ id: r.id, count: a.from ? Math.max(0, number(r, a.from)) : 0, ...(a.why && { why: null }) })),
+  };
+}
+
+/** A row of a question of rows as its window shows it: its record, and the values it shows beside its name. */
+export interface AskRow {
+  id: string;
+  name: string;
+  shown: FieldValue[];
 }
 
 /** A question of a button as its window shows it: its answer so far (its default when nothing is given) and the line under it. */
@@ -283,8 +324,13 @@ export interface AskQuestion {
   /** A date that takes its time too. */
   time?: boolean;
   required: boolean;
-  value: FieldValue;
+  /** Its answer: a field's value, or a question of rows' rows with their numbers. */
+  value: FieldValue | RowAnswer[];
   note?: string;
+  /** Rows: each row, the columns of what they show beside their name, and the choice each is asked (AskRule). */
+  rows?: AskRow[];
+  show?: string[];
+  why?: { label: string; options: string[] };
   /** A choice side by side, a text of several lines, the title of the group it begins (AskRule). */
   chips?: boolean;
   lines?: boolean;
@@ -298,13 +344,15 @@ export interface AskQuestion {
  * the record's name) and its questions, each with what was given or else its default, and its note
  * worked out with what was given. Null for a button that asks nothing.
  */
-export function askOf(rules: string, name: string, dir: string, recordId: string, space: RuleSpaceNow, given: Record['values'] = {}): { say: string; questions: AskQuestion[] } | null {
+export function askOf(rules: string, name: string, dir: string, recordId: string, space: RuleSpaceNow, given: AskAnswers = {}): { say: string; questions: AskQuestion[] } | null {
   const action = actionsOf(rules).find((a) => a.name === name);
   if (!action?.ask?.length) return null;
   const record = space.collections.find((c) => c.dir === dir)?.records.find((r) => r.id === recordId);
   const paths = [...space.collections.map((c) => c.dir), ...Object.keys(space.boards)];
   let say = record ? recordTitle(record) : '';
-  const questions: AskQuestion[] = action.ask.map((a) => ({
+  const questions: AskQuestion[] = action.ask.map((a) => {
+    const rows = a.type === 'rows' ? rowsOf(a, dir, recordId, space) : null;
+    return {
     key: a.key,
     label: a.label,
     type: a.type,
@@ -315,9 +363,11 @@ export function askOf(rules: string, name: string, dir: string, recordId: string
     ...(a.lines && { lines: true }),
     ...(a.section && { section: a.section }),
     ...(a.within && record && { within: { field: a.within, link: linkTo(record) } }),
+    ...(rows && { rows: rows.rows, show: (a.show ?? []).map((s) => s.label), ...(a.why && { why: a.why }) }),
     required: a.required,
-    value: given[a.key] ?? null,
-  }));
+    value: given[a.key] ?? rows?.value ?? null,
+    };
+  });
   const worked = (value: (node: Node) => RV, node: Node): RV => {
     try {
       return value(node);
@@ -336,7 +386,7 @@ export function askOf(rules: string, name: string, dir: string, recordId: string
         if (action.say) say = textOf(worked(value, action.say)) || say;
         action.ask!.forEach((a, i) => {
           const q = questions[i]!;
-          if (!(a.key in given) && a.default) q.value = fromRuntime(worked(value, a.default));
+          if (!(a.key in given) && a.default && a.type !== 'rows') q.value = fromRuntime(worked(value, a.default));
         });
       },
     },
@@ -497,7 +547,9 @@ function execute(r: Run, o: Overlay, space: RuleSpaceNow, when?: { node: Node; n
     }
     return true;
   };
-  const cardOf = (ref: RV, at: number): { path: string; board: Board; card: Card } => {
+  const cardOf = (given: RV, at: number): { path: string; board: Board; card: Card } => {
+    // A link to a board's card is the card: an order's deal (design/scrawl-apps.md 3.2).
+    const ref = isRef(given) && boards.has(given.dir) ? { cardref: true as const, board: given.dir, id: given.id } : given;
     if (!isCardRef(ref)) return stop(t('run.notCard'), at);
     const board = boards.get(ref.board);
     const card = board?.cards.find((c) => c.id === ref.id);
@@ -588,10 +640,17 @@ function execute(r: Run, o: Overlay, space: RuleSpaceNow, when?: { node: Node; n
         const col = typeof column === 'string' ? board.columns.find((c) => c.name.toLowerCase() === column.trim().toLowerCase()) : undefined;
         if (!col) return stop(t('rules.noColumn', { board: basename(path), name: String(column) }), at);
         if (card.column === col.id) return null;
-        boards.set(path, moveCard(board, card.id, { column: col.id, after: null }));
+        // Values written with it: why a deal was lost (design/scrawl-apps.md 3.2).
+        const values = args[2] instanceof Obj ? valuesFor(board.fields ?? [], args[2], basename(path), at) : undefined;
+        boards.set(path, values ? updateCard(moveCard(board, card.id, { column: col.id, after: null }), card.id, { values: { ...(card.values as { [key: string]: FieldValue }), ...values } }) : moveCard(board, card.id, { column: col.id, after: null }));
         const added = changes.find((c): c is Extract<Change, { kind: 'card' }> => c.kind === 'card' && c.id === card.id);
-        if (added) added.card = { ...added.card, column: col.id };
-        else changed({ kind: 'move', board: path, id: card.id, column: col.id }, at);
+        if (added) added.card = { ...added.card, column: col.id, ...(values && { values: { ...added.card.values, ...values } }) };
+        else changed({ kind: 'move', board: path, id: card.id, column: col.id, ...(values && { set: values }) }, at);
+        // What the board says a card won or dropped writes: its company a customer, its quote confirmed.
+        const now = boards.get(path)!.cards.find((c) => c.id === card.id)!;
+        const all = [...collections.values()];
+        const follow = [...(col.kind === 'done' ? [wonChange(board, now, all)] : []), ...followChanges(board, now, col.kind, all)];
+        for (const f of follow) if (f && collections.has(f.dir)) patch(f.dir, f.id, f.values, at);
         return null;
       }
       case 'subtask': {
@@ -931,8 +990,14 @@ export async function writePlan(fs: VaultFs, plan: Plan, space: Pick<RuleSpaceNo
     } else if (change.kind === 'move') {
       const board = await loadBoard(fs, change.board);
       const was = board.cards.find((c) => c.id === change.id)?.column;
-      await saveBoard(fs, change.board, moveCard(board, change.id, { column: change.column, after: null }, now, by));
-      if (was) undo.push(async () => saveBoard(fs, change.board, moveCard(await loadBoard(fs, change.board), change.id, { column: was, after: null }, now, by)));
+      const before = board.cards.find((c) => c.id === change.id)?.values;
+      const moved = moveCard(board, change.id, { column: change.column, after: null }, now, by);
+      await saveBoard(fs, change.board, change.set ? updateCard(moved, change.id, { values: { ...before, ...change.set } as { [key: string]: FieldValue } }, now, by) : moved);
+      if (was)
+        undo.push(async () => {
+          const back = moveCard(await loadBoard(fs, change.board), change.id, { column: was, after: null }, now, by);
+          await saveBoard(fs, change.board, change.set ? updateCard(back, change.id, { values: (before ?? {}) as { [key: string]: FieldValue } }, now, by) : back);
+        });
     } else if (change.kind === 'task') {
       const list = await loadList(fs, change.list);
       await saveList(fs, change.list, { ...list, tasks: addTask(list.tasks, change.task, now, change.id, by) });

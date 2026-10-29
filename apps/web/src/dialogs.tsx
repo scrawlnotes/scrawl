@@ -1,5 +1,6 @@
 import {
   addDays,
+  type AskAnswers,
   type AskQuestion,
   dayOf,
   type FieldValue,
@@ -21,8 +22,10 @@ import {
   type PhasePatch,
   type Priority,
   RuleStop,
+  type RowAnswer,
   spaceOf,
   type Template,
+  valueText,
 } from '@scrawlnotes/core';
 import { locale, type MessageKey, t } from '@scrawlnotes/i18n';
 import {
@@ -1441,9 +1444,50 @@ function DayChips({ value, onPick }: { value: FieldValue; onPick: (day: string) 
   );
 }
 
+/** Whether a needed question is still empty: a question of rows when no row has a number. */
+const unanswered = (q: AskQuestion) => (q.type === 'rows' ? !(q.value as RowAnswer[] | null)?.some((r) => r.count > 0) : isEmpty(q.value as FieldValue));
+
+/**
+ * A question of rows (design/scrawl-apps.md 3.6): a small table, each row its record's name, what
+ * it shows, a box for its number, and its choice when it asks one; Receive's lines as they came,
+ * Return's items coming back and why.
+ */
+function RowsQuestion({ q, ctx, onChange, onEnter }: { q: AskQuestion; ctx: ValueContext; onChange: (rows: RowAnswer[]) => void; onEnter: () => void }) {
+  const rows = (q.value as RowAnswer[] | null) ?? [];
+  const why: Field | null = q.why ? { key: 'why', label: q.why.label, type: 'select', options: q.why.options } : null;
+  const set = (id: string, patch: Partial<RowAnswer>) => onChange(rows.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  return (
+    <div className="ask-rows" style={{ gridTemplateColumns: `minmax(0, 1fr) ${(q.show ?? []).map(() => '70px').join(' ')} 84px${why ? ' 150px' : ''}` }}>
+      <span className="hd" />
+      {(q.show ?? []).map((label) => (
+        <span key={label} className="hd num">
+          {label}
+        </span>
+      ))}
+      <span className="hd num">{q.label}</span>
+      {why && <span className="hd">{why.label}</span>}
+      {(q.rows ?? []).map((row) => {
+        const answer = rows.find((r) => r.id === row.id);
+        return (
+          <Fragment key={row.id}>
+            <span className="nm">{row.name}</span>
+            {row.shown.map((v, i) => (
+              <span key={i} className="num dim">
+                {valueText(v)}
+              </span>
+            ))}
+            <input type="number" className="num" min={0} aria-label={`${row.name} · ${q.label}`} value={answer?.count ?? 0} onChange={(event) => set(row.id, { count: Math.max(0, Number(event.target.value) || 0) })} onKeyDown={(event) => event.key === 'Enter' && onEnter()} />
+            {why && (answer?.count ? <FieldInput field={why} value={answer.why ?? null} ctx={ctx} onChange={(value) => set(row.id, { why: typeof value === 'string' ? value : null })} /> : <span className="dim">—</span>)}
+          </Fragment>
+        );
+      })}
+    </div>
+  );
+}
+
 /** A question of a button as a field, for the form's own box: a choice is a select, a link picks from its collection. */
 const askedField = (q: AskQuestion): Field =>
-  ({ key: q.key, label: q.label, type: q.type === 'choice' ? 'select' : q.type, ...(q.options && { options: q.options }), ...(q.collection && { collection: q.collection }), ...(q.time && { time: true }), ...(q.chips && { chips: true }), ...(q.within && { within: q.within.field }) }) as Field;
+  ({ key: q.key, label: q.label, type: q.type === 'choice' ? 'select' : q.type === 'tick' ? 'checkbox' : q.type, ...(q.options && { options: q.options }), ...(q.collection && { collection: q.collection }), ...(q.time && { time: true }), ...(q.chips && { chips: true }), ...(q.within && { within: q.within.field }) }) as Field;
 
 /**
  * The window of a button that asks before it runs: its name, what it is about, its questions in
@@ -1454,18 +1498,18 @@ const askedField = (q: AskQuestion): Field =>
 export function AskDialog({ name, given: start, ask, plan, ctx, onRun, onClose }: {
   name: string;
   /** Answers it starts with: a deal's Log, the deal picked. */
-  given?: CollectionRecord['values'];
+  given?: AskAnswers;
   /** Its say and questions with what was given so far. */
-  ask: (given: CollectionRecord['values']) => { say: string; questions: AskQuestion[] } | null;
+  ask: (given: AskAnswers) => { say: string; questions: AskQuestion[] } | null;
   /** What it would do with the answers. */
-  plan: (given: CollectionRecord['values']) => ButtonRun | RuleStop;
+  plan: (given: AskAnswers) => ButtonRun | RuleStop;
   ctx: ValueContext;
   onRun: (run: ButtonRun) => void;
   onClose: () => void;
 }) {
-  const [given, setGiven] = useState<CollectionRecord['values']>(start ?? {});
+  const [given, setGiven] = useState<AskAnswers>(start ?? {});
   const asked = useMemo(() => ask(given), [ask, given]);
-  const answers = useMemo(() => Object.fromEntries((asked?.questions ?? []).map((q) => [q.key, q.value])), [asked]);
+  const answers = useMemo((): AskAnswers => Object.fromEntries((asked?.questions ?? []).map((q) => [q.key, q.value])), [asked]);
   const run = useMemo(() => plan(answers), [plan, answers]);
   const host = useRef<HTMLDivElement>(null);
   // The first answer comes selected: typing puts another in its place.
@@ -1475,12 +1519,15 @@ export function AskDialog({ name, given: start, ask, plan, ctx, onRun, onClose }
     first?.select();
   }, []);
   if (!asked) return null;
-  const missing = asked.questions.filter((q) => q.required && isEmpty(q.value));
+  const missing = asked.questions.filter((q) => q.required && unanswered(q));
   const stopped = run instanceof RuleStop && missing.length === 0 ? run : null;
   const ready = missing.length === 0 && !(run instanceof RuleStop);
   const go = () => ready && onRun(run as ButtonRun);
-  const answer = (key: string, value: FieldValue) => setGiven((g) => ({ ...g, [key]: value }));
-  const question = (q: AskQuestion) => (
+  const answer = (key: string, value: FieldValue | RowAnswer[]) => setGiven((g) => ({ ...g, [key]: value }));
+  const question = (q: AskQuestion) =>
+    q.type === 'rows' ? (
+      <RowsQuestion key={q.key} q={q} ctx={ctx} onChange={(rows) => answer(q.key, rows)} onEnter={go} />
+    ) : (
     <div key={q.key} className="prop ask-q">
       <label className="pl" htmlFor={`field-${q.key}`}>
         {q.label}
@@ -1491,13 +1538,13 @@ export function AskDialog({ name, given: start, ask, plan, ctx, onRun, onClose }
           <textarea id={`field-${q.key}`} className="ask-lines-box" rows={3} value={typeof q.value === 'string' ? q.value : ''} onChange={(event) => answer(q.key, event.target.value || null)} />
         ) : q.type === 'date' && q.chips ? (
           <>
-            <DayChips value={q.value} onPick={(day) => answer(q.key, day)} />
-            <FieldInput field={askedField(q)} value={q.value} ctx={ctx} onChange={(value) => answer(q.key, value)} onEnter={go} />
+            <DayChips value={q.value as FieldValue} onPick={(day) => answer(q.key, day)} />
+            <FieldInput field={askedField(q)} value={q.value as FieldValue} ctx={ctx} onChange={(value) => answer(q.key, value)} onEnter={go} />
           </>
         ) : (
-          <FieldInput field={askedField(q)} value={q.value} ctx={q.within ? { ...ctx, values: { [q.within.field]: q.within.link } } : ctx} onChange={(value) => answer(q.key, value)} onEnter={go} />
+          <FieldInput field={askedField(q)} value={q.value as FieldValue} ctx={q.within ? { ...ctx, values: { [q.within.field]: q.within.link } } : ctx} onChange={(value) => answer(q.key, value)} onEnter={go} />
         )}
-        {q.required && isEmpty(q.value) ? <p className="pbad">{t('run.needed', { label: q.label })}</p> : q.note && <p className="pnote">{q.note}</p>}
+        {q.required && unanswered(q) ? <p className="pbad">{t('run.needed', { label: q.label })}</p> : q.note && <p className="pnote">{q.note}</p>}
       </div>
     </div>
   );

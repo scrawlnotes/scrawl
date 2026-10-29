@@ -199,6 +199,8 @@ export interface TaskActions {
   skipDay?: (due: DueRecord) => void;
   /** The button its calendar gives a record's row, pressed on the record: Refilled, Done. */
   pressButton?: (due: DueRecord, name: string) => void;
+  /** A button pressed on each of a view's records in turn, from its box on an app's Home: Reorder all. */
+  pressAll?: (dir: string, ids: string[], name: string) => void;
   /** On a phone: a day chosen in a sheet, about `title`. */
   pickDay?: (title: string, onPick: (due: string | null) => void) => void;
   /** The open subtasks with a day of every card and record, by day then priority. */

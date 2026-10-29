@@ -28,10 +28,14 @@ import {
   dayWords,
   faceFields,
   formatNumber,
+  type HomeTile,
   sortRecords,
+  sumValue,
+  viewSumParts,
 } from '@scrawlnotes/core';
+import { locale } from '@scrawlnotes/i18n';
 import { t } from '@scrawlnotes/i18n';
-import { type MouseEvent, type ReactNode, useMemo } from 'react';
+import { Fragment, type MouseEvent, type ReactNode, useMemo } from 'react';
 import { Cell, StepStrip, type ValueContext } from './Collection';
 import { Icon, type IconName } from './Icon';
 import { CardRow, RecordRow, recordKey, splitDueCards, type TaskActions } from './Tasks';
@@ -69,10 +73,18 @@ interface Glance {
   pipe?: { name: string; count: number; sum: string; share: number }[];
   closing?: { name: string; said: string }[];
   closingSum?: string;
+  /** What it says beside its name (HomeTile.head): "₺85.110 · ₺19.150 overdue". */
+  head?: { text: string; warn: boolean }[];
+  /** Its lines, each a label and what it comes to (HomeTile.lines). */
+  lines?: { label: string; text: string; warn: boolean }[];
+  /** Its days, each a row of what they come to (HomeTile.periods). */
+  periods?: { columns: string[]; rows: { label: string; cells: string[] }[] };
+  /** A button pressed on each of its records, Reorder all (View.all). */
+  all?: { dir: string; name: string; ids: string[] };
 }
 
 /** A screen's count and its first records: a collection by the view it opens on, a board by its open cards, a folder by its notes; none for a note. */
-function glanceOf(screen: AppScreen, collections: Record<string, Collection>, boards: Record<string, Board>, notes: Record<string, string[]>, today: string): Glance | null {
+function glanceOf(screen: AppScreen, collections: Record<string, Collection>, boards: Record<string, Board>, notes: Record<string, string[]>, today: string, tile?: HomeTile): Glance | null {
   if (screen.kind === 'board') {
     const board = boards[screen.path];
     if (!board) return null;
@@ -115,7 +127,8 @@ function glanceOf(screen: AppScreen, collections: Record<string, Collection>, bo
   const rolled = computer.withValues(collection.dir) ?? collection;
   // The view it opens on, its menu's or its own, when it is a table: its records and its order; a calendar shows them all.
   // Its Home setting may list another view: a CRM's companies, those gone quiet.
-  const homeView = schema.home?.view ? schema.views?.find((v) => v.id === schema.home!.view) : undefined;
+  const own = tile ?? schema.home;
+  const homeView = own?.view ? schema.views?.find((v) => v.id === own.view) : undefined;
   const view = homeView ?? schema.views?.find((v) => v.id === (screen.view ?? schema.defaultView) && v.kind !== 'calendar');
   const shown = view ? rolled.records.filter((r) => matchesConditions(r, schema, view.conditions, today)) : rolled.records;
   const sorted = view?.sort ? sortRecords(shown, schema, view.sort, today) : shown;
@@ -136,12 +149,30 @@ function glanceOf(screen: AppScreen, collections: Record<string, Collection>, bo
       check,
     },
     first: sorted.slice(0, 4).map(recordTitle),
-    ...(homeView && { title: homeView.name }),
+    ...((own?.title || homeView) && { title: own?.title || homeView!.name }),
   };
   // A box that says values (design/more-apps.md 4.1): a balance beside each account and their total, a month's sums.
-  const home = schema.home;
+  const home = own;
   if (!home) return glance;
   if (home.off) return { ...glance, off: true };
+  // What it says beside its name, its lines and its days, over its view's records as the table shows them (design/scrawl-apps.md 3.2).
+  const shownSchema = { fields: schema.fields.map((f) => shownField(f, { fields: schema.fields, schemaOf: (path: string) => collections[path]?.schema })) };
+  if (home.head) glance.head = viewSumParts(home.head, shown, shownSchema, today);
+  if (homeView?.all) glance.all = { dir: collection.dir, name: homeView.all, ids: sorted.map((r) => r.id) };
+  if (home.lines) glance.lines = home.lines.map((l) => ({ label: l.label, text: sumValue(l, shown, shownSchema, today) ?? '–', warn: !!l.warn }));
+  if (home.periods) {
+    const { date, columns } = home.periods;
+    const dayOf = (r: CollectionRecord) => String(r.values[date] ?? '').slice(0, 10);
+    const yesterday = new Date(`${today}T00:00`);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const before = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+    const rows = [
+      { label: t('day.today'), records: shown.filter((r) => dayOf(r) === today) },
+      { label: t('day.yesterday'), records: shown.filter((r) => dayOf(r) === before) },
+      { label: new Date(`${today}T00:00`).toLocaleDateString(locale(), { month: 'long' }), records: shown.filter((r) => dayOf(r).slice(0, 7) === today.slice(0, 7)) },
+    ];
+    glance.periods = { columns: columns.map((c) => c.label), rows: rows.map((p) => ({ label: p.label, cells: columns.map((c) => sumValue(c, p.records, shownSchema, today) ?? (c.field || c.per ? '–' : '0')) })) };
+  }
   const stepped = home.counts ? schema.fields.find((f) => f.key === home.counts && f.steps) : undefined;
   if (stepped) return { ...glance, counts: stepCounts(stepped, collection.records) };
   const scope = { fields: schema.fields, schemaOf: (path: string) => collections[path]?.schema };
@@ -263,6 +294,31 @@ function AppHome({ modules, shows, collections, boards, notes, today, due, actio
   onAdd: (event: MouseEvent) => void;
 }) {
   const glances = useMemo(() => new Map(modules.flatMap((m) => m.screens).map((s) => [screenKey(s), glanceOf(s, collections, boards, notes, today)] as const)), [modules, collections, boards, notes, today]);
+  // A screen's other boxes, each of one of its views (Schema.homes): To collect, Quotes, This month; each with the template it is of.
+  const more = useMemo(
+    () =>
+      new Map(
+        modules
+          .flatMap((m) => m.screens)
+          .map((s) => [screenKey(s), s.kind === 'collection' ? (collections[s.path]?.schema.homes ?? []).flatMap((h) => { const g = glanceOf(s, collections, boards, notes, today, h); return g ? [{ glance: g, of: h.of }] : []; }) : []] as const),
+      ),
+    [modules, collections, boards, notes, today],
+  );
+  // A screen several modules have shows its box once, in the first of them; a box of a template's, in that template's module.
+  const placed = new Set<string>();
+  const boxesOf = (m: AppModule) =>
+    m.screens.flatMap((s) => {
+      const key = screenKey(s);
+      const own = placed.has(key) ? [] : [tileOf(m, s, glances.get(key) ?? null, key)];
+      placed.add(key);
+      const extra = (more.get(key) ?? []).flatMap((x, i) => {
+        const at = `${key}#${i}`;
+        if (placed.has(at) || (x.of && m.template && x.of !== m.template && modules.some((o) => o.template === x.of))) return [];
+        placed.add(at);
+        return [tileOf(m, s, x.glance, at)];
+      });
+      return [...own, ...extra];
+    });
   // Today: the records of today and those late, then the cards due today or late on its boards.
   const own = Object.fromEntries(Object.entries(boards).filter(([path]) => modules.some((m) => m.screens.some((s) => s.path === path))));
   const cards = splitDueCards(own, today);
@@ -307,153 +363,182 @@ function AppHome({ modules, shows, collections, boards, notes, today, due, actio
           </div>
         </div>
       )}
-      {!shows.cards ? null : modules.length === 1 ? (
-        <>
-          <div className="app-cap">{t('app.screens')}</div>
-          <div className="app-tiles">
-            {modules[0]!.screens.map((s) => {
-              const glance = glances.get(screenKey(s));
-              if (glance?.off) return null;
-              // A pipeline's own two boxes, as Pipedrive's: its stages with their sums, and what closes this month.
-              if (glance?.pipe) {
-                return [
-                  <button key={screenKey(s)} type="button" className="app-tile" onClick={(event) => onPick(event, modules[0]!, s)}>
-                    <span className="h">
-                      <Icon name="board" />
-                      {t('app.pipeline')}
-                    </span>
-                    <b>{glance.count.text}</b>
-                    <span className="pipe">
-                      {glance.pipe.map((stage) => (
-                        <span key={stage.name}>
-                          <span className="t">{stage.name}</span>
-                          <span className="b">
-                            <i style={{ width: `${Math.round(stage.share * 100)}%` }} />
-                          </span>
-                          <span className="n">{stage.count}</span>
-                          <span className="v">{stage.sum}</span>
-                        </span>
-                      ))}
-                    </span>
-                  </button>,
-                  <button key={`${screenKey(s)}#closing`} type="button" className="app-tile" onClick={(event) => onPick(event, modules[0]!, s)}>
-                    <span className="h">
-                      <Icon name="calendar" />
-                      {t('app.closing')}
-                    </span>
-                    <b>{glance.closingSum}</b>
-                    {glance.closing && glance.closing.length > 0 ? (
-                      <span className="rs vals">
-                        {glance.closing.map((row) => (
-                          <span key={row.name}>
-                            <span className="t">{row.name}</span>
-                            <span className="faint">{row.said}</span>
-                          </span>
-                        ))}
-                      </span>
-                    ) : (
-                      <span className="rs">
-                        <span className="faint">{t('app.noneClosing')}</span>
-                      </span>
-                    )}
-                  </button>,
-                ];
-              }
-              return (
-                <button key={screenKey(s)} type="button" className="app-tile" onClick={(event) => onPick(event, modules[0]!, s)}>
-                  <span className="h">
-                    <Icon name={screenIcon(s)} />
-                    {glance?.title ?? s.name}
-                  </span>
-                  {glance?.sums ? (
-                    <span className="sums">
-                      {glance.sums.map((each) => (
-                        <span key={each.field.key}>
-                          {glance.sums!.length > 1 && <small>{each.field.label}</small>}
-                          <b>
-                            <Cell field={each.field} value={each.value} ctx={tileCtx} values={each.values} />
-                          </b>
-                        </span>
-                      ))}
-                    </span>
-                  ) : (
-                    <b>{glance?.count.text ?? '–'}</b>
-                  )}
-                  {checks(s)}
-                  {glance?.counts ? (
-                    <StepStrip counts={glance.counts} />
-                  ) : glance?.big && glance.rows?.[0] ? (
-                    <span className="big">
-                      <b>{glance.rows[0].name}</b>
-                      <small>
-                        {[glance.rows[0].sub, glance.rows[0].value].filter((v): v is NonNullable<typeof v> => !!v && !isEmpty(v.value)).map((v, i) => (
-                          <span key={i}>
-                            <Cell field={v.field} value={v.value} ctx={tileCtx} values={glance.rows![0]!.values} />
-                          </span>
-                        ))}
-                      </small>
-                    </span>
-                  ) : glance?.rows && glance.rows.length > 0 ? (
-                    <span className="rs vals">
-                      {glance.rows.map((row, i) => (
-                        <span key={i}>
-                          <span className="t">
-                            {row.name}
-                            {row.sub && !isEmpty(row.sub.value) && (
-                              <small>
-                                <Cell field={row.sub.field} value={row.sub.value} ctx={tileCtx} values={row.values} />
-                              </small>
-                            )}
-                          </span>
-                          {row.value && <Cell field={row.value.field} value={row.value.value} ctx={tileCtx} values={row.values} />}
-                        </span>
-                      ))}
-                    </span>
-                  ) : glance?.empty ? (
-                    <span className="rs">
-                      <span className="faint">{glance.empty}</span>
-                    </span>
-                  ) : (
-                    glance &&
-                    glance.first.length > 0 && (
-                      <span className="rs">
-                        {glance.first.map((line, i) => (
-                          <span key={i}>{line}</span>
-                        ))}
-                      </span>
-                    )
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="app-cap">{t('app.modules')}</div>
-          <div className="app-cards">
-            {modules.map((m) => (
-              <div key={m.key} className="app-card">
-                <h4>
-                  <Icon name={moduleIcon(m)} />
-                  {moduleName(m)}
-                  <small>{t('app.screenCount', { count: m.screens.length })}</small>
-                </h4>
-                {m.screens.map((s) => (
-                  <button key={screenKey(s)} type="button" className="app-cr" onClick={(event) => onPick(event, m, s)}>
-                    <Icon name={screenIcon(s)} />
-                    <span className="t">{s.name}</span>
-                    {checks(s)}
-                    <span className="n">{count(s)?.text ?? '–'}</span>
-                  </button>
-                ))}
-              </div>
-            ))}
-          </div>
-        </>
-      )}
+      {!shows.cards
+        ? null
+        : modules.map((m) => (
+            <Fragment key={m.key}>
+              <div className="app-cap">{modules.length === 1 ? t('app.screens') : moduleName(m)}</div>
+              <div className="app-tiles">{boxesOf(m)}</div>
+            </Fragment>
+          ))}
     </div>
   );
+  /**
+   * A screen's box on Home: a pipeline's two, else its name, its count or sums, and its first
+   * records; or what its Home setting says, beside its name, its lines, its days, and a button
+   * over all its records (design/scrawl-apps.md 3.2). Its own button presses, the box opens the screen.
+   */
+  function tileOf(module: AppModule, s: AppScreen, glance: Glance | null, key: string): ReactNode {
+    if (glance?.off) return null;
+    const open = (event: MouseEvent) => onPick(event, module, s);
+    // A pipeline's own two boxes, as Pipedrive's: its stages with their sums, and what closes this month.
+    if (glance?.pipe) {
+      return [
+        <button key={key} type="button" className="app-tile" onClick={open}>
+          <span className="h">
+            <Icon name="board" />
+            {t('app.pipeline')}
+          </span>
+          <b>{glance.count.text}</b>
+          <span className="pipe">
+            {glance.pipe.map((stage) => (
+              <span key={stage.name}>
+                <span className="t">{stage.name}</span>
+                <span className="b">
+                  <i style={{ width: `${Math.round(stage.share * 100)}%` }} />
+                </span>
+                <span className="n">{stage.count}</span>
+                <span className="v">{stage.sum}</span>
+              </span>
+            ))}
+          </span>
+        </button>,
+        <button key={`${key}#closing`} type="button" className="app-tile" onClick={open}>
+          <span className="h">
+            <Icon name="calendar" />
+            {t('app.closing')}
+          </span>
+          <b>{glance.closingSum}</b>
+          {glance.closing && glance.closing.length > 0 ? (
+            <span className="rs vals">
+              {glance.closing.map((row) => (
+                <span key={row.name}>
+                  <span className="t">{row.name}</span>
+                  <span className="faint">{row.said}</span>
+                </span>
+              ))}
+            </span>
+          ) : (
+            <span className="rs">
+              <span className="faint">{t('app.noneClosing')}</span>
+            </span>
+          )}
+        </button>,
+      ];
+    }
+    const all = glance?.all;
+    return (
+      <div key={key} role="button" tabIndex={0} className="app-tile" onClick={open} onKeyDown={(event) => event.key === 'Enter' && event.target === event.currentTarget && onPick(event as unknown as MouseEvent, module, s)}>
+        <span className="h">
+          <Icon name={screenIcon(s)} />
+          {glance?.title ?? s.name}
+          {glance?.head && glance.head.length > 0 && (
+            <small className="hs">
+              {glance.head.map((p, i) => (
+                <Fragment key={i}>
+                  {i > 0 && ' · '}
+                  <span className={p.warn ? 'warn' : undefined}>{p.text}</span>
+                </Fragment>
+              ))}
+            </small>
+          )}
+        </span>
+        {glance?.head || glance?.periods ? null : glance?.sums ? (
+          <span className="sums">
+            {glance.sums.map((each) => (
+              <span key={each.field.key}>
+                {glance.sums!.length > 1 && <small>{each.field.label}</small>}
+                <b>
+                  <Cell field={each.field} value={each.value} ctx={tileCtx} values={each.values} />
+                </b>
+              </span>
+            ))}
+          </span>
+        ) : (
+          !glance?.lines && <b>{glance?.count.text ?? '–'}</b>
+        )}
+        {checks(s)}
+        {glance?.periods ? (
+          <span className="periods" style={{ gridTemplateColumns: `auto repeat(${glance.periods.columns.length}, minmax(0, 1fr))` }}>
+            <span />
+            {glance.periods.columns.map((c) => (
+              <span key={c} className="ph">
+                {c}
+              </span>
+            ))}
+            {glance.periods.rows.map((row) => (
+              <Fragment key={row.label}>
+                <span className="t">{row.label}</span>
+                {row.cells.map((cell, i) => (
+                  <span key={i} className="n">
+                    {cell}
+                  </span>
+                ))}
+              </Fragment>
+            ))}
+          </span>
+        ) : glance?.lines ? (
+          <span className="rs vals">
+            {glance.lines.map((line) => (
+              <span key={line.label}>
+                <span className="t">{line.label}</span>
+                <span className={line.warn ? 'warn' : 'faint'}>{line.text}</span>
+              </span>
+            ))}
+          </span>
+        ) : glance?.counts ? (
+          <StepStrip counts={glance.counts} />
+        ) : glance?.big && glance.rows?.[0] ? (
+          <span className="big">
+            <b>{glance.rows[0].name}</b>
+            <small>
+              {[glance.rows[0].sub, glance.rows[0].value].filter((v): v is NonNullable<typeof v> => !!v && !isEmpty(v.value)).map((v, i) => (
+                <span key={i}>
+                  <Cell field={v.field} value={v.value} ctx={tileCtx} values={glance.rows![0]!.values} />
+                </span>
+              ))}
+            </small>
+          </span>
+        ) : glance?.rows && glance.rows.length > 0 ? (
+          <span className="rs vals">
+            {glance.rows.map((row, i) => (
+              <span key={i}>
+                <span className="t">
+                  {row.name}
+                  {row.sub && !isEmpty(row.sub.value) && (
+                    <small>
+                      <Cell field={row.sub.field} value={row.sub.value} ctx={tileCtx} values={row.values} />
+                    </small>
+                  )}
+                </span>
+                {row.value && <Cell field={row.value.field} value={row.value.value} ctx={tileCtx} values={row.values} />}
+              </span>
+            ))}
+          </span>
+        ) : glance?.empty ? (
+          <span className="rs">
+            <span className="faint">{glance.empty}</span>
+          </span>
+        ) : (
+          glance &&
+          glance.first.length > 0 && (
+            <span className="rs">
+              {glance.first.map((line, i) => (
+                <span key={i}>{line}</span>
+              ))}
+            </span>
+          )
+        )}
+        {all && all.ids.length > 0 && actions.pressAll && (
+          <span className="tile-btn">
+            <button type="button" onClick={(event) => (event.stopPropagation(), actions.pressAll!(all.dir, all.ids, all.name))}>
+              {t('run.allOf', { name: all.name })}
+            </button>
+          </span>
+        )}
+      </div>
+    );
+  }
 }
 
 /**

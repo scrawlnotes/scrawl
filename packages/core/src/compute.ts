@@ -329,6 +329,13 @@ export class Computer {
 
   /** A field of a linked record. */
   private member(ref: Ref, key: string): RV {
+    // A link to a board's card reads the card's field: a quote's deal's company (design/scrawl-apps.md 3.2).
+    const board = this.boards[ref.dir];
+    if (board) {
+      const card = board.cards.find((c) => c.id === ref.id);
+      const field = (board.fields ?? []).find((f) => f.key === key);
+      return card && field ? toRuntime(field, (card.values?.[key] ?? null) as FieldValue) : null;
+    }
     const target = this.find(ref.dir, ref);
     const field = this.dirs.get(ref.dir)?.schema.fields.find((f) => f.key === key);
     return target && field ? this.run(ref.dir, target, field, false) : null;

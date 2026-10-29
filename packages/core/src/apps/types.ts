@@ -1,5 +1,5 @@
 import type { MessageKey } from '@scrawlnotes/i18n';
-import type { BoardNext, BoardPress, BoardWins, ColumnKind } from '../board';
+import type { BoardNext, BoardPress, BoardBack, BoardWins, ColumnKind } from '../board';
 import type { Field, HomeTile, LayoutBlock, LinkedBlock, NumberFormat, Schema, View } from '../collection';
 import type { PieceInfo } from './pieces';
 
@@ -167,6 +167,8 @@ export interface AppDraft extends Chosen {
   tableColumns(role: string, keys: string[]): void;
   /** What the collection's box on the app's Home says: a value beside each record, a total, sums. */
   homeTile(role: string, tile: HomeTile): void;
+  /** More boxes of a collection on Home, each of one of its views (Schema.homes). */
+  homeTiles(role: string, tiles: HomeTile[]): void;
   /** The record window's fields in this order, by key, the others after them; the table keeps the fields' order. */
   formOrder(role: string, keys: string[]): void;
   /** A field at the top of another column of the record's window, from 1: a trip's kind over its packing. */
@@ -185,6 +187,8 @@ export interface AppDraft extends Chosen {
   record(role: string, values: { [key: string]: string | number | boolean | string[] }): void;
   /** A board's columns and how it is shown, when it is set up. */
   columns(role: string, columns: [string, ColumnKind][], look?: BoardSetup): void;
+  /** Adds to another template's board, set up now or before (BoardAdd). */
+  boardAdd(role: string, add: BoardAdd): void;
   /** A note in a folder piece: a saved reply. */
   note(role: string, name: string, text: string): void;
   /** A money field's format: in the main currency, or, with more than one, in the one the record holds. */
@@ -283,6 +287,7 @@ export interface CollectionPart {
   columns?: string[];
   /** What its box on the app's Home says. */
   home?: HomeTile;
+  homes?: HomeTile[];
   /** Its window's fields in this order, the others after them: a transaction's amount first. */
   order?: string[];
   /** Fields in another column than the first, by key. */
@@ -317,7 +322,16 @@ export interface BoardPart {
   blocks?: LinkedBlock[];
   wins?: BoardWins;
   press?: BoardPress;
+  /** What another template adds to it (AppDraft.boardAdd): Sales' Quotes on a deal, its quote confirmed when the deal is won and declined when it is lost. */
+  added?: BoardAdd;
   was?: { board: string };
+}
+
+/** What a template adds to another's board: blocks in its cards' window, and what a card won or dropped writes into the records that link to it. */
+export interface BoardAdd {
+  blocks?: LinkedBlock[];
+  back?: BoardBack;
+  loses?: BoardBack;
 }
 
 /** How a board looks and works, as a template sets it up. */

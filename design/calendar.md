@@ -147,6 +147,16 @@ Pano kartları zaten Upcoming'de; panonun takvimi yalnız görünümdür.
 
 ## 7. E-ticaret
 
+29 Ekim, Shopify, Sellbrite, ShipStation, Etsy, eBay, Sellerboard ve Trendyol'un geliştirici belgelerine bakılarak baştan, Satış ve Stokla birlikte (`design/scrawl-apps.md` 3.2, 3.6). Mockup: `design/mockups.html` › Satış, stok ve e-ticaret.
+
+- **To ship** (Sellbrite'ın Ready to Ship'i): ilk açılan, gönderilmemiş siparişler kargoya son güne göre; üstte "7 to ship · 3 today · 1 late"; kanallar çip (sayılarıyla) ve listeyi süzer (Shopify); satırda Ship by ("Today", "1 day late" kırmızı), kanal, sipariş no, kalemler, toplam, durum. Diğer sekmeler Shipped, Delivered, Cancelled; iadeler Returns ekranında.
+- **Kargoya son gün:** kanalda Ships within (days); son gün sipariş günü + bu gün sayısı (Trendyol'un teslim taahhüdü).
+- **Ship:** kargo firması çiplerle (son kullanılan seçili), takip no, gönderim günü (bugün); Today'de bugün gidecek Ship ile, geciken gidene kadar Overdue'da.
+- **Sipariş penceresi:** başlıkta "Packed · ship by today · Elif Şahin, İzmir"; kâr tek satırda "₺1.240 · commission ₺248 · shipping ₺60 · cost ₺520 → ₺412 profit · 33%" (SellerLogic'in dökümü), altında "Payout ₺992 on Nov 12".
+- **Return** (Shopify): gönderilmiş kalemleri miktarlarıyla, her biri için neden; iade tutarı kalemlerden. İadede **Received** ("Back in stock" tiki dolu, hasarlıda kaldırılır) ve **Refunded**.
+- **Home** (Sellerboard): Today, Yesterday, bu ay için sipariş, satış, kâr, marj; To ship; bekleyen iadeler ve gelecek hakedişler.
+- Pazaryeri siparişinde müşteri zorunlu değil.
+
 İçeriği `design/scrawl-apps.md` 10'daki öneri (22 Ekim). Satış'ın ve Stok'un üstüne oturur, Money grubunda.
 
 - **Parçalar:**

@@ -1676,7 +1676,7 @@ function LineSheet({ source, block, dir, values, known, today, actions, onDone, 
  * three of the fields the view shows, on the right its number or its day. Grouped, each group has
  * its head with how many and the number added up. A view held opens its menu.
  */
-export function PhoneCollectionList({ name, count, schema, today, fields, records, shown, groups, groupField, closed, filtered, problems, query, views, view, own, onToggle, onQuery, onPickView, onViewMenu, onViewSheet, onOpen, onAdd, onFields, lines, strip, button, side, body }: {
+export function PhoneCollectionList({ name, count, schema, today, fields, records, shown, groups, groupField, closed, filtered, problems, query, views, view, own, set, chips, onToggle, onQuery, onPickView, onViewMenu, onViewSheet, onOpen, onAdd, onFields, lines, strip, button, side, body }: {
   /** On each row's right, in place of a value: a habit's last days, a box each (design/more-apps.md 4.9). */
   strip?: (record: Entry) => ReactNode;
   /** On each row's right, its view's button where the record can have it pressed: +1 (design/more-apps.md 4.8). */
@@ -1704,6 +1704,10 @@ export function PhoneCollectionList({ name, count, schema, today, fields, record
   query: string;
   views: View[];
   view: View | null;
+  /** The views are a set, the tabs of a screen opened on one of them: no All (View.set). */
+  set?: boolean;
+  /** Over the list: a view's chips (View.chips). */
+  chips?: ReactNode;
   onToggle: (group: string) => void;
   onQuery: (query: string) => void;
   onPickView: (id: string | null) => void;
@@ -1827,7 +1831,7 @@ export function PhoneCollectionList({ name, count, schema, today, fields, record
       {!noFields && (
         <div className="mb-views">
           <div className="ch" role="tablist">
-            {!own && (
+            {!own && !set && (
               <button type="button" role="tab" aria-selected={!view} className={view ? 'mb-view' : 'mb-view on'} onClick={() => onPickView(null)}>
                 {t('collection.all')}
               </button>
@@ -1848,6 +1852,7 @@ export function PhoneCollectionList({ name, count, schema, today, fields, record
         const field = schema.fields.find((f) => f.key === view.counts && f.steps);
         return field ? <StepStrip counts={stepCounts(field, records)} /> : null;
       })()}
+      {chips}
       {body ?? <div className="mb-clist">
         {noFields ? (
           <Empty icon="collection" title={t('collection.noFields')} action={{ label: t('collection.fields'), run: onFields }} />

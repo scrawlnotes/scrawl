@@ -145,7 +145,7 @@ describe('apps', () => {
     const { nodes } = (await treeTool(agent, {})).data as { nodes: { path: string; app?: { modules: { name: string; screens: string[] }[] } }[] };
     expect(nodes.find((n) => n.path === 'Spare parts')?.app?.modules).toEqual([
       { name: 'CRM', screens: ['Spare parts/Deals.board.json', 'Spare parts/Companies', 'Spare parts/People', 'Spare parts/Activities'] },
-      { name: 'Sales', screens: ['Spare parts/Orders', 'Spare parts/Payments', 'Spare parts/Companies', 'Spare parts/Products'] },
+      { name: 'Sales', screens: ['Spare parts/Orders', 'Spare parts/Payments', 'Spare parts/Products', 'Spare parts/Companies'] },
     ]);
     expect(nodes.find((n) => n.path === 'Inbox.tasks.json')?.app).toBeUndefined();
   });
@@ -190,25 +190,25 @@ describe('apps', () => {
     await saveRecordTool(agent, { collection: 'Atlas/Products', values: { name: 'Bracket', price: 50 } });
 
     const order = await saveRecordTool(agent, { collection: 'Atlas/Orders', values: { customer: 'Lara Turizm' }, lines: [{ product: 'Rail', quantity: 2 }, { product: 'Bracket', quantity: 4, unit_price: 40 }] });
-    expect(order.data.record.values).toMatchObject({ code: 'ORD-0001', subtotal: 2160 });
+    expect(order.data.record.values).toMatchObject({ code: 'SO-0001', subtotal: 2160 });
     const { lines } = order.data as unknown as { lines: { collection: string; records: { name: string; values: { [key: string]: unknown } }[] } };
     expect(lines.collection).toBe('Atlas/Order lines');
     expect(lines.records.map((r) => [r.name, r.values.unit_price, (r.values.order as { code: string }).code])).toEqual([
-      ['Rail', 1000, 'ORD-0001'],
-      ['Bracket', 40, 'ORD-0001'],
+      ['Rail', 1000, 'SO-0001'],
+      ['Bracket', 40, 'SO-0001'],
     ]);
 
     await saveRecordTool(agent, { collection: 'Atlas/Orders', values: { customer: 'Lara Turizm' }, another: true });
     const listed = (await recordsTool(agent, { collection: 'Atlas/Orders' })).data as unknown as { lines: string[]; records: { code: string; lines: number }[] };
     expect(listed.lines).toEqual(['Atlas/Order lines']);
     expect(listed.records.map((r) => [r.code, r.lines]).sort()).toEqual([
-      ['ORD-0001', 2],
-      ['ORD-0002', 0],
+      ['SO-0001', 2],
+      ['SO-0002', 0],
     ]);
 
     // Lines come with a new record only, without their link to it; a collection without lines takes none.
-    expect((await refusal(saveRecordTool(agent, { collection: 'Atlas/Orders', id: 'ORD-0002', lines: [{ product: 'Rail' }] }))).message).toMatch(/lines come with a new record.*save_record in Atlas\/Order lines/);
-    expect((await refusal(saveRecordTool(agent, { collection: 'Atlas/Orders', values: { customer: 'Lara Turizm' }, another: true, lines: [{ order: 'ORD-0001', product: 'Rail' }] }))).message).toMatch(/Order of a line is the record it comes with/);
+    expect((await refusal(saveRecordTool(agent, { collection: 'Atlas/Orders', id: 'SO-0002', lines: [{ product: 'Rail' }] }))).message).toMatch(/lines come with a new record.*save_record in Atlas\/Order lines/);
+    expect((await refusal(saveRecordTool(agent, { collection: 'Atlas/Orders', values: { customer: 'Lara Turizm' }, another: true, lines: [{ order: 'SO-0001', product: 'Rail' }] }))).message).toMatch(/Order of a line is the record it comes with/);
     expect((await refusal(saveRecordTool(agent, { collection: 'Atlas/Products', values: { name: 'Bolt' }, lines: [{ name: 'x' }] }))).message).toMatch(/have no lines/);
     expect((await recordsTool(agent, { collection: 'Atlas/Orders' })).data.total).toBe(2);
   });
@@ -241,64 +241,81 @@ describe('apps', () => {
     expect(apps).toBe(sets.length * 2);
   }, 1_800_000);
 
-  it('runs a sale through: a line from its product, the order adding up, stock out on delivery, the payment expected and recorded', async () => {
-    const { fs, agent } = await world();
+  it('runs a sale through: a quote on a deal accepted, its line from its product, invoiced on the customer’s terms, paid in two; stock reordered, received in two, adjusted and counted', async () => {
+    const { agent } = await world();
     const made = await createTool(agent, { kind: 'app', name: 'Atlas', templates: ['crm', 'sales', 'stock', 'budget'], currencies: ['TRY'] });
     expect(made.data).toMatchObject({ path: 'Atlas', kind: 'app', created: true, templates: ['crm', 'sales', 'stock', 'budget'] });
-    expect((made.data as { made: string[] }).made).toEqual(expect.arrayContaining(['collection Atlas/Orders', 'board Atlas/Deals.board.json', 'note Atlas/About Atlas.md']));
+    expect((made.data as { made: string[] }).made).toEqual(expect.arrayContaining(['collection Atlas/Orders', 'collection Atlas/Stock counts', 'board Atlas/Deals.board.json', 'note Atlas/About Atlas.md']));
     const save = (collection: string, values: object, rest: object = {}) => saveRecordTool(agent, { collection: `Atlas/${collection}`, values: values as never, ...rest });
+    const press = (collection: string, id: string, action: string, input?: object) => saveRecordTool(agent, { collection: `Atlas/${collection}`, id, action, ...(input && { input: input as never }) });
     const record = async (collection: string, name: string) => (await recordsTool(agent, { collection: `Atlas/${collection}` })).data.records.find((r) => r.name === name || r.values.code === name)!;
 
-    await save('Companies', { name: 'Kone', type: ['supplier'] });
-    await save('Companies', { name: 'Lara Turizm', type: ['customer'] });
-    await save('Products', { name: 'Rail', price: 1000, tax_rate: 20, cost: 600, reorder_level: 5, supplier: 'Kone' });
+    await save('Companies', { name: 'Kone', type: ['Supplier'] });
+    await save('Companies', { name: 'Lara Turizm', payment_terms: 'Net 15' });
+    await save('Products', { name: 'Rail', price: 1000, tax_rate: 20, cost: 600, reorder_level: 10, supplier: 'Kone' });
 
-    // Goods come in on a purchase order, and what is owed to the supplier is written.
-    await save('Purchase orders', { supplier: 'Kone' });
-    const poLine = await save('Purchase order lines', { purchase_order: 'PO-0001', product: 'Rail', quantity: 10 });
-    expect(poLine.data.record.values).toMatchObject({ name: 'Rail', unit_cost: 600, amount: 6000 });
-    const received = await save('Purchase orders', { status: 'Received' }, { id: 'PO-0001' });
-    expect(received.data.onSave?.did).toBe("1 movement added · 1 payment added");
-    expect((await record('Products', 'Rail')).values).toMatchObject({ stock: 10, stock_value: 6000, stock_status: 'OK' });
+    // Reorder twice: one draft order to Kone, its line once, ten rails to reach the level, at their cost.
+    expect((await press('Products', 'PRD-0001', 'Reorder')).data.action?.done).toBe("Rail · on its supplier's draft order");
+    await press('Products', 'PRD-0001', 'Reorder');
+    const lines = (await recordsTool(agent, { collection: 'Atlas/Purchase order lines' })).data.records;
+    expect(lines.map((l) => [l.name, l.values.quantity, l.values.unit_cost, (l.values.purchase_order as { code: string }).code])).toEqual([['Rail', 10, 600, 'PO-0001']]);
+    // Ordered, the rails are on their way; received in two, what is short stays to come.
+    const ordered = await press('Purchase orders', 'PO-0001', 'Order', { expected: '2026-10-28' });
+    expect(ordered.data.record.values).toMatchObject({ status: 'Ordered', expected: '2026-10-28', arrives: 'Oct 28' });
+    // Ordered, it is not low: what is on its way counts.
+    expect((await record('Products', 'Rail')).values).toMatchObject({ stock: 0, on_order: 10 });
+    expect((await record('Products', 'Rail')).values.stock_status).toBeUndefined();
+    const part = await press('Purchase orders', 'PO-0001', 'Receive', { lines: [{ row: 'Rail', count: 6 }] });
+    expect(part.data.record.values).toMatchObject({ status: 'Partially received', to_come: 4 });
+    expect((await record('Products', 'Rail')).values).toMatchObject({ stock: 6, on_order: 4 });
+    // With nothing given, what is still to come comes; Received, what is owed to Kone is written.
+    const all = await press('Purchase orders', 'PO-0001', 'Receive');
+    expect(all.data.record.values).toMatchObject({ status: 'Received', to_come: 0 });
+    expect((await record('Products', 'Rail')).values).toMatchObject({ stock: 10, on_order: 0, stock_value: 6000 });
     const owed = (await recordsTool(agent, { collection: 'Atlas/Payments' })).data.records;
     expect(owed.map((p) => p.values)).toEqual([expect.objectContaining({ direction: 'Out', amount: 6000, status: 'Invoiced', company: expect.objectContaining({ name: 'Kone' }) })]);
 
-    // An order: its line takes the price and the tax from the product, with the discount.
-    const order = await save('Orders', { customer: 'Lara Turizm', due: '2026-11-20' });
-    expect(order.data.record.values).toMatchObject({ code: 'ORD-0001', status: 'Quote', date: '2026-10-21' });
-    const line = await save('Order lines', { order: 'ORD-0001', product: 'Rail', quantity: 3, discount: 10 });
+    // A quote on a deal: its customer the deal's company, its terms the customer's.
+    const deal = await saveCardTool(agent, {}, { board: 'Atlas/Deals', title: 'Hotel rails', values: { company: 'Lara Turizm', value: 3240 } });
+    const quote = await save('Orders', { deal: 'Hotel rails' });
+    expect(quote.data.record.values).toMatchObject({ code: 'SO-0001', status: 'Quote', date: '2026-10-21', valid_until: '2026-11-20', customer: expect.objectContaining({ name: 'Lara Turizm' }), payment_terms: 'Net 15' });
+    const line = await save('Order lines', { order: 'SO-0001', product: 'Rail', quantity: 3, discount: 10 });
     expect(line.data.record.values).toMatchObject({ name: 'Rail', unit_price: 1000, tax_rate: 20, net: 2700, tax: 540, amount: 3240 });
-    expect((await record('Orders', 'ORD-0001')).values).toMatchObject({ subtotal: 2700, discount: 300, tax: 540, total: 3240, remaining: 3240 });
+    expect((await record('Orders', 'SO-0001')).values).toMatchObject({ subtotal: 2700, discount: 300, tax: 540, total: 3240, remaining: 0, state: 'Valid until Nov 20' });
+    // Accept confirms it and wins its deal: the company is a customer; the rails are committed.
+    const accepted = await press('Orders', 'SO-0001', 'Accept');
+    expect(accepted.data.record.values).toMatchObject({ status: 'Confirmed', remaining: 3240 });
+    expect((await save('Companies', {}, { id: 'Lara Turizm' })).data.record.values).toMatchObject({ type: ['Customer'], to_collect: 3240 });
+    expect((await record('Products', 'Rail')).values).toMatchObject({ stock: 10, committed: 3, available: 7 });
+    void deal;
+    // Delivered, they go out of stock.
+    await save('Orders', { status: 'Delivered' }, { id: 'SO-0001' });
+    expect((await record('Products', 'Rail')).values).toMatchObject({ stock: 7, committed: 0, available: 7 });
+    expect((await record('Orders', 'SO-0001')).values.state).toBe('To invoice');
 
-    // Delivered, its products go out of stock; taken back, they come back.
-    await save('Orders', { status: 'Confirmed' }, { id: 'ORD-0001' });
-    expect((await record('Products', 'Rail')).values.stock).toBe(10);
-    await save('Orders', { status: 'Delivered' }, { id: 'ORD-0001' });
-    expect((await record('Products', 'Rail')).values.stock).toBe(7);
-    await save('Orders', { status: 'Confirmed' }, { id: 'ORD-0001' });
-    expect((await record('Products', 'Rail')).values.stock).toBe(10);
-    await save('Orders', { status: 'Delivered' }, { id: 'ORD-0001' });
-
-    // Invoiced, the payment to collect is added; a part paid leaves the rest waiting; all paid, the order is Paid.
-    const invoiced = await save('Orders', { status: 'Invoiced', invoice_no: 'A-1001' }, { id: 'ORD-0001' });
-    expect(invoiced.data.onSave?.did).toMatch(/1 payment/);
-    const part = await saveRecordTool(agent, { collection: 'Atlas/Orders', id: 'ORD-0001', action: 'Record payment', input: { amount: 1000 } });
-    expect(part.data.record.values).toMatchObject({ collected: 1000, remaining: 2240, status: 'Invoiced' });
-    const incoming = (await recordsTool(agent, { collection: 'Atlas/Payments' })).data.records.filter((p) => p.values.direction === 'In');
-    expect(incoming.map((p) => [p.values.amount, p.values.status, (p.values.budget_line as { name: string } | undefined)?.name])).toEqual(
-      expect.arrayContaining([
-        [1000, 'Paid', 'Sales'],
-        [2240, 'Invoiced', 'Sales'],
-      ]),
-    );
-    const rest = await saveRecordTool(agent, { collection: 'Atlas/Orders', id: 'ORD-0001', action: 'Record payment', input: { amount: 2240 } });
+    // Invoice: its number and day; due in 15 days, the customer's terms; Budget writes what is to come.
+    const invoiced = await press('Orders', 'SO-0001', 'Invoice', { invoice_no: 'A-1001', invoiced_on: '2026-10-21' });
+    expect(invoiced.data.record.values).toMatchObject({ status: 'Invoiced', invoice_no: 'A-1001', invoiced_on: '2026-10-21', due: '2026-11-05', state: 'Due Nov 5' });
+    // A part paid leaves the rest open; the rest paid, it is Paid.
+    const paid = await press('Orders', 'SO-0001', 'Record payment', { amount: 1000, method: 'Card' });
+    expect(paid.data.record.values).toMatchObject({ collected: 1000, remaining: 2240, status: 'Invoiced' });
+    const rest = await press('Orders', 'SO-0001', 'Record payment');
     expect(rest.data.record.values).toMatchObject({ remaining: 0, status: 'Paid' });
     expect((await record('Budget lines', 'Sales')).values.actual).toBe(3240);
 
-    // A count: the difference goes in as an adjustment.
-    const counted = await saveRecordTool(agent, { collection: 'Atlas/Products', id: 'PRD-0001', action: 'Correct stock', input: { total: 4 } });
-    expect(counted.data.record.values).toMatchObject({ stock: 4, stock_status: 'Low' });
-    expect(counted.data.record.problems).toEqual([{ kind: 'check', field: 'stock', text: 'Low: 4 left' }]);
+    // Adjust: two damaged; below its reorder level it is low.
+    const adjusted = await press('Products', 'PRD-0001', 'Adjust', { counted: 4, reason: 'Damaged' });
+    expect(adjusted.data.record.values).toMatchObject({ stock: 4, stock_status: 'Low' });
+    const damaged = (await recordsTool(agent, { collection: 'Atlas/Stock movements' })).data.records.find((m) => m.values.reason === 'Damaged')!;
+    expect(damaged.values).toMatchObject({ name: 'Adjust · Damaged', direction: 'Out', type: 'adjustment', quantity: 3 });
+    // A count lists every product with what there is; Apply writes what differs.
+    const count = await save('Stock counts', {});
+    const counted = (await recordsTool(agent, { collection: 'Atlas/Count lines' })).data.records;
+    expect(counted.map((l) => [l.name, l.values.expected])).toEqual([['Rail', 4]]);
+    await save('Count lines', { counted: 5 }, { id: counted[0]!.id });
+    const applied = await press('Stock counts', count.data.record.id, 'Apply');
+    expect(applied.data.record.values).toMatchObject({ status: 'Applied', differ: 1 });
+    expect((await record('Products', 'Rail')).values.stock).toBe(5);
   });
 
   it('keeps stock by warehouse: a movement finds its stock level, a transfer moves it on', async () => {
@@ -306,16 +323,18 @@ describe('apps', () => {
     await createTool(agent, { kind: 'app', name: 'Depot', templates: ['stock'], answers: { stock: { locations: true, purchasing: false } }, currencies: ['EUR'] });
     const locations = (await recordsTool(agent, { collection: 'Depot/Locations' })).data.records.map((r) => [r.name, r.values.is_default ?? false]);
     expect(locations.sort()).toEqual([['Main warehouse', true], ['Second warehouse', false]]);
-    await saveRecordTool(agent, { collection: 'Depot/Products', values: { name: 'Cable' } });
+    const cable = await saveRecordTool(agent, { collection: 'Depot/Products', values: { name: 'Cable' } });
     const moved = await saveRecordTool(agent, { collection: 'Depot/Stock movements', values: { product: 'Cable', location: 'Main warehouse', direction: 'In', type: 'purchase', quantity: 10 } });
     expect(moved.data.record.values.level).toMatchObject({ name: 'Cable · Main warehouse' });
     const level = (await recordsTool(agent, { collection: 'Depot/Stock levels' })).data.records[0]!;
     expect(level.values).toMatchObject({ stock: 10 });
-    const sent = await saveRecordTool(agent, { collection: 'Depot/Stock levels', id: level.id, action: 'Transfer', input: { quantity: 4, to: 'Second warehouse' } });
-    expect(sent.data.record.values.stock).toBe(6);
+    const sent = await saveRecordTool(agent, { collection: 'Depot/Products', id: cable.data.record.id, action: 'Transfer', input: { quantity: 4, from: 'Main warehouse', to: 'Second warehouse' } });
+    expect(sent.data.record.values.stock).toBe(10);
     const levels = (await recordsTool(agent, { collection: 'Depot/Stock levels' })).data.records.map((r) => [r.name, r.values.stock]);
     expect(levels).toEqual(expect.arrayContaining([['Cable · Main warehouse', 6], ['Cable · Second warehouse', 4]]));
-    expect((await recordsTool(agent, { collection: 'Depot/Products' })).data.records[0]!.values.stock).toBe(10);
+    // Adjust in a warehouse: what it has there is what was counted.
+    await saveRecordTool(agent, { collection: 'Depot/Products', id: cable.data.record.id, action: 'Adjust', input: { counted: 3, location: 'Second warehouse' } });
+    expect((await recordsTool(agent, { collection: 'Depot/Stock levels' })).data.records.map((r) => [r.name, r.values.stock])).toEqual(expect.arrayContaining([['Cable · Second warehouse', 3]]));
     // A movement with no warehouse is in the default one.
     const plain = await saveRecordTool(agent, { collection: 'Depot/Stock movements', values: { product: 'Cable', direction: 'Out', type: 'use', quantity: 1 } });
     expect(plain.data.record.values).toMatchObject({ location: { name: 'Main warehouse' }, level: { name: 'Cable · Main warehouse' } });
@@ -356,23 +375,27 @@ describe('apps', () => {
     expect(board.cards.map((c: { title: string }) => c.title)).toEqual(['Antalya Hotel: Kickoff', 'Antalya Hotel: Planning', 'Antalya Hotel: Delivery', 'Antalya Hotel: Review']);
   });
 
-  it('sells on a channel: what an order earns, its shipping and payout, a return back into stock and paid back', async () => {
+  it('sells on a channel: shipped by the day its channel gives, what it earns and when it is paid out, items returned back into stock and paid back', async () => {
     const { agent } = await world();
     await createTool(agent, { kind: 'app', name: 'Shop', templates: ['sales', 'ecommerce', 'stock', 'budget'], currencies: ['TRY'], answers: { sales: { tax: false } } });
-    await saveRecordTool(agent, { collection: 'Shop/Channels', id: 'Amazon', values: { commission: 0.2, fee: 5, payout_days: 7 } });
+    await saveRecordTool(agent, { collection: 'Shop/Channels', id: 'Amazon', values: { commission: 0.2, fee: 5, payout_days: 7, ship_days: 2 } });
     await saveRecordTool(agent, { collection: 'Shop/Products', values: { name: 'Lamp', price: 100, cost: 40 } });
-    const order = await saveRecordTool(agent, { collection: 'Shop/Orders', values: { channel: 'Amazon', status: 'Confirmed', ship_by: '2026-10-20', shipping_cost: 10 } });
+    const order = await saveRecordTool(agent, { collection: 'Shop/Orders', values: { channel: 'Amazon', marketplace_no: '1029', status: 'Confirmed', shipping_cost: 10 } });
     const id = order.data.record.id;
     const code = order.data.record.values.code as string;
+    // Its day to ship is its channel's: two days on.
+    expect(order.data.record.values).toMatchObject({ ship_by: '2026-10-23', to_ship: true, ship_said: 'Fri, Oct 23' });
     await saveRecordTool(agent, { collection: 'Shop/Order lines', values: { name: 'Lamp', order: code, product: 'Lamp', quantity: 2, unit_price: 100 } });
     const read = async () => (await recordsTool(agent, { collection: 'Shop/Orders' })).data.records.find((r) => r.id === id)!;
     // 200 less a commission of 20% and 5, the shipping and what the lamps cost.
-    expect((await read()).values).toMatchObject({ total: 200, commission: 45, cost: 80, net_profit: 65 });
-    expect((await read()).problems).toEqual([expect.objectContaining({ field: 'ship_by', text: 'Late to ship' })]);
+    expect((await read()).values).toMatchObject({ total: 200, commission: 45, cost: 80, net_profit: 65, items: ['Lamp × 2'], profit_said: '₺200 · commission ₺45 · shipping ₺10 · cost ₺80 → ₺65 profit · 33%' });
+    // Late, it says so.
+    await saveRecordTool(agent, { collection: 'Shop/Orders', id, values: { ship_by: '2026-10-20' } });
+    expect((await read()).values).toMatchObject({ ship_late: true, ship_said: '1 day late' });
     const shipped = await saveRecordTool(agent, { collection: 'Shop/Orders', id, action: 'Ship', input: { carrier: 'DHL', tracking: 'JD0001' } });
-    expect(shipped.data.record.values).toMatchObject({ status: 'Shipped', carrier: 'DHL', tracking: 'JD0001' });
-    expect((await read()).problems ?? []).toEqual([]);
+    expect(shipped.data.record.values).toMatchObject({ status: 'Shipped', carrier: 'DHL', tracking: 'JD0001', shipped_on: '2026-10-21', to_ship: false });
     await saveRecordTool(agent, { collection: 'Shop/Orders', id, values: { status: 'Delivered' } });
+    expect((await read()).values).toMatchObject({ delivered_on: '2026-10-21', payout: 155, payout_said: 'Payout ₺155 on Oct 28, 7 days after it is delivered' });
     const payout = (await recordsTool(agent, { collection: 'Shop/Payments' })).data.records.find((p) => p.name === `${code} payout`)!;
     expect(payout.values).toMatchObject({ direction: 'In', amount: 155, status: 'Planned', due: '2026-10-28', order: { id } });
     // Paid, it leaves nothing to collect: the channel kept its commission.
@@ -382,13 +405,14 @@ describe('apps', () => {
     const cancelled = await saveRecordTool(agent, { collection: 'Shop/Orders', values: { channel: 'Amazon', status: 'Cancelled' } });
     await saveRecordTool(agent, { collection: 'Shop/Order lines', values: { name: 'Lamp', order: cancelled.data.record.values.code as string, product: 'Lamp', quantity: 5, unit_price: 100 } });
     expect((await recordsTool(agent, { collection: 'Shop/Products' })).data.records[0]!.values).toMatchObject({ sold: 2, profit: 120 });
-    await saveRecordTool(agent, { collection: 'Shop/Orders', id, action: 'Return', input: { product: 'Lamp', quantity: 1, reason: 'Damaged' } });
+    // Return: the items that come back and why; its refund from them.
+    await saveRecordTool(agent, { collection: 'Shop/Orders', id, action: 'Return', input: { items: [{ row: 'Lamp', count: 1, why: 'Damaged' }] } });
     const back = (await recordsTool(agent, { collection: 'Shop/Returns' })).data.records[0]!;
-    expect(back.values).toMatchObject({ name: `Return of ${code}`, order: { id }, quantity: 1, status: 'Requested', channel: { name: 'Amazon' } });
-    await saveRecordTool(agent, { collection: 'Shop/Returns', id: back.id, values: { status: 'Received' } });
+    expect(back.values).toMatchObject({ name: 'Return of 1029', order: { id }, product: { name: 'Lamp' }, quantity: 1, reason: 'Damaged', refund: 100, status: 'Requested', channel: { name: 'Amazon' } });
+    await saveRecordTool(agent, { collection: 'Shop/Returns', id: back.id, action: 'Received', input: { restock: true } });
     const moves = (await recordsTool(agent, { collection: 'Shop/Stock movements' })).data.records;
     expect(moves.filter((m) => m.values.type === 'return').map((m) => [m.values.direction, m.values.quantity])).toEqual([['In', 1]]);
-    await saveRecordTool(agent, { collection: 'Shop/Returns', id: back.id, values: { status: 'Refunded', refund: 100 } });
+    await saveRecordTool(agent, { collection: 'Shop/Returns', id: back.id, action: 'Refunded' });
     const refund = (await recordsTool(agent, { collection: 'Shop/Payments' })).data.records.find((p) => p.values.direction === 'Out')!;
     expect(refund.values).toMatchObject({ amount: 100, status: 'Paid', return: { id: back.id } });
   });
@@ -568,7 +592,7 @@ describe('apps', () => {
     const stockOf = async () => (await recordsTool(agent, { collection: 'Lifts/Products' })).data.records[0]!.values.stock;
     expect(await stockOf()).toBe(8);
     const invoiced = await press('Invoice');
-    expect(invoiced.data.record.values.order).toMatchObject({ code: 'ORD-0001' });
+    expect(invoiced.data.record.values.order).toMatchObject({ code: 'SO-0001' });
     const order = (await recordsTool(agent, { collection: 'Lifts/Orders' })).data.records[0]!;
     expect(order.values).toMatchObject({ status: 'Invoiced', customer: expect.objectContaining({ name: 'Atakule' }), total: 700 });
     expect((await recordsTool(agent, { collection: 'Lifts/Order lines', sort: { field: 'amount' } })).data.records.map((l) => [l.name, l.values.quantity, l.values.amount])).toEqual([
