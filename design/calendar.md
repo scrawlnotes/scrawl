@@ -190,7 +190,7 @@ Uygulama Scrawl sunucusuna bağlı bir space'te bunları da kullanır; sunucusuz
 
 - **Müşterinin kendisinin randevu alması:** sunucuda herkese açık randevu sayfası. Services, Staff, Resources ve boş saatlerden seçilir; alınan randevu Appointments'a Booked kayıt olarak düşer.
 - **Hatırlatma:** sunucuda zamanlanmış iş, randevudan belli bir süre önce müşteriye e-posta ya da SMS (SMS sağlayıcısıyla). Sonraya kalanlar'daki "sunucuda otomasyon"la birlikte.
-- **Pazaryeri ve kargo entegrasyonları:** Trendyol, Hepsiburada, Amazon gibi pazaryerlerinden siparişler kendiliğinden gelir (kanal, pazaryeri sipariş no, satırlar); kargo firması ve takip no pazaryerine geri yazılır; hakedişler, iadeler ve müşteri soruları okunur; kargo firmalarından takip durumu gelir. Sunucuda otomasyonla birlikte. O zamana kadar pazaryeri dosyası içe aktarmayla ya da ajanla gelir. Roadmap ROA-188.
+- **Pazaryeri ve kargo entegrasyonları:** Trendyol, Hepsiburada, Amazon gibi pazaryerlerinden siparişler kendiliğinden gelir (kanal, pazaryeri sipariş no, satırlar); kargo firması ve takip no pazaryerine geri yazılır; hakedişler, iadeler ve müşteri soruları okunur; kargo firmalarından takip durumu gelir. Altyapısı 22. aşamada, `design/integrations.md` (29 Ekim): entegrasyonu ajan yazar; sunucudaki space'te zamanlanmış koşuyla, sunucusuz space'te masaüstünden çalışır. E-ticaret'e hazır gelmesi sonraya kaldı (aynı belgenin 14. bölümü). Roadmap ROA-188.
 
 ## 10. Dilimler
 
