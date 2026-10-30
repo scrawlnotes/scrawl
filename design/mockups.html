@@ -4435,6 +4435,74 @@ p { margin: 0; max-width: 68ch; }
 .mbs .mn-receipt { display: grid; place-items: center; gap: 4px; margin: 6px 16px 10px; padding: 18px; border: 1.5px dashed var(--m-line); border-radius: 12px; font-size: 26px; }
 .mbs .mn-receipt small { color: var(--m-faint); font-size: 13px; }
 
+/* Projects, Goals and Contracts (Oct 30): Linear and Asana, Viva Goals, Lattice and Perdoo, Tomorro, LawVu and PandaDoc. */
+.ca-row.pg-pj { grid-template-columns: minmax(0, 1fr) 100px 130px 150px 104px 190px; }
+.ca-row.pg-gl { grid-template-columns: minmax(0, 1fr) 110px 190px 90px 120px; }
+.ca-row.pg-ct { grid-template-columns: minmax(0, 1fr) 90px 110px 130px 220px; }
+.pg-prog { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; color: var(--m-dim); font-size: 12px; }
+.pg-bar { position: relative; display: block; height: 7px; border-radius: 4px; background: var(--m-line); }
+.pg-bar i { display: block; height: 100%; border-radius: 4px; background: var(--pc, #5cb87a); }
+.pg-bar .mk { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--m-fg); opacity: .55; }
+.pg-when { color: var(--m-dim); font-size: 12px; }
+.pg-when.late { color: var(--m-p1); font-weight: 600; }
+.pg-when.today { color: var(--m-accent); font-weight: 600; }
+.pg-miss { display: block; color: var(--m-faint); font-size: 11px; }
+.pg-miss.late { color: var(--m-p1); }
+/* The timeline: a row a project, its bar from start to end, its milestones diamonds, today a line. */
+.pg-tl { display: block; margin: 4px 16px 16px; border: 1px solid var(--m-line); border-radius: 8px; overflow: hidden; }
+.pg-tl .r { display: grid; grid-template-columns: 210px minmax(0, 1fr); border-top: 1px solid var(--m-line); }
+.pg-tl .r.hd { border-top: 0; color: var(--m-faint); font-size: 11px; }
+.pg-tl .nm { display: flex; flex-direction: column; justify-content: center; min-width: 0; padding: 6px 12px; }
+.pg-tl .nm b { overflow: hidden; font-weight: 500; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.pg-tl .nm small { color: var(--m-faint); font-size: 11px; }
+.pg-tl .lane { position: relative; height: 42px; border-left: 1px solid var(--m-line); background-image: repeating-linear-gradient(to right, var(--m-line) 0 1px, transparent 1px calc(100% / 13)); }
+.pg-tl .hd .lane { height: 34px; background: none; }
+.pg-tl .hd .lane span { position: absolute; top: 17px; padding-left: 4px; white-space: nowrap; }
+.pg-tl .hd .lane span.m { top: 3px; color: var(--m-dim); font-weight: 600; }
+.pg-tl .bar { position: absolute; top: 13px; height: 16px; border-radius: 5px; background: var(--bc); opacity: .9; }
+.pg-tl .bar.cut { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.pg-tl .bar.out { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.pg-tl .bar.dash { background: color-mix(in srgb, var(--bc) 30%, transparent); border: 1.5px dashed var(--bc); box-sizing: border-box; }
+.pg-tl .bar .h { position: absolute; top: 2px; right: 2px; bottom: 2px; width: 4px; border-radius: 2px; background: rgb(255 255 255 / .7); }
+.pg-tl .over { position: absolute; top: 13px; height: 16px; border-radius: 0 5px 5px 0; background: repeating-linear-gradient(45deg, rgb(229 83 75 / .5) 0 4px, transparent 4px 8px); }
+.pg-tl .ms { position: absolute; top: 15px; z-index: 1; width: 12px; height: 12px; margin-left: -6px; border: 2px solid var(--m-fg); border-radius: 2px; background: var(--m-bg); box-sizing: border-box; transform: rotate(45deg); }
+.pg-tl .ms.done { background: var(--m-fg); }
+.pg-tl .now { position: absolute; top: 0; bottom: 0; z-index: 2; width: 2px; margin-left: -1px; background: var(--m-accent); }
+.pg-tl .hd .now::after { content: 'Today'; position: absolute; top: 2px; left: 5px; color: var(--m-accent); font-weight: 600; }
+.pg-tl.ph { margin: 4px 0 16px; border-right: 0; border-left: 0; border-radius: 0; }
+.pg-tl.ph .r { grid-template-columns: 112px minmax(0, 1fr); }
+.pg-tl.ph .hd .now::after { content: none; }
+.pg-tl.ph .nm { padding: 6px 8px; }
+.pg-tl.ph .nm b { font-size: 12.5px; }
+/* A project's update, a milestone's row, a key result's row, a question of rows with what it was and what it is now. */
+.pg-upd { padding: 10px 12px; border: 1px solid var(--m-line); border-radius: 8px; }
+.pg-upd .hd { display: flex; align-items: center; gap: 8px; color: var(--m-dim); font-size: 12px; }
+.pg-upd .hd .r { margin-left: auto; color: var(--m-faint); }
+.pg-upd p { margin: 8px 0 6px; font-size: 13px; line-height: 1.5; }
+.pg-upd .auto { color: var(--m-faint); font-size: 12px; }
+.pg-ms, .pg-kr { display: flex; flex-direction: column; }
+.pg-ms .r { display: grid; grid-template-columns: 18px minmax(0, 1fr) 110px; align-items: center; gap: 8px; padding: 7px 2px; border-bottom: 1px solid var(--m-line); font-size: 13px; }
+.pg-ms .r.next b { color: var(--m-accent); }
+.pg-ms .r .d { color: var(--m-dim); font-size: 12px; text-align: right; }
+.pg-ms .r .d.late { color: var(--m-p1); font-weight: 600; }
+.pg-ms .pg-add, .pg-kr .pg-add { padding: 7px 2px; color: var(--m-accent); font-size: 12.5px; }
+.pg-kr .r { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 6px 10px; padding: 8px 2px; border-bottom: 1px solid var(--m-line); font-size: 13px; }
+.pg-kr .r small { display: block; color: var(--m-faint); font-size: 11px; }
+.pg-kr .r .v { color: var(--m-dim); font-size: 12px; text-align: right; }
+.pg-kr .r .pg-prog { grid-column: 1 / -1; }
+.pg-rows { display: flex; flex-direction: column; margin: 2px 0 10px; }
+.pg-rows .r { display: grid; grid-template-columns: minmax(0, 1fr) 90px 110px 50px; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--m-line); font-size: 13px; }
+.pg-rows .r.head { color: var(--m-faint); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; }
+.pg-rows .r .was { color: var(--m-dim); text-align: right; }
+.pg-rows .r .now { padding: 4px 8px; border: 1px solid var(--m-line); border-radius: 6px; text-align: right; }
+.pg-rows .r .now.ch { border-color: var(--m-accent); }
+.pg-rows .r .u { color: var(--m-faint); font-size: 12px; }
+.mbs .pg-mrow { display: grid; grid-template-columns: minmax(0, 1fr) 84px; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--m-line); }
+.mbs .pg-mrow b { display: block; font-weight: 500; font-size: 15px; }
+.mbs .pg-mrow small { color: var(--m-faint); font-size: 12.5px; }
+.mbs .pg-mrow .now { padding: 6px 8px; border: 1px solid var(--m-accent); border-radius: 8px; font-size: 15px; text-align: right; }
+.mbs .pg-mnote { margin: 4px 16px 10px; padding: 10px 12px; border-radius: 10px; background: var(--m-side); color: var(--m-dim); font-size: 14px; line-height: 1.4; }
+
 /* Reading and watching (Oct 29): a screen for each kind, as Sequel, MyAnimeList and StoryGraph have them. */
 .rw-cov { display: grid; place-items: center; width: 28px; height: 40px; border-radius: 4px; background: linear-gradient(160deg, var(--cc), color-mix(in srgb, var(--cc) 45%, #000)); color: #fff; font-size: 11px; font-weight: 700; }
 .ca-row.rw-row { grid-template-columns: 28px minmax(0, 1fr) 250px 64px 150px; }
@@ -5706,6 +5774,37 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-mnview="mntoday">Today</button>
         <button type="button" data-mnview="mnhome">Home</button>
         <button type="button" data-mnview="mnphone">Telefon</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="plans2">
+    <div class="brief">
+      <div>
+        <span class="letter">SCRAWL APPS · TASLAK</span>
+        <h2>Proje, hedef ve sözleşme: Linear, Viva Goals ve Tomorro gibi</h2>
+        <p>Üçü CRM ve Bütçe'yle tek app'te. <b>Projects</b>: listenin üstünde aktif, riskte, geciken ve güncellemesi eksik; satırda lider, sağlık, "7 of 12 cards" çubuğu, bitiş ve sıradaki milestone. <b>Timeline</b>: her proje bir satır, çubuk başlangıçtan bitişe sağlık renginde, milestone'lar elmas, bugün çizgi; çubuk sürüklenir. Pencerede son güncelleme, milestone'lar, kartlar ve bütçe. <b>Post update</b> sağlığı ve ne olduğunu sorar, ilerlemedeki değişimi kendisi ekler; haftada bir liderin Today'inde. <b>Close project</b> açık kartları sorar. <b>Goals</b>: çubukta beklenen ilerleme çizgisi, durum ondan hesaplanır (On track, Behind, At risk); ölçütler hedefin penceresinde; <b>Check in</b> bütün ölçütleri tek pencerede sorar; dönem sonunda <b>Close goal</b> ve Carry over. <b>Contracts</b>: Draft, Out for signature, Active, Notice given, Ended; ihbar günü Today'de <b>Give notice</b> ile, kendiliğinden yenilenen kendisi yenilenir; <b>Renew</b> yeni tutarı sorar; geçmiş fiyat farkıyla; ödemesi Bütçe'de.</p>
+        <ul class="traits"><li>sağlık</li><li>güncelleme Today'de</li><li>timeline</li><li>milestone</li><li>beklenen ilerleme</li><li>tek check-in</li><li>Carry over</li><li>ihbar Today'de</li><li>kendiliğinden yenilenme</li><li>fiyat farkı</li><li>Bütçe'de ödeme</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Proje, hedef ve sözleşme görünümü">
+        <button type="button" data-pgview="pjlist">Projects</button>
+        <button type="button" data-pgview="pjtime">Timeline</button>
+        <button type="button" data-pgview="pjwin">Proje</button>
+        <button type="button" data-pgview="pjupdate">Post update</button>
+        <button type="button" data-pgview="pjclose">Close project</button>
+        <button type="button" data-pgview="gllist">Goals</button>
+        <button type="button" data-pgview="glwin">Hedef</button>
+        <button type="button" data-pgview="glcheck">Check in</button>
+        <button type="button" data-pgview="glclose">Close goal</button>
+        <button type="button" data-pgview="ctlist">Contracts</button>
+        <button type="button" data-pgview="ctwin">Sözleşme</button>
+        <button type="button" data-pgview="ctnotice">Give notice</button>
+        <button type="button" data-pgview="ctrenew">Renew</button>
+        <button type="button" data-pgview="ctsigned">Signed</button>
+        <button type="button" data-pgview="pgtoday">Today</button>
+        <button type="button" data-pgview="pghome">Home</button>
+        <button type="button" data-pgview="pgphone">Telefon</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -18164,6 +18263,326 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderMn(sectionMn, b.dataset.mnview);
   });
   renderMn(sectionMn, 'sblist');
+
+  // Projects, Goals and Contracts (draft, Oct 30): one app with the CRM and Budget. Projects as Linear
+  // and Asana keep them: a health with each update, the lead reminded weekly, Update missing when one
+  // is late, milestones as diamonds on a timeline. Goals as Viva Goals, Lattice and Perdoo: expected
+  // progress on the bar and the status worked out from it, one check-in for all key results, closed
+  // Complete or Incomplete. Contracts as Tomorro, LawVu and PandaDoc: draft and signature, a renewal
+  // that comes by itself, notice in Today on its day, each renewal with what the price did.
+  var PG_APP = 'Nova Labs';
+  var PG_MODS = ['Home', 'CRM', 'Projects', 'Goals', 'Contracts', 'Budget'];
+  var PG_MENU = {
+    Projects: ['Projects', 'Timeline', 'Work', 'Time'],
+    Goals: ['Goals'],
+    Contracts: ['Contracts', 'Companies']
+  };
+  [['On track', '#5cb87a'], ['At risk', '#e0a84a'], ['Off track', '#e5534b'], ['Behind', '#e0a84a'], ['Planned', '#8a8fa0'], ['On hold', '#e0c04a'],
+    ['Complete', '#5cb87a'], ['Incomplete', '#e0a84a'], ['Draft', '#8a8fa0'], ['Out for signature', '#6aa5f0'], ['Notice given', '#e0a84a'], ['Ended', '#8a8fa0'],
+    ['Lease', '#b48ef0'], ['Software', '#4fb3d9'], ['Service', '#e0c04a'], ['Customer', '#5cb87a'], ['Insurance', '#6aa5f0'], ['Supplier', '#f0a54a']].forEach(function (c) { LC[c[0]] = c[1]; });
+  var PG_HEALTH = { 'On track': '#5cb87a', 'At risk': '#e0a84a', 'Off track': '#e5534b', Behind: '#e0a84a', Planned: '#8a8fa0' };
+  function pgTree(on) {
+    return '<div class="tree fxt">' + row({ label: 'Today', ct: 6, on: on === 'today' }) + row({ label: 'Upcoming', ct: 9 }) +
+      opRowT({ sp: true, label: 'Personal' }) + opRowT({ sp: true, open: true, label: 'Nova' }) +
+      ahRow(PG_APP, { on: on !== 'today', icon: ICON.app }) + opRowT({ d: 1, folder: true, label: 'Product' }) + '</div>' + spFoot(null);
+  }
+  function pgTop(mod, screen) {
+    return ahTop(PG_APP, ICON.app, PG_MODS, mod, PG_MENU[mod] ? PG_MENU[mod].map(function (s) { return { label: s, on: s === screen }; }) : null);
+  }
+  function pgWin(key, where, title, sub, rest, width) {
+    return '<div class="ovl center"><div class="rmod cc-rm" style="width:' + (width || 1000) + 'px"><div class="cp-head">' + ICON.collection + (key ? '<span class="key">' + key + '</span>' : '') + '<span>' + where + ' · ' + PG_APP + '</span><span class="more">···</span><span class="x">×</span></div>' +
+      '<div class="x2-head"><b>' + title + '</b><small>' + sub + '</small></div>' + rest + '<div class="rm-foot"><span class="st-btn">Cancel</span></div></div></div>';
+  }
+  function pgTl(d, c, ic, a, b) {
+    return '<div class="x2-day">' + d + '</div><div class="x2-tl" style="--tc:' + c + '"><span class="tm"></span><span class="ic">' + ic + '</span><span class="tx"><b>' + a + '</b><small>' + b + '</small></span></div>';
+  }
+  function pgChips(list, on) {
+    return '<div class="cr-chips">' + list.map(function (c) { return '<span' + (c === on ? ' class="on"' : '') + '>' + c + '</span>'; }).join('') + '</div>';
+  }
+  /** A progress bar in its status' color, with the expected progress as a mark on it when there is one. */
+  function pgBar(p, color, expected, said) {
+    return '<span class="pg-prog"><span class="pg-bar" style="--pc:' + color + '"><i style="width:' + p + '%"></i>' + (expected != null ? '<span class="mk" style="left:' + expected + '%"></span>' : '') + '</span><span>' + said + '</span></span>';
+  }
+
+  // ---------- Projects ----------
+  // name, customer, lead, health, done, cards, due, its class, next milestone, its class, update said
+  var PJ = [
+    ['Website redesign', 'Acme Lojistik', 'Ayşe Kaya', 'On track', 7, 12, 'Due Dec 15', '', 'Design review · Nov 12', '', ''],
+    ['Mobile app v2', 'Initech', 'Mert Er', 'At risk', 14, 31, 'Due Nov 20', '', 'Beta · Nov 6', '', ''],
+    ['ERP rollout', 'Globex', 'Deniz Ak', 'Off track', 9, 22, '12 days late', 'late', 'Go-live · 12 days late', 'late', ''],
+    ['Partner portal', 'Kuzey Asansör', 'Mert Er', 'On track', 11, 18, 'Due Dec 4', '', 'Launch · Nov 26', '', 'No update for 17 days'],
+    ['Brand book', 'Internal', 'Ayşe Kaya', 'On track', 4, 5, 'Due Nov 4', '', 'Delivery · Nov 4', '', '']
+  ];
+  function pjList() {
+    var head = '<div class="ca-row pg-pj head"><span>Project</span><span>Lead</span><span>Health</span><span>Progress</span><span>Due</span><span>Next milestone</span></div>';
+    var rows = PJ.map(function (p) {
+      return '<div class="ca-row pg-pj"><span class="tt">' + p[0] + '<small>' + p[1] + '</small></span><span class="calc">' + p[2] + '</span><span>' + lbl(p[3]) + (p[10] ? '<small class="pg-miss late">' + p[10] + '</small>' : '') + '</span>' +
+        pgBar(Math.round(p[4] / p[5] * 100), PG_HEALTH[p[3]], null, p[4] + ' of ' + p[5]) + '<span class="pg-when ' + p[7] + '">' + p[6] + '</span><span class="pg-when ' + p[9] + '">' + p[8] + '</span></div>';
+    }).join('');
+    return '<div class="ah">' + pgTop('Projects', 'Projects') + slScreen('12 active · <b class="pf-neg">3 at risk</b> · 1 late · 1 update missing', 'New project', ['Active', 'Planned', 'On hold', 'Mine', 'Done'], 'Active', head, rows) + '</div>';
+  }
+  // Days from Oct 5: Oct n is n - 5, Nov n is 26 + n, Dec n is 56 + n; thirteen weeks on show.
+  var TL_DAYS = 91;
+  var TL = [
+    ['Website redesign', 'Ayşe Kaya · 7 of 12', 7, 71, 'On track', [[15, 1], [38], [66], [71]]],
+    ['Mobile app v2', 'Mert Er · 14 of 31', -14, 46, 'At risk', [[32], [46]]],
+    ['ERP rollout', 'Deniz Ak · 12 days late', -40, 13, 'Off track', [[13]], 25],
+    ['Partner portal', 'Mert Er · 11 of 18', -7, 60, 'On track', [[52], [60]], null, true],
+    ['Brand book', 'Ayşe Kaya · 4 of 5', 14, 30, 'On track', [[21, 1], [30]]],
+    ['Data migration', 'Planned · Deniz Ak', 35, 102, 'Planned', [[63]]],
+    ['Office move', 'Planned · Ahmet Yılmaz', 57, 76, 'Planned', [[76]]]
+  ];
+  function pgAt(d) { return Math.max(0, Math.min(100, d / TL_DAYS * 100)).toFixed(2) + '%'; }
+  function pjTimeline(phone) {
+    var now = 25;
+    var weeks = ['Oct 5', 'Oct 12', 'Oct 19', 'Oct 26', 'Nov 2', 'Nov 9', 'Nov 16', 'Nov 23', 'Nov 30', 'Dec 7', 'Dec 14', 'Dec 21', 'Dec 28'];
+    var scale = phone ? '<span class="m" style="left:0">Oct</span><span class="m" style="left:' + pgAt(27) + '">Nov</span><span class="m" style="left:' + pgAt(57) + '">Dec</span>' :
+      '<span class="m" style="left:0">October</span><span class="m" style="left:' + pgAt(27) + '">November</span><span class="m" style="left:' + pgAt(57) + '">December</span>' +
+      weeks.map(function (w, i) { return '<span style="left:' + pgAt(i * 7) + '">' + w.split(' ')[1] + '</span>'; }).join('');
+    var head = '<div class="r hd"><span class="nm"></span><span class="lane">' + scale + '<span class="now" style="left:' + pgAt(now) + '"></span></span></div>';
+    var rows = TL.map(function (t) {
+      var from = Math.max(0, t[2]), to = Math.min(TL_DAYS, t[3]);
+      var cls = 'bar' + (t[2] < 0 ? ' cut' : '') + (t[3] > TL_DAYS ? ' out' : '') + (t[7] ? ' dash' : '');
+      var bar = '<span class="' + cls + '" style="--bc:' + PG_HEALTH[t[4]] + ';left:' + pgAt(from) + ';width:calc(' + pgAt(to) + ' - ' + pgAt(from) + ')">' + (t[0] === 'Website redesign' && !phone ? '<span class="h"></span>' : '') + '</span>';
+      var over = t[6] ? '<span class="over" style="left:' + pgAt(t[3]) + ';width:calc(' + pgAt(t[6]) + ' - ' + pgAt(t[3]) + ')"></span>' : '';
+      var ms = t[5].filter(function (m) { return m[0] >= 0 && m[0] <= TL_DAYS; }).map(function (m) { return '<span class="ms' + (m[1] ? ' done' : '') + '" style="left:' + pgAt(m[0]) + '"></span>'; }).join('');
+      return '<div class="r"><span class="nm"><b>' + t[0] + '</b><small>' + t[1] + '</small></span><span class="lane">' + bar + over + ms + '<span class="now" style="left:' + pgAt(now) + '"></span></span></div>';
+    }).join('');
+    return '<div class="pg-tl' + (phone ? ' ph' : '') + '">' + head + rows + '</div>';
+  }
+  function pjTime() {
+    var top = '<div class="th"><span class="srch">' + ICON.find + 'Search…</span><span class="sl-sum">Oct – Dec · drag a bar to move it, its end to change it</span><button type="button" class="add">New project</button></div>';
+    return '<div class="ah">' + pgTop('Projects', 'Timeline') + '<div class="bv">' + top + '<div class="gy-views"><span class="on">Weeks</span><span>Months</span><span>Quarters</span></div>' + pjTimeline(false) + '</div></div>';
+  }
+  function pjWin() {
+    var left = '<div class="cc-two">' + ccProp('Customer', '<span class="lk">Acme Lojistik</span>') + ccProp('Lead', 'Ayşe Kaya', { dd: true }) + '</div>' +
+      '<div class="cc-two">' + ccProp('Start', 'Oct 12') + ccProp('End', 'Dec 15') + '</div>' +
+      ccProp('Goal', '<span class="lk">Launch the new website</span> · 2026 Q4') +
+      ccProp('Contract', '$20,000') +
+      '<div class="x2-blk"><div class="x2-sec">Budget</div>' + pgBar(62, '#5cb87a', null, '$12,400 of $20,000') + '<div class="sl-note">$7,600 left · Labour $9,800 · Material $2,600</div></div>' +
+      '<div class="x2-blk"><div class="x2-sec">Time<small>38 h this month</small><span class="r">+ Track time</span></div>' + slAs('This week', 3, '', [['Homepage layout', 'Ayşe Kaya · Oct 29', '6 h'], ['Content migration', 'Deniz Ak · Oct 28', '4 h']], '') + '</div>';
+    var upd = '<div class="x2-blk"><div class="x2-sec">Latest update<span class="r">2 earlier</span></div><div class="pg-upd"><div class="hd">' + lbl('On track') + '<span>Ayşe Kaya</span><span class="r">Oct 23 · 7 days ago</span></div>' +
+      '<p>Designs for the home and product pages are approved. Content migration started; the client sends the last product photos on Monday.</p><div class="auto">58% done (was 41%) · end moved to Dec 15</div></div></div>';
+    var ms = '<div class="x2-blk"><div class="x2-sec">Milestones<small>1 of 4</small></div><div class="pg-ms">' +
+      '<div class="r"><span class="mn-tick on"></span><span>Kickoff</span><span class="d">Oct 20 · done</span></div>' +
+      '<div class="r next"><span class="mn-tick"></span><b>Design review</b><span class="d">Nov 12 · in 13 days</span></div>' +
+      '<div class="r"><span class="mn-tick"></span><span>Delivery</span><span class="d">Dec 10</span></div>' +
+      '<div class="r"><span class="mn-tick"></span><span>Review</span><span class="d">Dec 15</span></div><div class="pg-add">+ Milestone</div></div></div>';
+    var cards = slAs('Cards', '7 of 12 done', 'Work', [['Homepage layout', 'In progress · Ayşe Kaya', 'Nov 3'], ['Product page', 'In progress · Deniz Ak', 'Nov 6'], ['Content migration', 'To do · Deniz Ak', ''], ['5 more open', '', '']], 'Card');
+    return pgWin('PRJ-0014', 'Projects', 'Website redesign', 'Active · On track · 7 of 12 cards · due Dec 15 (in 46 days) · next: Design review Nov 12',
+      slActs([['Post update', 'go'], ['Track time'], '|', ['Close project']]) + '<div class="jb-cols"><div>' + left + '</div><div>' + upd + ms + cards + '</div></div>', 1000);
+  }
+  function pjUpdate() {
+    var body = '<div class="cc-prop"><span class="pl">Health</span>' + pgChips(['On track', 'At risk', 'Off track'], 'At risk') + '</div>' +
+      '<div class="cc-prop body"><span class="pl">What happened</span><div class="cr-note">Product photos are a week late, so the product page moves to Nov 13. Design review stays on Nov 12 without it.</div></div>' +
+      '<div class="sl-note">Added by itself: 64% done (was 58%) · 1 card late · Design review in 13 days.</div>';
+    return x2Window('Post update · Website redesign', body, '<span class="st-btn">Cancel</span><span class="st-btn go">Post update</span>');
+  }
+  function pjClose() {
+    var body = '<div class="cc-prop"><span class="pl">How it ended</span>' + pgChips(['Done', 'Cancelled'], 'Done') + '</div>' +
+      '<div class="cc-prop"><span class="pl">1 card still open</span>' + pgChips(['Move to Done', 'Drop it'], 'Drop it') + '</div>' +
+      '<div class="cc-prop body"><span class="pl">Last word</span><div class="cr-note">Delivered on Nov 4. The print version is left to the client.</div></div>' +
+      '<div class="sl-note">The last word is its final update. Print version goes to Dropped.</div>';
+    return x2Window('Close project · Brand book', body, '<span class="st-btn">Cancel</span><span class="st-btn go">Close project</span>');
+  }
+
+  // ---------- Goals ----------
+  // group, name, owner, progress, status, check-in said, its class
+  var GL = [
+    ['Company · 2026 Q4', 'Grow MRR to $15k', 'Ahmet Yılmaz', 24, 'Behind', 'Check-in due', 'today'],
+    ['', 'Launch the new website', 'Ayşe Kaya', 40, 'On track', 'Oct 27', ''],
+    ['', 'Ship mobile app v2', 'Mert Er', 5, 'At risk', 'Check-in due', 'today'],
+    ['Part of Grow MRR to $15k', 'Win 12 new customers', 'Deniz Ak', 42, 'On track', 'Oct 26', ''],
+    ['', 'Cut churn under 2%', 'Ahmet Yılmaz', 20, 'Behind', 'Check-in due', 'today']
+  ];
+  function glList() {
+    var head = '<div class="ca-row pg-gl head"><span>Goal</span><span>Owner</span><span>Progress</span><span>Status</span><span>Check-in</span></div>';
+    var rows = GL.map(function (g) {
+      return (g[0] ? '<div class="ca-row tr-grp"><span>' + g[0] + '</span></div>' : '') +
+        '<div class="ca-row pg-gl"><span class="tt">' + g[1] + '<small>Ends Dec 31</small></span><span class="calc">' + g[2] + '</span>' + pgBar(g[3], PG_HEALTH[g[4]], 33, g[3] + '%') +
+        '<span>' + lbl(g[4]) + '</span><span class="pg-when ' + g[6] + '">' + g[5] + '</span></div>';
+    }).join('');
+    return '<div class="ah">' + pgTop('Goals', 'Goals') + slScreen('2026 Q4 · 33% of it gone · 5 goals · 26% on average · <b class="pf-neg">2 behind · 1 at risk</b> · 3 check-ins due', 'New goal', ['This period', 'Mine', 'Behind', 'Closed'], 'This period', head, rows) + '</div>';
+  }
+  var KR = [
+    ['MRR', 'Money', 26, '$12,400 of $15,000', 'from $11,500'],
+    ['New customers', 'Number', 42, '5 of 12', 'from 0'],
+    ['Churn under 2%', 'Percent', 27, '2.8% of 2.0%', 'from 3.1%'],
+    ['Pricing page live', 'Done or not', 0, 'Not yet', '']
+  ];
+  function glWin() {
+    var krs = '<div class="x2-blk"><div class="x2-sec">Key results<small>4</small></div><div class="pg-kr">' + KR.map(function (k) {
+      return '<div class="r"><span>' + k[0] + '<small>' + k[1] + (k[4] ? ' · ' + k[4] : '') + '</small></span><span class="v">' + k[3] + '</span>' + pgBar(k[2], k[2] >= 33 ? '#5cb87a' : '#e0a84a', 33, k[2] + '%') + '</div>';
+    }).join('') + '<div class="pg-add">+ Key result</div></div></div>';
+    var left = '<div class="cc-two">' + ccProp('Owner', 'Ahmet Yılmaz', { dd: true }) + ccProp('Part of', '—', { dd: true }) + '</div>' +
+      '<div class="cc-two">' + ccProp('Starts', 'Oct 1') + ccProp('Ends', 'Dec 31') + '</div>' + krs;
+    var right = slAs('Part of it', 2, '', [['Win 12 new customers', 'Deniz Ak · On track', '42%'], ['Cut churn under 2%', 'Ahmet Yılmaz · Behind', '20%']], 'Goal') +
+      '<div class="x2-blk"><div class="x2-sec">Check-ins</div>' +
+      pgTl('Oct 23', '#e0a84a', '↗', 'Behind · 24%', 'MRR $12,100 → $12,400 · New customers 4 → 5 · Two deals slipped to November.') +
+      pgTl('Oct 16', '#5cb87a', '↗', 'On track · 15%', 'MRR $11,800 → $12,100 · New customers 2 → 4') +
+      pgTl('Oct 1', '#8a8fa0', '+', 'Set for 2026 Q4', '4 key results') + '</div>';
+    return pgWin('', 'Goals', 'Grow MRR to $15k', 'Behind · 24% · expected 33% by now · 2026 Q4 · ends Dec 31 (in 62 days) · Ahmet Yılmaz',
+      slActs([['Check in', 'go'], '|', ['Close goal']]) + '<div class="jb-cols"><div>' + left + '</div><div>' + right + '</div></div>', 1040);
+  }
+  function glCheck() {
+    var rows = '<div class="pg-rows"><div class="r head"><span>Key result</span><span>Was</span><span>Now</span><span></span></div>' +
+      '<div class="r"><span>MRR</span><span class="was">$12,400</span><span class="now ch">$12,950</span><span class="u">+$550</span></div>' +
+      '<div class="r"><span>New customers</span><span class="was">5</span><span class="now ch">7</span><span class="u">+2</span></div>' +
+      '<div class="r"><span>Churn under 2%</span><span class="was">2.8%</span><span class="now">2.8%</span><span class="u"></span></div>' +
+      '<div class="r"><span>Pricing page live</span><span class="was">Not yet</span><span class="now">Not yet</span><span class="u"></span></div></div>';
+    var body = rows + '<div class="cc-prop"><span class="pl">How is it going</span>' + pgChips(['On track', 'Behind', 'At risk'], 'Behind') + '</div>' +
+      '<div class="sl-note">Worked out: Behind, 33% · 33% expected by now. Pick another if you know better; it stays until the next check-in.</div>' +
+      '<div class="cc-prop body"><span class="pl">What changed</span><div class="cr-note">Two of the November deals closed early.</div></div>';
+    return x2Window('Check in · Grow MRR to $15k', body, '<span class="st-btn">Cancel</span><span class="st-btn go">Check in</span>');
+  }
+  function glClose() {
+    var body = '<div class="sl-note">Hire 3 engineers · 2026 Q3 ended Sep 30 · 67%: 2 of 3 hired.</div>' +
+      '<div class="cc-prop"><span class="pl">How it ended</span>' + pgChips(['Complete', 'Incomplete'], 'Incomplete') + '</div>' +
+      '<div class="cc-prop body"><span class="pl">What we learned</span><div class="cr-note">Senior backend roles take two months; start them a quarter earlier.</div></div>' +
+      '<div class="cc-prop"><span class="pl"></span><span class="box"><span class="mn-tick on"></span> Carry over to 2026 Q4 with what is left: Senior backend, 0 of 1</span></div>';
+    return x2Window('Close goal · Hire 3 engineers', body, '<span class="st-btn">Cancel</span><span class="st-btn go">Close goal</span>');
+  }
+
+  // ---------- Contracts ----------
+  // name, with, type, status, amount, when said, its class
+  var CT = [
+    ['Salesforce', 'Salesforce', 'Software', 'Active', '$14,400 a year', 'Renews Nov 29 · notice by today', 'today'],
+    ['Office lease', 'Kaya Emlak', 'Lease', 'Active', '$48,000 a year', 'Renews Jan 1 · notice by Nov 2', 'today'],
+    ['Cleaning', 'Parlak Temizlik', 'Service', 'Notice given', '$600 a month', 'Ends Nov 30', ''],
+    ['Support · Acme Lojistik', 'Acme Lojistik', 'Customer', 'Active', '$24,000 a year', 'Ends Mar 31 · doesn\'t renew', ''],
+    ['Fleet insurance', 'Anadolu Sigorta', 'Insurance', 'Active', '$6,200 a year', 'Renews Feb 14 · notice by Jan 15', '']
+  ];
+  function ctList() {
+    var head = '<div class="ca-row pg-ct head"><span>Contract</span><span>Type</span><span>Status</span><span class="num">Amount</span><span></span></div>';
+    var rows = CT.map(function (c) {
+      return '<div class="ca-row pg-ct"><span class="tt">' + c[0] + '<small>' + c[1] + '</small></span><span>' + lbl(c[2]) + '</span><span>' + lbl(c[3]) + '</span><span class="num">' + c[4] + '</span><span class="pg-when ' + c[6] + '">' + c[5] + '</span></div>';
+    }).join('');
+    return '<div class="ah">' + pgTop('Contracts', 'Contracts') + slScreen('38 active · $210,400 a year · <b class="pf-neg">2 to decide</b> · 1 ending', 'New contract', ['Active', 'To decide', 'Ending', 'Drafts', 'Ended'], 'Active', head, rows) + '</div>';
+  }
+  function ctWin() {
+    var left = '<div class="cc-two">' + ccProp('With', '<span class="lk">Salesforce</span>') + ccProp('Contact', '<span class="lk">Emma Hart</span>') + '</div>' +
+      '<div class="cc-two">' + ccProp('Type', lbl('Software'), { dd: true }) + ccProp('Owner', 'Ahmet Yılmaz', { dd: true }) + '</div>' +
+      '<div class="cc-two">' + ccProp('Start', 'Nov 29, 2024') + ccProp('Ends', 'Nov 29, 2026') + '</div>' +
+      '<div class="cc-prop"><span class="pl">Renews</span>' + pgChips(['No', 'By itself'], 'By itself') + '</div>' +
+      '<div class="cc-two">' + ccProp('For another', '1 year', { dd: true }) + ccProp('Notice', '30 days') + '</div>' +
+      '<div class="cc-two">' + ccProp('Amount', '$1,200') + ccProp('Period', 'Monthly', { dd: true }) + '</div>' +
+      ccProp('Seats', '12');
+    var right = '<div class="x2-blk"><div class="x2-sec">History</div>' +
+      pgTl('Nov 29, 2025', '#5cb87a', '↻', 'Renewed by itself to Nov 29, 2026', '$13,200 → $14,400 a year · +9%') +
+      pgTl('Nov 21, 2024', '#5cb87a', '✓', 'Signed · $13,200 a year', 'by Ahmet Yılmaz · signed copy in its notes') +
+      pgTl('Nov 14, 2024', '#6aa5f0', '→', 'Sent for signature', '') + '</div>' +
+      slAs('Payments', 'monthly', 'Budget', [['Salesforce · Software', 'Due Nov 1 · comes again monthly', '$1,200'], ['Salesforce · Software', 'Paid Oct 1', '$1,200']], '');
+    return pgWin('', 'Contracts', 'Salesforce', 'Active · $14,400 a year · renews by itself Nov 29 · <span class="pg-when late">notice by today</span>',
+      slActs([['Give notice', 'go'], ['Renew'], '|', ['End']]) + '<div class="jb-cols"><div>' + left + '</div><div>' + right + '</div></div>', 1000);
+  }
+  function ctNotice() {
+    var body = '<div class="cc-two">' + ccProp('Given on', 'Today') + ccProp('Note', 'Moving to HubSpot') + '</div>' +
+      '<div class="cc-prop"><span class="pl">How</span>' + pgChips(['Email', 'Letter', 'Portal'], 'Email') + '</div>' +
+      '<div class="sl-note">It stays Active until Nov 29, Notice given; then Ended by itself. Its monthly payment in Budget stops after Nov 1.</div>';
+    return x2Window('Give notice · Salesforce', body, '<span class="st-btn">Cancel</span><span class="st-btn go">Give notice</span>');
+  }
+  function ctRenew() {
+    var body = '<div class="cc-two">' + ccProp('Until', 'Jan 1, 2028') + ccProp('Amount a year', '$50,400') + '</div>' +
+      '<div class="cc-prop body"><span class="pl">Note</span><div class="cr-note">5% rise agreed with Kaya Emlak.</div></div>' +
+      '<div class="sl-note">$48,000 → $50,400 a year, +5%. Notice by Dec 2, 2027.</div>';
+    return x2Window('Renew · Office lease', body, '<span class="st-btn">Cancel</span><span class="st-btn go">Renew</span>');
+  }
+  function ctSigned() {
+    var body = '<div class="cc-two">' + ccProp('Signed on', 'Today') + ccProp('Starts', 'Nov 1') + '</div>' +
+      '<div class="cc-two">' + ccProp('Ends', 'Oct 31, 2027') + ccProp('Renews', 'By itself', { dd: true }) + '</div>' +
+      '<div class="cc-prop"><span class="pl">Budget line</span>' + pgChips(['Maintenance', 'Rent', 'Software', 'Other'], 'Maintenance') + '</div>' +
+      '<div class="sl-note">$300 a month to pay from Nov 1, in Budget. Put the signed copy in its notes.</div>';
+    return x2Window('Signed · Lift maintenance', body, '<span class="st-btn">Cancel</span><span class="st-btn go">Signed</span>');
+  }
+
+  // ---------- Today, Home, phone ----------
+  function pgToday() {
+    var c = ICON.collection;
+    var body = '<div class="tasksv"><div class="th"><b>Today</b><span class="c3-date">Fri, Oct 30</span><button type="button" class="add">Add task</button></div><div class="tl">' +
+      '<div class="sec">Overdue <small>2</small></div>' +
+      pfRecRow('#e5534b', 'Go-live · ERP rollout', '<span class="late">12 days late</span><span>' + c + 'Projects</span><span>milestone · Globex</span>', '<span class="st-btn go">Done</span>') +
+      pfRecRow('#e5534b', 'Partner portal · update', '<span class="late">no update for 17 days</span><span>' + c + 'Projects</span><span>last On track</span>', '<span class="st-btn go">Post update</span>') +
+      '<div class="sec">Today <small>4</small></div>' +
+      pfRecRow('#4fb3d9', 'Salesforce · notice', '<span>' + c + 'Contracts</span><span>renews Nov 29 · $14,400 a year · notice by today</span>', '<span class="st-btn go">Give notice</span>') +
+      pfRecRow('#5cb87a', 'Website redesign · update', '<span>' + c + 'Projects</span><span>last Oct 23 · On track · 64%</span>', '<span class="st-btn go">Post update</span>') +
+      pfRecRow('#e0a84a', 'Grow MRR to $15k · check-in', '<span>' + c + 'Goals</span><span>last Oct 23 · Behind · 24%</span>', '<span class="st-btn go">Check in</span>') +
+      pfRecRow('#e0a84a', 'Cut churn under 2% · check-in', '<span>' + c + 'Goals</span><span>last Oct 23 · Behind · 20%</span>', '<span class="st-btn go">Check in</span>') +
+      '<div class="qa">+ Add task</div></div></div>';
+    return '<aside class="side">' + pgTree('today') + '</aside><section class="main"><div class="panes">' + pane(tab('tasks', 'Today', 'x', true) + '<div class="tab plus">+</div>', body) + '</div>' +
+      '<div class="status"><span>6 records</span>' + syncStatus(false, null) + '</div></section>';
+  }
+  function pgHome() {
+    var grid = function (cards) { return '<div class="pf-home" style="grid-template-columns:repeat(3,minmax(0,1fr));max-width:1080px;margin-bottom:12px">' + cards + '</div>'; };
+    var pj = slCard('board', 'Projects', '12 active · 3 at risk', [['ERP rollout', '12 days late', 'pf-neg'], ['Mobile app v2', 'At risk'], ['Partner portal', 'no update for 17 days', 'pf-neg']]) +
+      slCard('board', 'This week', '2 milestones', [['Delivery · Brand book', 'Nov 4'], ['Beta · Mobile app v2', 'Nov 6']]) +
+      slCard('board', 'Hours this week', '126 h', [['Website redesign', '38 h'], ['Mobile app v2', '31 h'], ['ERP rollout', '24 h']]);
+    var gl = slCard('flag', '2026 Q4', '26% on average · 33% gone', [['Behind', '2'], ['At risk', 'Ship mobile app v2', 'pf-neg'], ['On track', '2']]) +
+      slCard('flag', 'Check-ins due', '3', [['Grow MRR to $15k', 'Ahmet Yılmaz'], ['Ship mobile app v2', 'Mert Er'], ['Cut churn under 2%', 'Ahmet Yılmaz']]) +
+      slCard('flag', '2026 Q3', '3 of 5 complete', [['Hire 3 engineers', 'carried over'], ['SOC 2 audit', 'Incomplete']]);
+    var ct = slCard('file', 'To decide', '2 in 30 days', [['Salesforce', 'notice by today', 'pf-neg'], ['Office lease', 'notice by Nov 2']]) +
+      slCard('file', 'Ending', '1 in 60 days', [['Cleaning', 'Nov 30 · notice given']]) +
+      slCard('file', 'A year', '$210,400', [['Lease', '$48,000'], ['Customer', '$96,000'], ['Software', '$28,800']]);
+    return '<div class="ah">' + pgTop('Home') + '<div class="ah-home sl-home"><div class="ah-cap">Projects</div>' + grid(pj) + '<div class="ah-cap">Goals</div>' + grid(gl) + '<div class="ah-cap">Contracts</div>' + grid(ct) + '</div></div>';
+  }
+  function pgPhone() {
+    var nav = function (back) { return '<div class="mb-nav"><span class="back">' + ICON.chevl + back + '</span><span class="acts"></span></div>'; };
+    var acc = 'background:var(--m-accent);color:var(--m-on-accent)';
+    var row = function (a, b, r) { return '<div class="cr-mrow"><span class="tx"><b>' + a + '</b>' + (b ? '<small>' + b + '</small>' : '') + '</span>' + (r ? '<span class="sl-mn">' + r + '</span>' : '') + '</div>'; };
+    var project = mbPage(nav('Projects') + '<div class="mb-rhead"><h2>Website redesign</h2><small>On track · 7 of 12 cards · due Dec 15 · next: Design review Nov 12</small></div>' +
+      '<div class="mb-qacts"><span class="mb-qact" style="' + acc + '">' + ICON.pen + 'Post update</span><span class="mb-qact">' + ICON.clock + 'Track time</span></div>',
+      '<div class="x2-mday">Latest update · Oct 23</div><div class="pg-mnote">On track. Designs approved; content migration started.</div>' +
+      '<div class="x2-mday">Milestones</div>' + row('✓ Kickoff', 'Oct 20') + row('Design review', 'Nov 12 · in 13 days') + row('Delivery', 'Dec 10'));
+    var timeline = mbPage(nav(PG_APP) + '<div class="mb-rhead"><h2>Timeline</h2><small>Oct – Dec · 7 projects</small></div>', pjTimeline(true));
+    var check = mbPage(nav('Goals') + '<div class="mb-rhead"><h2>Check in</h2><small>Grow MRR to $15k · Behind · 24%</small></div>',
+      '<div class="pg-mrow"><span><b>MRR</b><small>was $12,400</small></span><span class="now">$12,950</span></div>' +
+      '<div class="pg-mrow"><span><b>New customers</b><small>was 5</small></span><span class="now">7</span></div>' +
+      '<div class="pg-mrow"><span><b>Churn under 2%</b><small>was 2.8%</small></span><span class="now">2.8%</span></div>' +
+      '<div class="x2-mday">How is it going</div><div class="mn-mchips"><span>On track</span><span class="on">Behind</span><span>At risk</span></div>' +
+      '<div class="sl-mfoot"><span class="mb-qact" style="' + acc + '">Check in</span></div>');
+    var contract = mbPage(nav('Contracts') + '<div class="mb-rhead"><h2>Salesforce</h2><small>Active · $14,400 a year · renews Nov 29 · <span class="pf-neg">notice by today</span></small></div>' +
+      '<div class="mb-qacts"><span class="mb-qact" style="' + acc + '">' + ICON.x + 'Give notice</span><span class="mb-qact">' + ICON.restore + 'Renew</span></div>',
+      '<div class="x2-mday">History</div>' + row('Renewed by itself', 'Nov 29, 2025 · +9%') + row('Signed · $13,200 a year', 'Nov 21, 2024') +
+      '<div class="x2-mday">Payments · Budget</div>' + row('Due Nov 1', 'comes again monthly', '$1,200'));
+    return mbPhone('Proje: güncelleme', project, '') + mbPhone('Timeline', timeline, '') + mbPhone('Hedef: Check in', check, '') + mbPhone('Sözleşme: ihbar', contract, '');
+  }
+  var PG_VIEWS = {
+    pjlist: function () { return ahFrame(pgTree(), 'app', PG_APP, pjList(), '12 active'); },
+    pjtime: function () { return ahFrame(pgTree(), 'app', PG_APP, pjTime(), '7 projects'); },
+    pjwin: function () { return ahFrame(pgTree(), 'app', PG_APP, pjList(), '12 active', pjWin()); },
+    pjupdate: function () { return ahFrame(pgTree(), 'app', PG_APP, pjList(), '12 active', pjWin() + pjUpdate()); },
+    pjclose: function () { return ahFrame(pgTree(), 'app', PG_APP, pjList(), '12 active', pjClose()); },
+    gllist: function () { return ahFrame(pgTree(), 'app', PG_APP, glList(), '5 goals'); },
+    glwin: function () { return ahFrame(pgTree(), 'app', PG_APP, glList(), '5 goals', glWin()); },
+    glcheck: function () { return ahFrame(pgTree(), 'app', PG_APP, glList(), '5 goals', glWin() + glCheck()); },
+    glclose: function () { return ahFrame(pgTree(), 'app', PG_APP, glList(), '5 goals', glClose()); },
+    ctlist: function () { return ahFrame(pgTree(), 'app', PG_APP, ctList(), '38 active'); },
+    ctwin: function () { return ahFrame(pgTree(), 'app', PG_APP, ctList(), '38 active', ctWin()); },
+    ctnotice: function () { return ahFrame(pgTree(), 'app', PG_APP, ctList(), '38 active', ctWin() + ctNotice()); },
+    ctrenew: function () { return ahFrame(pgTree(), 'app', PG_APP, ctList(), '38 active', ctRenew()); },
+    ctsigned: function () { return ahFrame(pgTree(), 'app', PG_APP, ctList(), '38 active', ctSigned()); },
+    pgtoday: pgToday,
+    pghome: function () { return ahFrame(pgTree(), 'app', PG_APP, pgHome(), '3 modules'); }
+  };
+  function renderPg(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (view === 'pgphone') {
+      mock.className = 'mock dir-a phones four mbs';
+      mock.innerHTML = pgPhone();
+    } else {
+      mock.className = 'mock dir-a' + (view === 'pgtoday' ? '' : ' wider');
+      mock.innerHTML = PG_VIEWS[view]();
+    }
+    section.querySelectorAll('.brief [data-pgview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.pgview === view));
+    });
+  }
+  var sectionPg = document.querySelector('.dir[data-dir="plans2"]');
+  sectionPg.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-pgview]');
+    if (b) renderPg(sectionPg, b.dataset.pgview);
+  });
+  renderPg(sectionPg, 'pjlist');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });

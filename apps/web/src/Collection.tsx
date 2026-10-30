@@ -140,6 +140,7 @@ import { isPhone, onPage } from './device';
 import type { MenuHead, MenuItem } from './dialogs';
 import { AttachButton } from './Description';
 import { Sheet } from './Sheet';
+import { Timeline } from './Timeline';
 import { Icon } from './Icon';
 import type { FormSave, StopNote } from './session';
 import { collectionLabel } from './items';
@@ -652,10 +653,14 @@ export function Cell({ field, value, ctx, values }: {
   // A percent as a bar, what it says beside it its caption's value (design/more-apps.md 4.9).
   if (typeof value === 'number' && field.format?.bar) {
     const caption = field.format.caption ? valueText(values?.[field.format.caption]) : '';
+    // A goal's bar in its status' color, where it should be by now a line on it (design/more-apps.md 3.4).
+    const tone = field.format.tone ? valueText(values?.[field.format.tone.field] ?? null) : '';
+    const mark = field.format.mark ? values?.[field.format.mark] : null;
     return (
-      <span className={['pbar', field.format.warn && 'budget', warns(field, values) && (value > 1 ? 'over' : value >= 0.8 ? 'warn' : '')].filter(Boolean).join(' ')}>
+      <span className={['pbar', field.format.warn && 'budget', warns(field, values) && (value > 1 ? 'over' : value >= 0.8 ? 'warn' : ''), tone && 'toned'].filter(Boolean).join(' ')} style={tone ? hueStyle(field.format.tone!.colors[tone], tone) : undefined}>
         <span className="b">
           <i style={{ width: `${Math.round(Math.max(0, Math.min(1, value)) * 100)}%` }} />
+          {typeof mark === 'number' && <span className="mk" style={{ left: `${Math.round(Math.max(0, Math.min(1, mark)) * 100)}%` }} />}
         </span>
         <small>{caption || formatNumber(value, field.format)}</small>
       </span>
@@ -3566,7 +3571,9 @@ export function CollectionView({ collection, embedded, screen, today, look, onLo
             )
           }
           body={
-            calendarView && (
+            view?.kind === 'timeline' && view.timeline ? (
+              <Timeline collection={rolled} records={matching} view={view} today={today} actions={actions} onOpen={(id) => (actions.show ? actions.show(dir, id) : openRecord(id))} phone />
+            ) : calendarView && (
               <PhoneCollectionCalendar
                 collection={rolled}
                 records={matching}
@@ -3732,6 +3739,8 @@ export function CollectionView({ collection, embedded, screen, today, look, onLo
         />
       ) : view?.kind === 'sheet' && view.sheet ? (
         <Sheet collection={rolled} records={matching} view={view} today={today} actions={actions} onOpen={(id) => setOpen({ kind: 'record', id })} />
+      ) : view?.kind === 'timeline' && view.timeline ? (
+        <Timeline collection={rolled} records={matching} view={view} today={today} actions={actions} onOpen={(id) => setOpen({ kind: 'record', id })} />
       ) : (
         table
       )}

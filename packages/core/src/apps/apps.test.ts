@@ -55,7 +55,7 @@ const MOST: { [id in TemplateId]: Answers } = {
   subscriptions: { sells: 'memberships', trial: true, customers: 'people', payments: true },
   contracts: { notice: '60', seats: true },
   timeoff: { allowance: '25', holidays: 'gb', approvals: true },
-  goals: { period: 'half', checkins: true },
+  goals: { period: 'half', checkins: 'biweekly' },
   incidents: { actions: true },
   field: { technicians: ['Ali', 'Veli'], contracts: true, stock: true, invoice: true },
   consulting: { time: true, deadlines: true, customers: 'people', payments: true },
@@ -89,7 +89,7 @@ const LEAST: { [id in TemplateId]: Answers } = {
   subscriptions: { sells: 'agreements', plans: [], trial: false, customers: 'companies', payments: false },
   contracts: { kinds: [], notice: '0', seats: false },
   timeoff: { types: [], allowance: '10', holidays: 'none', approvals: false },
-  goals: { period: 'year', checkins: false },
+  goals: { period: 'year', checkins: 'none' },
   incidents: { types: [], actions: false },
   field: { jobs: [], contracts: false, stock: false, invoice: false },
   consulting: { models: [], time: false, deadlines: false, payments: false },
@@ -174,7 +174,9 @@ describe('setting up an app', () => {
       activities: { start: 'when', color: 'type', upcoming: true, button: 'Done', words: ['with_said'], conditions: [{ field: 'done', op: 'false' }] },
       orders: { start: 'due', color: 'status', upcoming: true, button: 'Record payment', words: ['customer', 'state'], conditions: [{ field: 'status', op: 'is', value: ['Invoiced'] }] },
       payments: { start: 'due', color: 'direction', upcoming: true, button: 'Mark paid', auto: 'pays_itself', words: ['party', 'amount'], conditions: [{ field: 'status', op: 'is-not', value: ['Paid'] }] },
-      projects: { start: 'start', end: 'end', color: 'status', upcoming: false, conditions: [{ field: 'status', op: 'is-not', value: ['Done', 'Cancelled'] }] },
+      // A project's last calendar: from its start to its end; before it, its update due, with Post update.
+      projects: { start: 'start', end: 'end', color: 'status', upcoming: false, conditions: [{ field: 'status', op: 'is', value: ['Active', 'On hold'] }] },
+      'project-milestones': { start: 'due', upcoming: true, button: 'Done', words: ['project'], conditions: [{ field: 'done', op: 'false' }] },
       'purchase-orders': { start: 'expected', color: 'status', upcoming: true, button: 'Receive', words: ['supplier', 'total'], conditions: [{ field: 'status', op: 'is', value: ['Ordered', 'Partially received'] }] },
       releases: { start: 'planned', color: 'status', upcoming: false, conditions: [{ field: 'status', op: 'is', value: ['Planned'] }] },
       interviews: { start: 'date', color: 'type', upcoming: true, conditions: [] },
@@ -288,7 +290,7 @@ describe('setting up an app', () => {
   it('sets up Subscriptions named as the answer says, its plans from the list, and Contracts on the day to cancel by', () => {
     const plan = planApp({ name: 'Gym', currencies: ['TRY'], templates: [{ id: 'subscriptions', answers: { sells: 'memberships', plans: ['Monthly', 'Student quarterly', 'Annual'], customers: 'people' } }, { id: 'contracts', answers: { kinds: ['lease', 'software'], notice: '60' } }] }, { ids });
     const schema = (path: string) => parseSchema(plan.files.find((f) => f.path === `${path}/_collection.json`)!.text);
-    expect(plan.created.filter((c) => c.kind === 'collection').map((c) => c.path)).toEqual(['Gym/Companies', 'Gym/People', 'Gym/Plans', 'Gym/Memberships', 'Gym/Subscription history', 'Gym/Contracts']);
+    expect(plan.created.filter((c) => c.kind === 'collection').map((c) => c.path)).toEqual(['Gym/Companies', 'Gym/People', 'Gym/Plans', 'Gym/Memberships', 'Gym/Subscription history', 'Gym/Contracts', 'Gym/Contract history']);
     const members = schema('Gym/Memberships');
     expect(members.singular).toBe('membership');
     expect(members.fields.find((f) => f.key === 'customer')).toMatchObject({ label: 'Member', collection: 'Gym/People' });
@@ -316,14 +318,20 @@ describe('setting up an app', () => {
     expect(contracts.fields.find((f) => f.key === 'type')!.options).toEqual(['Lease', 'Software']);
     expect(contracts.fields.find((f) => f.key === 'notice_days')!.default).toBe(60);
     expect(contracts.fields.map((f) => f.key)).toContain('seats');
-    // The day to cancel by is worked out, and its calendar goes by it.
-    expect(contracts.views!.map((v) => [v.name, v.calendar])).toEqual([
-      ['Cancel by', { start: 'cancel_by', color: 'type', upcoming: true }],
-      ['Ends', { start: 'ends', color: 'type', upcoming: false }],
+    // Its tabs; the day to give notice by is worked out, in Today with Give notice; its end with Renew, by itself for one that renews by itself.
+    expect(contracts.views!.map((v) => [v.id, v.kind ?? 'table', v.calendar ?? null])).toEqual([
+      ['active', 'table', null],
+      ['to-decide', 'table', null],
+      ['ending', 'table', null],
+      ['drafts', 'table', null],
+      ['ended', 'table', null],
+      ['notice', 'calendar', { start: 'cancel_by', color: 'type', upcoming: true, button: 'Give notice', words: ['notice_said'] }],
+      ['renewals', 'calendar', { start: 'ends', color: 'type', upcoming: true, button: 'Renew', auto: 'renews_itself', words: ['amount_said'] }],
+      ['ends', 'calendar', { start: 'ends', color: 'type', upcoming: false, button: 'End', auto: 'ends_itself' }],
     ]);
     expect(plan.templates.map((s) => [s.id, s.buttons])).toEqual([
       ['subscriptions', ['Renew', 'Change plan', 'Pause', 'Resume', 'Cancel membership', 'End', 'Reactivate']],
-      ['contracts', ['Renew', 'End', 'Cancel']],
+      ['contracts', ['Send for signature', 'Signed', 'Renew', 'Give notice', 'End']],
     ]);
   });
 
@@ -350,8 +358,12 @@ describe('setting up an app', () => {
     expect(rules('Team/Candidates')).toContain('onSave("To employees"');
 
     const goals = schema('Team/Goals');
-    expect(goals.fields.find((f) => f.key === 'period')!.default).toBe('=text(year(today())) + " Q" + text(round((month(today()) + 1) / 3))');
-    expect(goals.views![0]!.calendar).toEqual({ start: 'due', color: 'status', upcoming: true });
+    // A new goal starts and ends with this quarter; its check-in and its end come to Today with their buttons.
+    expect(goals.fields.find((f) => f.key === 'starts')!.default).toBe('=today() - (monthday(today()) - 1) - months(month(today()) - 3 * round((month(today()) + 1) / 3) + 2)');
+    expect(goals.views!.filter((v) => v.kind === 'calendar').map((v) => [v.id, v.calendar])).toEqual([
+      ['checkins', { start: 'checkin_on', upcoming: 'today', button: 'Check in', words: ['checkin_words'] }],
+      ['ends', { start: 'ends', upcoming: true, button: 'Close goal', words: ['checkin_words'] }],
+    ]);
     const board = (path: string) => parseBoard(plan.files.find((f) => f.path === path)!.text);
     expect(board('Team/Roadmap.board.json').fields!.find((f) => f.key === 'goal')!.collection).toBe('Team/Goals');
     expect(schema('Team/Requests').fields.find((f) => f.key === 'incident')!.collection).toBe('Team/Incidents');
@@ -359,7 +371,7 @@ describe('setting up an app', () => {
     expect(schema('Team/Incidents').views![0]!.calendar).toEqual({ start: 'started', end: 'ended', color: 'severity', upcoming: false });
     expect(plan.templates.filter((s) => ['timeoff', 'goals', 'incidents'].includes(s.id)).map((s) => [s.id, s.buttons])).toEqual([
       ['timeoff', ['Approve', 'Reject']],
-      ['goals', ['Update']],
+      ['goals', ['Check in', 'Close goal']],
       ['incidents', ['Resolve', 'Close', 'Add action']],
     ]);
   });

@@ -175,6 +175,26 @@ describe('schema', () => {
     expect(unplacedFields(laid).map((f) => f.key)).toEqual(['name', 'person', 'area', 'status']);
   });
 
+  it('reads a timeline and a bar with a mark and a tone, leaving out what names no field', () => {
+    const fields = [
+      { key: 'name', label: 'Name', type: 'name' },
+      { key: 'start', label: 'Start', type: 'date' },
+      { key: 'end', label: 'End', type: 'date' },
+      { key: 'health', label: 'Health', type: 'select', options: ['On track', 'At risk'] },
+      { key: 'late', label: 'Late', type: 'formula', formula: 'end < today()' },
+      { key: 'expected', label: 'Expected', type: 'formula', formula: '0.5' },
+      { key: 'progress', label: 'Progress', type: 'formula', formula: '0.4', format: { style: 'percent', bar: true, mark: 'expected', tone: { field: 'health', colors: { 'On track': 'green', 'At risk': 'plaid' } } } },
+    ];
+    const views = [
+      { id: 'tl', name: 'Timeline', kind: 'timeline', timeline: { start: 'start', end: 'end', color: 'health', late: 'late', marks: { collection: 'A/Milestones', link: 'project', date: 'due', done: 'done' } }, conditions: [] },
+      { id: 'no', name: 'No end', kind: 'timeline', timeline: { start: 'start', end: 'nowhere' }, conditions: [] },
+    ];
+    const schema = parseSchema(JSON.stringify({ version: 2, fields, views }));
+    expect(schema.views![0]).toMatchObject({ kind: 'timeline', timeline: { start: 'start', end: 'end', color: 'health', late: 'late', marks: { collection: 'A/Milestones', link: 'project', date: 'due', done: 'done' } } });
+    expect(schema.views![1]!.kind).toBeUndefined();
+    expect(schema.fields.find((f) => f.key === 'progress')!.format).toEqual({ style: 'percent', bar: true, mark: 'expected', tone: { field: 'health', colors: { 'On track': 'green' } } });
+  });
+
   it('brings Companies and People their fields on the left and what links to them on the right', () => {
     const companies = newSchema('companies', 'Work');
     expect(companies.singular).toBe('company');

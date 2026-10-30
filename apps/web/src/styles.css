@@ -21793,6 +21793,25 @@ svg.sign.small {
   background: var(--sl-hover, rgb(127 127 127 / 0.12));
 }
 
+/* A bar in its record's color, where it should be by now a line on it: a goal's (design/more-apps.md 3.4). */
+.pbar .b {
+  position: relative;
+}
+
+.pbar.toned .b i {
+  background: hsl(var(--lh) var(--ls, 60%) 55%);
+}
+
+.pbar .b .mk {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--sl-fg);
+  opacity: 0.6;
+}
+
 /* A budget's bar: green, yellow from 80%, red over it. */
 .pbar.budget .b i {
   background: #5cb87a;
@@ -21804,6 +21823,208 @@ svg.sign.small {
 
 .pbar.budget.over .b i {
   background: var(--sl-p1);
+}
+
+/* Records on a timeline (design/more-apps.md 3.4): a row each, a bar from start to end, its milestones diamonds, today a line. */
+.tline {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 4px 16px 16px;
+}
+
+.tl-ranges {
+  display: flex;
+  gap: 6px;
+}
+
+.tl-ranges button {
+  padding: 3px 10px;
+  border: 1px solid var(--sl-line);
+  border-radius: 12px;
+  background: none;
+  color: var(--sl-dim);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.tl-ranges button.on {
+  border-color: var(--sl-sel);
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+.tl-grid {
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--sl-line);
+  border-radius: 8px;
+}
+
+.tl-r {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  border-top: 1px solid var(--sl-line);
+}
+
+.tl-r.hd {
+  border-top: 0;
+  color: var(--sl-faint);
+  font-size: 11px;
+}
+
+.tl-r .nm {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  padding: 6px 12px;
+  border: 0;
+  background: none;
+  color: var(--sl-fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tl-r .nm b {
+  overflow: hidden;
+  font-weight: 500;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tl-r .nm small {
+  overflow: hidden;
+  color: var(--sl-faint);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tl-r .lane {
+  position: relative;
+  height: 42px;
+  border-left: 1px solid var(--sl-line);
+}
+
+.tl-r.hd .lane {
+  height: 34px;
+}
+
+.tl-r .tk {
+  position: absolute;
+  top: 17px;
+  padding-left: 4px;
+  border-left: 1px solid var(--sl-line);
+  white-space: nowrap;
+}
+
+.tl-r .tk.m {
+  top: 3px;
+  color: var(--sl-dim);
+  font-weight: 600;
+}
+
+.tl-r .bar {
+  position: absolute;
+  top: 13px;
+  height: 16px;
+  border-radius: 5px;
+  background: hsl(var(--lh, 220) var(--ls, 40%) 55%);
+  cursor: grab;
+  touch-action: none;
+}
+
+.tl-r .bar.cut {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.tl-r .bar.out {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.tl-r .bar.dragging {
+  opacity: 0.75;
+  cursor: grabbing;
+}
+
+.tl-r .bar .h {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  bottom: 2px;
+  width: 4px;
+  border-radius: 2px;
+  background: rgb(255 255 255 / 0.7);
+  cursor: ew-resize;
+}
+
+.tl-r .over {
+  position: absolute;
+  top: 13px;
+  height: 16px;
+  border-radius: 0 5px 5px 0;
+  background: repeating-linear-gradient(45deg, rgb(229 83 75 / 0.5) 0 4px, transparent 4px 8px);
+}
+
+.tl-r .ms {
+  position: absolute;
+  top: 15px;
+  z-index: 1;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  border: 2px solid var(--sl-fg);
+  border-radius: 2px;
+  background: var(--sl-bg);
+  box-sizing: border-box;
+  transform: rotate(45deg);
+}
+
+.tl-r .ms.done {
+  background: var(--sl-fg);
+}
+
+.tl-r .now {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 2;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--sl-accent);
+  pointer-events: none;
+}
+
+.tl-empty {
+  margin: 0;
+  padding: 16px 12px;
+  color: var(--sl-faint);
+  font-size: 13px;
+}
+
+.tline.ph {
+  padding: 4px 0 16px;
+}
+
+.tline.ph .tl-grid {
+  border-right: 0;
+  border-left: 0;
+  border-radius: 0;
+}
+
+.tline.ph .tl-r {
+  grid-template-columns: 112px minmax(0, 1fr);
+}
+
+.tline.ph .tl-r .nm {
+  padding: 6px 8px;
 }
 
 /* A technician's day each on a row, as Jobber's schedule has it; those with no day beside it. */

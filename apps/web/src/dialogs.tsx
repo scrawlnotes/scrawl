@@ -1477,7 +1477,7 @@ function RowsQuestion({ q, ctx, onChange, onEnter }: { q: AskQuestion; ctx: Valu
                 {valueText(v)}
               </span>
             ))}
-            <input type="number" className="num" min={0} aria-label={`${row.name} · ${q.label}`} value={answer?.count ?? 0} onChange={(event) => set(row.id, { count: Math.max(0, Number(event.target.value) || 0) })} onKeyDown={(event) => event.key === 'Enter' && onEnter()} />
+            <input type="number" className="num" min={0} step="any" aria-label={`${row.name} · ${q.label}`} value={answer?.count ?? 0} onChange={(event) => set(row.id, { count: Math.max(0, Number(event.target.value) || 0) })} onKeyDown={(event) => event.key === 'Enter' && onEnter()} />
             {why && (answer?.count ? <FieldInput field={why} value={answer.why ?? null} ctx={ctx} onChange={(value) => set(row.id, { why: typeof value === 'string' ? value : null })} /> : <span className="dim">—</span>)}
           </Fragment>
         );

@@ -143,7 +143,7 @@ function glanceOf(screen: AppScreen, collections: Record<string, Collection>, bo
     count: {
       text: lead && first
         ? t('app.inView', { count: going.length, view: optionName(lead, first, kind).toLowerCase() })
-        : view && view.conditions.length > 0
+        : view && !view.kind && view.conditions.length > 0
           ? t('app.inView', { count: shown.length, view: view.name.toLowerCase() })
           : String(shown.length),
       check,

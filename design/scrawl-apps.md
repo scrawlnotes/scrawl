@@ -314,6 +314,22 @@ Teklif, sipariş ve tahsilatı izler. Faturayı kesmez; fatura muhasebe program�
 
 ### 3.4 Proje yönetimi
 
+30 Ekim, Linear'ın proje güncellemeleri ve milestone'ları, Asana'nın portföyü ve monday'in zaman çizelgesine bakılarak baştan; Hedefler (`design/more-apps.md` 3.4) ve Sözleşmelerle (3.2) birlikte, üçü CRM ve Bütçe'yle tek app'te. Mockup: `design/mockups.html` › Proje, hedef ve sözleşme. Roadmap ROA-344, deneme ROA-345.
+
+- **Liste:** sekmeler Active, Planned, On hold, Mine, Done; üstte "4 active · 1 at risk · 1 late · 1 update missing". Satırda müşteri, lider, sağlık (On track, At risk, Off track), güncellemesi eksikse "No update for 17 days", "1 of 4" çubuğu sağlık renginde, "Due Dec 15" ya da "12 days late", sıradaki milestone "Planning · Nov 22".
+- **Timeline (yeni görünüm):** her proje bir satır; başlangıçtan bitişe çubuk sağlık renginde (planlanan gri), milestone'lar elmas (biten dolu), bugün çizgisi, bitişi geçen kırmızı taralı. Çubuğu sürüklemek iki günü, sağ ucunu çekmek bitişi değiştirir, Undo ile. Weeks, Months, Quarters; telefonda adlar solda, yalnız aylar.
+- **Pencere:** başlıkta "Active · On track · 0 of 4 cards · due Dec 15 (in 46 days) · next: Planning Nov 22"; solda müşteri, lider, günler, sözleşme, durum, sağlık, bütçe çubuğu ("$12,400 of $20,000", %80 sarı), hedef; sağda Updates (her biri sağlık ve kendiliğinden yazılan ilerleme), Milestones (ad, gün, tik), kartlar (yerinde eklenir), saatler.
+- **Start project:** Active yapar; kurulumdaki milestone'ları başlangıçla bitiş arasına eşit dağıtarak yazar (bitiş yoksa haftada bir), bütçe kalemleri önceki gibi. Kart açmaz. Başlangıç günü yalnız boşsa bugün olur.
+- **Post update:** sağlık çiplerle, "What happened"; güncellemeye "64% done (was 58%) · end moved to Dec 15 · Planning · Nov 22" kendiliğinden eklenir. Sıklık kurulumda (Every week, Every two weeks, No updates); günü gelince liderin Today'inde Post update ile, üç gün geçince Update missing.
+- **Milestone:** günü Today'de Done ile, geçerse Overdue'da; biten ya da değişen milestone sıradakini projeye yazar.
+- **Close project:** Done ya da Cancelled; açık kartlar Move to Done ya da Drop them (Work'te Dropped sütunu); son söz son güncelleme olur.
+- **Zaman takibi:** Track time saat ya da sayaç, Stop; hafta tablosu Time menüde; Danışmanlık da seçiliyse onun zaman kayıtları kullanılır.
+- **Home:** Projects (aktif, riskte), Work, Hours this week.
+- **Altyapı:** `timeline` görünümü (`start`, `end`, `color`, `marks`, `late`), çubukta beklenen çizgisi ve renk (`mark`, `tone`), takvimde `upcoming: 'today'` ile yalnız Today'de güncelleme.
+- **Mockup'tan kalan farklar:** güncellemeler "Latest update" kutusu değil, en yenisi üstte liste; güncelleme notu sağlık çipinin altında değil ayrı sütunda, müşteri adın altında değil ayrı sütunda; geciken gün ve milestone kırmızı değil; Home'da bu haftanın milestone'ları kutusu yok, yerinde Work.
+
+Önceki hali:
+
 | Parça | Tür | İçinde | Hesaplanan |
 |---|---|---|---|
 | Projects | koleksiyon, ortak | ad, kod (PRJ-0001), müşteri, durum (Planned, Active, On hold, Done, Cancelled), sorumlu, başlangıç (bugün), bitiş; bütçe tutuluyorsa sözleşme tutarı | ilerleme (biten kartların oranı), gecikiyor mu; zaman takibinde toplam ve faturalanır saat; bütçede bütçe, harcanan, gelir, kalan, durum |

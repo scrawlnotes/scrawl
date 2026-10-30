@@ -146,7 +146,7 @@ function answersFor(action: ActionRule | undefined, input: { [key: string]: unkn
     const raw = input?.[a.key];
     if (raw === undefined || raw === null || raw === '') continue;
     if (a.type === 'rows') {
-      // Rows by their name, their product's name, their code or id, each with its number: those left out come to 0.
+      // Rows by their name, their product's name, their code or id, each with its number.
       const path = pathNamed(world.collections.map((c) => c.dir), a.collection!, dir);
       const source = world.collections.find((c) => c.dir === path);
       const record = world.collections.find((c) => c.dir === dir)?.records.find((r) => r.id === recordId);
@@ -164,7 +164,9 @@ function answersFor(action: ActionRule | undefined, input: { [key: string]: unkn
         if (each.why !== undefined && each.why !== null && !a.why?.options.includes(String(each.why))) throw new Refusal(`why is one of ${(a.why?.options ?? []).join(', ')}`);
         given.set(row.id, { count, why: each.why === undefined || each.why === null ? null : String(each.why) });
       }
-      out[a.key] = rows.map((r): RowAnswer => ({ id: r.id, count: given.get(r.id)?.count ?? 0, ...(a.why && { why: given.get(r.id)?.why ?? null }) }));
+      // Those left out come to 0, or keep their number when the question says so.
+      const left = (r: (typeof rows)[number]) => (a.keep && a.from && typeof r.values[a.from] === 'number' ? (r.values[a.from] as number) : 0);
+      out[a.key] = rows.map((r): RowAnswer => ({ id: r.id, count: given.get(r.id)?.count ?? left(r), ...(a.why && { why: given.get(r.id)?.why ?? null }) }));
       continue;
     }
     if (a.type === 'tick') {

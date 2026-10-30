@@ -54,6 +54,18 @@ Spor salonu üyeliği, bakım anlaşması, yazılım aboneliği, aylık danışm
 
 ### 3.2 Sözleşmeler ve yenilemeler (Work)
 
+30 Ekim, Tomorro'nun yenileme alanları, LawVu'nun bitişi ve PandaDoc'un belge durumlarına bakılarak baştan; Proje (`design/scrawl-apps.md` 3.4) ve Hedeflerle birlikte. Ironclad, ContractWorks ve Contractbook'un yardım sayfaları açılamadı. Mockup: `design/mockups.html` › Proje, hedef ve sözleşme. Roadmap ROA-344, deneme ROA-345.
+
+- **Durumlar:** Draft, Out for signature, Active, Notice given, Ended.
+- **Liste:** sekmeler Active, To decide (ihbar günü 60 gün içinde), Ending (60 gün içinde biten), Drafts, Ended; üstte "4 active · $80,400 a year · 3 to decide · 1 ending". Satırda karşı taraf, tür, durum, "$1,200 a month", "Renews Nov 29 · notice by today", "Ends Mar 31 · doesn't renew", "Sent 5 days ago".
+- **Pencere:** başlıkta "Active · $14,400 a year · renews by itself Nov 29 · notice by today"; Renews (By itself, No), For another (1 month … 3 years), ihbar, tutar ve dönem; sağda History (her olay, yenileme fiyat farkıyla) ve Bütçe varsa ödemeleri; imzalı kopya notlara ek.
+- **Düğmeler:** Send for signature; Signed (imza günü, başlangıç, bitiş, Bütçe varsa bütçe kalemi: ödemesi dönemine göre "Comes again" ödeme olarak yazılır); Renew (yeni bitiş ve tutar dolu; aynı şartlarla "Renewed by itself"); Give notice (gün, Email/Letter/Portal; bitiş günü kendiliğinden Ended, ödemenin tekrarı biter); End.
+- **Today:** ihbar günü Give notice ile, gün geçince kalkar (yenilenmeye bırakılmış); kendiliğinden yenilenen bitiş günü kendiliğinden Renew; yenilenmeyen bitiş günü Renew ile; ihbar verilen bitiş günü kendiliğinden End.
+- **Home:** To decide, Ending, A year (türe göre).
+- **Mockup'tan kalan farklar:** pencerede alanlar iki kolon değil tek; Give notice notu ödeme olmasa da Bütçe'yi anar.
+
+Önceki hali:
+
 Kira, sigorta, tedarikçi, bakım, yazılım lisansı, müşteri sözleşmesi.
 
 - **Contracts:** ad, karşı taraf (Companies ya da People), tür, sahibi, başlangıç, bitiş, kendiliğinden yenilenir mi, ihbar süresi (gün), son iptal günü (formül: bitiş − ihbar süresi), tutar, dönem, yıllık tutar, durum (Draft, Active, Ended, Cancelled); belge kaydın ekinde.
@@ -74,6 +86,20 @@ Kira, sigorta, tedarikçi, bakım, yazılım lisansı, müşteri sözleşmesi.
 - **Sorular:** izin türleri (liste: Annual, Sick, Unpaid, Remote), yıllık izin hakkı (Türkiye'de 14, başka yerde 20 gün), resmi tatiller eklensin mi, izinler onaylanıyor mu.
 
 ### 3.4 Hedefler (Work)
+
+30 Ekim, Viva Goals'un beklenen ilerlemesi, Lattice'in durumları ve Perdoo'nun check-in'ine bakılarak baştan; Proje ve Sözleşmelerle birlikte. Asana'nın hedef sayfaları açılamadı. Mockup: `design/mockups.html` › Proje, hedef ve sözleşme. Roadmap ROA-344, deneme ROA-345.
+
+- **Dönem:** yeni hedefin başlangıç ve bitişi kurulumdaki döneme göre (çeyrek, yarıyıl, yıl) dolu gelir; "2026 Q4" bunlardan yazılır.
+- **Liste:** sekmeler This period, Mine, Behind, Closed; üstte "32% of the period gone · 5 goals · 26% on average · 2 behind · 1 at risk · 3 check-ins due". Satırda sahibi, üst hedef, çubuk (durum renginde, beklenen ilerleme çizgisiyle), durum, "Check-in due" ya da son check-in günü.
+- **Durum:** beklenen ilerleme dönemin geçen kısmı; ilerleme ondan %25'e kadar geride Behind, daha fazla At risk, değilse On track, %100 Done. Check in'de sahibi başka bir durum seçerse bir sonraki check-in'e kadar o geçer.
+- **Ölçütler:** hedefin penceresinde satır; Measured by Number, Percent, Money, Done or not, Projeler varsa Project's progress (projenin kartlarından); "$12,950 of $15,000 · from $11,500". Ölçütü olmayan hedefin ilerlemesi alt hedeflerinin ortalaması (Part of).
+- **Check in:** bütün ölçütler tek pencerede, "Was" ve şimdiki değerle; How is it going (hesaplanan seçili) ve What changed. Geçmişe "At risk · 33%" ve değişenler yazılır. Sıklık kurulumda (Every week, Every two weeks, Every month, Only when something changes); günü sahibinin Today'inde. Ajan yalnız değişenleri verir, verilmeyenler kalır.
+- **Close goal:** bitiş günü Today'de; Complete ya da Incomplete, What we learned, Carry over: kalan ölçütleriyle sonraki döneme kopyası.
+- **Home:** This period, Check-ins due, Closed.
+- **Altyapı:** satır sorusunda ondalık sayı ve `keep` (ajanın vermediği satır değerini korur).
+- **Mockup'tan kalan farklar:** liste üst hedefe göre gruplu değil, Part of sütunu var; pencerede ölçütlerin ilerlemesi çubuk değil yüzde.
+
+Önceki hali:
 
 Satış hedefinden çeyreklik ekip hedeflerine.
 

@@ -53,8 +53,16 @@ export const PIECES: { [role: string]: PieceInfo } = {
   messages: { kind: 'collection', name: 'Messages', singular: 'message', about: 'what was said on each request: by the customer, by you, and the notes only your team sees.', lines: ['requests'] },
   feedback: { kind: 'collection', name: 'Feedback', singular: 'feedback', about: 'what customers tell you about the product.' },
   'saved-replies': { kind: 'folder', name: 'Saved replies', about: 'answers to what customers often ask, a note each.' },
-  projects: { kind: 'collection', name: 'Projects', singular: 'project', about: 'each project, its dates and how far it is.' },
+  projects: {
+    kind: 'collection',
+    name: 'Projects',
+    singular: 'project',
+    about: 'each project, its dates, how it is going and how far it is.',
+    hidden: ['code', 'progress', 'hours', 'spent', 'cards', 'open_cards', 'progress_said', 'late', 'tone', 'due_said', 'next_ms', 'next_ms_day', 'next_said', 'last_update', 'last_progress', 'last_end', 'update_on', 'update_missing', 'update_note', 'update_said', 'said', 'budget_said', 'income', 'remaining', 'budget'],
+  },
   work: { kind: 'board', name: 'Work', about: 'the work on the projects, a card each.' },
+  'project-updates': { kind: 'collection', name: 'Project updates', singular: 'update', about: "each project's updates: how it is going, and what happened.", lines: ['projects'] },
+  'project-milestones': { kind: 'collection', name: 'Milestones', singular: 'milestone', about: "each project's milestones, their days, and whether they are done.", lines: ['projects'], hidden: ['this_week', 'when_said', 'done_on'] },
   'time-entries': { kind: 'collection', name: 'Time entries', singular: 'time entry', about: 'the hours spent on each project.', hidden: ['billable_hours', 'this_month', 'this_week', 'running_said', 'started'] },
   'budget-lines': {
     kind: 'collection',
@@ -103,13 +111,26 @@ export const PIECES: { [role: string]: PieceInfo } = {
     hidden: ['monthly_value', 'past_due', 'new_month', 'lost_month', 'this_week', 'amount_said', 'when_said', 'said', 'ending'],
   },
   'subscription-events': { kind: 'collection', name: 'Subscription history', singular: 'event', about: 'what happened to each subscription, and what it changed of the MRR.', lines: ['subscriptions'], hidden: ['this_month'] },
-  contracts: { kind: 'collection', name: 'Contracts', singular: 'contract', about: 'each contract: with whom, from when to when, and by when to give notice.' },
+  contracts: {
+    kind: 'collection',
+    name: 'Contracts',
+    singular: 'contract',
+    about: 'each contract: with whom, from when to when, what it costs, and by when to give notice.',
+    hidden: ['cancel_by', 'yearly', 'signed_on', 'renews_itself', 'ends_itself', 'deciding', 'to_decide', 'ending', 'amount_said', 'when_said', 'notice_said', 'said'],
+  },
+  'contract-events': { kind: 'collection', name: 'Contract history', singular: 'event', about: 'what happened to each contract: sent, signed, renewed, given notice, ended.', lines: ['contracts'] },
   employees: { kind: 'collection', name: 'Employees', singular: 'employee', about: 'your people: their team, their manager, and the leave they have left.' },
   'leave-requests': { kind: 'collection', name: 'Leave requests', singular: 'leave request', about: 'each leave asked for: who, what kind, from when to when, and whether it is approved.' },
   holidays: { kind: 'collection', name: 'Holidays', singular: 'holiday', about: 'the public holidays and the days the company is closed; leave is counted without them.' },
-  goals: { kind: 'collection', name: 'Goals', singular: 'goal', about: 'each goal of the period: whose it is, by when, and how far it is.' },
-  'key-results': { kind: 'collection', name: 'Key results', singular: 'key result', about: 'what measures each goal: where it started, where it should get, and where it is.', lines: ['goals'] },
-  'check-ins': { kind: 'collection', name: 'Check-ins', singular: 'check-in', about: 'each update of a key result: its value on a day, and a note.', lines: ['key-results'] },
+  goals: {
+    kind: 'collection',
+    name: 'Goals',
+    singular: 'goal',
+    about: 'each goal of the period: whose it is, how far it is, and how far it should be by now.',
+    hidden: ['period', 'progress', 'status', 'result', 'kr_progress', 'kr_count', 'sub_progress', 'sub_count', 'expected', 'worked', 'call', 'last_check_in', 'checkin_on', 'checkin_due', 'checkin_said', 'checkin_words', 'counted', 'said'],
+  },
+  'key-results': { kind: 'collection', name: 'Key results', singular: 'key result', about: 'what measures each goal: where it started, where it should get, and where it is.', lines: ['goals'], hidden: ['progress', 'expected', 'tone', 'now_said', 'value_said'] },
+  'check-ins': { kind: 'collection', name: 'Check-ins', singular: 'check-in', about: "each goal's check-ins: how it was going, what moved and what changed.", lines: ['goals'] },
   incidents: { kind: 'collection', name: 'Incidents', singular: 'incident', about: 'each incident: what happened, how bad, from when to when, why, and what was done.' },
   actions: { kind: 'board', name: 'Actions', about: 'what is done so that it does not happen again, a card each, with whom and by when.' },
   equipment: { kind: 'collection', name: 'Equipment', singular: 'unit', about: "what you look after at your customers' sites: where it is, what it is, and when it is serviced next.", hidden: ['booked', 'next_said', 'said'] },
@@ -224,7 +245,7 @@ export const day = (key: string, label: string, today = false): Field => ({ key,
 export const dayAndTime = (key: string, label: string, today = false): Field => ({ ...day(key, label, today), time: true });
 
 /** A template's Calendar view (design/calendar.md 5): by a date field, its records those of the conditions. */
-export const calendar = (settings: Omit<CalendarSettings, 'upcoming'> & { upcoming?: boolean }, conditions: Condition[] = []): View => ({
+export const calendar = (settings: Omit<CalendarSettings, 'upcoming'> & { upcoming?: CalendarSettings['upcoming'] }, conditions: Condition[] = []): View => ({
   id: 'calendar',
   name: 'Calendar',
   kind: 'calendar',

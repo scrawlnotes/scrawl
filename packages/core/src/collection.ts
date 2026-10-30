@@ -71,6 +71,10 @@ export interface NumberFormat {
   bar?: true;
   /** The field whose value the bar says beside it, "7 of 24 books"; else the percent. */
   caption?: string;
+  /** The percent field marked on the bar as a line: how far a goal should be by now (design/more-apps.md 3.4). */
+  mark?: string;
+  /** The bar in the color of a choice of the record, by its value: a project's health, a goal's status. */
+  tone?: { field: string; colors: { [value: string]: OptionColor } };
   /**
    * A bar of something used up, a budget: yellow from 80%, red over all of it (design/scrawl-apps.md
    * 3.3); with a field's key, only while that field is true: a budget line's that is spent, not earned.
@@ -440,10 +444,12 @@ export interface RepeatSettings {
 export interface View {
   id: string;
   name: string;
-  /** A calendar of the records, or a week's sheet of them; unset for a table. */
-  kind?: 'calendar' | 'sheet';
+  /** A calendar of the records, a week's sheet of them, or their timeline; unset for a table. */
+  kind?: 'calendar' | 'sheet' | 'timeline';
   /** The sheet's settings, with `kind`. */
   sheet?: SheetSettings;
+  /** The timeline's settings, with `kind`. */
+  timeline?: TimelineSettings;
   /** The calendar's settings, with `kind`. */
   calendar?: CalendarSettings;
   conditions: Condition[];
@@ -488,6 +494,21 @@ export interface SheetSettings {
   row: string;
   day: string;
   value: string;
+}
+
+/**
+ * The records on a timeline as Linear and monday have it (design/more-apps.md 3.4): a row each, a
+ * bar from `start` to `end` in the color of `color`, the days of `marks` on it as diamonds, done
+ * ones filled: a project's milestones. A bar dragged moves both days, its end dragged moves `end`.
+ */
+export interface TimelineSettings {
+  start: string;
+  end: string;
+  color?: string;
+  /** The records of `collection` (a path) whose `link` is the row's record, at their `date`; `done` a tick that fills one. */
+  marks?: { collection: string; link: string; date: string; done?: string };
+  /** The flag that says a record is late: from its end to today hatched red, a project past its day. */
+  late?: string;
 }
 
 /**
@@ -885,6 +906,11 @@ function readFormat(raw: unknown): NumberFormat | undefined {
     if (typeof raw.caption === 'string' && cleanFieldKey(raw.caption)) format.caption = cleanFieldKey(raw.caption);
     if (raw.warn === true) format.warn = true;
     else if (typeof raw.warn === 'string' && cleanFieldKey(raw.warn)) format.warn = cleanFieldKey(raw.warn);
+    if (typeof raw.mark === 'string' && cleanFieldKey(raw.mark)) format.mark = cleanFieldKey(raw.mark);
+    if (isRecord(raw.tone) && typeof raw.tone.field === 'string' && cleanFieldKey(raw.tone.field) && isRecord(raw.tone.colors)) {
+      const colors = Object.fromEntries(Object.entries(raw.tone.colors).filter((e): e is [string, OptionColor] => OPTION_COLORS.includes(e[1] as OptionColor)));
+      format.tone = { field: cleanFieldKey(raw.tone.field), colors };
+    }
   }
   return format;
 }
@@ -1121,6 +1147,16 @@ function readViews(raw: unknown, fields: Field[]): View[] {
       const of = (key: unknown, type: FieldType) => (typeof key === 'string' ? fields.find((f) => f.key === cleanFieldKey(key) && f.type === type)?.key : undefined);
       const [row, day, value] = [of(item.sheet.row, 'link'), of(item.sheet.day, 'date'), of(item.sheet.value, 'number')];
       if (row && day && value) Object.assign(view, { kind: 'sheet', sheet: { row, day, value } });
+    }
+    if (item.kind === 'timeline' && isRecord(item.timeline)) {
+      const given = item.timeline;
+      const day = (key: unknown) => (typeof key === 'string' ? fields.find((f) => f.key === cleanFieldKey(key) && (f.type === 'date' || givesDay(f, fields, true)))?.key : undefined);
+      const [start, end] = [day(given.start), day(given.end)];
+      const color = typeof given.color === 'string' ? fields.find((f) => f.key === cleanFieldKey(given.color as string) && (COLOR_TYPES.includes(f.type) || (f.type === 'formula' && !!f.colors)))?.key : undefined;
+      const m = isRecord(given.marks) ? given.marks : null;
+      const marks = m && typeof m.collection === 'string' && typeof m.link === 'string' && typeof m.date === 'string' ? { collection: m.collection, link: cleanFieldKey(m.link), date: cleanFieldKey(m.date), ...(typeof m.done === 'string' && { done: cleanFieldKey(m.done) }) } : undefined;
+      const late = typeof given.late === 'string' ? fields.find((f) => f.key === cleanFieldKey(given.late as string) && (f.type === 'checkbox' || f.type === 'formula'))?.key : undefined;
+      if (start && end) Object.assign(view, { kind: 'timeline', timeline: { start, end, ...(color && { color }), ...(marks && { marks }), ...(late && { late }) } });
     }
     if (isSort(item.sort)) view.sort = { key: item.sort.key, dir: item.sort.dir };
     if (typeof item.group === 'string' && item.group) view.group = cleanFieldKey(item.group);

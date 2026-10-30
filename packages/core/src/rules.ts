@@ -91,6 +91,8 @@ export interface AskRule {
   show?: { key: string; label: string }[];
   /** Rows: the field of each row its number starts at: what is still to come. */
   from?: string;
+  /** Rows: one an agent leaves out keeps its number from `from`, not 0: a key result not checked in stays as it is. */
+  keep?: boolean;
   /** Rows: a choice asked of each row too, and what its column is called: why it comes back. */
   why?: { label: string; options: string[] };
   at: number;
@@ -308,7 +310,7 @@ function readAsk(value: Node): AskRule[] {
         ask.required = v.v;
       } else if (part.key === 'note') {
         ask.note = textNode(v, 'rules.askNote');
-      } else if (part.key === 'chips' || part.key === 'lines') {
+      } else if (part.key === 'chips' || part.key === 'lines' || part.key === 'keep') {
         if (v.k !== 'bool') throw new LangError(t('rules.askFlag', { name: part.key }), v.at);
         ask[part.key] = v.v;
       } else if (part.key === 'snippets') {
