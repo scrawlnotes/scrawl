@@ -45,7 +45,7 @@ const MOST: { [id in TemplateId]: Answers } = {
   support: { feedback: true, replies: true },
   appointments: { for: 'both', by: 'team', staff: ['Ayşe', 'Mehmet'], fee: true, payments: true },
   projects: { for: 'both', time: true, budget: true },
-  budget: { periods: 'monthly', due: true, expenses: true, expected: true },
+  budget: { due: true, expenses: true, expected: true },
   stock: { purchasing: true, locations: true, deduct: 'confirmed', payables: true },
   ecommerce: { returns: true, budget: true },
   product: { bugs: true, releases: true, phases: true, feedback: true },
@@ -79,7 +79,7 @@ const LEAST: { [id in TemplateId]: Answers } = {
   support: { channels: [], feedback: false, replies: false },
   appointments: { for: 'resources', by: 'me', resources: [], fee: false },
   projects: { for: 'internal', time: false, budget: false, steps: [] },
-  budget: { periods: 'none', due: false, expenses: false, categories: [] },
+  budget: { due: false, expenses: false, categories: [] },
   stock: { purchasing: false, locations: false, deduct: 'no' },
   ecommerce: { channels: [], carriers: [], returns: false, budget: false },
   product: { bugs: false, releases: false, phases: false, feedback: false },
@@ -173,12 +173,13 @@ describe('setting up an app', () => {
     expect(Object.fromEntries(calendars)).toEqual({
       activities: { start: 'when', color: 'type', upcoming: true, button: 'Done', words: ['with_said'], conditions: [{ field: 'done', op: 'false' }] },
       orders: { start: 'due', color: 'status', upcoming: true, button: 'Record payment', words: ['customer', 'state'], conditions: [{ field: 'status', op: 'is', value: ['Invoiced'] }] },
-      payments: { start: 'due', color: 'direction', upcoming: true, conditions: [{ field: 'status', op: 'is-not', value: ['Paid'] }] },
+      payments: { start: 'due', color: 'direction', upcoming: true, button: 'Mark paid', auto: 'pays_itself', words: ['party', 'amount'], conditions: [{ field: 'status', op: 'is-not', value: ['Paid'] }] },
       projects: { start: 'start', end: 'end', color: 'status', upcoming: false, conditions: [{ field: 'status', op: 'is-not', value: ['Done', 'Cancelled'] }] },
       'purchase-orders': { start: 'expected', color: 'status', upcoming: true, button: 'Receive', words: ['supplier', 'total'], conditions: [{ field: 'status', op: 'is', value: ['Ordered', 'Partially received'] }] },
       releases: { start: 'planned', color: 'status', upcoming: false, conditions: [{ field: 'status', op: 'is', value: ['Planned'] }] },
       interviews: { start: 'date', color: 'type', upcoming: true, conditions: [] },
-      maintenance: { start: 'date', color: 'type', upcoming: true, conditions: [{ field: 'status', op: 'is', value: ['Planned'] }] },
+      // An asset's last calendar: its warranty ending, in Upcoming; before it, coming back and its service, with their buttons.
+      assets: { start: 'warranty', color: 'category', upcoming: true, words: ['supplier'], conditions: [{ field: 'status', op: 'is-not', value: ['Retired'] }] },
       campaigns: { start: 'start', end: 'end', color: 'status', upcoming: false, conditions: [] },
     });
     // Activities and interviews hold a time when one is given.
@@ -287,16 +288,23 @@ describe('setting up an app', () => {
   it('sets up Subscriptions named as the answer says, its plans from the list, and Contracts on the day to cancel by', () => {
     const plan = planApp({ name: 'Gym', currencies: ['TRY'], templates: [{ id: 'subscriptions', answers: { sells: 'memberships', plans: ['Monthly', 'Student quarterly', 'Annual'], customers: 'people' } }, { id: 'contracts', answers: { kinds: ['lease', 'software'], notice: '60' } }] }, { ids });
     const schema = (path: string) => parseSchema(plan.files.find((f) => f.path === `${path}/_collection.json`)!.text);
-    expect(plan.created.filter((c) => c.kind === 'collection').map((c) => c.path)).toEqual(['Gym/Companies', 'Gym/People', 'Gym/Plans', 'Gym/Memberships', 'Gym/Contracts']);
+    expect(plan.created.filter((c) => c.kind === 'collection').map((c) => c.path)).toEqual(['Gym/Companies', 'Gym/People', 'Gym/Plans', 'Gym/Memberships', 'Gym/Subscription history', 'Gym/Contracts']);
     const members = schema('Gym/Memberships');
     expect(members.singular).toBe('membership');
     expect(members.fields.find((f) => f.key === 'customer')).toMatchObject({ label: 'Member', collection: 'Gym/People' });
-    expect(members.fields.find((f) => f.key === 'status')!.options).toEqual(['Active', 'Paused', 'Cancelled']);
+    expect(members.fields.find((f) => f.key === 'status')!.options).toEqual(['Active', 'Non-renewing', 'Paused', 'Cancelled']);
     expect(members.views!.map((v) => [v.id, v.kind ?? 'table', v.calendar?.start ?? null])).toEqual([
       ['active', 'table', null],
+      ['past-due', 'table', null],
+      ['paused', 'table', null],
       ['cancelled', 'table', null],
-      ['calendar', 'calendar', 'renews'],
+      ['renewals', 'calendar', 'renews'],
+      ['pauses', 'calendar', 'paused_until'],
+      ['ends', 'calendar', 'renews'],
+      ['week', 'table', null],
+      ['all', 'table', null],
     ]);
+    expect(members.views!.find((v) => v.id === 'renewals')!.calendar).toMatchObject({ button: 'Renew', auto: 'auto' });
     expect(schema('Gym/People').fields.map((f) => f.key)).toEqual(expect.arrayContaining(['active_memberships', 'monthly_value']));
     const plans = plan.files.filter((f) => f.path.startsWith('Gym/Plans/') && f.path.endsWith('.md')).map((f) => [/name: (.*)/.exec(f.text)![1], /period: (.*)/.exec(f.text)![1]]);
     expect(plans).toEqual([
@@ -314,7 +322,7 @@ describe('setting up an app', () => {
       ['Ends', { start: 'ends', color: 'type', upcoming: false }],
     ]);
     expect(plan.templates.map((s) => [s.id, s.buttons])).toEqual([
-      ['subscriptions', ['Renew', 'Pause', 'Resume', 'Cancel']],
+      ['subscriptions', ['Renew', 'Change plan', 'Pause', 'Resume', 'Cancel membership', 'End', 'Reactivate']],
       ['contracts', ['Renew', 'End', 'Cancel']],
     ]);
   });

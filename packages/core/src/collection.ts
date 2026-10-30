@@ -71,8 +71,11 @@ export interface NumberFormat {
   bar?: true;
   /** The field whose value the bar says beside it, "7 of 24 books"; else the percent. */
   caption?: string;
-  /** A bar of something used up, a budget: yellow from 80%, red over all of it (design/scrawl-apps.md 3.3). */
-  warn?: true;
+  /**
+   * A bar of something used up, a budget: yellow from 80%, red over all of it (design/scrawl-apps.md
+   * 3.3); with a field's key, only while that field is true: a budget line's that is spent, not earned.
+   */
+  warn?: true | string;
 }
 
 export const FORMAT_STYLES: readonly NumberFormat['style'][] = ['number', 'currency', 'percent', 'duration'];
@@ -249,6 +252,8 @@ type LayoutBlockKind =
       add?: string;
       /** The records that link where this link field of the record points, the record left out: a request's company's other requests (design/scrawl-apps.md 3.3). */
       through?: string;
+      /** No + Add: its rows are written by the rules only, a subscription's history, its invoices. */
+      fixed?: true;
     }
   /** A formula's text said as a line in a box, not as a field: an order's profit, "₺1.240 · commission ₺248 → ₺412 profit" (design/calendar.md 7). */
   | { block: 'note'; of: string }
@@ -879,6 +884,7 @@ function readFormat(raw: unknown): NumberFormat | undefined {
     format.bar = true;
     if (typeof raw.caption === 'string' && cleanFieldKey(raw.caption)) format.caption = cleanFieldKey(raw.caption);
     if (raw.warn === true) format.warn = true;
+    else if (typeof raw.warn === 'string' && cleanFieldKey(raw.warn)) format.warn = cleanFieldKey(raw.warn);
   }
   return format;
 }
@@ -924,6 +930,7 @@ function readBlock(raw: { [key: string]: unknown }): LayoutBlockKind | null {
       ...(raw.choose === true && typeof raw.apart === 'string' && { apart: cleanFieldKey(raw.apart) }),
       ...(raw.choose === true && typeof raw.instead === 'string' && { instead: cleanFieldKey(raw.instead) }),
       ...(raw.numbered === true && { numbered: true }),
+      ...(raw.fixed === true && { fixed: true as const }),
       ...(Array.isArray(raw.where) && { where: raw.where.map((c) => readCondition(c)).filter((c): c is Condition => c !== null) }),
       ...(typeof raw.title === 'string' && raw.title.trim() && { title: raw.title.trim() }),
       ...((raw.look === 'days' || raw.look === 'checklist' || raw.look === 'split' || raw.look === 'thread') && { look: raw.look }),

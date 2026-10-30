@@ -653,7 +653,7 @@ export function Cell({ field, value, ctx, values }: {
   if (typeof value === 'number' && field.format?.bar) {
     const caption = field.format.caption ? valueText(values?.[field.format.caption]) : '';
     return (
-      <span className={['pbar', field.format.warn && 'budget', field.format.warn && (value > 1 ? 'over' : value >= 0.8 ? 'warn' : '')].filter(Boolean).join(' ')}>
+      <span className={['pbar', field.format.warn && 'budget', warns(field, values) && (value > 1 ? 'over' : value >= 0.8 ? 'warn' : '')].filter(Boolean).join(' ')}>
         <span className="b">
           <i style={{ width: `${Math.round(Math.max(0, Math.min(1, value)) * 100)}%` }} />
         </span>
@@ -1221,7 +1221,7 @@ function LinkedRecords({ block, dir, record, today, actions, drafts, hint, onOpe
     <div className="blk-h">
       <span>{block.title ?? name}</span>
       {count !== null && <small>{count}</small>}
-      {source && !block.through && (
+      {source && !block.through && !block.fixed && (
         <button type="button" className="addl" onClick={() => onAdd(source)}>
           {block.add ? t('collection.addNamed', { name: block.add }) : t('collection.addOne', { singular: singularOf(source.schema) })}
         </button>
@@ -1406,6 +1406,9 @@ function DayList({ block, source, rows, today, onOpen, onAdd }: { block: LinkedB
     </div>
   );
 }
+
+/** Whether a bar warns as it fills: always, or while the record's field it names is true (NumberFormat.warn). */
+const warns = (field: Field, values: Record['values'] | undefined) => field.format?.warn === true || (typeof field.format?.warn === 'string' && values?.[field.format.warn] === true);
 
 /** The width and height a signature is drawn in: its path is in these units. */
 export const SIGN_BOX = { w: 300, h: 80 };
@@ -1917,7 +1920,7 @@ export function LinkedTable({ block, source, dir, record, today, actions, drafts
           <p className="blk-none">{t('collection.noLinked', { collection: collectionName(block.collection).toLowerCase() })}</p>
         ))}
       {/* In groups each group has its own + Add; with none yet, the table has it. */}
-      {(!block.group?.length || rows.length === 0) && (
+      {(!block.group?.length || rows.length === 0) && !block.fixed && (
         <button type="button" className="cadd" onClick={() => startAdding(null)}>
           {block.add ? t('collection.addNamed', { name: block.add }) : t(lines ? 'collection.addLine' : 'collection.addRow')}
         </button>

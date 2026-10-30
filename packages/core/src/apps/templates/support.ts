@@ -115,7 +115,7 @@ export const support: AppTemplate = {
     app.newForm('requests', ['person', ...(firms ? ['company'] : []), ...(channels.length > 0 ? ['channel'] : []), 'type', 'message']);
     app.block('requests', { block: 'actions', column: 2 });
     app.block('requests', { block: 'linked', collection: said, look: 'thread', lines: false, title: 'Conversation', time: 'at', sub: 'text', icon: 'kind', person: 'by', sort: 'at', column: 2, tab: 'Conversation' });
-    if (firms) app.block('requests', { block: 'linked', collection: requests, through: 'company', style: 'list', title: 'Their requests', fields: ['status', 'reply_said'], sort: 'asked', dir: 'desc', column: 3, tab: 'Related' });
+    if (firms) app.block('requests', { block: 'linked', collection: requests, through: 'company', fixed: true, style: 'list', title: 'Their requests', fields: ['status', 'reply_said'], sort: 'asked', dir: 'desc', column: 3, tab: 'Related' });
     if (ideas) app.place('requests', 'idea', 3);
 
     app.field('messages', { ...nameField('Message'), optional: true });

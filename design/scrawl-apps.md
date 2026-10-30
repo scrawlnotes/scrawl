@@ -335,6 +335,17 @@ Teklif, sipariş ve tahsilatı izler. Faturayı kesmez; fatura muhasebe program�
 
 ### 3.5 Bütçe ve harcama
 
+30 Ekim, QuickBooks'un Budget vs Actuals ve Bills ekranlarına, Expensify'ın rapor durumlarına bakılarak baştan; Abonelik ve Demirbaşla birlikte. Mockup: `design/mockups.html` › Abonelik, bütçe ve demirbaş. Roadmap ROA-342, deneme ROA-343.
+
+- **Budget:** This month ve This year sekmeleri, Income ve Expense grupları; satırda aylık planlanan, gerçekleşen, kullanılan çubuk (giderde %80'den sarı, aşınca kırmızı; gelirde uyarı yok), kalan. Üstte "$42,000 in · $31,500 out · $10,500 net · 1 over budget". Dönem sorusu kalktı: plan aylıktır, yıl on iki katı.
+- **Payments (Bills and payments):** sekmeler To pay, Overdue, To collect, Paid; üstte bu hafta ödenecek, geciken ve tahsil edilecek. Satırda kime ya da kimden (To or from), bütçe kalemi, "Overdue 4 days", "Due today", "Due Nov 3", tutar.
+- **Mark paid:** tutar (kalan dolu), gün, yöntem çiplerle; kısmi ödemede kalanı bekleyen bir ödeme olarak kalır. Vadesi gelen ödeme Today'de Mark paid ile; **Pays itself** işaretli olan kendiliğinden ödenir.
+- **Comes again:** Monthly, Quarterly, Yearly; ödenince bir sonrakini bir dönem sonra açar.
+- **Expenses:** sekmeler Mine, To approve, To pay back, Paid back, Rejected; yeni harcama tutar, kategori çiplerle, gün ve fiş (notlara ek). **Approve** bütçe kalemini çiplerle sorar, kalemin bu ayki durumunu söyler, geri ödemeyi To pay'e yazar; **Reject** nedenini sorar; ödenince Reimbursed.
+- **Home:** This month (net, giren, çıkan, en çok harcanan), To pay, Over budget, To approve.
+- **Altyapı:** çubuğun uyarısı bir alana bağlı olabilir (`warn: 'expense'`); kuralların yazdığı bağlı blokta + Add yok (`fixed`).
+- **Mockup'tan kalan farklar:** onay bekleyen harcamalar Today'de tek satır değil, her biri kendi satırında Approve ile.
+
 Para tek yerde durur: satış tahsilatları, tedarikçi borçları, projenin ve şirketin giderleri, çalışana geri ödenen masraflar hep Payments'ta.
 
 | Parça | Tür | İçinde | Hesaplanan |
@@ -450,6 +461,17 @@ Açık pozisyonlar, adaylar, adayın süreçteki yeri ve görüşmeler. Şablon 
   4. **İşe başlayan için adımlar:** liste; varsayılanı Contract signed, Equipment ready, Accounts opened, First week planned. Boş bırakılabilir.
 
 ### 3.9 Demirbaş ve bakım
+
+30 Ekim, Snipe-IT ve Asset Panda'ya bakılarak baştan; Abonelik ve Bütçe'yle birlikte. Mockup: `design/mockups.html` › Abonelik, bütçe ve demirbaş. Roadmap ROA-342, deneme ROA-343.
+
+- **Liste:** sekmeler In use, Available, In repair, Due back, With me, Retired; üstte "142 assets · $86,400 value · 1 due back · 4 warranty ending". Satırda ad, kategori, kimde ya da nerede, durum, "Due back Nov 20", bugünkü değer.
+- **Pencere:** başlıkta "In use · Ayşe Kaya since Mar 4 · due back Nov 20 · $1,240 now ($1,800 bought) · under warranty"; solda kategori çiplerle, seri no, alış günü ve tutarı, tedarikçi, garanti, ömür, bakım aralığı ve sonraki bakım; sağda geçmiş (Maintenance: check out, check in, tamir, bakım).
+- **Check out:** kime (kişi) ya da nereye (yer varsa), geri dönüş günü, not. Dönüş günü Today'de Check in ile.
+- **Check in:** nasıl döndüğü (Good, Damaged, Needs repair; sonuncusu In repair yapar), nereye kondu, not.
+- **Send to repair** ve **Back from repair** (maliyet; Bütçe varsa Maintenance kalemine ödeme), **Service done** (sonraki bakımı yazar; Today'de), **Retire**.
+- **Değer:** maliyet kategorinin ömrüne göre (bilgisayar ve telefon 3, araç 5, mobilya 7, makine 10 yıl) eşit düşer; ömür değiştirilebilir. Garanti bitişi Upcoming'de.
+- **Home:** Value (bugün ve alış), Due back, Coming up.
+- **Mockup'tan kalan farklar:** Check out'ta "kişi ya da yer" seçimi ayrı soru değil, iki kutu; Home'daki Coming up yalnız bakımı gösterir.
 
 Şirketin eşyaları: kimde, nerede oldukları, ne zaman bakım gördükleri ve kaça mal oldukları. Şablon penceresinde Money grubunda.
 

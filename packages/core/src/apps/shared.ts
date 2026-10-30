@@ -55,7 +55,9 @@ export function payments(app: AppDraft) {
   app.field('payments', select('status', 'Status', ['Planned', 'Invoiced', 'Paid'], { Planned: 'gray', Invoiced: 'yellow', Paid: 'green' }, 'Planned'));
   if (byDueDay(app)) app.field('payments', day('due', 'Due'));
   app.field('payments', day('paid_on', 'Paid on'));
-  app.view('payments', calendar({ start: byDueDay(app) ? 'due' : 'date', color: 'direction', upcoming: true }, [{ field: 'status', op: 'is-not', value: ['Paid'] }]));
+  // With Budget, a payment due comes to Today with Mark paid, by itself when it pays itself (design/scrawl-apps.md 3.5).
+  const marked = app.has('budget') ? { button: 'Mark paid', auto: 'pays_itself', words: ['party', 'amount'] } : {};
+  app.view('payments', calendar({ start: byDueDay(app) ? 'due' : 'date', color: 'direction', upcoming: true, ...marked }, [{ field: 'status', op: 'is-not', value: ['Paid'] }]));
   app.field('payments', select('method', 'Method', ['Bank transfer', 'Card', 'Cash'], {}));
   app.field('payments', text('invoice_no', 'Invoice no'));
   if (app.hasPiece('companies')) app.field('payments', link('company', 'Company', app.path('companies')));

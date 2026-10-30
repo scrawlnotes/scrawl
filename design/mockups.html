@@ -4416,6 +4416,25 @@ p { margin: 0; max-width: 68ch; }
 .mbs .sv-msg { margin: 6px 16px 8px; font-size: 14px; }
 .mbs .cr-mrow b.done { color: var(--m-faint); text-decoration: line-through; font-weight: 500; }
 
+/* Subscriptions, Budget and Assets (Oct 30): Chargebee and Baremetrics, QuickBooks and Expensify, Snipe-IT and Asset Panda. */
+.ca-row.mn-sb { grid-template-columns: minmax(0, 1fr) 140px 120px 110px 150px; }
+.ca-row.mn-bd { grid-template-columns: minmax(0, 1fr) 100px 100px 140px 90px; }
+.ca-row.mn-bl { grid-template-columns: minmax(0, 1fr) 130px 110px 130px 90px; }
+.ca-row.mn-ex { grid-template-columns: minmax(0, 1fr) 110px 90px 70px 70px 150px; }
+.ca-row.mn-as { grid-template-columns: minmax(0, 1fr) 100px 110px 220px 90px; }
+.mn-when { color: var(--m-dim); font-size: 12px; }
+.mn-when.late { color: var(--m-p1); font-weight: 600; }
+.mn-when.today { color: var(--m-accent); font-weight: 600; }
+.mn-gsum { margin-left: 8px; color: var(--m-faint); font-size: 10.5px; letter-spacing: 0; text-transform: none; }
+.mn-acts { display: flex; gap: 6px; justify-content: flex-end; }
+.mn-tick { display: inline-block; width: 13px; height: 13px; margin-right: 4px; border: 1.5px solid var(--m-faint); border-radius: 3px; vertical-align: -2px; box-sizing: border-box; }
+.mn-tick.on { border-color: var(--m-accent); background: var(--m-accent); }
+.mbs .mn-mchips { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 16px 10px; }
+.mbs .mn-mchips span { padding: 6px 12px; border-radius: 16px; background: var(--m-side); font-size: 14px; }
+.mbs .mn-mchips span.on { background: var(--m-accent); color: var(--m-on-accent); }
+.mbs .mn-receipt { display: grid; place-items: center; gap: 4px; margin: 6px 16px 10px; padding: 18px; border: 1.5px dashed var(--m-line); border-radius: 12px; font-size: 26px; }
+.mbs .mn-receipt small { color: var(--m-faint); font-size: 13px; }
+
 /* Reading and watching (Oct 29): a screen for each kind, as Sequel, MyAnimeList and StoryGraph have them. */
 .rw-cov { display: grid; place-items: center; width: 28px; height: 40px; border-radius: 4px; background: linear-gradient(160deg, var(--cc), color-mix(in srgb, var(--cc) 45%, #000)); color: #fff; font-size: 11px; font-weight: 700; }
 .ca-row.rw-row { grid-template-columns: 28px minmax(0, 1fr) 250px 64px 150px; }
@@ -5657,6 +5676,36 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-svview="svtoday">Today</button>
         <button type="button" data-svview="svhome">Home</button>
         <button type="button" data-svview="svphone">Telefon</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="money2">
+    <div class="brief">
+      <div>
+        <span class="letter">SCRAWL APPS · TASLAK</span>
+        <h2>Abonelik, bütçe ve demirbaş: Chargebee, QuickBooks ve Snipe-IT gibi</h2>
+        <p>Üçü CRM ve Satış'la tek app'te. <b>Subscriptions</b>: listenin üstünde MRR, aktif, bu hafta yenilenen ve vadesi geçen; satırda "$49 / month" ve "Renews Mar 3" ya da kırmızı "Past due 5 days". Pencerede MRR, müşteri ne zamandan beri ve geçmiş (yeni, plan değişikliği, yenileme). <b>Renew</b> Sales'te faturalanacak sipariş açar, günü Today'de; kendiliğinden yenilenen için tik. <b>Change plan</b> yeni planı ve şimdi mi yenilemede mi sorar, MRR farkını söyler; <b>Pause</b> bir güne kadar; <b>Cancel</b> şimdi ya da dönem sonunda (Non-renewing) ve nedeni çiplerle. Deneme bitişi Today'de Convert ile. <b>Budget</b>: bu ay ve bu yıl, gelir ve gider kalem kalem planlanan, gerçekleşen, çubuk; <b>Bills and payments</b> To pay, Overdue, To collect, Paid; <b>Mark paid</b> gün ve yöntem, tekrarlayan ödeme sonrakini açar. <b>Expenses</b> fişle, Approve bütçe kalemini sorar, geri ödeme To pay'e. <b>Assets</b>: kimde, ne zamana kadar, bugünkü değeri; <b>Check out</b> kişiye ya da yere ve dönüş günüyle, <b>Check in</b> hâlini sorar; geçmiş kimde kaldığını gösterir; bakım ve dönüş Today'de.</p>
+        <ul class="traits"><li>MRR</li><li>Renew Today'de</li><li>Change plan</li><li>dönem sonunda iptal</li><li>planlanan ve gerçekleşen</li><li>ödenecek ve geciken</li><li>tekrarlayan ödeme</li><li>fiş ve onay</li><li>Check out ve Check in</li><li>bugünkü değer</li><li>geçmiş</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Abonelik, bütçe ve demirbaş görünümü">
+        <button type="button" data-mnview="sblist">Subscriptions</button>
+        <button type="button" data-mnview="sbwin">Abonelik</button>
+        <button type="button" data-mnview="sbchange">Change plan</button>
+        <button type="button" data-mnview="sbcancel">Cancel</button>
+        <button type="button" data-mnview="bdbudget">Budget</button>
+        <button type="button" data-mnview="bdbills">Bills</button>
+        <button type="button" data-mnview="bdpaid">Mark paid</button>
+        <button type="button" data-mnview="bdexpenses">Expenses</button>
+        <button type="button" data-mnview="bdapprove">Approve</button>
+        <button type="button" data-mnview="aslist">Assets</button>
+        <button type="button" data-mnview="aswin">Demirbaş</button>
+        <button type="button" data-mnview="asout">Check out</button>
+        <button type="button" data-mnview="asin">Check in</button>
+        <button type="button" data-mnview="mntoday">Today</button>
+        <button type="button" data-mnview="mnhome">Home</button>
+        <button type="button" data-mnview="mnphone">Telefon</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -17861,6 +17910,260 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderSv(sectionSv, b.dataset.svview);
   });
   renderSv(sectionSv, 'rqlist');
+
+  // Subscriptions, Budget and Assets (draft, Oct 30): one app with the CRM and Sales. Subscriptions
+  // as Chargebee and Baremetrics keep them: MRR over the list, a renewal with Renew in Today, Change
+  // plan, Pause until a day, Cancel now or at the end of its term with why. Budget as QuickBooks'
+  // Budget vs Actuals and Bills, Expensify's claims: planned against spent month by month, what is to
+  // pay, overdue and to collect, Mark paid, a payment that comes again. Assets as Snipe-IT and Asset
+  // Panda: who has it and until when, Check out and Check in, its value today, service and warranty.
+  var MN_APP = 'Nova Labs';
+  var MN_MODS = ['Home', 'CRM', 'Sales', 'Subscriptions', 'Budget', 'Assets'];
+  var MN_MENU = {
+    Subscriptions: ['Subscriptions', 'Plans'],
+    Budget: ['Budget', 'Bills and payments', 'Expenses'],
+    Assets: ['Assets', 'Maintenance']
+  };
+  [['Trial', '#6aa5f0'], ['Active', '#5cb87a'], ['Non-renewing', '#e0a84a'], ['Paused', '#8a8fa0'], ['Cancelled', '#e5534b'], ['Past due', '#e5534b'],
+    ['In use', '#5cb87a'], ['Available', '#6aa5f0'], ['In repair', '#e0a84a'], ['Retired', '#8a8fa0'], ['Due back', '#e5534b'],
+    ['To approve', '#e0a84a'], ['To pay back', '#6aa5f0'], ['Paid back', '#5cb87a'], ['Rejected', '#e5534b'],
+    ['Rent', '#b48ef0'], ['Software', '#4fb3d9'], ['Salaries', '#6aa5f0'], ['Travel', '#e0a84a'], ['Meals', '#e0a84a']].forEach(function (c) { LC[c[0]] = c[1]; });
+  function mnTree(on) {
+    return '<div class="tree fxt">' + row({ label: 'Today', ct: 8, on: on === 'today' }) + row({ label: 'Upcoming', ct: 5 }) +
+      opRowT({ sp: true, label: 'Personal' }) + opRowT({ sp: true, open: true, label: 'Nova' }) +
+      ahRow(MN_APP, { on: on !== 'today', icon: ICON.app }) + opRowT({ d: 1, folder: true, label: 'Product' }) + '</div>' + spFoot(null);
+  }
+  function mnTop(mod, screen) {
+    return ahTop(MN_APP, ICON.app, MN_MODS, mod, MN_MENU[mod] ? MN_MENU[mod].map(function (s) { return { label: s, on: s === screen }; }) : null);
+  }
+  function mnWin(key, where, title, sub, rest, width) {
+    return '<div class="ovl center"><div class="rmod cc-rm" style="width:' + (width || 1000) + 'px"><div class="cp-head">' + ICON.collection + (key ? '<span class="key">' + key + '</span>' : '') + '<span>' + where + ' · ' + MN_APP + '</span><span class="more">···</span><span class="x">×</span></div>' +
+      '<div class="x2-head"><b>' + title + '</b><small>' + sub + '</small></div>' + rest + '<div class="rm-foot"><span class="st-btn">Cancel</span></div></div></div>';
+  }
+  function mnTl(d, c, ic, a, b) {
+    return '<div class="x2-day">' + d + '</div><div class="x2-tl" style="--tc:' + c + '"><span class="tm"></span><span class="ic">' + ic + '</span><span class="tx"><b>' + a + '</b><small>' + b + '</small></span></div>';
+  }
+  function chips(list, on) {
+    return '<div class="cr-chips">' + list.map(function (c) { return '<span' + (c === on ? ' class="on"' : '') + '>' + c + '</span>'; }).join('') + '</div>';
+  }
+
+  // ---------- Subscriptions ----------
+  var SB = [
+    ['Acme Lojistik', 'Pro yearly', 'Active', '$588 / year', 'Renews Mar 3', ''],
+    ['Globex', 'Pro monthly', 'Past due', '$59 / month', 'Past due 5 days', 'late'],
+    ['Initech', 'Team monthly', 'Active', '$149 / month', 'Renews Nov 3', 'today'],
+    ['Kuzey Asansör', 'Basic monthly', 'Non-renewing', '$19 / month', 'Ends Nov 30', ''],
+    ['Antalya Otel', 'Basic monthly', 'Active', '$19 / month', 'Renews Nov 14', ''],
+    ['Lara Turizm', 'Team yearly', 'Active', '$1,490 / year', 'Renews Jan 1', '']
+  ];
+  function sbList() {
+    var head = '<div class="ca-row mn-sb head"><span>Customer</span><span>Plan</span><span>Status</span><span class="num">Amount</span><span></span></div>';
+    var rows = SB.map(function (s) {
+      return '<div class="ca-row mn-sb"><span class="tt">' + s[0] + '</span><span class="calc">' + s[1] + '</span><span>' + lbl(s[2]) + '</span><span class="num">' + s[3] + '</span><span class="mn-when ' + s[5] + '">' + s[4] + '</span></div>';
+    }).join('');
+    return '<div class="ah">' + mnTop('Subscriptions', 'Subscriptions') + slScreen('MRR $12,400 · 86 active · 4 renewing this week · <b class="pf-neg">2 past due</b>', 'New subscription', ['Active', 'Trial', 'Past due', 'Paused', 'Cancelled'], 'Active', head, rows) + '</div>';
+  }
+  function sbWin() {
+    var left = '<div class="cc-two">' + ccProp('Customer', '<span class="lk">Acme Lojistik</span>') + ccProp('Plan', 'Pro yearly', { dd: true }) + '</div>' +
+      '<div class="cc-two">' + ccProp('Amount', '$588') + ccProp('Period', 'Yearly', { dd: true }) + '</div>' +
+      '<div class="cc-two">' + ccProp('Started', 'Jan 14, 2025') + ccProp('Renews on', 'Mar 3, 2027') + '</div>' +
+      ccProp('Renews by itself', '<span class="mn-tick on"></span> Paid by card; renewed on its day');
+    var right = '<div class="x2-blk"><div class="x2-sec">History</div>' +
+      mnTl('Mar 3, 2026', '#5cb87a', '↻', 'Renewed · $588', 'SO-0041 to invoice') +
+      mnTl('Sep 12, 2025', '#6aa5f0', '↑', 'Pro monthly → Pro yearly', '+$0 MRR · yearly') +
+      mnTl('Mar 3, 2025', '#6aa5f0', '↑', 'Basic monthly → Pro monthly', '+$40 MRR') +
+      mnTl('Jan 14, 2025', '#5cb87a', '+', 'Started · Basic monthly', '$19 MRR') + '</div>' +
+      slAs('Invoices', 2, 'Sales', [['SO-0041 · Paid', 'Mar 3, 2026', '$588'], ['SO-0019 · Paid', 'Sep 12, 2025', '$588']], '');
+    return mnWin('', 'Subscriptions', 'Acme Lojistik · Pro yearly', 'Active · $588 a year ($49 MRR) · renews Mar 3 · customer since Jan 2025',
+      slActs([['Renew', 'go'], ['Change plan'], ['Pause'], '|', ['Cancel']]) + '<div class="jb-cols"><div>' + left + '</div><div>' + right + '</div></div>', 980);
+  }
+  function sbChange() {
+    var body = '<div class="cc-prop"><span class="pl">New plan</span>' + chips(['Basic monthly', 'Pro monthly', 'Team monthly', 'Team yearly'], 'Team yearly') + '</div>' +
+      '<div class="cc-prop"><span class="pl">From</span>' + chips(['Now', 'At renewal · Mar 3'], 'At renewal · Mar 3') + '</div>' +
+      '<div class="sl-note">$1,490 a year from Mar 3 · MRR $49 → $124, <b>+$75</b>.</div>';
+    return x2Window('Change plan · Acme Lojistik', body, '<span class="st-btn">Cancel</span><span class="st-btn go">Change plan</span>');
+  }
+  function sbCancel() {
+    var body = '<div class="cc-prop"><span class="pl">When</span>' + chips(['Now', 'At end of term · Mar 3'], 'At end of term · Mar 3') + '</div>' +
+      '<div class="cc-prop"><span class="pl">Why</span>' + chips(['Too expensive', 'Not using it', 'Missing feature', 'Switched', 'Closed', 'Other'], 'Missing feature') + '</div>' +
+      '<div class="cc-prop body"><span class="pl">Note</span><div class="cr-note">Needs SSO on the Team plan.</div></div>' +
+      '<div class="sl-note">It stays Active until Mar 3, Non-renewing; then Cancelled. MRR −$49 from then.</div>';
+    return x2Window('Cancel · Acme Lojistik', body, '<span class="st-btn">Keep it</span><span class="st-btn go">Cancel subscription</span>');
+  }
+
+  // ---------- Budget ----------
+  function bdBudget() {
+    var bar = function (p, income) { return '<span class="sv-bar' + (income ? '' : p > 100 ? ' over' : p >= 80 ? ' warn' : '') + '"><i style="width:' + Math.min(p, 100) + '%"></i></span>'; };
+    var head = '<div class="ca-row mn-bd head"><span>Budget line</span><span class="num">Planned</span><span class="num">Actual</span><span></span><span class="num">Left</span></div>';
+    var grp = function (n, sum) { return '<div class="ca-row tr-grp"><span>' + n + '<small class="mn-gsum">' + sum + '</small></span></div>'; };
+    var ln = function (n, p, a, pct, left, over, income) { return '<div class="ca-row mn-bd"><span class="tt">' + n + '</span><span class="num">' + p + '</span><span class="num">' + a + '</span>' + bar(pct, income) + '<span class="num' + (over ? ' pf-neg' : '') + '">' + left + '</span></div>'; };
+    var rows = grp('Income', '$42,000 of $45,000') + ln('Subscriptions', '$13,000', '$12,400', 95, '$600', false, true) + ln('Sales', '$32,000', '$29,600', 92, '$2,400', false, true) +
+      grp('Expense', '$31,500 of $33,000') + ln('Salaries', '$22,000', '$22,000', 100, '$0') + ln('Rent', '$4,000', '$4,000', 100, '$0') +
+      ln('Software', '$1,800', '$2,150', 119, '−$350', true) + ln('Marketing', '$3,500', '$2,240', 64, '$1,260') + ln('Travel', '$1,200', '$1,110', 92, '$90');
+    return '<div class="ah">' + mnTop('Budget', 'Budget') + slScreen('November: in $42,000 · out $31,500 · net <b>$10,500</b> · <b class="pf-neg">1 over budget</b>', 'New budget line', ['This month', 'This year'], 'This month', head, rows) + '</div>';
+  }
+  var BILLS = [
+    ['Office rent', 'Kaya Emlak', 'Rent', 'Overdue 4 days', 'late', '$4,000', 'monthly'],
+    ['AWS', 'Amazon', 'Software', 'Due today', 'today', '$1,180', 'monthly'],
+    ['Figma', 'Figma', 'Software', 'Due Nov 3', '', '$240', 'yearly'],
+    ['Salaries', '6 people', 'Salaries', 'Due Nov 5', '', '$22,000', 'monthly · pays itself'],
+    ['Ayşe Kaya · İzmir trip', 'Ayşe Kaya', 'Travel', 'Due Nov 7', '', '$420', '']
+  ];
+  function bdBills() {
+    var head = '<div class="ca-row mn-bl head"><span>Payment</span><span>To</span><span>Budget line</span><span>Due</span><span class="num">Amount</span></div>';
+    var rows = BILLS.map(function (b) {
+      return '<div class="ca-row mn-bl"><span class="tt">' + b[0] + (b[6] ? '<small>↻ ' + b[6] + '</small>' : '') + '</span><span class="calc">' + b[1] + '</span><span>' + lbl(b[2]) + '</span><span class="mn-when ' + b[4] + '">' + b[3] + '</span><span class="num">' + b[5] + '</span></div>';
+    }).join('');
+    return '<div class="ah">' + mnTop('Budget', 'Bills and payments') + slScreen('$27,840 to pay this week · <b class="pf-neg">$4,000 overdue</b> · $12,400 to collect', 'New payment', ['To pay', 'Overdue', 'To collect', 'Paid'], 'To pay', head, rows) + '</div>';
+  }
+  function bdPaid() {
+    var body = '<div class="cc-two">' + ccProp('Amount', '$4,000') + ccProp('Paid on', 'Today') + '</div>' +
+      '<div class="cc-prop"><span class="pl">How</span>' + chips(['Bank transfer', 'Card', 'Cash'], 'Bank transfer') + '</div>' +
+      '<div class="sl-note">Monthly: the next one, $4,000 due Dec 1, is added.</div>';
+    return x2Window('Mark paid · Office rent', body, '<span class="st-btn">Cancel</span><span class="st-btn go">Mark paid</span>');
+  }
+  function bdExpenses() {
+    var head = '<div class="ca-row mn-ex head"><span>Expense</span><span>Who</span><span>Category</span><span>Day</span><span class="num">Amount</span><span></span></div>';
+    var rows = [['Train to İzmir', 'Ayşe Kaya', 'Travel', 'Oct 28', '$180'], ['Client dinner', 'Mert Er', 'Meals', 'Oct 29', '$96'], ['Hotel · 2 nights', 'Ayşe Kaya', 'Travel', 'Oct 28', '$240']].map(function (e) {
+      return '<div class="ca-row mn-ex"><span class="tt">' + e[0] + '<small>🧾 receipt</small></span><span class="calc">' + e[1] + '</span><span>' + lbl(e[2]) + '</span><span class="calc">' + e[3] + '</span><span class="num">' + e[4] + '</span><span class="mn-acts"><span class="st-btn go">Approve</span><span class="st-btn">Reject</span></span></div>';
+    }).join('');
+    return '<div class="ah">' + mnTop('Budget', 'Expenses') + slScreen('3 to approve · $516 · $420 to pay back', 'New expense', ['Mine', 'To approve', 'To pay back', 'Paid back', 'Rejected'], 'To approve', head, rows) + '</div>';
+  }
+  function bdApprove() {
+    var body = '<div class="sl-note">Train to İzmir · Ayşe Kaya · $180 · Oct 28</div>' +
+      '<div class="cc-prop"><span class="pl">Budget line</span>' + chips(['Travel', 'Meals', 'Marketing', 'Other'], 'Travel') + '</div>' +
+      '<div class="sl-note">$180 to pay back to Ayşe Kaya goes to To pay; Travel: $1,290 of $1,200 this month.</div>';
+    return x2Window('Approve · Train to İzmir', body, '<span class="st-btn">Cancel</span><span class="st-btn go">Approve</span>');
+  }
+
+  // ---------- Assets ----------
+  var AS = [
+    ['AST-0042', 'MacBook Pro 14"', 'Computers', 'Ayşe Kaya', 'In use', 'Due back Nov 20', '', '$1,240'],
+    ['AST-0017', 'Dell XPS 13', 'Computers', 'Mert Er', 'In use', 'Due back Oct 28', 'late', '$420'],
+    ['AST-0051', 'iPhone 15', 'Phones', 'Deniz Ak', 'In use', '', '', '$690'],
+    ['AST-0033', 'Projector Epson', 'Machines', 'Head office', 'Available', '', '', '$310'],
+    ['AST-0028', 'Company car · 34 ABC 12', 'Vehicles', '—', 'In repair', 'since Oct 24', '', '$14,800']
+  ];
+  function asList() {
+    var head = '<div class="ca-row mn-as head"><span>Asset</span><span>Category</span><span>With</span><span>Status</span><span class="num">Value</span></div>';
+    var rows = AS.map(function (a) {
+      return '<div class="ca-row mn-as"><span class="tt">' + a[1] + '<small>' + a[0] + '</small></span><span class="calc">' + a[2] + '</span><span class="calc">' + a[3] + '</span><span class="sl-st">' + lbl(a[4]) + (a[5] ? '<small class="' + a[6] + '">' + a[5] + '</small>' : '') + '</span><span class="num">' + a[7] + '</span></div>';
+    }).join('');
+    return '<div class="ah">' + mnTop('Assets', 'Assets') + slScreen('142 assets · $86,400 value · <b class="pf-neg">1 due back</b> · 4 warranty ending', 'New asset', ['In use', 'Available', 'In repair', 'Due back', 'With me', 'Retired'], 'In use', head, rows) + '</div>';
+  }
+  function asWin() {
+    var left = '<div class="cc-two">' + ccProp('Category', 'Computers', { dd: true }) + ccProp('Serial no', 'C02F31XJ') + '</div>' +
+      '<div class="cc-two">' + ccProp('Bought', 'Mar 4, 2025') + ccProp('Cost', '$1,800') + '</div>' +
+      '<div class="cc-two">' + ccProp('Supplier', '<span class="lk">Apple Store</span>') + ccProp('Warranty until', 'Mar 4, 2027') + '</div>' +
+      '<div class="cc-two">' + ccProp('Serviced', 'Yearly', { dd: true }) + ccProp('Next service', 'Mar 4') + '</div>';
+    var right = '<div class="x2-blk"><div class="x2-sec">History</div>' +
+      mnTl('Mar 4, 2026', '#5cb87a', '→', 'Checked out to Ayşe Kaya', 'due back Nov 20 · for the field trips') +
+      mnTl('Feb 28, 2026', '#6aa5f0', '←', 'Checked in from Mert Er', 'Good') +
+      mnTl('Nov 12, 2025', '#e0a84a', '🔧', 'Repair · battery', '$180 · Apple Store') +
+      mnTl('Mar 4, 2025', '#5cb87a', '→', 'Checked out to Mert Er', 'no day to return') + '</div>';
+    return mnWin('AST-0042', 'Assets', 'MacBook Pro 14"', 'In use · Ayşe Kaya since Mar 4 · due back Nov 20 · $1,240 now ($1,800 bought) · under warranty',
+      slActs([['Check in', 'go'], ['Send to repair'], ['Service done'], '|', ['Retire']]) + '<div class="jb-cols"><div>' + left + '</div><div>' + right + '</div></div>', 980);
+  }
+  function asOut() {
+    var body = '<div class="cc-prop"><span class="pl">To</span>' + chips(['A person', 'A place'], 'A person') + '</div>' +
+      ccProp('Person', 'Ayşe Kaya', { dd: true }) +
+      '<div class="cc-two">' + ccProp('Due back', 'Nov 20') + ccProp('Note', 'For the field trips') + '</div>' +
+      '<div class="sl-note">Left empty, it has no day to come back.</div>';
+    return x2Window('Check out · MacBook Pro 14"', body, '<span class="st-btn">Cancel</span><span class="st-btn go">Check out</span>');
+  }
+  function asIn() {
+    var body = '<div class="cc-prop"><span class="pl">How it came back</span>' + chips(['Good', 'Damaged', 'Needs repair'], 'Good') + '</div>' +
+      '<div class="cc-two">' + ccProp('Put in', 'Head office', { dd: true }) + ccProp('Note', '') + '</div>' +
+      '<div class="sl-note">Needs repair sends it to In repair.</div>';
+    return x2Window('Check in · Dell XPS 13 · from Mert Er', body, '<span class="st-btn">Cancel</span><span class="st-btn go">Check in</span>');
+  }
+
+  // ---------- Today, Home, phone ----------
+  function mnToday() {
+    var c = ICON.collection;
+    var body = '<div class="tasksv"><div class="th"><b>Today</b><span class="c3-date">Fri, Oct 30</span><button type="button" class="add">Add task</button></div><div class="tl">' +
+      '<div class="sec">Overdue <small>3</small></div>' +
+      pfRecRow('#e5534b', 'Office rent', '<span class="late">4 days late</span><span>' + c + 'Bills and payments</span><span>Kaya Emlak · $4,000</span>', '<span class="st-btn go">Mark paid</span>') +
+      pfRecRow('#e5534b', 'Globex · Pro monthly', '<span class="late">5 days late</span><span>' + c + 'Subscriptions</span><span>$59 · past due</span>', '<span class="st-btn go">Renew</span><span class="st-btn">Cancel</span>') +
+      pfRecRow('#e5534b', 'Dell XPS 13', '<span class="late">due back Oct 28</span><span>' + c + 'Assets</span><span>with Mert Er</span>', '<span class="st-btn go">Check in</span>') +
+      '<div class="sec">Today <small>5</small></div>' +
+      pfRecRow('#4fb3d9', 'AWS', '<span>' + c + 'Bills and payments</span><span>Amazon · $1,180</span>', '<span class="st-btn go">Mark paid</span>') +
+      pfRecRow('#6aa5f0', 'Initech · Team monthly', '<span>' + c + 'Subscriptions</span><span>$149 · renews today</span>', '<span class="st-btn go">Renew</span>') +
+      pfRecRow('#6aa5f0', 'Antalya Otel · trial ends', '<span>' + c + 'Subscriptions</span><span>Pro monthly · $59</span>', '<span class="st-btn go">Convert</span><span class="st-btn">Cancel</span>') +
+      pfRecRow('#e0a84a', '3 expenses to approve', '<span>' + c + 'Expenses</span><span>$516 · Ayşe Kaya, Mert Er</span>', '<span class="st-btn go">Review</span>') +
+      pfRecRow('#b48ef0', 'Projector Epson · service', '<span>' + c + 'Maintenance</span><span>every 6 months</span>', '<span class="st-btn go">Service done</span>') +
+      '<div class="qa">+ Add task</div></div></div>';
+    return '<aside class="side">' + mnTree('today') + '</aside><section class="main"><div class="panes">' + pane(tab('tasks', 'Today', 'x', true) + '<div class="tab plus">+</div>', body) + '</div>' +
+      '<div class="status"><span>8 records</span>' + syncStatus(false, null) + '</div></section>';
+  }
+  function mnHome() {
+    var grid = function (cards) { return '<div class="pf-home" style="grid-template-columns:repeat(3,minmax(0,1fr));max-width:1080px;margin-bottom:12px">' + cards + '</div>'; };
+    var subs = slCard('restore', 'MRR', '$12,400 · +$640 this month', [['New', '+$520 · 9'], ['Upgrades', '+$300 · 4'], ['Downgrades', '−$60 · 1', 'pf-neg'], ['Cancelled', '−$120 · 3', 'pf-neg']]) +
+      slCard('restore', 'Renewals', '4 this week · $1,240', [['Initech · Team monthly', 'today'], ['Figma Inc · Pro yearly', 'Nov 3'], ['Globex · Pro monthly', '5 days late', 'pf-neg']]) +
+      slCard('restore', 'Churn', '3 this month · 2.1%', [['Most said', 'Missing feature'], ['Trials ending', '2 this week']]);
+    var money = slCard('stack', 'November', 'net $10,500', [['In', '$42,000'], ['Out', '$31,500'], ['Over budget', 'Software · −$350', 'pf-neg']]) +
+      slCard('stack', 'To pay', '$27,840 this week · $4,000 overdue', [['Office rent', '4 days late', 'pf-neg'], ['AWS', 'today'], ['Salaries', 'Nov 5']]) +
+      slCard('stack', 'To approve', '3 · $516', [['Train to İzmir', 'Ayşe Kaya · $180'], ['Client dinner', 'Mert Er · $96']]);
+    var stuff = slCard('laptop', 'Value', '$86,400 now · $132,000 bought', [['Computers', '$31,200'], ['Vehicles', '$42,600']]) +
+      slCard('laptop', 'Due back', '1 late · 2 this week', [['Dell XPS 13 · Mert Er', 'Oct 28', 'pf-neg'], ['MacBook Pro · Ayşe Kaya', 'Nov 20']]) +
+      slCard('laptop', 'Coming up', '2 services · 4 warranties', [['Projector Epson', 'service today'], ['iPhone 15', 'warranty ends Nov 12']]);
+    return '<div class="ah">' + mnTop('Home') + '<div class="ah-home sl-home"><div class="ah-cap">Subscriptions</div>' + grid(subs) + '<div class="ah-cap">Budget</div>' + grid(money) + '<div class="ah-cap">Assets</div>' + grid(stuff) + '</div></div>';
+  }
+  function mnPhone() {
+    var nav = function (back) { return '<div class="mb-nav"><span class="back">' + ICON.chevl + back + '</span><span class="acts"></span></div>'; };
+    var acc = 'background:var(--m-accent);color:var(--m-on-accent)';
+    var row = function (a, b, r) { return '<div class="cr-mrow"><span class="tx"><b>' + a + '</b>' + (b ? '<small>' + b + '</small>' : '') + '</span>' + (r ? '<span class="sl-mn">' + r + '</span>' : '') + '</div>'; };
+    var sub = mbPage(nav('Subscriptions') + '<div class="mb-rhead"><h2>Acme Lojistik</h2><small>Active · Pro yearly · $49 MRR · renews Mar 3</small></div>' +
+      '<div class="mb-qacts"><span class="mb-qact" style="' + acc + '">' + ICON.restore + 'Renew</span><span class="mb-qact">' + ICON.move + 'Change plan</span><span class="mb-qact">' + ICON.x + 'Cancel</span></div>',
+      '<div class="x2-mday">History</div>' + row('Renewed · $588', 'Mar 3, 2026') + row('Pro monthly → Pro yearly', 'Sep 12, 2025') + row('Started · Basic monthly', 'Jan 14, 2025'));
+    var bills = mbPage(nav(MN_APP) + '<div class="mb-rhead"><h2>To pay</h2><small>$27,840 this week · $4,000 overdue</small></div>',
+      BILLS.slice(0, 4).map(function (b) { return '<div class="cr-mrow ec-mrow"><span class="tx"><b>' + b[0] + ' · ' + b[5] + '</b><small class="' + (b[4] === 'late' ? 'pf-neg' : '') + '">' + b[3] + '</small></span><span class="sl-mbtn">Paid</span></div>'; }).join(''));
+    var asset = mbPage(nav('Assets') + '<div class="mb-rhead"><h2>Dell XPS 13</h2><small>In use · Mert Er · <span class="pf-neg">due back Oct 28</span></small></div>' +
+      '<div class="mb-qacts"><span class="mb-qact" style="' + acc + '">' + ICON.check + 'Check in</span><span class="mb-qact">' + ICON.pen + 'Repair</span></div>',
+      '<div class="x2-mday">How it came back</div><div class="mn-mchips"><span class="on">Good</span><span>Damaged</span><span>Needs repair</span></div>' +
+      '<div class="x2-mday">History</div>' + row('Checked out to Mert Er', 'Mar 4, 2025 · due back Oct 28') + row('Repair · battery', 'Nov 12, 2025 · $180'));
+    var exp = mbPage(nav('Expenses') + '<div class="mb-rhead"><h2>New expense</h2><small>To Ahmet Yılmaz for approval</small></div>',
+      '<div class="mn-receipt">🧾<small>Take a photo of the receipt</small></div>' + row('Amount', '', '$180') + '<div class="x2-mday">Category</div><div class="mn-mchips"><span class="on">Travel</span><span>Meals</span><span>Supplies</span><span>Other</span></div>' +
+      row('Day', '', 'Oct 28') + row('What', 'Train to İzmir', '') + '<div class="sl-mfoot"><span class="mb-qact" style="' + acc + '">Submit</span></div>');
+    return mbPhone('Abonelik: yenile, plan, iptal', sub, '') + mbPhone('Ödenecekler', bills, '') + mbPhone('Demirbaş: Check in', asset, '') + mbPhone('Harcama ve fiş', exp, '');
+  }
+  var MN_VIEWS = {
+    sblist: function () { return ahFrame(mnTree(), 'app', MN_APP, sbList(), '86 active'); },
+    sbwin: function () { return ahFrame(mnTree(), 'app', MN_APP, sbList(), '86 active', sbWin()); },
+    sbchange: function () { return ahFrame(mnTree(), 'app', MN_APP, sbList(), '86 active', sbWin() + sbChange()); },
+    sbcancel: function () { return ahFrame(mnTree(), 'app', MN_APP, sbList(), '86 active', sbWin() + sbCancel()); },
+    bdbudget: function () { return ahFrame(mnTree(), 'app', MN_APP, bdBudget(), '7 budget lines'); },
+    bdbills: function () { return ahFrame(mnTree(), 'app', MN_APP, bdBills(), '5 to pay'); },
+    bdpaid: function () { return ahFrame(mnTree(), 'app', MN_APP, bdBills(), '5 to pay', bdPaid()); },
+    bdexpenses: function () { return ahFrame(mnTree(), 'app', MN_APP, bdExpenses(), '3 to approve'); },
+    bdapprove: function () { return ahFrame(mnTree(), 'app', MN_APP, bdExpenses(), '3 to approve', bdApprove()); },
+    aslist: function () { return ahFrame(mnTree(), 'app', MN_APP, asList(), '142 assets'); },
+    aswin: function () { return ahFrame(mnTree(), 'app', MN_APP, asList(), '142 assets', asWin()); },
+    asout: function () { return ahFrame(mnTree(), 'app', MN_APP, asList(), '142 assets', asWin() + asOut()); },
+    asin: function () { return ahFrame(mnTree(), 'app', MN_APP, asList(), '142 assets', asIn()); },
+    mntoday: mnToday,
+    mnhome: function () { return ahFrame(mnTree(), 'app', MN_APP, mnHome(), '3 modules'); }
+  };
+  function renderMn(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (view === 'mnphone') {
+      mock.className = 'mock dir-a phones four mbs';
+      mock.innerHTML = mnPhone();
+    } else {
+      mock.className = 'mock dir-a' + (view === 'mntoday' ? '' : ' wider');
+      mock.innerHTML = MN_VIEWS[view]();
+    }
+    section.querySelectorAll('.brief [data-mnview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.mnview === view));
+    });
+  }
+  var sectionMn = document.querySelector('.dir[data-dir="money2"]');
+  sectionMn.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-mnview]');
+    if (b) renderMn(sectionMn, b.dataset.mnview);
+  });
+  renderMn(sectionMn, 'sblist');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });

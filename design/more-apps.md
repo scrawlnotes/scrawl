@@ -28,6 +28,19 @@ Hepsi core'da, testli; ajan rehberi anlatır.
 
 ### 3.1 Abonelikler ve tekrarlayan gelir (Money)
 
+30 Ekim, Chargebee ve Baremetrics'in ekranlarına bakılarak baştan; Bütçe (`design/scrawl-apps.md` 3.5) ve Demirbaşla (3.9) birlikte, üçü CRM ve Satış'la tek app'te. Mockup: `design/mockups.html` › Abonelik, bütçe ve demirbaş. Roadmap ROA-342, deneme ROA-343.
+
+- **Liste:** üstte "$12,400 MRR · 86 active · 4 renewing this week · 2 past due"; sekmeler Active (Active ve Non-renewing), Trial (deneme varsa), Past due, Paused, Cancelled. Satırda plan, durum, "$49 / month" ve "Renews Mar 3", "Past due 5 days", "Ends Nov 30", "Paused until Jan 1".
+- **Durumlar:** Trial, Active, Non-renewing (dönem sonunda bitecek), Paused, Cancelled; günü geçen aktif abonelik Past due sayılır.
+- **Pencere:** başlıkta "Active · $588 a year ($49 MRR) · Renews Mar 3 · customer since Jan 2025"; solda müşteri, plan çiplerle, tutar, dönem, başlangıç, yenileme, Renews by itself; sağda geçmiş (Subscription history: yeni, yenileme, plan değişikliği, duraklatma, iptal, her biri MRR farkıyla) ve faturalar.
+- **Renew:** Sales varsa planın satırıyla faturalanacak (Delivered) bir sipariş açar, yoksa Bütçe'ye beklenen ödeme; yenileme gününü bir dönem ileri alır. Günü Today'de Renew ile; **Renews by itself** işaretliyse kendiliğinden basılır.
+- **Change plan:** yeni plan çiplerle, Now ya da At renewal; notta yeni fiyat ve MRR farkı. Yenilemede değişen plan Renew'de geçer.
+- **Pause** bir güne kadar (o gün Today'de Resume), **Resume**; **Cancel subscription** Now ya da At end of term ve nedeni çiplerle (Too expensive, Not using it, Missing feature, Switched, Closed, Other); dönem sonunda iptal Non-renewing olur, günü gelince kendiliğinden biter (End). **Reactivate**. Deneme bitişi Today'de **Convert** ile.
+- **Home:** MRR (bu ay yeni, iptal, vadesi geçen), Renewals (bu hafta), Churn (iptal, en çok verilen neden).
+- **Mockup'tan kalan farklar:** Home'daki MRR kutusunda büyüme ve küçülme ayrı satır değil (geçmişte yazılı); kutunun başlığında bu ayki net değişim değil toplam MRR.
+
+Önceki hali:
+
 Spor salonu üyeliği, bakım anlaşması, yazılım aboneliği, aylık danışmanlık gibi her tekrarlayan satış.
 
 - **Plans:** ad, dönem (Monthly, Quarterly, Yearly), fiyat; aktif abone sayısı, aylık değer toplamı.
