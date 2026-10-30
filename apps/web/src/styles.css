@@ -9502,6 +9502,15 @@ textarea.tt-edit {
   white-space: nowrap;
 }
 
+/* What a roadmap card says of who asked for it (Board.face): "Asked by 12". */
+.kc .meta .ask {
+  padding: 0 6px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--sl-accent) 16%, transparent);
+  color: var(--sl-accent);
+  font-weight: 600;
+}
+
 .kc .meta .val {
   margin-left: auto;
   color: var(--sl-fg);

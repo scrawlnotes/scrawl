@@ -30,6 +30,8 @@ import {
   type PersonRef,
   type Phase,
   phaseCards,
+  planSave,
+  savesOf,
   type Priority,
   saveBoard,
   updateCard,
@@ -38,7 +40,7 @@ import {
 } from '@scrawlnotes/core';
 import { cardActivity, type People, peopleIn, workedOnNames, workedOnOut, writerOf } from './activity';
 import { checkOpen, cleanPath, Refusal } from './paths';
-import { parseValues } from './records';
+import { parseValues, ruleSpaceNow } from './records';
 import { actorOf, type Agent, authorOf, type AgentSpace, type Client, type Due, dueIs, elementsOf, exists, isAssignee, nameIn, noteRefOf, nowOf, personRefOf, pickAcross, pickSpace, selfOf, todayOf, type Who, workedOnBy } from './space';
 import { applySubtasks, type SubtaskArg, subtaskOut } from './subtasks';
 
@@ -437,7 +439,7 @@ async function cardPlace(agent: Agent, client: Client, args: CardArgs) {
  * A deal won makes its company a customer (Board.wins) and confirms its quote (BoardWins.back); one
  * dropped declines its quote (Board.loses): for each card that came into a done or a dropped column.
  */
-async function writeWins(fs: VaultFs, before: Board, after: Board, ids: string[]) {
+async function writeWins(fs: VaultFs, before: Board, after: Board, ids: string[], today: string) {
   for (const id of ids) {
     const was = before.cards.find((c) => c.id === id);
     const card = after.cards.find((c) => c.id === id);
@@ -453,7 +455,10 @@ async function writeWins(fs: VaultFs, before: Board, after: Board, ids: string[]
     for (const change of changes) {
       const collection = change && collections.find((c) => c.dir === change.dir);
       const record = collection?.records.find((r) => r.id === change!.id);
-      if (record) await updateRecord(fs, collection!.schema, record, { values: change!.values });
+      if (!record) continue;
+      // What is written runs the record's onSaves, as the app's does: a bug fixed opens its request again.
+      const ran = savesOf(collection!.rules).length > 0 ? planSave(collection!.dir, { ...record, values: { ...record.values, ...change!.values } }, record, await ruleSpaceNow(fs, today, undefined)) : null;
+      await updateRecord(fs, collection!.schema, record, { values: ran ? ran.values : change!.values });
     }
   }
 }
@@ -463,7 +468,7 @@ async function saveCard(agent: Agent, client: Client, args: CardArgs) {
   const step = await applyCard(space, board, args, now, by, author, who);
   if (step.status === 'exists') return { data: { ...where, created: false, exists: true, message: step.message, card: cardOut(board, step.card, today, people) } };
   await saveBoard(space.fs, element.path, step.board);
-  await writeWins(space.fs, board, step.board, [step.card.id]);
+  await writeWins(space.fs, board, step.board, [step.card.id], today);
   return { data: { ...where, created: step.status === 'created', card: cardOut(step.board, step.board.cards.find((c) => c.id === step.card.id)!, today, people) } };
 }
 
@@ -485,7 +490,7 @@ async function saveCards(agent: Agent, client: Client, args: CardArgs & { items:
     }
   }
   if (done.some((step) => step.status !== 'exists')) await saveBoard(space.fs, element.path, board);
-  await writeWins(space.fs, place.board, board, done.map((step) => step.card.id));
+  await writeWins(space.fs, place.board, board, done.map((step) => step.card.id), today);
   const count = (status: CardDone['status']) => done.filter((step) => step.status === status).length;
   return {
     data: {

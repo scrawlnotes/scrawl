@@ -319,6 +319,8 @@ export interface BoardPart {
   /** Its cards say their next step (Board.next), a card moved to a dropped column is asked this field (Board.dropAsks), its window shows these blocks (Board.blocks), one won writes this (Board.wins). */
   next?: BoardNext;
   dropAsks?: string;
+  /** The fields its cards show on their face (Board.face). */
+  face?: string[];
   blocks?: LinkedBlock[];
   wins?: BoardWins;
   press?: BoardPress;
@@ -335,7 +337,7 @@ export interface BoardAdd {
 }
 
 /** How a board looks and works, as a template sets it up. */
-export type BoardSetup = Pick<BoardPart, 'phasesOn' | 'list' | 'next' | 'dropAsks' | 'blocks' | 'wins' | 'press'>;
+export type BoardSetup = Pick<BoardPart, 'phasesOn' | 'list' | 'next' | 'dropAsks' | 'face' | 'blocks' | 'wins' | 'press'>;
 
 /** A folder of notes: Saved replies. */
 export interface FolderPart {

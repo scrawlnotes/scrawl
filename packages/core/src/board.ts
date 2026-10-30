@@ -126,6 +126,8 @@ export interface Board {
   next?: BoardNext;
   /** The field a card moved to a dropped column is asked: why a deal was lost. */
   dropAsks?: string;
+  /** The fields a card shows on its face, by key, in place of its first links and number: a roadmap card's type, who asked for it and its release. */
+  face?: string[];
   /** What the card's window shows of the records linking to it, as a record's linked blocks: a deal's next steps and its history. */
   blocks?: LinkedBlock[];
   /** A card moved to a done column writes `value` into `field` of the record its `link` points at: a deal won makes its company a customer. */
@@ -285,6 +287,7 @@ export function parseBoard(text: string): Board {
     ...(typeof data?.role === 'string' && data.role.trim() && { role: data.role.trim() }),
     ...(readNext(data?.next) && { next: readNext(data?.next)! }),
     ...(typeof data?.dropAsks === 'string' && fields.some((f) => f.key === data.dropAsks) && { dropAsks: data.dropAsks }),
+    ...(Array.isArray(data?.face) && { face: data.face.filter((k): k is string => typeof k === 'string' && fields.some((f) => f.key === k)) }),
     ...(blocks.length > 0 && { blocks }),
     ...(isObject(data?.wins) && typeof data.wins.link === 'string' && typeof data.wins.field === 'string' && typeof data.wins.value === 'string' && { wins: { link: data.wins.link, field: data.wins.field, value: data.wins.value, ...(readBack(data.wins.back) && { back: readBack(data.wins.back) }) } }),
     ...(readBack(data?.loses) && { loses: readBack(data!.loses) }),
@@ -555,6 +558,7 @@ export function cardValue(board: Board, card: Card, field: Field, today = ''): F
 /** The fields a card shows on its face: the board's first link and its first number, a deal's company and value. */
 export function faceFields(board: Board): Field[] {
   const fields = board.fields ?? [];
+  if (board.face) return board.face.map((k) => fields.find((f) => f.key === k)).filter((f): f is Field => !!f);
   // A deal's company and its contact, then its value.
   return [...fields.filter((f) => f.type === 'link').slice(0, 2), fields.find((f) => f.type === 'number')].filter((f): f is Field => !!f);
 }

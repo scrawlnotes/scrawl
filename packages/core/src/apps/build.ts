@@ -229,6 +229,7 @@ class Draft implements AppDraft {
     if (look.list) part.list = true;
     if (look.next) part.next = look.next;
     if (look.dropAsks) part.dropAsks = look.dropAsks;
+    if (look.face) part.face = look.face;
     if (look.blocks) part.blocks = look.blocks;
     if (look.wins) part.wins = look.wins;
     if (look.press) part.press = look.press;
@@ -530,6 +531,7 @@ export function planApp(input: AppInput, { parent = '', found, ids, taken = new 
           role,
           ...(part.next && { next: part.next }),
           ...(part.dropAsks && { dropAsks: part.dropAsks }),
+          ...(part.face && { face: part.face }),
           ...((part.blocks || part.added?.blocks?.length) && { blocks: [...(part.blocks ?? []), ...(part.added?.blocks ?? [])] }),
           ...(part.wins && { wins: { ...part.wins, ...(part.added?.back && { back: part.added.back }) } }),
           ...(part.added?.loses && { loses: part.added.loses }),

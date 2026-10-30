@@ -1,4 +1,4 @@
-import { APP_TEMPLATES, type Answers, apartProblem, goTogether, MemoryFs, saveMe, TEMPLATE_GROUPS, TEMPLATE_IDS, type TemplateId } from '@scrawlnotes/core';
+import { APP_TEMPLATES, type Answers, apartProblem, computerFor, goTogether, loadCollection, MemoryFs, parseBoard, saveMe, TEMPLATE_GROUPS, TEMPLATE_IDS, type TemplateId } from '@scrawlnotes/core';
 import { describe, expect, it } from 'vitest';
 import { checkFile, checkRules } from './check';
 import { fileKind, Refusal } from './paths';
@@ -75,7 +75,7 @@ const LEAST: { [id in TemplateId]: Answers } = {
   product: { bugs: false, releases: false, phases: false, feedback: false },
   recruiting: { stages: [], sources: [], interviews: false, steps: [] },
   assets: { categories: [], assign: false, service: false, places: false, costs: false },
-  content: { channels: [], stages: [], campaigns: false },
+  content: { channels: [], steps: [], campaigns: false },
   subscriptions: { sells: 'agreements', plans: [], trial: false, customers: 'companies', payments: false },
   contracts: { kinds: [], notice: '0', seats: false },
   timeoff: { types: [], allowance: '10', holidays: 'none', approvals: false },
@@ -1307,14 +1307,49 @@ describe('apps', () => {
     // Won writes Customer in its Type.
     expect((await saveRecordTool(agent, { collection: 'Studio/Companies', id: firm.data.record.id, values: {} })).data.record.values).toMatchObject({ won: 1, stage: 'Customer', type: ['Customer'] });
 
-    const release = await saveRecordTool(agent, { collection: 'Studio/Releases', values: { name: '1.0' } });
-    const board = JSON.parse(await fs.readText('Studio/Roadmap.board.json'));
-    board.cards = [{ id: 'c1', key: 1, title: 'Sign in', column: board.columns[1].id, order: 0, priority: 4, due: null, created: '2026-10-21T10:00:00.000Z', updated: '2026-10-21T10:00:00.000Z', completed: null, timeline: [], values: { release: { id: release.data.record.id, name: '1.0' } } }];
-    board.nextKey = 2;
-    await fs.writeText('Studio/Roadmap.board.json', JSON.stringify(board));
-    const shipped = await saveRecordTool(agent, { collection: 'Studio/Releases', id: release.data.record.id, action: 'Ship' });
-    expect(shipped.data.record.values).toMatchObject({ status: 'Released', shipped: '2026-10-21', open_cards: 1 });
-    expect(shipped.data.record.problems).toEqual([{ kind: 'check', field: 'status', text: 'Released with 1 open cards' }]);
+  });
+
+  it('builds the product: cards that say who asked, a bug reported from a request that opens it again when fixed, and Ship writing the notes and telling those who asked', async () => {
+    const { fs, agent } = await world();
+    await createTool(agent, { kind: 'app', name: 'Studio', templates: ['crm', 'support', 'product'], currencies: ['TRY'] });
+    await saveRecordTool(agent, { collection: 'Studio/Companies', values: { name: 'Acme' } });
+    await saveRecordTool(agent, { collection: 'Studio/People', values: { name: 'Ayşe Kaya', company: 'Acme' } });
+    await saveRecordTool(agent, { collection: 'Studio/Feedback', values: { name: 'Dark mode', company: 'Acme' } });
+    for (const subject of ['Too bright at night', 'A dark theme?']) await saveRecordTool(agent, { collection: 'Studio/Requests', values: { name: subject, person: 'Ayşe Kaya', idea: 'Dark mode' } });
+    const v24 = await saveRecordTool(agent, { collection: 'Studio/Releases', values: { name: '2.4', planned: '2026-10-21' } });
+    await saveRecordTool(agent, { collection: 'Studio/Releases', values: { name: '2.5', planned: '2026-12-01' } });
+    await saveCardTool(agent, {}, { board: 'Studio/Roadmap', title: 'Dark mode', column: 'Shipped', values: { type: 'feature', feedback: ['Dark mode'], release: '2.4' } });
+    await saveCardTool(agent, {}, { board: 'Studio/Roadmap', title: 'Bulk edit', column: 'Shipped', values: { type: 'improvement', release: '2.4' } });
+    await saveCardTool(agent, {}, { board: 'Studio/Roadmap', title: 'New editor', column: 'Now', values: { type: 'chore', release: '2.4' } });
+    // The roadmap's columns, Now, Next and Later; a card says how many asked for it.
+    const roadmap = JSON.parse(await fs.readText('Studio/Roadmap.board.json'));
+    expect(roadmap.columns.map((c: { name: string }) => c.name)).toEqual(['Ideas', 'Later', 'Next', 'Now', 'Review', 'Shipped', "Won't do"]);
+    expect(roadmap.face).toEqual(['type', 'asked_said', 'release']);
+    const board = parseBoard(await fs.readText('Studio/Roadmap.board.json'));
+    const computer = computerFor(null, [await loadCollection(fs, 'Studio/Feedback'), await loadCollection(fs, 'Studio/Requests')], { 'Studio/Roadmap.board.json': board }, '2026-10-21');
+    const dark = board.cards.find((c) => c.title === 'Dark mode')!;
+    expect(computer.cardValue('Studio/Roadmap.board.json', dark, board.fields!.find((f) => f.key === 'asked_said')!)).toBe('Asked by 2');
+
+    // Report bug on a request: a card on Bugs; fixed, the request is open again with its reply due.
+    const request = (await recordsTool(agent, { collection: 'Studio/Requests' })).data.records[0]!;
+    await saveRecordTool(agent, { collection: 'Studio/Requests', id: request.id, values: { status: 'Solved' } });
+    await saveRecordTool(agent, { collection: 'Studio/Requests', id: request.id, action: 'Report bug', input: { title: 'Glare in the editor', severity: 'minor' } });
+    const bugs = JSON.parse(await fs.readText('Studio/Bugs.board.json'));
+    expect(bugs.cards.map((c: { title: string; values: { severity: string; request: { id: string } } }) => [c.title, c.values.severity, c.values.request.id])).toEqual([['Glare in the editor', 'minor', request.id]]);
+    await saveCardTool(agent, {}, { board: 'Studio/Bugs', id: String(bugs.cards[0].key), column: 'Fixed' });
+    const reopened = (await recordsTool(agent, { collection: 'Studio/Requests' })).data.records.find((r) => r.id === request.id)!;
+    expect(reopened.values).toMatchObject({ bug: 'Fixed', bug_said: 'Bug fixed', status: 'Open' });
+    expect(reopened.values.reply_due).toMatch(/^2026-10-21T/);
+
+    // Ship: the open card goes to Next with 2.5; the notes from the shipped cards; the feedback done; Acme told.
+    const shipped = await saveRecordTool(agent, { collection: 'Studio/Releases', id: v24.data.record.id, action: 'Ship', input: { open: 'Move to the next release', tell: true } });
+    expect(shipped.data.record.values).toMatchObject({ status: 'Released', shipped: '2026-10-21', notes: 'New\n- Dark mode\n\nImproved\n- Bulk edit' });
+    const after = JSON.parse(await fs.readText('Studio/Roadmap.board.json'));
+    const editor = after.cards.find((c: { title: string }) => c.title === 'New editor');
+    expect([after.columns.find((c: { id: string }) => c.id === editor.column).name, editor.values.release.name]).toEqual(['Next', '2.5']);
+    expect((await recordsTool(agent, { collection: 'Studio/Feedback' })).data.records[0]!.values.status).toBe('done');
+    const told = (await recordsTool(agent, { collection: 'Studio/Activities' })).data.records.map((a) => [a.name, (a.values.company as { name: string }).name]);
+    expect(told).toEqual([['Tell them: Dark mode is out in 2.4', 'Acme']]);
   });
 
   it('hires a candidate: on the board, interviewed and scored, hired with the first steps, the position filled', async () => {
@@ -1380,25 +1415,43 @@ describe('apps', () => {
     expect(await press('Check out', { to: 'Kaan' }).catch((e: Error) => e)).toBeInstanceOf(Error);
   });
 
-  it('plans a campaign: a card on its day, counted by the campaign, linked to a release and a budget line', async () => {
-    const { fs, agent } = await world();
+  it('plans content: its steps back from its day by its type, moved with it, reviewed and published; a campaign adding its pieces', async () => {
+    const { agent } = await world();
     await createTool(agent, { kind: 'app', name: 'Marketing', templates: ['budget', 'product', 'content'], answers: { content: { campaigns: true } }, currencies: ['TRY'] });
+    const piece = await saveRecordTool(agent, { collection: 'Marketing/Content', values: { name: 'Dark mode teaser', channel: 'LinkedIn', type: 'Article', goes_out: '2026-11-06T09:00' } });
+    const id = piece.data.record.id;
+    const read = async () => (await recordsTool(agent, { collection: 'Marketing/Content' })).data.records.find((r) => r.id === id)!.values;
+    const steps = async () => (await recordsTool(agent, { collection: 'Marketing/Content steps', sort: { field: 'due' } })).data.records.filter((r) => (r.values.piece as { id: string }).id === id).map((r) => [r.name, r.values.due]);
+    // An article's steps, each so many days before it goes out.
+    expect(await steps()).toEqual([
+      ['Outline', '2026-10-30'],
+      ['Draft', '2026-11-01'],
+      ['Images', '2026-11-03'],
+      ['Review', '2026-11-04'],
+    ]);
+    expect(await read()).toMatchObject({ status: 'Idea', steps_said: '0 of 4', out_said: 'Fri, Nov 6' });
+    // Its day moved a week, its steps move with it.
+    await saveRecordTool(agent, { collection: 'Marketing/Content', id, values: { goes_out: '2026-11-13T09:00' } });
+    expect((await steps())[0]).toEqual(['Outline', '2026-11-06']);
+    const press = (action: string, input?: object) => saveRecordTool(agent, { collection: 'Marketing/Content', id, action, ...(input && { input: input as never }) });
+    await press('Send for review', { who: 'Kaan' });
+    expect(await read()).toMatchObject({ status: 'Review', reviewer: 'Kaan', review_on: '2026-10-21' });
+    await press('Request changes', { what: 'A shorter caption' });
+    expect(await read()).toMatchObject({ status: 'Writing', changes: 'A shorter caption' });
+    await press('Send for review', { who: 'Kaan' });
+    await press('Approve');
+    expect(await read()).toMatchObject({ status: 'Scheduled' });
+    expect((await read()).changes ?? null).toBeNull();
+    await press('Publish', { link: 'https://linkedin.com/p/1' });
+    expect(await read()).toMatchObject({ status: 'Published', link: 'https://linkedin.com/p/1', published_on: '2026-10-21' });
+
+    // A campaign plans its pieces, in Writing, with their steps; it counts those out.
     await saveRecordTool(agent, { collection: 'Marketing/Budget lines', values: { name: 'Launch ads', planned: 20000 } });
     const launch = await saveRecordTool(agent, { collection: 'Marketing/Campaigns', values: { name: 'Launch', start: '2026-11-01', end: '2026-11-30', budget_line: 'Launch ads' } });
-    const planned = await saveRecordTool(agent, { collection: 'Marketing/Campaigns', id: launch.data.record.id, action: 'Plan content', input: { title: 'Launch post', channel: 'Blog', day: '2026-11-05' } });
-    expect(planned.data.record.values).toMatchObject({ pieces: 1, published: 0, spent: 0 });
-    const board = JSON.parse(await fs.readText('Marketing/Content.board.json'));
-    expect(board.columns.map((c: { name: string; kind: string }) => [c.name, c.kind])).toEqual([
-      ['Ideas', 'backlog'],
-      ['Writing', 'active'],
-      ['Review', 'active'],
-      ['Scheduled', 'active'],
-      ['Published', 'done'],
-    ]);
-    expect(board.cards.map((c: { title: string; due: string; values: object }) => [c.title, c.due, c.values])).toEqual([
-      ['Launch post', '2026-11-05', { campaign: expect.objectContaining({ name: 'Launch' }), channel: 'Blog' }],
-    ]);
-    expect(board.fields.map((f: { key: string }) => f.key)).toEqual(['channel', 'type', 'link', 'release', 'campaign']);
+    const planned = await saveRecordTool(agent, { collection: 'Marketing/Campaigns', id: launch.data.record.id, action: 'Plan content', input: { title: 'Launch post', channel: 'Blog', type: 'Post', day: '2026-11-05T10:00' } });
+    expect(planned.data.record.values).toMatchObject({ status: 'Running', pieces: 1, out: 0, out_said: '0 of 1 out', spent: 0 });
+    const post = (await recordsTool(agent, { collection: 'Marketing/Content' })).data.records.find((r) => r.name === 'Launch post')!;
+    expect(post.values).toMatchObject({ status: 'Writing', channel: 'Blog', campaign: expect.objectContaining({ name: 'Launch' }), steps_said: '0 of 3' });
     const late = await saveRecordTool(agent, { collection: 'Marketing/Campaigns', id: launch.data.record.id, values: { end: '2026-10-01' } });
     expect(late.data.record.problems).toEqual([{ kind: 'check', field: 'end', text: 'The end is before the start' }]);
   });

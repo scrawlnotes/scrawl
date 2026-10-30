@@ -85,7 +85,7 @@ const LEAST: { [id in TemplateId]: Answers } = {
   product: { bugs: false, releases: false, phases: false, feedback: false },
   recruiting: { stages: [], sources: [], interviews: false, steps: [] },
   assets: { categories: [], assign: false, service: false, places: false, costs: false },
-  content: { channels: [], stages: [], campaigns: false },
+  content: { channels: [], steps: [], campaigns: false },
   subscriptions: { sells: 'agreements', plans: [], trial: false, customers: 'companies', payments: false },
   contracts: { kinds: [], notice: '0', seats: false },
   timeoff: { types: [], allowance: '10', holidays: 'none', approvals: false },
@@ -178,11 +178,13 @@ describe('setting up an app', () => {
       projects: { start: 'start', end: 'end', color: 'status', upcoming: false, conditions: [{ field: 'status', op: 'is', value: ['Active', 'On hold'] }] },
       'project-milestones': { start: 'due', upcoming: true, button: 'Done', words: ['project'], conditions: [{ field: 'done', op: 'false' }] },
       'purchase-orders': { start: 'expected', color: 'status', upcoming: true, button: 'Receive', words: ['supplier', 'total'], conditions: [{ field: 'status', op: 'is', value: ['Ordered', 'Partially received'] }] },
-      releases: { start: 'planned', color: 'status', upcoming: false, conditions: [{ field: 'status', op: 'is', value: ['Planned'] }] },
+      releases: { start: 'planned', color: 'status', upcoming: true, button: 'Ship', words: ['done_said'], conditions: [{ field: 'status', op: 'is', value: ['Planned'] }] },
       interviews: { start: 'date', color: 'type', upcoming: true, conditions: [] },
       // An asset's last calendar: its warranty ending, in Upcoming; before it, coming back and its service, with their buttons.
       assets: { start: 'warranty', color: 'category', upcoming: true, words: ['supplier'], conditions: [{ field: 'status', op: 'is-not', value: ['Retired'] }] },
-      campaigns: { start: 'start', end: 'end', color: 'status', upcoming: false, conditions: [] },
+      // A piece's last calendar: its day with Publish; before it, sent for review, in Today with Approve. Its steps each with Done; campaigns are a timeline.
+      content: { start: 'goes_out', color: 'channel', upcoming: true, button: 'Publish', words: ['where'], conditions: [{ field: 'status', op: 'is', value: ['Writing', 'Review', 'Scheduled'] }] },
+      'content-steps': { start: 'due', upcoming: true, button: 'Done', words: ['piece'], conditions: [{ field: 'done', op: 'false' }] },
     });
     // Activities and interviews hold a time when one is given.
     const field = (role: string, key: string) =>

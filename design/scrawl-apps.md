@@ -434,6 +434,18 @@ Stok elle yazılmaz, hareketlerden hesaplanır.
 
 ### 3.7 Ürün geliştirme
 
+30 Ekim, Productboard'un geri bildirimi işe bağlaması, Linear'ın triage'ı ve Canny'nin changelog'u ve durum e-postalarına bakılarak baştan; İçerik takvimiyle (3.10) birlikte, ikisi Proje, Destek ve CRM'le tek app'te. Productboard ve Aha!'nın Now/Next/Later sayfaları açılamadı. Mockup: `design/mockups.html` › Ürün geliştirme ve içerik. Roadmap ROA-346, deneme ROA-347.
+
+- **Roadmap:** sütunlar Ideas, Later, Next (bekleyen), Now (yapılan), Review, Shipped, Won't do; Won't do'ya bırakılan kart nedenini sorar. Kartın yüzünde tür çipi, "Asked by 12" ve sürüm: Destek varsa bağlı fikrin talepleri toplanır, yoksa bağlı geri bildirim sayılır.
+- **Bugs:** New, Confirmed, Fixing, Fixed, Won't fix (nedenini sorar); yüzünde önem, talep ve sürüm. Destek varsa talepte **Report bug** başlık ve önemi sorar, talebe bağlı kart açar, talebe "Bug reported" yazar; kart Fixed'e geçince talep "Bug fixed" olur, yeniden Open olur ve yanıtı şimdi Today'de.
+- **Releases:** Planned ve Released sekmeleri, satırda gün ve "5 of 8 cards done"; başlıkta "Planned · Nov 20 (in 21 days) · 5 of 8 cards done". Günü Upcoming'de, o gün Today'de Ship ile.
+- **Ship:** açık kartları sorar (Move to the next release: bir sonraki planlı sürümle Next'e; Ship with it); notlarını Shipped kartlardan ve Fixed hatalardan New, Improved, Fixed başlıklarıyla yazar; kartların geri bildirimini done yapar; CRM varsa geri bildirimi veren şirkete "Tell them: Dark mode is out in 2.4" etkinliği açar (Today'de).
+- **Home:** Next release.
+- **Altyapı:** panoda kart yüzündeki alanlar (`face`), hesaplanan alanlar da; ajanda bitmiş kartın bağlı kayda yazdığı değer o kaydın onSave'lerini çalıştırır (web'de olduğu gibi).
+- **Mockup'tan kalan farklar:** Home'da Now, Most asked ve Open bugs kutuları yok; hızlı eklenen kartta tür boş gelir (pano alan varsayılanı yazmaz); kart penceresinde hesaplanan alanlar (Requests, Asked) görünür; sürüm notu pencerede metin alanı.
+
+Önceki hali:
+
 | Parça | Tür | İçinde | Hesaplanan |
 |---|---|---|---|
 | Roadmap | pano | Backlog, Todo, Doing, Review, Done; kartta tür (feature, improvement, chore; hata panosu yoksa bug), alan, sürüm, geri bildirimler | — |
@@ -517,6 +529,20 @@ Açık pozisyonlar, adaylar, adayın süreçteki yeri ve görüşmeler. Şablon 
   5. **Bakım giderleri Payments'a yazılsın mı?** Bütçe seçildiyse; evet (varsayılan).
 
 ### 3.10 İçerik takvimi
+
+30 Ekim, CoSchedule'un task template'leri ve Buffer'ın takvimine bakılarak baştan; Ürün geliştirmeyle (3.7) birlikte. Loomly'nin onay akışı sayfası açılamadı. Mockup: `design/mockups.html` › Ürün geliştirme ve içerik. Roadmap ROA-346, deneme ROA-347.
+
+- **İçerik pano değil koleksiyon:** takvim telefonda da çalışır, adımlar günlü olur, düğmeler kurulur.
+- **Ekran:** açılışta takvim, yayın gününe göre kanal renginde; sekmeler Ideas, In progress, Scheduled, Published, Mine, aşama sayıları üstte; "1 going out this week · 1 in review".
+- **Pencere:** "Review · LinkedIn · goes out Fri, Nov 13 (in 14 days) · 0 of 4 steps"; aşama çubuğu; kanal, Also on, tür, yayın günü, yazar, inceleyen, kampanya, sürüm; sağda adımlar.
+- **Adımlar:** kurulumda sütunlu satırlarla (adım, tür, kaç gün önce), hazır: Article Outline 7, Draft 5, Images 3, Review 2; Post Draft 3, Images 2, Review 1; Video Script 10, Shoot 6, Edit 3, Review 2; Newsletter Draft 3, Review 1. Yeni içerik türünün adımlarını alır; adımın günü yayın gününden hesaplanır, yayın günü değişince kayar. Günü Today'de Done ile.
+- **Düğmeler:** Send for review (inceleyeni sorar; Today'de Approve ile), Approve (Scheduled), Request changes (ne değişecek, Writing'e döner), Publish (link ve gün; yayın günü Today'de).
+- **Kampanyalar:** timeline, içerikleri elmas; Plan content başlık, kanal, tür ve günü sorar, içeriği Writing'de açar, kampanyayı Running yapar; "0 of 1 out".
+- **Home:** This week, In review, This month (kanal kanal).
+- **Kurulum:** aşama listesi sorusu kalktı; aşamalar sabit (Idea, Writing, Review, Scheduled, Published).
+- **Mockup'tan kalan farklar:** takvimde bir içerik iki kanaldaysa bir kez görünür (ana kanalın renginde); telefonda takvim ay ve gün görünümü, hafta listesi değil.
+
+Önceki hali:
 
 Ne, hangi kanalda, ne zaman yayınlanacak. Şablon penceresinde Customers grubunda.
 

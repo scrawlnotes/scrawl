@@ -200,7 +200,7 @@ function answersFor(action: ActionRule | undefined, input: { [key: string]: unkn
 }
 
 /** The space as a button sees it: every collection with its rules, every board, every task list. */
-async function ruleSpaceNow(fs: VaultFs, today: string, me: string | undefined): Promise<RuleSpaceNow> {
+export async function ruleSpaceNow(fs: VaultFs, today: string, me: string | undefined): Promise<RuleSpaceNow> {
   const collections: Collection[] = [];
   const boards: { [path: string]: Board } = {};
   const lists: { [path: string]: Task[] } = {};

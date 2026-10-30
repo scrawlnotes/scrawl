@@ -12,6 +12,7 @@ import {
   type CardPlace,
   cardSum,
   computerFor,
+  optionColor,
   cardValue,
   type ChoiceRenames,
   type Column,
@@ -56,6 +57,7 @@ import type { MenuItem } from './dialogs';
 import { Icon, type IconName } from './Icon';
 import { CardQuickAdd, cardHead, ColumnTabs, KindMark, StatusSheet } from './PhoneBoard';
 import { LabelChip } from './labels';
+import { Chip } from './choices';
 import { Empty, liftUntilTouch, Sheet, SheetClose } from './sheets';
 import { dueClass, dueLabel, toDate } from './Tasks';
 import { holdToDrag } from './touchDrag';
@@ -289,13 +291,17 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, onHold
   const noteTitle = card.note ? actions.noteTitle(card.note) : null;
   const people = actions.people?.(path)?.people;
   const phase = showPhase && card.phase ? board.phases.find((p) => p.id === card.phase) : undefined;
-  // The board's first link and first number, a deal's company and value, as they are filled in.
+  // The board's first link and first number, a deal's company and value, as they are filled in;
+  // or the fields the board names, each as it is, what is worked out from other records too.
+  const computer = board.face?.some((k) => board.fields?.some((f) => f.key === k && (f.type === 'formula' || f.type === 'lookup')))
+    ? computerFor(null, actions.recordActions.collections(), { ...actions.recordActions.boards(), [path]: board }, today)
+    : null;
   const filled = faceFields(board)
-    .map((field) => ({ field, value: cardValue(board, card, field, today) }))
+    .map((field) => ({ field, value: computer ? computer.cardValue(path, card, field) : cardValue(board, card, field, today) }))
     .filter(({ value }) => !isEmpty(value));
   // Its links in one line, "Acme Lojistik · Ayşe Kaya", then its value.
   const linked = filled.filter(({ value }) => typeof value !== 'number');
-  const face = [...(linked.length > 0 ? [{ field: linked[0]!.field, value: linked.map(({ value }) => faceText(value)).join(' · ') as FieldValue }] : []), ...filled.filter(({ value }) => typeof value === 'number')];
+  const face = board.face ? filled : [...(linked.length > 0 ? [{ field: linked[0]!.field, value: linked.map(({ value }) => faceText(value)).join(' · ') as FieldValue }] : []), ...filled.filter(({ value }) => typeof value === 'number')];
   // A deal's next step as Pipedrive shows it, the first of its activities planned: green, late red, none a triangle (design/scrawl-apps.md 3.1).
   const step = board.next && !isFinished(board, card) ? nextStep(board, path, card, actions.recordActions.collections()) : undefined;
   const stepAt = step && board.next ? String(step.values[board.next.day] ?? '') : '';
@@ -371,7 +377,13 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, onHold
               )}
               {phase && <span>{phase.name}</span>}
               {face.map(({ field, value }) =>
-                typeof value === 'number' ? (
+                field.type === 'select' && typeof value === 'string' ? (
+                  <Chip key={field.key} text={value} color={optionColor(field, value)} />
+                ) : field.type === 'formula' ? (
+                  <span key={field.key} className="ask">
+                    {valueText(value)}
+                  </span>
+                ) : typeof value === 'number' ? (
                   <span key={field.key} className="val">
                     {formatNumber(value, field.format, currencyOf(field.format, card.values))}
                   </span>
@@ -424,7 +436,13 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, onHold
             )}
             {phase && <span className="phase">{phase.name}</span>}
             {face.map(({ field, value }) =>
-              typeof value === 'number' ? (
+              field.type === 'select' && typeof value === 'string' ? (
+                <Chip key={field.key} text={value} color={optionColor(field, value)} />
+              ) : field.type === 'formula' ? (
+                <span key={field.key} className="ask" title={field.label}>
+                  {valueText(value)}
+                </span>
+              ) : typeof value === 'number' ? (
                 <span key={field.key} className="val" title={field.label}>
                   {formatNumber(value, field.format, currencyOf(field.format, card.values))}
                 </span>

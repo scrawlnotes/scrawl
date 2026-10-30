@@ -200,7 +200,9 @@ export const support: AppTemplate = {
       { label: 'unassigned', one: 'unassigned', conditions: [open, { field: 'assignee', op: 'empty' as const }] },
       { label: 'late', one: 'late', conditions: [{ field: 'late', op: 'true' as const }], warn: true as const },
     ];
-    const columns = ['name', ...(channels.length > 0 ? ['channel'] : []), 'who', 'status', 'reply_said', 'assignee'];
+    // With Product development's bugs, what became of the bug it reported (Report bug).
+    const bugs = app.has('product') && app.answers('product').bugs !== false;
+    const columns = ['name', ...(channels.length > 0 ? ['channel'] : []), 'who', 'status', 'reply_said', ...(bugs ? ['bug_said'] : []), 'assignee'];
     const tab = (id: string, name: string, conditions: Condition[]) => app.view('requests', { id, name, conditions, sort: { key: 'reply_due', dir: 'asc' }, columns, sums, set: 'requests' }, id === 'mine');
     tab('mine', 'Mine', [open, { field: 'assignee', op: 'is', value: ['me'] }]);
     tab('unassigned', 'Unassigned', [open, { field: 'assignee', op: 'empty' }]);
@@ -208,7 +210,7 @@ export const support: AppTemplate = {
     tab('solved', 'Solved', [{ field: 'status', op: 'is', value: ['Solved', 'Closed'] }]);
     app.view('requests', { id: 'open', name: 'Open', conditions: [open], sort: { key: 'reply_due', dir: 'asc' }, hidden: true });
     // A reply due comes to Today with Reply; one late stays in Overdue.
-    app.view('requests', { ...calendar({ start: 'reply_due', color: 'priority', upcoming: true, button: 'Reply', words: ['who', 'reply_said'] }, [{ field: 'status', op: 'is', value: OPEN }]), id: 'due', name: 'Reply due', hidden: true });
+    app.view('requests', { ...calendar({ start: 'reply_due', color: 'priority', upcoming: true, button: 'Reply', words: ['who', ...(bugs ? ['bug_said'] : []), 'reply_said'] }, [{ field: 'status', op: 'is', value: OPEN }]), id: 'due', name: 'Reply due', hidden: true });
     app.homeTile('requests', { off: true });
     app.homeTiles('requests', [
       { view: 'open', title: 'Requests', head: [{ label: 'open' }, { label: 'late', conditions: [{ field: 'late', op: 'true' }], warn: true }], value: 'reply_said', empty: 'No open requests.' },
