@@ -67,6 +67,8 @@ import {
   type LinkedBlock,
   linkedCards,
   linkedRecords,
+  blockRecords,
+  forMe,
   linkedSort,
   linesBlocks,
   showsLines,
@@ -137,6 +139,7 @@ import { FieldsDialog } from './Fields';
 import { isPhone, onPage } from './device';
 import type { MenuHead, MenuItem } from './dialogs';
 import { AttachButton } from './Description';
+import { Sheet } from './Sheet';
 import { Icon } from './Icon';
 import type { FormSave, StopNote } from './session';
 import { collectionLabel } from './items';
@@ -593,6 +596,7 @@ export function Cell({ field, value, ctx, values }: {
   /** The record's values, for a number whose currency is one of its fields. */
   values?: Record['values'];
 }) {
+  if (field.signature) return typeof value === 'string' && value ? <Signature path={value} small /> : null;
   // A bar with nothing to measure still says what it says: an anime of no known length at "E1088".
   if (isEmpty(value) && field.format?.bar && field.format.caption && !isEmpty(values?.[field.format.caption] ?? null)) {
     return (
@@ -649,7 +653,7 @@ export function Cell({ field, value, ctx, values }: {
   if (typeof value === 'number' && field.format?.bar) {
     const caption = field.format.caption ? valueText(values?.[field.format.caption]) : '';
     return (
-      <span className="pbar">
+      <span className={['pbar', field.format.warn && 'budget', field.format.warn && (value > 1 ? 'over' : value >= 0.8 ? 'warn' : '')].filter(Boolean).join(' ')}>
         <span className="b">
           <i style={{ width: `${Math.round(Math.max(0, Math.min(1, value)) * 100)}%` }} />
         </span>
@@ -1026,6 +1030,8 @@ export function FieldInput({ field, value, autoFocus, ctx, currency, onChange, o
   onEnter?: () => void;
 }) {
   const id = `field-${field.key}`;
+  // A signature is shown as it was drawn; it is drawn only where a button asks for it (Complete).
+  if (field.signature) return typeof value === 'string' && value ? <Signature path={value} /> : <span className="dim">—</span>;
   // A choice offers what the record's other choice lets it, by its own names: an anime's Watching (choicesBy).
   const offered = field.choicesBy ? { ...field, options: offeredOptions(field, ctx.values) } : field;
   const named = (option: string) => optionName(field, option, ctx.values);
@@ -1215,7 +1221,7 @@ function LinkedRecords({ block, dir, record, today, actions, drafts, hint, onOpe
     <div className="blk-h">
       <span>{block.title ?? name}</span>
       {count !== null && <small>{count}</small>}
-      {source && (
+      {source && !block.through && (
         <button type="button" className="addl" onClick={() => onAdd(source)}>
           {block.add ? t('collection.addNamed', { name: block.add }) : t('collection.addOne', { singular: singularOf(source.schema) })}
         </button>
@@ -1258,7 +1264,7 @@ function LinkedRecords({ block, dir, record, today, actions, drafts, hint, onOpe
   // The linked records with what is worked out among their values, and their fields as those show.
   const computer = computerFor(source, actions.collections(), actions.boards(), today);
   const shownAs = computer.shown(source.dir);
-  const records = linkedRecords(source, dir, record)
+  const records = blockRecords(block, source, dir, record, actions.collection(dir)?.schema)
     .map((r) => ({ ...r, values: computer.values(source.dir, r) }))
     .filter((r) => !block.where || matchesConditions(r, schema, block.where, today));
   const byKey = (key: string | undefined) => (key ? schema.fields.find((f) => f.key === key) : undefined);
@@ -1392,6 +1398,61 @@ function DayList({ block, source, rows, today, onOpen, onAdd }: { block: LinkedB
                   </b>
                   {sub && <small>{sub}</small>}
                 </span>
+              </button>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** The width and height a signature is drawn in: its path is in these units. */
+export const SIGN_BOX = { w: 300, h: 80 };
+
+/** A signature drawn with a finger, as its path (Field.signature). */
+export function Signature({ path, small }: { path: string; small?: boolean }) {
+  return (
+    <svg className={small ? 'sign small' : 'sign'} viewBox={`0 0 ${SIGN_BOX.w} ${SIGN_BOX.h}`} role="img" aria-label={t('collection.signature')}>
+      <path d={path} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/**
+ * A request's conversation, as Help Scout shows it (design/scrawl-apps.md 3.3): day by day, each
+ * message in the color of its kind, who wrote it and when over what it says.
+ */
+function ThreadList({ block, source, rows, onOpen }: { block: LinkedBlock; source: Collection; rows: Record[]; onOpen: (source: Collection, record: Record) => void }) {
+  const { schema } = source;
+  const choice = block.icon ? schema.fields.find((f) => f.key === block.icon) : undefined;
+  const at = block.time ?? block.sort;
+  const when = (r: Record) => (at && typeof r.values[at] === 'string' ? (r.values[at] as string) : '');
+  const sorted = [...rows].sort((a, b) => when(a).localeCompare(when(b)));
+  const days = new Map<string, Record[]>();
+  for (const r of sorted) days.set(when(r).slice(0, 10), [...(days.get(when(r).slice(0, 10)) ?? []), r]);
+  return (
+    <div className="blk look-thread">
+      <div className="blk-h">
+        <span>{block.title ?? collectionName(source.dir)}</span>
+        {rows.length > 0 && <small>{rows.length}</small>}
+      </div>
+      {rows.length === 0 && <p className="blk-none">{t('collection.noLinked', { collection: collectionName(source.dir).toLowerCase() })}</p>}
+      {[...days].map(([day, list]) => (
+        <div key={day || 'none'}>
+          <div className="ld-day">{day ? new Date(`${day}T00:00`).toLocaleDateString(locale(), { weekday: 'short', day: 'numeric', month: 'short' }) : t('collection.noDay')}</div>
+          {list.map((r) => {
+            const kind = choice ? r.values[choice.key] : null;
+            const by = block.person ? valueText(r.values[block.person] ?? null) : '';
+            const text = block.sub ? valueText(r.values[block.sub] ?? null) : recordTitle(r);
+            const time = when(r).length > 10 ? when(r).slice(11, 16) : '';
+            return (
+              <button key={r.id} type="button" className="lt-msg" onClick={() => onOpen(source, r)} style={typeof kind === 'string' && kind ? hueStyle(choice ? optionColor(choice, kind) : undefined, kind) : undefined}>
+                <span className="h">
+                  <b>{by || (typeof kind === 'string' ? kind : '')}</b>
+                  <small>{[time, typeof kind === 'string' && by ? kind.toLowerCase() : ''].filter(Boolean).join(' · ')}</small>
+                </span>
+                <span className="t">{text}</span>
               </button>
             );
           })}
@@ -1634,7 +1695,7 @@ export function LinkedTable({ block, source, dir, record, today, actions, drafts
   const changes = new Set(columns.filter((f) => changesInTable(f) && block.edit?.includes(f.key)).map((f) => f.key));
   // A row not written yet gives way to its record once it is: as the form is saved.
   const out = drafts?.gone?.(source);
-  const written = linkedRecords(source, dir, record).filter((r) => !out?.has(r.id));
+  const written = blockRecords(block, source, dir, record, recordSchema).filter((r) => !out?.has(r.id));
   const unsaved = (drafts?.rows(source) ?? []).filter((r) => !written.some((w) => w.id === r.id));
   const isDraft = new Set(unsaved.map((r) => r.id));
   // Only the rows the block asks for: a company's planned activities apart from those done.
@@ -1710,6 +1771,7 @@ export function LinkedTable({ block, source, dir, record, today, actions, drafts
       ],
       { icon: 'collection', title: recordTitle(r), sub: collectionName(source.dir) },
     );
+  if (block.look === 'thread') return <ThreadList block={block} source={source} rows={rows} onOpen={onOpen} />;
   if (block.look === 'days') return <DayList block={block} source={source} rows={rows} today={today} onOpen={onOpen} onAdd={() => startAdding(null)} />;
   if (block.look === 'checklist') return <CheckList block={block} source={source} groups={groups} rows={rows} ctx={ctx} today={today} tick={tickColumn} onTick={(r, on) => tickColumn && write(r, tickColumn, on)} onOpen={onOpen} onAdd={() => startAdding(null)} />;
   if (block.look === 'split' && parent) return <SplitList block={block} source={source} dir={dir} rows={rows} actions={actions} parent={parent} onWrite={write} />;
@@ -2285,7 +2347,9 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
   const item = (key: string, index: number): ReactNode => {
     const field = fields.get(key);
     // Nor one whose Shown when does not hold as the form is now: Store but for a warranty (design/shown-when.md).
-    if (!field || offForm.has(key) || !shownOnForm(field, { values: toBe }, schema, today)) return null;
+    // One kept off the window may still be asked as a record is made: what a customer wrote first (Layout.new).
+    const asked = !record && !!schema.layout?.new?.includes(key);
+    if (!field || (offForm.has(key) && !asked) || !shownOnForm(field, { values: toBe }, schema, today)) return null;
     // One shown beside another is on that one's line; the name is the window's title when it has a head.
     if (field.beside && fields.has(field.beside)) return null;
     if (schema.head && (field.type === 'name' || field.key === schema.head.steps)) return null;
@@ -2898,7 +2962,9 @@ export function CollectionView({ collection, embedded, screen, today, look, onLo
     setFull(false);
   };
 
-  const viewed = useMemo(() => records.filter((r) => matchesConditions(r, schema, state.conditions, today)), [records, schema, state.conditions, today]);
+  const me = actions.me?.();
+  // A condition on whoever looks, a request's Mine, is on their name.
+  const viewed = useMemo(() => records.filter((r) => matchesConditions(r, schema, forMe(state.conditions, me), today)), [records, schema, state.conditions, today, me]);
   const chipOf = (r: Record) => (chipField ? valueText(r.values[chipField.key] ?? null) : '');
   const matching = useMemo(
     () => viewed.filter((r) => (!chipOn || chipOf(r) === chipOn) && matchesQuery(r, schema, query)),
@@ -3383,7 +3449,7 @@ export function CollectionView({ collection, embedded, screen, today, look, onLo
     setAdHoc([]);
     setFiltering(false);
   };
-  const countFor = (conditions: Condition[]) => records.filter((r) => matchesConditions(r, schema, conditions, today)).length;
+  const countFor = (conditions: Condition[]) => records.filter((r) => matchesConditions(r, schema, forMe(conditions, me), today)).length;
 
   if (isPhone()) {
     // A view held: its filter, or Delete.
@@ -3661,6 +3727,8 @@ export function CollectionView({ collection, embedded, screen, today, look, onLo
           onOpen={(id) => setOpen({ kind: 'record', id })}
           onNew={(values) => setOpen({ kind: 'new', values })}
         />
+      ) : view?.kind === 'sheet' && view.sheet ? (
+        <Sheet collection={rolled} records={matching} view={view} today={today} actions={actions} onOpen={(id) => setOpen({ kind: 'record', id })} />
       ) : (
         table
       )}

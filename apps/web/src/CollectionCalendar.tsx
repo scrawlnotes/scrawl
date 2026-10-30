@@ -25,6 +25,10 @@ import {
   timeOf,
   type View,
   weekDays,
+  isEmpty,
+  isLink,
+  type Link,
+  linkTo,
 } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type DragEvent, type MouseEvent, useEffect, useRef, useState } from 'react';
@@ -201,7 +205,7 @@ export function CalendarNav({ nav, today }: { nav: CalendarNavState; today: stri
 }
 
 /** The range a Calendar view opens on: a week when it goes by a day and a time, a month by a day alone. */
-export const firstRange = (schema: Schema, view: View): CalendarRange => (schema.fields.find((f) => f.key === view.calendar?.start)?.time ? 'week' : 'month');
+export const firstRange = (schema: Schema, view: View): CalendarRange => (view.calendar?.lanes ? 'day' : schema.fields.find((f) => f.key === view.calendar?.start)?.time ? 'week' : 'month');
 
 /** How many of the records are in what the calendar shows, said the status bar's way. */
 export function calendarStatus(items: readonly CalendarRecord[], nav: CalendarNavState): string {
@@ -252,6 +256,9 @@ export function CollectionCalendar({ collection, records, view, nav, today, acti
     if (values) actions.moveRecord(dir, item.record.id, values, t('calendar.stretched', { name: title(item.record), time: timeOf(end) ?? '' }));
   };
   const byKey = new Map(items.map((item) => [item.record.id, item]));
+  if (settings.lanes && nav.range === 'day') {
+    return <LaneDay collection={collection} records={records} items={items} day={nav.focus} lanes={settings.lanes} actions={actions} colorOf={colorOf} title={title} onOpen={onOpen} />;
+  }
   if (settings.repeat) return <RepeatCalendar collection={collection} records={records} view={view} nav={nav} today={today} actions={actions} onOpen={onOpen} />;
 
   if (nav.range === 'month') {
@@ -360,6 +367,130 @@ export function CollectionCalendar({ collection, records, view, nav, today, acti
         onResize={resizable ? (box, end) => byKey.get(box.key) && stretch(byKey.get(box.key)!, end) : undefined}
         onSlot={(day, from, to) => onNew(startingValues(schema, settings, atMinutes(day, from), atMinutes(day, to)))}
       />
+    </div>
+  );
+}
+
+/** The hours a technician's day shows, from 7 to 19. */
+const LANE_FROM = 7;
+const LANE_HOURS = 12;
+
+/**
+ * A day with a row for each record its lanes link to, a technician's day each, as Jobber's
+ * schedule has it (design/scrawl-apps.md 3.3): the hours across, each record a box at its time, a
+ * row for those given to no one, and those with no day beside it. A box or a card dropped on a row
+ * at an hour takes that row and that time, by the quarter hour.
+ */
+function LaneDay({ collection, records, items, day, lanes, actions, colorOf, title, onOpen }: {
+  collection: Collection;
+  records: Record[];
+  items: CalendarRecord[];
+  day: string;
+  lanes: string;
+  actions: CollectionActions;
+  colorOf: (item: CalendarRecord) => string;
+  title: (record: Record) => string;
+  onOpen: (id: string) => void;
+}) {
+  const { dir, schema } = collection;
+  const settings = collection.schema.views?.find((v) => v.calendar?.lanes === lanes)?.calendar;
+  const field = schema.fields.find((f) => f.key === lanes);
+  const people = (field?.collection ? actions.collection(field.collection)?.records : undefined) ?? [];
+  const [dropOn, setDropOn] = useState<string | null>(null);
+  const dragged = useRef<string | null>(null);
+  const today = items.filter((item) => item.start.slice(0, 10) === day && minutesOfDay(item.start) !== null);
+  const laneOf = (r: Record) => {
+    const v = r.values[lanes];
+    const link = Array.isArray(v) ? v[0] : v;
+    return isLink(link) ? link.id : '';
+  };
+  const unscheduled = settings ? records.filter((r) => isEmpty(r.values[settings.start] ?? null)) : [];
+  const rows = [...people.map((p) => ({ id: p.id, name: recordLabel(p) || t('collection.untitled'), link: linkTo(p) as Link | null })), { id: '', name: t('calendar.unassigned'), link: null }];
+  const drop = (event: DragEvent<HTMLDivElement>, row: (typeof rows)[number]) => {
+    event.preventDefault();
+    setDropOn(null);
+    const id = dragged.current;
+    dragged.current = null;
+    if (!id || !settings) return;
+    const box = event.currentTarget.getBoundingClientRect();
+    const minutes = Math.round((((event.clientX - box.left) / box.width) * LANE_HOURS * 60) / 15) * 15 + LANE_FROM * 60;
+    const start = atMinutes(day, Math.max(0, Math.min(24 * 60 - 15, minutes)));
+    const item = items.find((i) => i.record.id === id);
+    const moved = item ? movedValues(schema, settings, item, start) : { [settings.start]: start };
+    if (!moved) return;
+    const record = records.find((r) => r.id === id);
+    actions.moveRecord(dir, id, { ...moved, [lanes]: row.link }, t('calendar.moved', { name: record ? title(record) : '', when: `${row.name} · ${whenWords(start)}` }));
+  };
+  const drag = (id: string) => (event: DragEvent) => {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', id);
+    dragged.current = id;
+  };
+  return (
+    <div className="lane-day">
+      <div className="lane-board">
+        <div className="lane hd">
+          <span className="nm" />
+          <span className="tl">
+            {Array.from({ length: LANE_HOURS }, (_, i) => (
+              <i key={i}>{`${String(LANE_FROM + i).padStart(2, '0')}:00`}</i>
+            ))}
+          </span>
+        </div>
+        {rows.map((row) => {
+          const mine = today.filter((item) => laneOf(item.record) === row.id);
+          return (
+            <div key={row.id || 'none'} className="lane">
+              <span className="nm">
+                <b>{row.name}</b>
+                <small>{mine.length === 0 ? t('calendar.free') : t('calendar.jobs', { count: mine.length })}</small>
+              </span>
+              <div
+                className={dropOn === (row.id || 'none') ? 'tl drop-on' : 'tl'}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  if (dropOn !== (row.id || 'none')) setDropOn(row.id || 'none');
+                }}
+                onDragLeave={() => setDropOn(null)}
+                onDrop={(event) => drop(event, row)}
+              >
+                {mine.map((item) => {
+                  const from = (minutesOfDay(item.start)! - LANE_FROM * 60) / (LANE_HOURS * 60);
+                  const width = Math.max(item.minutes ?? 60, 30) / (LANE_HOURS * 60);
+                  return (
+                    <button
+                      key={item.record.id}
+                      type="button"
+                      draggable
+                      className="lane-job"
+                      style={{ left: `${Math.max(0, from) * 100}%`, width: `${Math.min(width, 1 - Math.max(0, from)) * 100}%`, '--cc': colorOf(item) } as CSSProperties}
+                      title={title(item.record)}
+                      onDragStart={drag(item.record.id)}
+                      onClick={() => onOpen(item.record.id)}
+                    >
+                      <b>{title(item.record)}</b>
+                      <small>{[timeOf(item.start), subOf(schema, item.record)].filter(Boolean).join(' · ')}</small>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="lane-side">
+        <div className="blk-h">
+          <span>{t('calendar.unscheduled')}</span>
+          <small>{unscheduled.length}</small>
+        </div>
+        {unscheduled.length === 0 && <p className="blk-none">{t('calendar.noneUnscheduled')}</p>}
+        {unscheduled.map((r) => (
+          <button key={r.id} type="button" draggable className="lane-card" onDragStart={drag(r.id)} onClick={() => onOpen(r.id)}>
+            <b>{title(r)}</b>
+            <small>{subOf(schema, r) ?? t('calendar.dragOnRow')}</small>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

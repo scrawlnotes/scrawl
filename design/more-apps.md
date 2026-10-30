@@ -85,6 +85,22 @@ Hizmet kesintisi, kalite sorunu, iş kazası ve ramak kala, büyüyen müşteri 
 
 ### 3.6 Saha servisi ve iş emirleri (Customers)
 
+30 Ekim, Jobber ve Housecall Pro'nun ekranlarına bakılarak baştan; Destek (`design/scrawl-apps.md` 3.3) ve Danışmanlıkla birlikte. Mockup: `design/mockups.html` › Destek, saha servisi ve danışmanlık. Roadmap ROA-340, deneme ROA-341.
+
+- **Jobs** (Work orders'ın yeni adı): sekmeler Today, Unscheduled, Scheduled, Late, To invoice, Done; üstte "5 today · 2 unscheduled · 1 late · $4,200 to invoice". Satırda iş, müşteri, "Today 11:00", teknisyen, durum çipi, toplam. To invoice'ta **Invoice all**.
+- **Schedule:** günün her teknisyeni bir satır, saatler yan yana, Unassigned satırı; günü olmayan işler yanda, sürükleyip satıra ve saate bırakılır (teknisyeni ve saati yazılır, Scheduled olur). Week ve Month takvimin kendisi.
+- **Yeni iş:** müşteri ya da ekipman (adres ve müşteri ekipmandan), tür çiplerle, teknisyen, ne zaman; boş bırakılırsa Unscheduled.
+- **İşin penceresi:** başlıkta "Scheduled · Today 11:00 · Ahmet · Acme Lojistik, Beşiktaş · from RQ-0142", aşamalar Unscheduled, Scheduled, In progress, Done, Invoiced; düğmeler **On my way**, **Start** (başlama saatini yazar), **Complete**, **Reschedule**, **Invoice**. Sağda kontrol listesi (iş türünün listesinden, Checklists ekranında değişir), parçalar ve işçilik.
+- **Complete:** işaretlenmemiş maddeleri söyler, yine de tamamlanır; ne yapıldığı, başlama ve bitiş, müşterinin parmakla imzası ve imzalayan. Saatler teknisyenin saat ücretiyle işçilik satırı olur; parçalar stoktan düşer.
+- **Invoice:** işin parça ve işçiliği müşterinin o günkü Sales siparişine (yoksa yeni, To invoice) eklenir; iş Invoiced olur. Bütçe varsa ödeme.
+- **Ekipman:** "every 3 months" gibi aralık; bakım günü Today'de **Book visit** ile (işi Unscheduled ya da saatiyle açar); yapılan bakım sonrakini yazar.
+- **Today:** planlanan iş Start, başlamış iş Complete ile; Overdue'da geciken.
+- **Home:** Today (teknisyenle), To schedule, To invoice, Service due.
+- **Telefonda:** iş sayfasında Job sekmesi (kontrol listesi, parça ve işçilik).
+- **Mockup'tan kalan farklar:** On my way müşteriye mesaj atmaz, yalnız saati yazar; fotoğraflar notlara eklenir (ayrı blok yok); Checklists menüde ayrı ekran.
+
+Önceki hali:
+
 Asansör, klima, beyaz eşya, tesisat, bakım firmaları.
 
 - **Equipment:** müşterinin yerindeki cihaz: müşteri, adres, tür, marka ve model, seri no, kurulum günü, periyodik bakım aralığı, sonraki bakım.
@@ -97,6 +113,21 @@ Asansör, klima, beyaz eşya, tesisat, bakım firmaları.
 - **Sorular:** hangi işler (onarım, bakım, kurulum), teknisyenler (liste), parçalar stoktan mı düşsün (Stok seçiliyse), periyodik bakım anlaşmaları var mı, faturalama (Satış ya da Bütçe seçiliyse).
 
 ### 3.7 Danışmanlık: müşteriler ve işler (Customers)
+
+30 Ekim, Harvest ve Toggl'ın ekranlarına bakılarak baştan; Destek ve Saha servisiyle birlikte. Mockup: `design/mockups.html` › Destek, saha servisi ve danışmanlık. Roadmap ROA-340, deneme ROA-341.
+
+- **Projects** (Engagements'ın yeni adı; Proje yönetimi şablonu da varsa Engagements kalır): müşteriye göre gruplu, sütunlar Fee, Budget, Spent, bütçe çubuğu (%80'den sarı, aşınca kırmızı), Remaining "$340 (34%)", Uninvoiced; üstte "3 active · $5,940 uninvoiced · 1 over budget".
+- **Yeni proje:** müşteri, ücret çiplerle (Fixed fee, Hourly, Retainer, Non-billable), saat ücreti, bütçe, tarihler. Retainer'ın bütçesi aylıktır.
+- **Projenin penceresi:** başlıkta "Acme Lojistik · 48 h · $6,200 of $8,000 · $1,800 left (22%) · $3,400 uninvoiced"; düğmeler **Track time**, **Invoice**, **Expense**; sağda teslimler, saatler, masraflar, sabit ücretin ödemeleri (Fee payments) ve faturalar.
+- **Track time:** ne, saat, gün; saat boş bırakılırsa sayaç başlar, Today'de **Stop** ile durur ve saati yazar.
+- **Time:** hafta tablosu; satır proje, sütun gün, saat hücreye yazılır ("2:30" ya da "2.5"); + Add row, Copy last week.
+- **Invoice:** hangi saatler (This month, Last month, All not invoiced), masraflar (Billable ones, None), satırlar (By person, By task, One line); Sales'te müşteriye To invoice siparişi açar, saat ve masraflar faturalandı olur. Sales yoksa Bütçe'ye ödeme.
+- **Fee payments:** sabit ücretin adımları; günü gelen Today'de Invoice ile.
+- **Expense:** kategori çiplerle, tutar, gün; projenin faturalanır olup olmamasını alır; fiş notlara eklenir.
+- **Home:** Uninvoiced, Budgets (aşan ve %80'i geçen), This week (saat ve faturalanır payı).
+- **Mockup'tan kalan farklar:** Track time'da ayrı Start düğmesi yok, saati boş bırakmak sayacı başlatır; hafta tablosunun üstünde faturalanır payı yazmaz; sayaç Home'da değil Today'de.
+
+Önceki hali:
 
 Danışmanlık firmaları; muhasebe ve hukuk büroları bir soruyla.
 

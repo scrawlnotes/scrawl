@@ -21668,3 +21668,374 @@ button.ppl:hover {
 div.app-tile[role='button'] {
   cursor: pointer;
 }
+
+/* A request's conversation, as Help Scout shows it: each message in its kind's color, who and when over it. */
+.look-thread .ld-day {
+  padding: 10px 0 3px;
+  color: var(--sl-dim);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.look-thread .lt-msg {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 6px 0 8px;
+  padding: 8px 11px;
+  border: 0;
+  border-left: 3px solid hsl(var(--lh, 214) var(--ls, 60%) 55%);
+  border-radius: 8px;
+  background: hsl(var(--lh, 214) var(--ls, 60%) 55% / 0.08);
+  color: var(--sl-fg);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: left;
+  cursor: pointer;
+}
+
+.look-thread .lt-msg .h {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin-bottom: 2px;
+}
+
+.look-thread .lt-msg .h b {
+  font-weight: 600;
+}
+
+.look-thread .lt-msg .h small {
+  color: var(--sl-faint);
+  font-size: 11px;
+}
+
+.look-thread .lt-msg .t {
+  display: block;
+  white-space: pre-wrap;
+}
+
+/* A signature drawn with a finger: the pad a button asks it on, and the drawing on the record. */
+.sign-pad svg {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  height: 92px;
+  border: 1px dashed var(--sl-line);
+  border-radius: 6px;
+  background: var(--sl-bg);
+  color: var(--sl-fg);
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.sign-pad .sign-foot {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  margin-top: 3px;
+  color: var(--sl-faint);
+  font-size: 11.5px;
+}
+
+svg.sign {
+  display: block;
+  width: 100%;
+  max-width: 300px;
+  height: 70px;
+  color: var(--sl-fg);
+}
+
+svg.sign.small {
+  width: 90px;
+  height: 24px;
+}
+
+/* A text's saved replies, Help Scout's: a button whose menu puts one in the box. */
+.snips {
+  position: relative;
+  display: inline-block;
+  margin-top: 6px;
+}
+
+.snips-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  min-width: 230px;
+  padding: 4px;
+  border: 1px solid var(--sl-line);
+  border-radius: 8px;
+  background: var(--sl-bg);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.25);
+}
+
+.snips-menu button {
+  height: auto;
+  padding: 6px 9px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--sl-fg);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.snips-menu button:hover {
+  background: var(--sl-hover, rgb(127 127 127 / 0.12));
+}
+
+/* A budget's bar: green, yellow from 80%, red over it. */
+.pbar.budget .b i {
+  background: #5cb87a;
+}
+
+.pbar.budget.warn .b i {
+  background: #e0a84a;
+}
+
+.pbar.budget.over .b i {
+  background: var(--sl-p1);
+}
+
+/* A technician's day each on a row, as Jobber's schedule has it; those with no day beside it. */
+.lane-day {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 230px;
+  gap: 16px;
+  padding: 4px 16px 16px;
+  overflow: auto;
+}
+
+.lane-board {
+  border: 1px solid var(--sl-line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.lane {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  min-height: 60px;
+  border-bottom: 1px solid var(--sl-line);
+}
+
+.lane:last-child {
+  border-bottom: 0;
+}
+
+.lane.hd {
+  min-height: 0;
+  color: var(--sl-faint);
+  font-size: 10.5px;
+}
+
+.lane .nm {
+  padding: 8px 10px;
+  border-right: 1px solid var(--sl-line);
+  font-size: 12.5px;
+}
+
+.lane .nm small {
+  display: block;
+  color: var(--sl-faint);
+  font-size: 11px;
+}
+
+.lane .tl {
+  position: relative;
+  background-image: linear-gradient(90deg, var(--sl-line) 1px, transparent 1px);
+  background-size: calc(100% / 12) 100%;
+}
+
+.lane .tl.drop-on {
+  background-color: color-mix(in srgb, var(--sl-accent) 10%, transparent);
+}
+
+.lane.hd .tl {
+  display: flex;
+  background: none;
+}
+
+.lane.hd .tl i {
+  flex: 1;
+  padding: 5px 4px;
+  font-style: normal;
+}
+
+.lane-job {
+  position: absolute;
+  top: 7px;
+  bottom: 7px;
+  height: auto;
+  padding: 3px 7px;
+  overflow: hidden;
+  border: 0;
+  border-left: 3px solid var(--cc);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--cc) 20%, var(--sl-bg));
+  color: var(--sl-fg);
+  font: inherit;
+  font-size: 11.5px;
+  text-align: left;
+  cursor: grab;
+}
+
+.lane-job b,
+.lane-job small,
+.lane-card b,
+.lane-card small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lane-job b {
+  font-weight: 600;
+}
+
+.lane-job small,
+.lane-card small {
+  color: var(--sl-dim);
+  font-size: 10.5px;
+}
+
+.lane-card {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border: 1px dashed var(--sl-line);
+  border-radius: 7px;
+  background: none;
+  color: var(--sl-fg);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: grab;
+}
+
+/* A week of hours typed in a sheet, as Harvest's timesheet: a row a project, a column a day. */
+.sheet {
+  padding: 4px 16px 16px;
+  overflow: auto;
+}
+
+.sheet-nav {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 2px 0 8px;
+  font-size: 12.5px;
+}
+
+.sheet-nav small {
+  margin-left: 6px;
+  color: var(--sl-dim);
+}
+
+.sheet-grid {
+  min-width: 720px;
+  border: 1px solid var(--sl-line);
+  border-radius: 8px;
+}
+
+.sheet-grid .r {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) repeat(7, 74px) 74px;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--sl-line);
+  font-size: 12.5px;
+}
+
+.sheet-grid .r:last-child {
+  border-bottom: 0;
+}
+
+.sheet-grid .r > span:not(.tt):not(.adds) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.sheet-grid .r.head {
+  color: var(--sl-faint);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.sheet-grid .r.head > span:first-child {
+  text-align: left;
+}
+
+.sheet-grid .r.head .today {
+  color: var(--sl-accent);
+  font-weight: 600;
+}
+
+.sheet-grid .r.foot {
+  color: var(--sl-dim);
+  font-weight: 600;
+}
+
+.sheet-grid .tt b {
+  font-weight: 500;
+}
+
+.sheet-grid input,
+.sheet-grid .sk-many {
+  width: 100%;
+  height: 26px;
+  padding: 2px 8px;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  background: var(--sl-bg);
+  color: var(--sl-fg);
+  font: inherit;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  box-sizing: border-box;
+}
+
+.sheet-grid input.empty {
+  border-color: color-mix(in srgb, var(--sl-faint) 45%, transparent);
+  border-style: dashed;
+}
+
+.sheet-grid input.today {
+  border-color: var(--sl-accent);
+}
+
+.sheet-grid .sk-many {
+  cursor: pointer;
+  color: var(--sl-dim);
+}
+
+.sheet-grid .adds {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-weight: 400;
+}
+
+.sheet-grid .adds select {
+  max-width: 160px;
+  height: 26px;
+  border: 0;
+  background: none;
+  color: var(--sl-accent);
+  font: inherit;
+  cursor: pointer;
+}

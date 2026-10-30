@@ -4344,6 +4344,78 @@ p { margin: 0; max-width: 68ch; }
 .mbs .sk-box.m.empty { min-height: 34px; }
 .mbs .sl-mfoot { padding: 14px 16px; }
 .mbs .sl-mfoot .mb-qact { display: block; text-align: center; }
+/* Support, Field service and Consulting (Oct 30): Zendesk and Help Scout, Jobber, Harvest and Toggl. */
+.ca-row.sv-rq { grid-template-columns: 22px minmax(0, 1fr) 190px 150px 130px 70px; }
+.ca-row.sv-fb { grid-template-columns: minmax(0, 1fr) 80px 230px 110px; }
+.ca-row.sv-wo { grid-template-columns: minmax(0, 1fr) 130px 120px 90px 100px 70px; }
+.ca-row.sv-pr { grid-template-columns: minmax(0, 1fr) 84px 110px 70px 120px 120px 84px; }
+.ca-row .tt small { display: block; color: var(--m-faint); font: 11px var(--m-mono); }
+.sv-due { color: var(--m-dim); font-size: 12px; }
+.sv-due.late { color: var(--m-p1); font-weight: 600; }
+.sv-due.dim { color: var(--m-faint); }
+.sv-msg { margin: 6px 0 8px; padding: 8px 11px; border-radius: 8px; border-left: 3px solid var(--mc); background: color-mix(in srgb, var(--mc) 8%, transparent); font-size: 12.5px; line-height: 1.45; }
+.sv-msg.in { --mc: #6aa5f0; }
+.sv-msg.out { --mc: #5cb87a; }
+.sv-msg.note { --mc: #e0c04a; }
+.sv-msg .h { display: flex; gap: 8px; align-items: baseline; margin-bottom: 2px; }
+.sv-msg .h small { color: var(--m-faint); font-size: 11px; }
+.sv-snips { position: relative; display: flex; gap: 10px; align-items: flex-start; }
+.sv-menu { position: absolute; left: 120px; top: 0; z-index: 2; display: flex; flex-direction: column; min-width: 220px; padding: 4px; border: 1px solid var(--m-line); border-radius: 8px; background: var(--m-bg); box-shadow: 0 6px 18px rgba(0,0,0,.25); font-size: 12.5px; }
+.sv-menu span { padding: 5px 9px; border-radius: 5px; }
+.sv-menu span.on { background: color-mix(in srgb, var(--m-accent) 14%, transparent); }
+.sv-sched { display: grid; grid-template-columns: minmax(0, 1fr) 230px; gap: 16px; padding: 4px 16px 16px; }
+.sv-board { border: 1px solid var(--m-line); border-radius: 8px; overflow: hidden; }
+.sv-lane { display: grid; grid-template-columns: 110px minmax(0, 1fr); min-height: 60px; border-bottom: 1px solid var(--m-line); }
+.sv-lane:last-child { border-bottom: 0; }
+.sv-lane.hd { min-height: 0; color: var(--m-faint); font-size: 10.5px; }
+.sv-lane .nm { padding: 8px 10px; border-right: 1px solid var(--m-line); font-size: 12.5px; }
+.sv-lane .nm small { display: block; color: var(--m-faint); font-size: 11px; }
+.sv-lane .tl { position: relative; background: repeating-linear-gradient(90deg, transparent 0 calc(10% - 1px), var(--m-line) calc(10% - 1px) 10%); }
+.sv-lane.hd .tl { display: flex; background: none; }
+.sv-lane.hd .tl i { flex: 1; padding: 5px 4px; font-style: normal; }
+.sv-job { position: absolute; top: 7px; bottom: 7px; padding: 4px 7px; border-left: 3px solid var(--jc); border-radius: 5px; background: color-mix(in srgb, var(--jc) 20%, var(--m-bg)); font-size: 11.5px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; box-sizing: border-box; }
+.sv-job b { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.sv-job small { display: block; color: var(--m-dim); font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; }
+.sv-job.on { box-shadow: inset 0 0 0 1px var(--jc); }
+.sv-job.un { outline: 1px dashed var(--m-faint); }
+.sv-unsched .sv-card { margin-bottom: 8px; padding: 8px 10px; border: 1px dashed var(--m-line); border-radius: 7px; font-size: 12.5px; cursor: grab; }
+.sv-unsched .sv-card small { display: block; color: var(--m-faint); font-size: 11px; }
+.cr-plan .tx.done { color: var(--m-faint); text-decoration: line-through; }
+.cr-ring.on { border-color: #5cb87a; background: #5cb87a; }
+.sv-photos { display: flex; gap: 8px; align-items: stretch; }
+.sv-photos i { width: 64px; height: 52px; border-radius: 6px; background: linear-gradient(135deg, #59606e, #3a3f4a); }
+.sv-photos .addp { display: grid; place-items: center; width: 64px; border: 1px dashed var(--m-line); border-radius: 6px; color: var(--m-accent); font-size: 12px; }
+.sv-sign { flex: 1; padding: 6px 10px; border: 1px dashed var(--m-line); border-radius: 6px; color: var(--m-faint); font-size: 12px; }
+.sv-sign small { display: block; font-size: 10.5px; }
+.sv-pad { padding: 6px 10px; border: 1px solid var(--m-line); border-radius: 6px; color: var(--m-fg); }
+.sv-pad svg { display: block; width: 100%; height: 60px; }
+.sv-pad small { color: var(--m-faint); font-size: 11px; }
+.sv-week { margin: 4px 16px 16px; border: 1px solid var(--m-line); border-radius: 8px; }
+.sv-week .r { display: grid; grid-template-columns: minmax(0, 1fr) repeat(7, 70px) 70px; gap: 6px; align-items: center; padding: 7px 10px; border-bottom: 1px solid var(--m-line); font-size: 12.5px; }
+.sv-week .r:last-child { border-bottom: 0; }
+.sv-week .r > span:not(.tt) { text-align: right; font-variant-numeric: tabular-nums; }
+.sv-week .r.head > span:first-child { text-align: left; }
+.sv-week .sk-box { width: 100%; }
+.sv-week .sk-box.empty { border-color: color-mix(in srgb, var(--m-faint) 45%, transparent); }
+.sv-week .r.head { color: var(--m-faint); font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; }
+.sv-week .r.head .today { color: var(--m-accent); font-weight: 600; }
+.sv-week .r .tt small { display: block; color: var(--m-faint); font-size: 11px; }
+.sv-week .r.foot { color: var(--m-dim); font-weight: 600; }
+.sv-week .r.foot > span:first-child { color: var(--m-accent); font-weight: 400; text-align: left; }
+.sv-week .sk-box.today { border-color: var(--m-accent); }
+.sv-bar { display: block; height: 7px; border-radius: 4px; background: var(--m-line); overflow: hidden; align-self: center; }
+.sv-bar i { display: block; height: 100%; background: #5cb87a; }
+.sv-bar.warn i { background: #e0a84a; }
+.sv-bar.over i { background: var(--m-p1); }
+.sv-bar.big { height: 10px; }
+.sv-budget small { display: block; margin-top: 5px; color: var(--m-dim); font-size: 12px; }
+.mbs .sv-mtimer { margin: 6px 16px 10px; padding: 14px; border-radius: 12px; background: var(--m-side); text-align: center; }
+.mbs .sv-mtimer b { display: block; font: 700 30px/1.2 var(--m-mono); }
+.mbs .sv-mtimer small { display: block; margin: 2px 0 10px; color: var(--m-faint); font-size: 13px; }
+.mbs .sv-mtimer .sl-mbtn { display: inline-block; }
+.mbs .sv-msg { margin: 6px 16px 8px; font-size: 14px; }
+.mbs .cr-mrow b.done { color: var(--m-faint); text-decoration: line-through; font-weight: 500; }
+
 /* Reading and watching (Oct 29): a screen for each kind, as Sequel, MyAnimeList and StoryGraph have them. */
 .rw-cov { display: grid; place-items: center; width: 28px; height: 40px; border-radius: 4px; background: linear-gradient(160deg, var(--cc), color-mix(in srgb, var(--cc) 45%, #000)); color: #fff; font-size: 11px; font-weight: 700; }
 .ca-row.rw-row { grid-template-columns: 28px minmax(0, 1fr) 250px 64px 150px; }
@@ -5554,6 +5626,37 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-slview="sltoday">Today</button>
         <button type="button" data-slview="slhome">Home</button>
         <button type="button" data-slview="slphone">Telefon</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="service2">
+    <div class="brief">
+      <div>
+        <span class="letter">SCRAWL APPS · TASLAK</span>
+        <h2>Destek, saha servisi ve danışmanlık: Help Scout, Jobber ve Harvest gibi</h2>
+        <p>Üçü CRM'le tek app'te, müşteriler ortak. <b>Support</b>: talepler pano değil liste; Mine, Unassigned, Waiting on customer, Solved sekmeleri, üstte açık, sahipsiz ve geciken; her satırda yanıtın ne zaman beklendiği ya da kaç saat geciktiği. Penceresi üç sütun: solda kanal, tür, öncelik, kimde; ortada yazışma gün gün, müşteri ve iç not ayrı renk; sağda müşterinin öbür talepleri, işleri ve bağlı fikir. <b>Reply</b> metni ve hazır yanıtları sorar, ardından talebin durumunu çip olarak; <b>Customer wrote</b> yeniden açar. İlk yanıt süresi kurulumda sorulur, müşteriyi beklerken durur. <b>Field service</b>: Today, Unscheduled, Late, To invoice; <b>Schedule</b> günü teknisyen satırlarıyla gösterir, planlanmamış iş yanından sürüklenir. İşte <b>On my way</b>, <b>Start</b>, <b>Complete</b>; kontrol listesi iş türünden gelir, Complete işaretlenmeyenleri söyler, imza parmakla, parçalar stoktan düşer. To invoice'tan Sales siparişi yazılır. Bakım aralığı olan ekipman zamanı gelince Today'de <b>Book visit</b> ile. <b>Consulting</b>: <b>Track time</b> süre ya da Start ile sayaç; hafta tablosunda saatler hücreye yazılır; projeler müşteriye göre bütçe çubuğuyla, %80'de uyarı, aşınca kırmızı. <b>Invoice</b> faturalanmamış saat ve masraftan Sales siparişi yazar.</p>
+        <ul class="traits"><li>yanıt süresi</li><li>yazışma</li><li>hazır yanıt</li><li>fikre bağlama</li><li>teknisyen günü</li><li>kontrol listesi</li><li>imza</li><li>bakım zamanı</li><li>sayaç</li><li>hafta tablosu</li><li>bütçe çubuğu</li><li>saatten fatura</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Destek, saha servisi ve danışmanlık görünümü">
+        <button type="button" data-svview="rqlist">Requests</button>
+        <button type="button" data-svview="rqwin">Talep</button>
+        <button type="button" data-svview="rqreply">Reply</button>
+        <button type="button" data-svview="rqfeedback">Feedback</button>
+        <button type="button" data-svview="fsjobs">Jobs</button>
+        <button type="button" data-svview="fsboard">Schedule</button>
+        <button type="button" data-svview="fsjob">İş</button>
+        <button type="button" data-svview="fscomplete">Complete</button>
+        <button type="button" data-svview="fsequip">Ekipman</button>
+        <button type="button" data-svview="cnweek">Hafta</button>
+        <button type="button" data-svview="cntrack">Track time</button>
+        <button type="button" data-svview="cnprojects">Projects</button>
+        <button type="button" data-svview="cnproject">Proje</button>
+        <button type="button" data-svview="cninvoice">Invoice</button>
+        <button type="button" data-svview="svtoday">Today</button>
+        <button type="button" data-svview="svhome">Home</button>
+        <button type="button" data-svview="svphone">Telefon</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -17469,6 +17572,295 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderSl(sectionSl, b.dataset.slview);
   });
   renderSl(sectionSl, 'slorders');
+
+  // Support, Field service and Consulting (draft, Oct 30): one app with the CRM. Support as Zendesk,
+  // Freshdesk and Help Scout keep it: views by who has it, a reply due on each, the conversation in
+  // the middle, Reply with saved replies and the status after it. Field service as Jobber and
+  // Housecall Pro: Today, Unscheduled, Late, To invoice; a day of each technician on a row, an
+  // unscheduled list beside it; On my way, Start, Complete with its checklist, photos and signature.
+  // Consulting as Harvest and Toggl: Track time and a week of hours typed in a grid; projects by
+  // client with their budget as a bar; Invoice from the hours and expenses not invoiced.
+  var SV_APP = 'Atlas Asansör';
+  var SV_MODS = ['Home', 'CRM', 'Support', 'Field service', 'Consulting'];
+  var SV_MENU = {
+    Support: ['Requests', 'Feedback', 'Saved replies'],
+    'Field service': ['Jobs', 'Schedule', 'Equipment', 'Technicians'],
+    Consulting: ['Projects', 'Time', 'Expenses', 'Deliverables']
+  };
+  [['New', '#6aa5f0'], ['Open', '#e0a84a'], ['Waiting on customer', '#8a8fa0'], ['Solved', '#5cb87a'], ['Unscheduled', '#8a8fa0'], ['Scheduled', '#6aa5f0'],
+    ['In progress', '#e0a84a'], ['Done', '#5cb87a'], ['Invoiced', '#b48ef0'], ['Hourly', '#4fb3d9'], ['Fixed fee', '#b48ef0'], ['Late', '#e5534b'],
+    ['Problem', '#e5534b'], ['Question', '#6aa5f0'], ['Request', '#b48ef0'], ['High', '#e5534b'], ['Normal', '#8a8fa0']].forEach(function (c) { LC[c[0]] = c[1]; });
+  function svTree(on) {
+    return '<div class="tree fxt">' + row({ label: 'Today', ct: 9, on: on === 'today' }) + row({ label: 'Upcoming', ct: 6 }) +
+      opRowT({ sp: true, label: 'Personal' }) + opRowT({ sp: true, open: true, label: CA_SPACE }) +
+      ahRow(SV_APP, { on: on !== 'today', icon: ICON.app }) + opRowT({ d: 1, folder: true, label: 'Operations' }) + '</div>' + spFoot(null);
+  }
+  function svTop(mod, screen) {
+    return ahTop(SV_APP, ICON.app, SV_MODS, mod, SV_MENU[mod] ? SV_MENU[mod].map(function (s) { return { label: s, on: s === screen }; }) : null);
+  }
+  function svWin(key, where, title, sub, rest, width) {
+    return '<div class="ovl center"><div class="rmod cc-rm" style="width:' + (width || 1000) + 'px"><div class="cp-head">' + ICON.collection + (key ? '<span class="key">' + key + '</span>' : '') + '<span>' + where + ' · ' + SV_APP + '</span><span class="more">···</span><span class="x">×</span></div>' +
+      '<div class="x2-head"><b>' + title + '</b><small>' + sub + '</small></div>' + rest + '<div class="rm-foot"><span class="st-btn">Cancel</span></div></div></div>';
+  }
+
+  // ---------- Support ----------
+  var RQ = [
+    ['RQ-0142', 'Lift stops between floors', 'Acme Lojistik · Ayşe Kaya', '✉', 'Open', '2 h late', 'late', 'Kaan'],
+    ['RQ-0145', 'Door sensor beeps at night', 'Initech · Murat Er', '📞', 'New', 'Reply due in 3 h', '', ''],
+    ['RQ-0143', 'Can we move the service to Friday?', 'Globex · Selin Ak', '✉', 'Open', 'Reply due in 5 h', '', 'Kaan'],
+    ['RQ-0139', 'Invoice for October', 'Kuzey Asansör · Ali Uçar', '💬', 'Waiting on customer', 'waiting 2 days', 'dim', 'Deniz'],
+    ['RQ-0137', 'Emergency phone in the cabin', 'Antalya Otel · Can Demir', '✉', 'Open', 'Reply due tomorrow', '', 'Deniz']
+  ];
+  function rqList() {
+    var head = '<div class="ca-row sv-rq head"><span></span><span>Request</span><span>Customer</span><span>Status</span><span>Reply</span><span>Assignee</span></div>';
+    var rows = RQ.map(function (r) {
+      return '<div class="ca-row sv-rq"><span>' + r[3] + '</span><span class="tt">' + r[1] + '<small>' + r[0] + '</small></span><span class="calc">' + r[2] + '</span><span>' + lbl(r[4]) + '</span><span class="sv-due ' + r[6] + '">' + r[5] + '</span><span class="calc">' + (r[7] || '—') + '</span></div>';
+    }).join('');
+    return '<div class="ah">' + svTop('Support', 'Requests') + slScreen('12 open · 3 unassigned · <b class="pf-neg">2 late</b>', 'New request', ['Mine', 'Unassigned', 'Waiting on customer', 'Solved'], 'Mine', head, rows) + '</div>';
+  }
+  function rqMsg(kind, who, when, text) {
+    return '<div class="sv-msg ' + kind + '"><div class="h"><b>' + who + '</b><small>' + when + '</small></div><div class="t">' + text + '</div></div>';
+  }
+  function rqWin() {
+    var left = ccProp('Customer', '<span class="lk">Ayşe Kaya</span> · Acme Lojistik') +
+      '<div class="cc-two">' + ccProp('Channel', 'Email', { dd: true }) + ccProp('Type', lbl('Problem'), { dd: true }) + '</div>' +
+      '<div class="cc-two">' + ccProp('Priority', lbl('High'), { dd: true }) + ccProp('Assignee', 'Kaan', { dd: true }) + '</div>' +
+      ccProp('Equipment', '<span class="lk">Tower 2 · Lift A</span>');
+    var mid = '<div class="cr-acts" style="padding:0"><span class="go">' + ICON.plus + 'Reply</span><span>Customer wrote</span><span>Note</span></div>' +
+      '<div class="x2-blk"><div class="x2-sec">Conversation</div>' +
+      '<div class="x2-day">Thu, 29 Oct</div>' + rqMsg('in', 'Ayşe Kaya', '09:12 · email', 'The lift in Tower 2 stopped between the 4th and 5th floors this morning. People were stuck for 20 minutes. Can someone come today?') +
+      rqMsg('note', 'Kaan · note', '09:40', 'Ahmet is near Tower 2 after 11:00; booked a repair visit.') +
+      '<div class="x2-day">Fri, 30 Oct</div>' + rqMsg('in', 'Ayşe Kaya', '08:05 · email', 'It happened again. Is the technician coming?') + '</div>';
+    var right = slAs('Acme Lojistik', '', 'CRM', [['3 open requests', 'last solved 12 days ago']], '') +
+      slAs('Their requests', 3, '', [['RQ-0131 · Door closes slowly', 'Solved · Oct 17'], ['RQ-0120 · Annual inspection date', 'Solved · Sep 30']], '') +
+      slAs('Jobs', 1, 'Field service', [['WO-0213 · Repair · Tower 2', 'Scheduled · today 11:00 · Ahmet']], 'Job') +
+      slAs('Feedback', 1, '', [['Remote alarm for stuck lifts', '7 requests']], 'Link to idea');
+    return '<div class="ovl center"><div class="rmod cc-rm" style="width:1060px"><div class="cp-head">' + ICON.collection + '<span class="key">RQ-0142</span><span>Requests · ' + SV_APP + '</span><span class="more">···</span><span class="x">×</span></div>' +
+      '<div class="x2-head"><b>Lift stops between floors</b><small>Open · Acme Lojistik · <span class="pf-neg">reply 2 h late</span> · asked 23 h ago</small></div>' +
+      slBar(['New', 'Open', 'Waiting on customer', 'Solved', 'Closed'], 1) +
+      '<div class="cr-cols"><div>' + left + '</div><div>' + mid + '</div><div>' + right + '</div></div><div class="rm-foot"><span class="st-btn">Cancel</span></div></div></div>';
+  }
+  function rqReply() {
+    var body = '<div class="cc-prop body"><span class="pl">Reply</span><div class="cr-note">Hello Ayşe,<br><br>Ahmet is on his way to Tower 2 and will be there by 11:00. We will write as soon as he has checked the drive.</div></div>' +
+      '<div class="sv-snips"><span class="st-btn">' + ICON.plus + 'Saved reply</span><div class="sv-menu"><span class="on">We are on it</span><span>We need a few more details</span><span>Technician on the way</span><span>Closing this request</span></div></div>' +
+      '<div class="cc-prop"><span class="pl">Then</span><div class="cr-chips"><span>Keep open</span><span class="on">Waiting on customer</span><span>Solved</span></div></div>' +
+      '<div class="sl-note">Send it from your mail; it is kept here, and the reply is no longer due.</div>';
+    return x2Window('Reply · RQ-0142, Ayşe Kaya', body, '<span class="st-btn">Cancel</span><span class="st-btn go">Reply</span>');
+  }
+  function rqFeedback() {
+    var head = '<div class="ca-row sv-fb head"><span>Idea</span><span class="num">Requests</span><span>Customers</span><span>Status</span></div>';
+    var rows = [['Remote alarm for stuck lifts', 7, 'Acme Lojistik, Globex, Initech +2', 'Planned'], ['Service report by email', 5, 'Kuzey Asansör, Antalya Otel +3', 'Under review'], ['Night-time service window', 2, 'Globex', 'New']].map(function (f) {
+      return '<div class="ca-row sv-fb"><span class="tt">' + f[0] + '</span><span class="num">' + f[1] + '</span><span class="calc">' + f[2] + '</span><span>' + lbl(f[3]) + '</span></div>';
+    }).join('');
+    return '<div class="ah">' + svTop('Support', 'Feedback') + slScreen('3 ideas · 14 requests', 'New idea', ['All', 'Planned'], 'All', head, rows) + '</div>';
+  }
+
+  // ---------- Field service ----------
+  var FS = [
+    ['WO-0213', 'Repair · Tower 2 Lift A', 'Acme Lojistik', 'Today 11:00', 'Ahmet', 'Scheduled', '', '$420'],
+    ['WO-0214', 'Maintenance · Lobby lift', 'Globex', 'Today 14:00', 'Ahmet', 'Scheduled', '', '$180'],
+    ['WO-0215', 'Inspection · Car park lift', 'Initech', 'Today 09:00', 'Mert', 'In progress', '', '$250'],
+    ['WO-0209', 'Repair · Service lift', 'Antalya Otel', 'Yesterday 16:00', 'Mert', 'Scheduled', 'late', '$310'],
+    ['WO-0217', 'Maintenance · Goods lift', 'Kuzey Asansör', 'Today 15:30', 'Deniz', 'Scheduled', '', '$180']
+  ];
+  function fsJobs() {
+    var head = '<div class="ca-row sv-wo head"><span>Job</span><span>Customer</span><span>When</span><span>Technician</span><span>Status</span><span class="num">Total</span></div>';
+    var rows = FS.map(function (j) {
+      return '<div class="ca-row sv-wo"><span class="tt">' + j[1] + '<small>' + j[0] + '</small></span><span class="calc">' + j[2] + '</span><span class="' + (j[6] ? 'pf-neg' : 'calc') + '">' + j[3] + '</span><span class="calc">' + j[4] + '</span><span>' + lbl(j[6] ? 'Late' : j[5]) + '</span><span class="num">' + j[7] + '</span></div>';
+    }).join('');
+    return '<div class="ah">' + svTop('Field service', 'Jobs') + slScreen('4 today · 2 unscheduled · <b class="pf-neg">1 late</b> · $4,200 to invoice', 'New job', ['Today', 'Unscheduled', 'Scheduled', 'Late', 'To invoice', 'Done'], 'Today', head, rows) + '</div>';
+  }
+  function fsBoard() {
+    var hours = ['8', '9', '10', '11', '12', '13', '14', '15', '16', '17'];
+    var job = function (from, len, t, s, c, k) { return '<span class="sv-job ' + (k || '') + '" style="left:' + (from * 10) + '%;width:' + (len * 10) + '%;--jc:' + c + '"><b>' + t + '</b><small>' + s + '</small></span>'; };
+    var lane = function (name, sub, jobs) { return '<div class="sv-lane"><span class="nm"><b>' + name + '</b><small>' + sub + '</small></span><span class="tl">' + jobs + '</span></div>'; };
+    var board = '<div class="sv-board"><div class="sv-lane hd"><span class="nm"></span><span class="tl">' + hours.map(function (h) { return '<i>' + h + ':00</i>'; }).join('') + '</span></div>' +
+      lane('Ahmet', '2 jobs', job(3, 1.5, 'Acme · Tower 2', 'Repair · 11:00', '#e5534b') + job(6, 1, 'Globex', 'Maintenance · 14:00', '#6aa5f0')) +
+      lane('Mert', '1 job · 1 late', job(1, 2, 'Initech · Car park', 'Inspection · started 09:10', '#e0a84a', 'on') + job(8, 1.5, 'Antalya Otel', 'from yesterday · late', '#e5534b', 'late')) +
+      lane('Deniz', '1 job', job(7.5, 1, 'Kuzey', 'Maintenance · 15:30', '#6aa5f0')) +
+      lane('Unassigned', '', job(4.5, 2, 'Kuzey · Door sensors', 'Installation · 2 h · no one', '#8a8fa0', 'un')) + '</div>';
+    var side = '<div class="sv-unsched"><div class="x2-sec">Unscheduled<small>2</small></div>' +
+      '<div class="sv-card"><b>Emergency phone · Antalya Otel</b><small>Repair · 1 h · from RQ-0137 · drag onto a row</small></div>' +
+      '<div class="sv-card"><b>Lobby lift · Globex</b><small>Maintenance due Nov 3 · 1 h</small></div></div>';
+    return '<div class="ah">' + svTop('Field service', 'Schedule') + '<div class="bv"><div class="th"><span class="srch">' + ICON.find + 'Search…</span><span class="sl-sum">Fri, Oct 30 · 6 jobs · 1 unassigned</span><button type="button" class="add">New job</button></div>' +
+      '<div class="gy-views"><span>Week</span><span class="on">Day</span></div><div class="sv-sched">' + board + side + '</div></div></div>';
+  }
+  function fsJob() {
+    var left = '<div class="cc-two">' + ccProp('Customer', '<span class="lk">Acme Lojistik</span>') + ccProp('Equipment', '<span class="lk">Tower 2 · Lift A</span>') + '</div>' +
+      ccProp('Address', '<span class="lk">Barbaros Bulvarı 12, Beşiktaş</span>') +
+      '<div class="cc-two">' + ccProp('Type', 'Repair', { dd: true }) + ccProp('Technician', 'Ahmet', { dd: true }) + '</div>' +
+      '<div class="cc-two">' + ccProp('When', 'Today, 11:00') + ccProp('Takes', '1 h 30 min') + '</div>' + ccProp('Request', '<span class="lk">RQ-0142 · Lift stops between floors</span>');
+    var check = '<div class="x2-blk"><div class="x2-sec">Checklist<small>2 of 5</small></div>' +
+      [['Check the drive and the brake', true], ['Check the door contacts', true], ['Read the controller\'s error log', false], ['Test a full run, top to bottom', false], ['Tell the customer what was done', false]].map(function (c) {
+        return '<div class="cr-plan"><span class="cr-ring' + (c[1] ? ' on' : '') + '"></span><span class="tx' + (c[1] ? ' done' : '') + '">' + c[0] + '</span></div>';
+      }).join('') + '</div>';
+    var right = check + slLines([['Brake pad set', 1, '$85', '$85'], ['Door contact', 2, '$40', '$80'], ['Labour', '1.5 h', '$170', '$255']], [['Total', '$420', 'b']], true) +
+      '<div class="x2-blk"><div class="x2-sec">Photos and signature</div><div class="sv-photos"><i></i><i></i><span class="addp">+ Photo</span><span class="sv-sign"><small>Signed by</small>— not yet —</span></div></div>';
+    return svWin('WO-0213', 'Jobs', 'Repair · Tower 2 Lift A', 'Scheduled · today 11:00 · Ahmet · Acme Lojistik, Beşiktaş · from RQ-0142',
+      slBar(['Unscheduled', 'Scheduled', 'In progress', 'Done', 'Invoiced'], 1) + slActs([['On my way', ''], ['Start', 'go'], ['Complete', ''], '|', ['Reschedule']]) + '<div class="jb-cols"><div>' + left + '</div><div>' + right + '</div></div>', 1000);
+  }
+  function fsComplete() {
+    var body = '<div class="sl-note"><b class="pf-neg">3 of 5 checklist items are not ticked.</b> You can complete it anyway.</div>' +
+      '<div class="cc-prop body"><span class="pl">What was done</span><div class="cr-note">Brake pads changed; door contacts on floor 4 cleaned and re-set. Ran ten full trips without a stop.</div></div>' +
+      '<div class="cc-two">' + ccProp('Started', '11:05') + ccProp('Finished', '12:40 · 1 h 35 min') + '</div>' +
+      '<div class="cc-prop"><span class="pl">Customer\'s signature</span><div class="sv-pad"><svg viewBox="0 0 300 70"><path d="M10 50 C 40 10, 60 60, 90 30 S 140 20, 160 45 S 220 15, 290 35" fill="none" stroke="currentColor" stroke-width="2"/></svg><small>Ayşe Kaya · signed with a finger</small></div></div>' +
+      '<div class="sl-note">The parts go out of stock; the job goes to To invoice.</div>';
+    return x2Window('Complete · WO-0213', body, '<span class="st-btn">Cancel</span><span class="st-btn go">Complete</span>');
+  }
+  function fsEquip() {
+    var left = '<div class="cc-two">' + ccProp('Customer', '<span class="lk">Acme Lojistik</span>') + ccProp('Type', 'Passenger lift') + '</div>' +
+      ccProp('Address', 'Barbaros Bulvarı 12, Beşiktaş') + '<div class="cc-two">' + ccProp('Brand and model', 'Otis Gen2') + ccProp('Serial no', 'OT-88412') + '</div>' +
+      '<div class="cc-two">' + ccProp('Serviced', 'Every 3 months', { dd: true }) + ccProp('Next service', 'Nov 3') + '</div>';
+    var tl = function (d, c, a, b) { return '<div class="x2-day">' + d + '</div><div class="x2-tl" style="--tc:' + c + '"><span class="tm"></span><span class="ic">🔧</span><span class="tx"><b>' + a + '</b><small>' + b + '</small></span></div>'; };
+    var right = '<div class="x2-blk"><div class="x2-sec">Jobs<span class="r">+ Job</span></div>' + tl('Today', '#e5534b', 'WO-0213 · Repair', 'Scheduled 11:00 · Ahmet') + tl('Aug 3', '#6aa5f0', 'WO-0188 · Maintenance', 'Done · Mert · 1 h') + tl('May 4', '#6aa5f0', 'WO-0151 · Maintenance', 'Done · Ahmet · 1 h 10 min') + '</div>';
+    return svWin('', 'Equipment', 'Tower 2 · Lift A', 'Passenger lift · Acme Lojistik · serviced every 3 months · next Nov 3', slActs([['Book visit', 'go']]) + '<div class="jb-cols"><div>' + left + '</div><div>' + right + '</div></div>', 940);
+  }
+
+  // ---------- Consulting ----------
+  function cnTrack() {
+    var body = ccProp('Project', 'Globex · Lift modernisation study', { dd: true }) + ccProp('What', 'Site survey notes') +
+      '<div class="cc-two">' + ccProp('Hours', '2:30') + ccProp('Day', 'Today') + '</div>' +
+      '<div class="sl-note">Billable · $120 an hour, the project\'s · or press Start and stop it when you are done.</div>';
+    return x2Window('Track time', body, '<span class="st-btn">Cancel</span><span class="st-btn">▶ Start</span><span class="st-btn go">Save</span>');
+  }
+  function cnWeek() {
+    var days = ['Mon 26', 'Tue 27', 'Wed 28', 'Thu 29', 'Fri 30', 'Sat 31', 'Sun 1'];
+    var rows = [['Globex', 'Lift modernisation study', ['3', '2:30', '', '4', '2:30', '', ''], '12:00'], ['Acme Lojistik', 'Tower 2 safety audit', ['4', '', '5', '', '', '', ''], '9:00'], ['Initech', 'Retainer · advice', ['', '1', '', '1:30', '', '', ''], '2:30'], ['Internal', 'Proposals', ['1', '', '2', '', '1', '', ''], '4:00']];
+    var grid = '<div class="sv-week"><div class="r head"><span>Project</span>' + days.map(function (d, i) { return '<span class="' + (i === 4 ? 'today' : '') + '">' + d + '</span>'; }).join('') + '<span>Total</span></div>' +
+      rows.map(function (r) {
+        return '<div class="r"><span class="tt"><b>' + r[1] + '</b><small>' + r[0] + '</small></span>' + r[2].map(function (h, i) { return '<span><span class="sk-box' + (h ? '' : ' empty') + (i === 4 ? ' today' : '') + '">' + (h || '&nbsp;') + '</span></span>'; }).join('') + '<span class="num">' + r[3] + '</span></div>';
+      }).join('') +
+      '<div class="r foot"><span>+ Add row · Copy last week</span><span>8:00</span><span>3:30</span><span>7:00</span><span>5:30</span><span>3:30</span><span></span><span></span><span class="num">27:30</span></div></div>';
+    return '<div class="ah">' + svTop('Consulting', 'Time') + '<div class="bv"><div class="th"><span class="srch">' + ICON.find + 'Search…</span><span class="sl-sum">This week · 27:30 · 23:30 billable (85%)</span><button type="button" class="add">Track time</button></div>' +
+      '<div class="gy-views"><span>Day</span><span class="on">Week</span><span>‹ Oct 26 – Nov 1 ›</span></div>' + grid + '</div></div>';
+  }
+  function cnProjects() {
+    var bar = function (p, over) { return '<span class="sv-bar' + (over ? ' over' : p >= 80 ? ' warn' : '') + '"><i style="width:' + Math.min(p, 100) + '%"></i></span>'; };
+    var head = '<div class="ca-row sv-pr head"><span>Project</span><span>Fee</span><span class="num">Budget</span><span class="num">Spent</span><span></span><span class="num">Remaining</span><span class="num">Uninvoiced</span></div>';
+    var grp = function (n) { return '<div class="ca-row tr-grp"><span>' + n + '</span></div>'; };
+    var pr = function (n, fee, b, s, p, rem, un, over) { return '<div class="ca-row sv-pr"><span class="tt">' + n + '</span><span>' + lbl(fee) + '</span><span class="num">' + b + '</span><span class="num">' + s + '</span>' + bar(p, over) + '<span class="num' + (over ? ' pf-neg' : '') + '">' + rem + '</span><span class="num">' + un + '</span></div>'; };
+    var rows = grp('Acme Lojistik') + pr('Tower 2 safety audit', 'Fixed fee', '$6,000', '$5,200', 87, '$800 (13%)', '$2,000') +
+      grp('Globex') + pr('Lift modernisation study', 'Hourly', '$8,000', '$6,200', 78, '$1,800 (22%)', '$3,400') +
+      grp('Initech') + pr('Retainer · advice', 'Hourly', '$1,500 a month', '$1,620', 108, '−$120 (8% over)', '$540', true);
+    return '<div class="ah">' + svTop('Consulting', 'Projects') + slScreen('3 active · $5,940 uninvoiced · <b class="pf-neg">1 over budget</b>', 'New project', ['Active', 'Done'], 'Active', head, rows) + '</div>';
+  }
+  function cnProject() {
+    var left = '<div class="cc-two">' + ccProp('Client', '<span class="lk">Globex</span>') + ccProp('Fee', lbl('Hourly'), { dd: true }) + '</div>' +
+      '<div class="cc-two">' + ccProp('Rate', '$120 an hour') + ccProp('Budget', '$8,000') + '</div>' +
+      '<div class="cc-two">' + ccProp('Start', 'Oct 1') + ccProp('End', 'Nov 30') + '</div>' + ccProp('Owner', 'Kaan');
+    var right = '<div class="x2-blk"><div class="x2-sec">Budget</div><div class="sv-budget"><span class="sv-bar big"><i style="width:78%"></i></span><small>$6,200 of $8,000 · 78% · $1,800 left</small></div></div>' +
+      slAs('Hours by person', '48 h', '', [['Kaan', '30 h · $3,600', ''], ['Deniz', '18 h · $2,160', '']], '') +
+      slAs('Deliverables', 3, '', [['Survey report', '<span class="pf-neg">2 days late</span> · Deniz'], ['Cost estimate', 'Nov 6 · Kaan'], ['Final presentation', 'Nov 27 · Kaan']], 'Deliverable') +
+      slAs('Expenses', 2, '', [['Train to İzmir', 'Oct 14 · billable', '$440'], ['Site photos printing', 'Oct 20', '$60']], 'Expense') +
+      slAs('Invoices', 1, 'Sales', [['SO-0031 · Paid', 'Oct 31 · hours Oct 1–15', '$2,800']], '');
+    return svWin('', 'Projects', 'Lift modernisation study', 'Globex · 48 h · $6,200 of $8,000 · $1,800 left (22%) · <span class="sl-em">$3,400 uninvoiced</span>',
+      slActs([[ICON.plus + 'Track time', 'go'], ['Invoice'], ['Expense']]) + '<div class="jb-cols"><div>' + left + '</div><div>' + right + '</div></div>', 1000);
+  }
+  function cnInvoice() {
+    var body = '<div class="cc-prop"><span class="pl">Hours from</span><div class="cr-chips"><span>This month</span><span>Last month</span><span class="on">All not invoiced</span></div></div>' +
+      '<div class="cc-prop"><span class="pl">Expenses</span><div class="cr-chips"><span class="on">Billable ones</span><span>None</span></div></div>' +
+      '<div class="cc-prop"><span class="pl">Lines</span><div class="cr-chips"><span class="on">By person</span><span>By task</span><span>One line</span></div></div>' +
+      '<div class="sl-note">28 h · $3,360 and 1 expense · $440 → an order of <b>$3,800</b> for Globex in Sales, to invoice; the hours are marked invoiced.</div>';
+    return x2Window('Invoice · Lift modernisation study', body, '<span class="st-btn">Cancel</span><span class="st-btn go">Invoice</span>');
+  }
+
+  // ---------- Today, Home, phone ----------
+  function svToday() {
+    var c = ICON.collection;
+    var body = '<div class="tasksv"><div class="th"><b>Today</b><span class="c3-date">Fri, Oct 30</span><button type="button" class="add">Add task</button></div><div class="tl">' +
+      '<div class="sec">Overdue <small>2</small></div>' +
+      pfRecRow('#e5534b', 'Lift stops between floors', '<span class="late">reply 2 h late</span><span>' + c + 'Requests</span><span>Acme Lojistik · Ayşe Kaya</span>', '<span class="st-btn go">Reply</span>') +
+      pfRecRow('#e5534b', 'Repair · Service lift', '<span class="late">Yesterday 16:00</span><span>' + c + 'Jobs</span><span>Antalya Otel · Mert</span>', '<span class="st-btn go">Start</span><span class="st-btn">Reschedule</span>') +
+      '<div class="sec">Today <small>7</small></div>' +
+      pfRecRow('#e0a84a', 'Inspection · Car park lift', '<span>09:00</span><span>' + c + 'Jobs</span><span>Initech · Mert · started 09:10</span>', '<span class="st-btn go">Complete</span>') +
+      pfRecRow('#6aa5f0', 'Repair · Tower 2 Lift A', '<span>11:00</span><span>' + c + 'Jobs</span><span>Acme Lojistik · Ahmet</span>', '<span class="st-btn">On my way</span><span class="st-btn go">Start</span>') +
+      pfRecRow('#6aa5f0', 'Door sensor beeps at night', '<span>reply in 3 h</span><span>' + c + 'Requests</span><span>Initech · Murat Er</span>', '<span class="st-btn go">Reply</span>') +
+      pfRecRow('#4fb3d9', 'Site survey notes · running 1:12', '<span>' + c + 'Time</span><span>Globex · Lift modernisation study</span>', '<span class="st-btn go">Stop</span>') +
+      pfRecRow('#b48ef0', 'Lobby lift · Globex', '<span>' + c + 'Equipment</span><span>maintenance due Nov 3 · every 3 months</span>', '<span class="st-btn go">Book visit</span>') +
+      pfRecRow('#b48ef0', 'Second payment · Tower 2 safety audit', '<span>' + c + 'Projects</span><span>Acme Lojistik · $2,000 due today</span>', '<span class="st-btn go">Invoice</span>') +
+      '<div class="qa">+ Add task</div></div></div>';
+    return '<aside class="side">' + svTree('today') + '</aside><section class="main"><div class="panes">' + pane(tab('tasks', 'Today', 'x', true) + '<div class="tab plus">+</div>', body) + '</div>' +
+      '<div class="status"><span>9 records</span>' + syncStatus(false, null) + '</div></section>';
+  }
+  function svHome() {
+    var today = '<div class="ah-cap">Today <small>9</small></div><div class="ah-today" style="max-width:1080px">' +
+      ahTr('#e5534b', 'Lift stops between floors', '<span class="late">reply 2 h late</span> · Acme Lojistik', '<span class="st-btn go">Reply</span>') +
+      ahTr('#6aa5f0', 'Repair · Tower 2 Lift A', '11:00 · Ahmet', '<span class="st-btn go">Start</span>') +
+      ahTr('#4fb3d9', 'Site survey notes · running 1:12', 'Globex', '<span class="st-btn go">Stop</span>') + '</div>';
+    var grid = function (cards) { return '<div class="pf-home" style="grid-template-columns:repeat(3,minmax(0,1fr));max-width:1080px;margin-bottom:12px">' + cards + '</div>'; };
+    var support = slCard('comment', 'Requests', '12 open · 2 late', [['Lift stops between floors', 'reply 2 h late', 'pf-neg'], ['Door sensor beeps at night', 'in 3 h'], ['Unassigned', '3']]) +
+      slCard('comment', 'Waiting on customer', '4', [['Invoice for October', '2 days'], ['Emergency phone in the cabin', '1 day']]) +
+      slCard('comment', 'Most asked', '3 ideas', [['Remote alarm for stuck lifts', '7 requests'], ['Service report by email', '5 requests']]);
+    var field = slCard('pen', 'Today', '5 jobs · 1 late', [['Ahmet', '2 jobs'], ['Mert', '1 started · 1 late', 'pf-neg'], ['Deniz', '1 job']]) +
+      slCard('pen', 'To schedule', '2 unscheduled · 3 due', [['Emergency phone · Antalya', 'unscheduled'], ['Lobby lift · Globex', 'service Nov 3']]) +
+      slCard('pen', 'To invoice', '$4,200 · 6 jobs', [['Acme Lojistik', '$1,860'], ['Initech', '$1,140']]);
+    var cons = slCard('share', 'This week', '27:30 · 85% billable', [['Kaan', '18:30'], ['Deniz', '9:00']]) +
+      slCard('share', 'Uninvoiced', '$5,940', [['Lift modernisation study', '$3,400'], ['Tower 2 safety audit', '$2,000']]) +
+      slCard('share', 'Budgets', '1 over · 1 at 87%', [['Retainer · advice', '108%', 'pf-neg'], ['Tower 2 safety audit', '87%']]);
+    return '<div class="ah">' + svTop('Home') + '<div class="ah-home sl-home">' + today + '<div class="ah-cap">Support</div>' + grid(support) + '<div class="ah-cap">Field service</div>' + grid(field) + '<div class="ah-cap">Consulting</div>' + grid(cons) + '</div></div>';
+  }
+  function svPhone() {
+    var nav = function (back) { return '<div class="mb-nav"><span class="back">' + ICON.chevl + back + '</span><span class="acts"></span></div>'; };
+    var acc = 'background:var(--m-accent);color:var(--m-on-accent)';
+    var req = mbPage(nav('Requests') + '<div class="mb-rhead"><h2>Lift stops between floors</h2><small>Acme Lojistik · <span class="pf-neg">reply 2 h late</span></small></div>' +
+      '<div class="mb-qacts"><span class="mb-qact" style="' + acc + '">' + ICON.comment + 'Reply</span><span class="mb-qact">' + CR_PHONE + 'Call</span><span class="mb-qact">' + ICON.pen + 'Note</span></div>',
+      '<div class="x2-mday">Thu, 29 Oct</div>' + rqMsg('in', 'Ayşe Kaya', '09:12', 'The lift in Tower 2 stopped between the 4th and 5th floors…') + rqMsg('note', 'Kaan · note', '09:40', 'Ahmet is near Tower 2 after 11:00.') +
+      '<div class="x2-mday">Fri, 30 Oct</div>' + rqMsg('in', 'Ayşe Kaya', '08:05', 'It happened again. Is the technician coming?'));
+    var day = mbPage(nav('Today') + '<div class="mb-rhead"><h2>Ahmet\'s day</h2><small>Fri, Oct 30 · 2 jobs</small></div>',
+      [['11:00', 'Repair · Tower 2 Lift A', 'Acme Lojistik · Beşiktaş', 'Start'], ['14:00', 'Maintenance · Lobby lift', 'Globex · Levent', 'On my way']].map(function (j) {
+        return '<div class="cr-mrow ec-mrow"><span class="tx"><b>' + j[0] + ' · ' + j[1] + '</b><small>' + j[2] + '</small></span><span class="sl-mbtn">' + j[3] + '</span></div>';
+      }).join(''));
+    var job = mbPage(nav('Jobs') + '<div class="mb-rhead"><h2>Tower 2 Lift A</h2><small>Repair · started 11:05 · Acme Lojistik</small></div>' +
+      '<div class="mb-qacts"><span class="mb-qact" style="' + acc + '">' + ICON.check + 'Complete</span><span class="mb-qact">' + CR_PHONE + 'Call</span><span class="mb-qact">' + ICON.pin + 'Map</span></div>',
+      '<div class="x2-mday">Checklist · 2 of 5</div>' + [['Check the drive and the brake', 1], ['Check the door contacts', 1], ['Read the error log', 0], ['Test a full run', 0]].map(function (c) {
+        return '<div class="cr-mrow"><span class="cr-ring' + (c[1] ? ' on' : '') + '"></span><span class="tx"><b' + (c[1] ? ' class="done"' : '') + '>' + c[0] + '</b></span></div>';
+      }).join('') + '<div class="x2-mday">Parts</div><div class="cr-mrow"><span class="tx"><b>Brake pad set</b><small>1 × $85</small></span><span class="sl-mn">+ Part</span></div>' +
+      '<div class="x2-mday">Photos and signature</div><div class="cr-mrow"><span class="tx"><b>2 photos</b><small>Signature when it is complete</small></span><span class="sl-mn">+ Photo</span></div>');
+    var time = mbPage(nav(SV_APP) + '<div class="mb-rhead"><h2>Time</h2><small>This week · 27:30</small></div>',
+      '<div class="sv-mtimer"><b>1:12:08</b><small>Site survey notes · Globex</small><span class="sl-mbtn">Stop</span></div>' +
+      [['Fri 30', 'Lift modernisation study', '2:30'], ['Thu 29', 'Lift modernisation study', '4:00'], ['Thu 29', 'Retainer · advice', '1:30']].map(function (t) {
+        return '<div class="cr-mrow"><span class="tx"><b>' + t[1] + '</b><small>' + t[0] + '</small></span><span class="sl-mn">' + t[2] + '</span></div>';
+      }).join('') + '<div class="sl-mfoot"><span class="mb-qact" style="' + acc + '">Track time</span></div>');
+    return mbPhone('Talep: yazışma ve Reply', req, '') + mbPhone('Teknisyenin günü', day, '') + mbPhone('İş: liste, parça, imza', job, '') + mbPhone('Zaman: çalışan sayaç', time, '');
+  }
+  var SV_VIEWS = {
+    rqlist: function () { return ahFrame(svTree(), 'app', SV_APP, rqList(), '12 open requests'); },
+    rqwin: function () { return ahFrame(svTree(), 'app', SV_APP, rqList(), '12 open requests', rqWin()); },
+    rqreply: function () { return ahFrame(svTree(), 'app', SV_APP, rqList(), '12 open requests', rqWin() + rqReply()); },
+    rqfeedback: function () { return ahFrame(svTree(), 'app', SV_APP, rqFeedback(), '3 ideas'); },
+    fsjobs: function () { return ahFrame(svTree(), 'app', SV_APP, fsJobs(), '5 jobs today'); },
+    fsboard: function () { return ahFrame(svTree(), 'app', SV_APP, fsBoard(), '6 jobs'); },
+    fsjob: function () { return ahFrame(svTree(), 'app', SV_APP, fsJobs(), '5 jobs today', fsJob()); },
+    fscomplete: function () { return ahFrame(svTree(), 'app', SV_APP, fsJobs(), '5 jobs today', fsJob() + fsComplete()); },
+    fsequip: function () { return ahFrame(svTree(), 'app', SV_APP, fsJobs(), '5 jobs today', fsEquip()); },
+    cnweek: function () { return ahFrame(svTree(), 'app', SV_APP, cnWeek(), '27:30 this week'); },
+    cntrack: function () { return ahFrame(svTree(), 'app', SV_APP, cnWeek(), '27:30 this week', cnTrack()); },
+    cnprojects: function () { return ahFrame(svTree(), 'app', SV_APP, cnProjects(), '3 active projects'); },
+    cnproject: function () { return ahFrame(svTree(), 'app', SV_APP, cnProjects(), '3 active projects', cnProject()); },
+    cninvoice: function () { return ahFrame(svTree(), 'app', SV_APP, cnProjects(), '3 active projects', cnProject() + cnInvoice()); },
+    svtoday: svToday,
+    svhome: function () { return ahFrame(svTree(), 'app', SV_APP, svHome(), '3 modules'); }
+  };
+  function renderSv(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (view === 'svphone') {
+      mock.className = 'mock dir-a phones four mbs';
+      mock.innerHTML = svPhone();
+    } else {
+      mock.className = 'mock dir-a' + (view === 'svtoday' ? '' : ' wider');
+      mock.innerHTML = SV_VIEWS[view]();
+    }
+    section.querySelectorAll('.brief [data-svview]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.svview === view));
+    });
+  }
+  var sectionSv = document.querySelector('.dir[data-dir="service2"]');
+  sectionSv.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-svview]');
+    if (b) renderSv(sectionSv, b.dataset.svview);
+  });
+  renderSv(sectionSv, 'rqlist');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });

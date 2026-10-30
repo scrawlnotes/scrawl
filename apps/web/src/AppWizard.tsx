@@ -312,6 +312,7 @@ export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreat
           installed={installed}
           fits={(id) => fitsWith(id, chosenSet)}
           rolesOf={(id) => rolesOf(id).filter((role) => !borrowed(id).has(role))}
+          nameOf={(id, role) => APP_TEMPLATES[id].names?.(answersOf(id), view)[role]?.name ?? pieceOf(role).name}
           sharedLine={sharedLine}
           onToggle={toggle}
           blank={adding ? undefined : { on: blank, pick: pickBlank }}
@@ -447,7 +448,7 @@ export function counts(plan: AppPlan): string {
     .join(', ');
 }
 
-function TemplatesPage({ phone, side, onSide, chosen, installed, fits, rolesOf, sharedLine, onToggle, blank }: {
+function TemplatesPage({ phone, side, onSide, chosen, installed, fits, rolesOf, nameOf, sharedLine, onToggle, blank }: {
   phone: boolean;
   /** Whose templates are shown: a business's or a person's. */
   side: Audience;
@@ -459,6 +460,8 @@ function TemplatesPage({ phone, side, onSide, chosen, installed, fits, rolesOf, 
   /** Whether a template goes in one app with those chosen and the app's: one that does not is faint, its own app. */
   fits: (id: TemplateId) => boolean;
   rolesOf: (id: TemplateId) => string[];
+  /** What a piece is called by the template's answers: Field service's Jobs. */
+  nameOf: (id: TemplateId, role: string) => string;
   sharedLine: (id: TemplateId) => string | null;
   onToggle: (id: TemplateId) => void;
   /** A new app may come from no template, at the end: chosen, the templates are not. */
@@ -512,7 +515,7 @@ function TemplatesPage({ phone, side, onSide, chosen, installed, fits, rolesOf, 
                         {rolesOf(id).map((role) => (
                           <span key={role}>
                             <Icon name={PIECE_ICON[pieceOf(role).kind]!} />
-                            {pieceOf(role).name}
+                            {nameOf(id, role)}
                           </span>
                         ))}
                       </span>

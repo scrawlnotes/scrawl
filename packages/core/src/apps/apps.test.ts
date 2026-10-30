@@ -346,7 +346,7 @@ describe('setting up an app', () => {
     expect(goals.views![0]!.calendar).toEqual({ start: 'due', color: 'status', upcoming: true });
     const board = (path: string) => parseBoard(plan.files.find((f) => f.path === path)!.text);
     expect(board('Team/Roadmap.board.json').fields!.find((f) => f.key === 'goal')!.collection).toBe('Team/Goals');
-    expect(board('Team/Requests.board.json').fields!.find((f) => f.key === 'incident')!.collection).toBe('Team/Incidents');
+    expect(schema('Team/Requests').fields.find((f) => f.key === 'incident')!.collection).toBe('Team/Incidents');
     expect(board('Team/Actions.board.json').columns.map((c) => c.name)).toEqual(['To do', 'Doing', 'Done']);
     expect(schema('Team/Incidents').views![0]!.calendar).toEqual({ start: 'started', end: 'ended', color: 'severity', upcoming: false });
     expect(plan.templates.filter((s) => ['timeoff', 'goals', 'incidents'].includes(s.id)).map((s) => [s.id, s.buttons])).toEqual([
@@ -381,16 +381,18 @@ describe('setting up an app', () => {
     expect(keys('Firm/Expenses')).toEqual(expect.arrayContaining(['person', 'budget_line', 'status', 'engagement', 'billable', 'billed']));
     expect(keys('Firm/Campaigns')).toEqual(expect.arrayContaining(['goal', 'pieces', 'target', 'raised', 'reached']));
     expect(plan.created.filter((c) => c.path.startsWith('Firm/Campaigns'))).toHaveLength(1);
-    expect(schema('Firm/Work orders').views!.map((v) => v.name)).toEqual(['Calendar', 'Ali', 'Veli']);
-    expect(keys('Firm/Work orders')).toEqual(expect.arrayContaining(['order', 'parts', 'total']));
+    expect(schema('Firm/Jobs').views!.map((v) => v.name)).toEqual(['Today', 'Unscheduled', 'Scheduled', 'Late', 'To invoice', 'Done', 'Schedule', 'To start', 'In progress', 'Ali', 'Veli']);
+    expect(schema('Firm/Jobs').views!.find((v) => v.id === 'schedule')!.calendar).toMatchObject({ start: 'start', lanes: 'technician' });
+    expect(keys('Firm/Jobs')).toEqual(expect.arrayContaining(['order', 'total', 'checks', 'signature']));
+    expect(plan.files.filter((f) => f.path.startsWith('Firm/Checklists/') && f.path.endsWith('.md'))).toHaveLength(19);
     expect(keys('Firm/Stock movements')).toContain('work_order');
     const deadlines = schema('Firm/Deadlines');
     expect(deadlines.fields.find((f) => f.key === 'kind')!.options).toEqual(['VAT return', 'Payroll']);
     expect(plan.files.find((f) => f.path === 'Firm/Deadlines/_rules.js')!.text).toContain('repeats = kind == "VAT return" ? "Monthly" : kind == "Payroll" ? "Monthly" : null');
     expect(schema('Firm/Dues periods').fields.find((f) => f.key === 'name')!.default).toBe('=text(year(today()))');
     expect(plan.templates.filter((s) => ['field', 'consulting', 'association'].includes(s.id)).map((s) => [s.id, s.buttons])).toEqual([
-      ['field', ['Schedule', 'Start', 'Done', 'Invoice']],
-      ['consulting', ['Log time', 'Bill']],
+      ['field', ['Book visit', 'Schedule', 'On my way', 'Start', 'Complete', 'Reschedule', 'Invoice']],
+      ['consulting', ['Delivered', 'Stop', 'Track time', 'Invoice', 'Expense']],
       ['association', ['Issue dues']],
     ]);
   });

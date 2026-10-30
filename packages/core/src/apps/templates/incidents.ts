@@ -11,7 +11,7 @@ const TYPE_COLORS = { Outage: 'red', Quality: 'orange', Safety: 'yellow', Compla
 
 export const incidents: AppTemplate = {
   id: 'incidents',
-  version: 1,
+  version: 2,
   group: 'work',
   name: 'apps.incidents.name',
   short: 'apps.incidents.short',
@@ -51,8 +51,11 @@ export const incidents: AppTemplate = {
       app.field('actions', link('incident', 'Incident', path));
       app.field('incidents', openCards('open_actions', 'Open actions', app.path('actions')));
     }
-    if (requests) app.field('requests', link('incident', 'Incident', path));
-    if (actions || requests) app.block('incidents', { block: 'cards' });
+    if (requests) {
+      app.field('requests', link('incident', 'Incident', path));
+      app.block('incidents', { block: 'linked', collection: app.path('requests'), style: 'list', fields: ['status'] });
+    }
+    if (actions) app.block('incidents', { block: 'cards' });
 
     app.rule('incidents', { kind: 'check', name: 'Closed without its root cause', src: 'check("root_cause", () => status != "Closed" || !empty(root_cause), "Closed without its root cause")' });
     app.rule('incidents', {
@@ -90,14 +93,14 @@ export const incidents: AppTemplate = {
         'Set it Investigating while you look into it; press Resolve when it is over.',
         `Write its root cause and its report in its notes${actions ? '; press Add action for each thing to be done, with who and by when' : ''}.`,
         'Press Close when it is all done.',
-        ...(requests ? [`On a ${app.called('requests')} card, pick the incident it is part of.`] : []),
+        ...(requests ? [`On a request in ${app.called('requests')}, pick the incident it is part of.`] : []),
       ],
       auto: [
         'Its duration is from its start to its end.',
         'Resolve writes the time it ended, unless it is written, and makes it Resolved.',
         'An incident closed without its root cause is marked.',
         ...(actions ? [`Add action adds a card to ${app.called('actions')} in To do, linked to the incident, with who and by when; its due day comes to Upcoming. An incident counts its open actions.`] : []),
-        ...(requests ? [`An incident shows the ${app.called('requests')} cards that point at it.`] : []),
+        ...(requests ? [`An incident shows the requests that point at it.`] : []),
       ],
       work: ['Who is told when an incident starts, and how.', 'How bad is Critical, Major and Minor for us.', 'Who writes the report, and when we look back at it.'],
     });

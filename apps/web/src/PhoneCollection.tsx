@@ -33,6 +33,7 @@ import {
   type LinkedBlock,
   linkedCards,
   linkedRecords,
+  blockRecords,
   linkedSort,
   groupLinked,
   linkedValues,
@@ -78,7 +79,7 @@ import { t } from '@scrawlnotes/i18n';
 import { type FormEvent, Fragment, type MouseEvent, type PointerEvent, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Chip } from './choices';
 import { DaysMonth } from './CollectionCalendar';
-import { choicesOf, type CollectionActions, type Draft, differs, draftOf, excerpt, LinkChips, type LinkedDrafts, LinkedTable, NotesBlock, StepsBar, StepStrip, YearlessBox, recordLayout, savePreview, singularOf, usedValues, type ValueContext, withDrafts } from './Collection';
+import { choicesOf, type CollectionActions, Signature, type Draft, differs, draftOf, excerpt, LinkChips, type LinkedDrafts, LinkedTable, NotesBlock, StepsBar, StepStrip, YearlessBox, recordLayout, savePreview, singularOf, usedValues, type ValueContext, withDrafts } from './Collection';
 import { fieldChoices, LabelSheet } from './labels';
 import { Icon, type IconName } from './Icon';
 import { Subtasks } from './Subtasks';
@@ -276,6 +277,15 @@ function FieldRow({ field, value, values, worked, changed, bad, autoFocus, today
       {(field.required || (field.type === 'name' && !field.optional)) && <i className="req">*</i>}
     </span>
   );
+  // A signature is shown as it was drawn; Complete asks for it.
+  if (field.signature) {
+    return (
+      <div className={classes}>
+        {label}
+        <span className="val ro">{typeof value === 'string' && value ? <Signature path={value} small /> : '–'}</span>
+      </div>
+    );
+  }
   switch (field.type) {
     case 'formula':
     case 'lookup':
@@ -840,7 +850,7 @@ export function PhoneRecordPage({ collection, record, today, actions, guards, on
     }
     const source = actions.collection(block.collection);
     // Only those the block asks for: a company's planned activities.
-    const count = source ? linkedRecords(source, dir, record).filter((r) => !block.where || matchesConditions(r, source.schema, block.where, today)).length : null;
+    const count = source ? blockRecords(block, source, dir, record, actions.collection(dir)?.schema).filter((r) => !block.where || matchesConditions(r, source.schema, block.where, today)).length : null;
     return { label: block.title ?? collectionName(block.collection), count };
   };
   // Blocks that say their tab share it, as the CRM mockup has a company's Activity and Related;
@@ -1126,7 +1136,7 @@ export function LinkedTab({ block, dir, schema: own, record, today, actions, dra
   // The linked records with what is worked out among their values, their fields as those show.
   const computer = computerFor(source, actions.collections(), actions.boards(), today);
   const shownAs = computer.shown(source.dir);
-  const records = (drafts ? drafts.rows.map((r) => ({ ...r, values: computer.draft(source.dir, null, r.values) })) : linkedRecords(source, dir, record).map((r) => ({ ...r, values: computer.values(source.dir, r) }))).filter(
+  const records = (drafts ? drafts.rows.map((r) => ({ ...r, values: computer.draft(source.dir, null, r.values) })) : blockRecords(block, source, dir, record, actions.collection(dir)?.schema).map((r) => ({ ...r, values: computer.values(source.dir, r) }))).filter(
     (r) => !block.where || matchesConditions(r, schema, block.where, today),
   );
   const byKey = (key: string | undefined) => (key ? schema.fields.find((f) => f.key === key) : undefined);

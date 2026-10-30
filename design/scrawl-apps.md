@@ -276,9 +276,30 @@ Teklif, sipariş ve tahsilatı izler. Faturayı kesmez; fatura muhasebe program�
 
 ### 3.3 Müşteri desteği
 
+30 Ekim, Help Scout, Zendesk ve Freshdesk'in ekranlarına bakılarak baştan; Saha servisi (`design/more-apps.md` 3.6) ve Danışmanlıkla (3.7) birlikte, üçü CRM'le tek app'te. Mockup: `design/mockups.html` › Destek, saha servisi ve danışmanlık. Roadmap ROA-340, deneme ROA-341.
+
+- **Requests** pano değil koleksiyon. Sekmeler Mine, Unassigned, Waiting on customer, Solved (Mine kişinin kendi adıyla süzülür, koşulda `me`); üstte "12 open · 3 unassigned · 2 late". Satırda konu, kanal, kimden ("Acme Lojistik · Ayşe Kaya"), durum çipi ve "Reply due in 3 h", kırmızı "2 h late" ya da "waiting 2 days".
+- **Yeni talep:** müşteri, şirket (boşsa kişininki), kanal, tür ve müşterinin yazdığı (What they wrote); yazılan konuşmanın ilk mesajı olur.
+- **Penceresi** üç sütun: başlıkta "Open · Acme Lojistik · reply 2 h late · asked 23 h ago", altında aşamalar (New, Open, Waiting on customer, Solved, Closed); solda müşteri, şirket, kanal, tür, öncelik, kimde; ortada düğmeler ve konuşma gün gün (müşteri mavi, biz yeşil, iç not sarı); sağda bağlı fikir (Idea), şirketin öbür talepleri ve Saha servisi varsa işler (+ Job).
+- **Reply:** yanıtın metni, altında **Saved reply** menüsü (Saved replies klasörünün notları); sonra durum çiplerle Keep open, Waiting on customer, Solved. Yanıt konuşmaya yazılır, talep kimsenin değilse yazanın olur, yanıt artık beklenmez. E-posta Scrawl'dan gitmez; posta programından gönderilir.
+- **Customer wrote** talebi yeniden açar, yanıt süresi baştan başlar; **Note** yalnız ekibin gördüğü not; **Assign to me**.
+- **Yanıt süresi:** kurulumda sorulur (4 saat, 8 saat, bir iş günü, iki iş günü; iş günü hafta sonunu atlar). Müşteri beklenirken işlemez. Yanıtı beklenen talep o gün Today'de Reply ile; geçen Overdue'da kalır.
+- **Feedback:** her fikir kaç talepte istendiğini ve kimlerden geldiğini sayar; en çok istenenler Home'da.
+- **Home:** Requests (açık ve geciken), Waiting on customer, Most asked.
+- **Telefonda:** sayfa Conversation sekmesiyle açılır; Reply, Customer wrote, Note üstte.
+- **Altyapı** (Destek, Saha servisi ve Danışmanlık için birlikte, 30 Ekim):
+  - Bağlı blokta `look: 'thread'` (mesajlar gün gün, türün renginde, kim ve ne zaman) ve `through` (kaydın bir bağlantısının gösterdiği kayda bağlı öbürleri: şirketin öbür talepleri).
+  - Düğme sorusunda `snippets` (metne bir klasörün notlarından hazır yanıt) ve `signature` (parmakla imza, çizginin yolu olarak saklanır); alanda `signature` çizildiği gibi gösterilir.
+  - Görünüm koşulunda `me`: bakan kişinin adı.
+  - Takvimde `lanes`: Day'de bağlantının her kaydı bir satır (teknisyen), kimsenin olmayanlar bir satır, günü olmayanlar yanda, sürükleyip satıra bırakılır.
+  - `sheet` görünümü: hafta tablosu, satır bir bağlantı (proje), sütun gün, hücreye saat yazılır; + Add row ve Copy last week.
+  - Yüzde çubuğunda `warn` (bütçe: %80'den sarı, aşınca kırmızı); yeni kayıt penceresi gizli bir alanı da sorabilir (`Layout.new`).
+- **Mockup'tan kalan farklar:** kanal ikon değil çip; konuşmada "biz" yazanın adı, adı yoksa Us; Reply'da Assign to me ayrı düğme; talebin penceresinde notlar da var (ek için).
+
 | Parça | Tür | İçinde |
 |---|---|---|
-| Requests | pano | New, In progress, Waiting on customer, Resolved, Closed; kartta şirket, kişi, kanal, tür (question, problem, request) |
+| Requests | koleksiyon | kod (RQ-0001), konu, müşteri, şirket, kanal, tür (Question, Problem, Request), öncelik, kimde, durum (New, Open, Waiting on customer, Solved, Closed), fikir; yanıtın günü ve saati |
+| Messages | koleksiyon, talebin satırları | talep, tür (Customer, Us, Note), kim, ne zaman, metin |
 | Feedback | koleksiyon, ortak | başlık, kişi, şirket, kaynak, konu, durum (new, planned, done, declined) |
 | Saved replies | klasör | sık sorulara hazır cevaplar, birer not |
 | How we handle requests | tanıtım notunda | kim bakar, ne kadar sürede dönülür, ne zaman kapanır |

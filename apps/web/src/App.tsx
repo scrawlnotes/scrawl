@@ -2427,6 +2427,13 @@ export function App() {
   const notesOf = (folder: string) =>
     Object.fromEntries(piecesIn(folder).flatMap((p) => (p.kind === 'folder' ? [[p.path, notesIn(p.path).map((node) => tabTitles[node.path] ?? node.title ?? node.name.replace(/\.md$/, ''))]] : [])));
   const appNotes = appPath !== null ? notesOf(appPath) : {};
+  // A folder's notes as saved replies, their front matter left out: Reply's (design/scrawl-apps.md 3.3).
+  const savedReplies = useCallback(
+    (folder: string) =>
+      Promise.all(notesIn(folder).map(async (node) => ({ name: node.title ?? node.name.replace(/\.md$/, ''), text: (await session.readNote(node.path)).replace(/^---\n[\s\S]*?\n---\n/, '').trim() }))),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tree, spaces],
+  );
   // As the app opens, a tab whose task list, board, keys file or collection is not read yet shows
   // it is loading, rather than empty.
   const readingItem = (path: string | null, items: Record<string, unknown>) => path !== null && !(path in items) && reading.has(spaceOf(path) ?? '');
@@ -3996,6 +4003,7 @@ export function App() {
           ask={(given) => session.askButton(dialog.dir, dialog.id, dialog.name, given)}
           plan={(given) => session.planButton(dialog.dir, dialog.id, dialog.name, given)}
           ctx={{ records: collectionActions.records, collection: collectionActions.collection, openLink: collectionActions.openLink }}
+          snippets={savedReplies}
           onRun={(run) => {
             setDialog(null);
             runButton(run);

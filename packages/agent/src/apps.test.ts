@@ -564,64 +564,117 @@ describe('apps', () => {
     expect(board.cards.map((c: { title: string; due: string; assignee: { name: string }; values: { incident: { id: string } } }) => [c.title, c.due, c.assignee.name, c.values.incident.id])).toEqual([['Alert on error rate', '2026-10-28', 'Kaan', id]]);
     const closed = await press('Close');
     expect(closed.data.record.problems).toEqual([{ kind: 'check', field: 'root_cause', text: 'Closed without its root cause' }]);
-    const requests = JSON.parse(await fs.readText('Ops/Requests.board.json'));
+    const requests = JSON.parse(await fs.readText('Ops/Requests/_collection.json'));
     expect(requests.fields.find((f: { key: string }) => f.key === 'incident')).toMatchObject({ type: 'link', collection: 'Ops/Incidents' });
   });
 
-  it('runs a job at a customer’s site: scheduled, marked when it overlaps, done with its parts out of stock and the next service planned, invoiced as an order', async () => {
+  it('answers a request: its reply due, Reply and Customer wrote in its conversation, not due once solved', async () => {
+    const { agent } = await world();
+    await createTool(agent, { kind: 'app', name: 'Help', templates: ['crm', 'support'], answers: { support: { due: '4h' } }, currencies: ['TRY'] });
+    await saveRecordTool(agent, { collection: 'Help/Companies', values: { name: 'Acme' } });
+    await saveRecordTool(agent, { collection: 'Help/People', values: { name: 'Ayşe Kaya', company: 'Acme' } });
+    const made = await saveRecordTool(agent, { collection: 'Help/Requests', values: { name: 'Lift stops', person: 'Ayşe Kaya', channel: 'email', asked: '2026-10-21T09:00', message: 'It stopped between floors.' } });
+    expect(made.data.record.values).toMatchObject({ code: 'RQ-0001', company: expect.objectContaining({ name: 'Acme' }), status: 'New', reply_due: '2026-10-21T13:00' });
+    expect(made.data.record.values.message ?? null).toBeNull();
+    const id = made.data.record.id;
+    const press = (action: string, input?: object) => saveRecordTool(agent, { collection: 'Help/Requests', id, action, ...(input && { input: input as never }) });
+    const replied = (await press('Reply', { text: 'Ahmet is on his way.', then: 'Waiting on customer' })).data.record.values;
+    expect(replied).toMatchObject({ status: 'Waiting on customer', assignee: 'Kaan' });
+    expect(replied.reply_due ?? null).toBeNull();
+    expect(replied.waiting_since).toMatch(/^2026-10-21T/);
+    const wrote = (await press('Customer wrote', { text: 'It happened again.' })).data.record.values;
+    expect(wrote).toMatchObject({ status: 'Open' });
+    expect(wrote.waiting_since ?? null).toBeNull();
+    expect(wrote.reply_due).toMatch(/^2026-10-21T/);
+    await press('Note', { text: 'Ahmet is near after 11.' });
+    const said = (await recordsTool(agent, { collection: 'Help/Messages' })).data.records.map((m) => [m.values.kind, m.values.by, m.values.text]);
+    expect(said).toEqual(
+      expect.arrayContaining([
+        ['Customer', 'Ayşe Kaya', 'It stopped between floors.'],
+        ['Us', 'Kaan', 'Ahmet is on his way.'],
+        ['Customer', 'Ayşe Kaya', 'It happened again.'],
+        ['Note', 'Kaan', 'Ahmet is near after 11.'],
+      ]),
+    );
+    expect(said).toHaveLength(4);
+    // Solved, its reply is not due.
+    await saveRecordTool(agent, { collection: 'Help/Requests', id, values: { status: 'Solved' } });
+    const solved = (await recordsTool(agent, { collection: 'Help/Requests' })).data.records[0]!.values;
+    expect(solved.reply_due ?? null).toBeNull();
+    expect(solved.late).toBe(false);
+    const schema = JSON.parse((await readTool(agent, { path: 'Help/Requests/_collection.json' })).data.text);
+    expect(schema.views.filter((v: { set?: string }) => v.set === 'requests').map((v: { name: string }) => v.name)).toEqual(['Mine', 'Unassigned', 'Waiting on customer', 'Solved']);
+  });
+
+  it('runs a job at a customer’s site: its checklist, scheduled, marked when it overlaps, completed with its labour and signature, parts out of stock, the next service planned, invoiced onto an order', async () => {
     const { agent } = await world();
     await createTool(agent, { kind: 'app', name: 'Lifts', templates: ['crm', 'sales', 'stock', 'field'], answers: { field: { technicians: ['Ali'] } }, currencies: ['TRY'] });
     await saveRecordTool(agent, { collection: 'Lifts/Companies', values: { name: 'Atakule' } });
     await saveRecordTool(agent, { collection: 'Lifts/Products', values: { name: 'Door sensor', price: 100 } });
     await saveRecordTool(agent, { collection: 'Lifts/Stock movements', values: { product: 'Door sensor', direction: 'In', quantity: 10 } });
-    await saveRecordTool(agent, { collection: 'Lifts/Equipment', values: { name: 'Lift A', customer: 'Atakule', interval: 'Every 3 months' } });
-    const job = await saveRecordTool(agent, { collection: 'Lifts/Work orders', values: { equipment: 'Lift A', type: 'Maintenance', price: 500 } });
-    expect(job.data.record).toMatchObject({ name: 'Maintenance · Lift A', values: expect.objectContaining({ code: 'WO-0001', customer: expect.objectContaining({ name: 'Atakule' }), status: 'Open' }) });
+    const ali = (await recordsTool(agent, { collection: 'Lifts/Technicians' })).data.records[0]!;
+    await saveRecordTool(agent, { collection: 'Lifts/Technicians', id: ali.id, values: { rate: 400 } });
+    await saveRecordTool(agent, { collection: 'Lifts/Equipment', values: { name: 'Lift A', customer: 'Atakule', address: 'Çankaya', interval: 'Every 3 months' } });
+    const job = await saveRecordTool(agent, { collection: 'Lifts/Jobs', values: { equipment: 'Lift A', type: 'Maintenance' } });
+    expect(job.data.record).toMatchObject({ name: 'Maintenance · Lift A', values: expect.objectContaining({ code: 'WO-0001', customer: expect.objectContaining({ name: 'Atakule' }), address: 'Çankaya', status: 'Unscheduled' }) });
     const id = job.data.record.id;
+    // It starts with the checklist of its type.
+    expect((await recordsTool(agent, { collection: 'Lifts/Jobs' })).data.records[0]!.values).toMatchObject({ checks: 5, checked: 0 });
     const line = await saveRecordTool(agent, { collection: 'Lifts/Work order lines', values: { work_order: 'WO-0001', product: 'Door sensor', quantity: 2 } });
     expect(line.data.record.values).toMatchObject({ name: 'Door sensor', unit_price: 100, amount: 200 });
-    const press = (action: string, input?: object) => saveRecordTool(agent, { collection: 'Lifts/Work orders', id, action, ...(input && { input: input as never }) });
-    expect((await press('Schedule', { technician: 'Ali', start: '2026-10-22T09:00' })).data.record.values).toMatchObject({ status: 'Scheduled', start: '2026-10-22T09:00', ends: '2026-10-22T10:00', parts: 200, total: 700 });
-    const other = await saveRecordTool(agent, { collection: 'Lifts/Work orders', values: { customer: 'Atakule', technician: 'Ali', start: '2026-10-22T09:30' } });
-    expect(other.data.record.name).toBe('Repair · Atakule');
+    const press = (action: string, input?: object, on = id) => saveRecordTool(agent, { collection: 'Lifts/Jobs', id: on, action, ...(input && { input: input as never }) });
+    expect((await press('Schedule', { technician: 'Ali', start: '2026-10-22T09:00' })).data.record.values).toMatchObject({ status: 'Scheduled', start: '2026-10-22T09:00', ends: '2026-10-22T10:00', total: 200 });
+    const other = await saveRecordTool(agent, { collection: 'Lifts/Jobs', values: { customer: 'Atakule', technician: 'Ali', start: '2026-10-22T09:30' } });
+    expect(other.data.record).toMatchObject({ name: 'Repair · Atakule', values: expect.objectContaining({ status: 'Scheduled' }) });
     expect(other.data.record.problems).toEqual([{ kind: 'check', field: 'start', text: 'Overlaps with Maintenance · Lift A' }]);
-    await press('Start');
-    expect((await press('Done', { work_done: 'Door sensors changed', hours: 1.5 })).data.record.values).toMatchObject({ status: 'Done', work_done: 'Door sensors changed', hours: 1.5 });
-    const unit = (await recordsTool(agent, { collection: 'Lifts/Equipment' })).data.records[0]!.values;
-    expect(unit).toMatchObject({ next_service: '2027-01-20', last_job: '2026-10-22T09:00' });
+    expect((await press('On my way')).data.record.values.on_way).toMatch(/^2026-10-21T/);
+    expect((await press('Start')).data.record.values).toMatchObject({ status: 'In progress' });
+    const done = (await press('Complete', { work_done: 'Door sensors changed', started_at: '2026-10-22T09:00', finished_at: '2026-10-22T10:30', signature: 'M0 0 L10 10', signed_by: 'Ayşe' })).data.record.values;
+    expect(done).toMatchObject({ status: 'Done', work_done: 'Door sensors changed', hours: 1.5, signature: 'M0 0 L10 10', signed_by: 'Ayşe', total: 800 });
+    expect((await recordsTool(agent, { collection: 'Lifts/Equipment' })).data.records[0]!.values).toMatchObject({ next_service: '2027-01-20' });
     const stockOf = async () => (await recordsTool(agent, { collection: 'Lifts/Products' })).data.records[0]!.values.stock;
     expect(await stockOf()).toBe(8);
     const invoiced = await press('Invoice');
-    expect(invoiced.data.record.values.order).toMatchObject({ code: 'SO-0001' });
+    expect(invoiced.data.record.values).toMatchObject({ status: 'Invoiced', order: expect.objectContaining({ code: 'SO-0001' }) });
     const order = (await recordsTool(agent, { collection: 'Lifts/Orders' })).data.records[0]!;
-    expect(order.values).toMatchObject({ status: 'Invoiced', customer: expect.objectContaining({ name: 'Atakule' }), total: 700 });
+    expect(order.values).toMatchObject({ status: 'Delivered', customer: expect.objectContaining({ name: 'Atakule' }), total: 800 });
     expect((await recordsTool(agent, { collection: 'Lifts/Order lines', sort: { field: 'amount' } })).data.records.map((l) => [l.name, l.values.quantity, l.values.amount])).toEqual([
-      ['Door sensor', 2, 200],
-      ['Labour · Maintenance · Lift A', 1, 500],
+      ['WO-0001 · Door sensor', 2, 200],
+      ['WO-0001 · Labour · Ali', 1.5, 600],
     ]);
-    // The order's lines carry no part: what went out of stock went out once.
+    // What went out of stock went out once; the customer's next job of the day goes on the same order.
     expect(await stockOf()).toBe(8);
-    expect((await press('Invoice').catch((e) => e)).message).toMatch(/not invoiced yet/);
+    await press('Complete', { work_done: 'Checked', started_at: '2026-10-22T11:00', finished_at: '2026-10-22T11:30' }, other.data.record.id);
+    expect((await press('Invoice', undefined, other.data.record.id)).data.record.values.order).toMatchObject({ code: 'SO-0001' });
+    expect(await press('Invoice').catch((e: Error) => e)).toBeInstanceOf(Error);
   });
 
-  it('bills an engagement: its hours at its rate and its expenses, marked over its budget, billed as a payment, and a deadline done writes the next one', async () => {
+  it('keeps a project: its hours at its rate, a timer stopped, its expenses, marked over its budget, invoiced as a payment, and a deadline done writes the next one', async () => {
     const { agent } = await world();
     await createTool(agent, { kind: 'app', name: 'Firm', templates: ['consulting', 'budget'], answers: { consulting: { deadlines: true } }, currencies: ['TRY'] });
     await saveRecordTool(agent, { collection: 'Firm/Companies', values: { name: 'Lara Turizm' } });
-    const audit = await saveRecordTool(agent, { collection: 'Firm/Engagements', values: { name: 'Audit 2026', client: 'Lara Turizm', fee_model: 'Hourly', rate: 1000, budget: 5000 } });
+    const audit = await saveRecordTool(agent, { collection: 'Firm/Projects', values: { name: 'Audit 2026', client: 'Lara Turizm', fee_model: 'Hourly', rate: 1000, budget: 5000 } });
     const id = audit.data.record.id;
-    const press = (action: string, input?: object) => saveRecordTool(agent, { collection: 'Firm/Engagements', id, action, ...(input && { input: input as never }) });
-    await press('Log time', { hours: 3, note: 'Kickoff' });
+    const press = (action: string, input?: object) => saveRecordTool(agent, { collection: 'Firm/Projects', id, action, ...(input && { input: input as never }) });
+    await press('Track time', { hours: 3, note: 'Kickoff' });
     expect((await recordsTool(agent, { collection: 'Firm/Time entries' })).data.records[0]!.values).toMatchObject({ billable: true, rate: 1000, amount: 3000, date: '2026-10-21' });
     await saveRecordTool(agent, { collection: 'Firm/Expenses', values: { name: 'Travel', engagement: 'Audit 2026', amount: 500 } });
-    const engagement = async () => (await recordsTool(agent, { collection: 'Firm/Engagements' })).data.records[0]!;
-    expect((await engagement()).values).toMatchObject({ hours: 3, unbilled: 3500, used: 0.7 });
-    const over = await press('Log time', { hours: 2 });
-    expect(over.data.record.values).toMatchObject({ hours: 5, unbilled: 5500 });
+    const project = async () => (await recordsTool(agent, { collection: 'Firm/Projects' })).data.records[0]!;
+    expect((await project()).values).toMatchObject({ hours: 3, unbilled: 3500, used: 0.7, left: 1500 });
+    const over = await press('Track time', { hours: 2 });
+    expect(over.data.record.values).toMatchObject({ hours: 5, unbilled: 5500, over: true });
     expect(over.data.record.problems).toEqual([{ kind: 'check', field: 'budget', text: 'Over its budget: 110% used' }]);
-    expect((await press('Bill')).data.record.values.unbilled).toBe(0);
+    // With no hours a timer starts; Stop writes them and it is no longer running.
+    await press('Track time', { note: 'Call' });
+    const running = (await recordsTool(agent, { collection: 'Firm/Time entries', where: [{ field: 'started', op: 'not-empty' }] })).data.records;
+    expect(running.map((r) => r.name)).toEqual(['Call']);
+    const stopped = (await saveRecordTool(agent, { collection: 'Firm/Time entries', id: running[0]!.id, action: 'Stop' })).data.record.values;
+    expect(stopped.started ?? null).toBeNull();
+    expect(typeof stopped.hours).toBe('number');
+    expect((await press('Invoice', { range: 'All not invoiced', expenses: 'Billable ones' })).data.record.values.unbilled).toBe(0);
     const payments = (await recordsTool(agent, { collection: 'Firm/Payments' })).data.records;
-    expect(payments.map((p) => p.values)).toEqual([expect.objectContaining({ direction: 'In', amount: 5500, status: 'Invoiced', engagement: expect.objectContaining({ id }), budget_line: expect.objectContaining({ name: 'Consulting' }) })]);
+    expect(payments.map((p) => p.values)).toEqual([expect.objectContaining({ direction: 'In', status: 'Invoiced', engagement: expect.objectContaining({ id }), budget_line: expect.objectContaining({ name: 'Consulting' }) })]);
+    expect(payments[0]!.values.amount).toBeGreaterThanOrEqual(5500);
     expect((await recordsTool(agent, { collection: 'Firm/Time entries' })).data.records.every((r) => r.values.billed === true)).toBe(true);
 
     const vat = await saveRecordTool(agent, { collection: 'Firm/Deadlines', values: { client: 'Lara Turizm', kind: 'VAT return', due: '2026-10-26' } });
@@ -1302,8 +1355,8 @@ describe('apps', () => {
     const again = await createTool(agent, { kind: 'app', name: 'Atlas', templates: ['crm'] });
     expect(again.data).toMatchObject({ exists: true, path: 'Atlas' });
     const added = await createTool(agent, { kind: 'app', folder: 'Atlas', name: '', templates: ['support', 'product'], answers: { product: { bugs: false } } });
-    expect(added.data).toMatchObject({ created: false, templates: ['crm', 'support', 'product'], changed: ['Companies: 1 block on its screen', 'People: 1 block on its screen'] });
-    expect((added.data as { made: string[] }).made).toEqual(['board Atlas/Requests.board.json', 'collection Atlas/Feedback', 'folder Atlas/Saved replies', 'board Atlas/Roadmap.board.json', 'collection Atlas/Releases']);
+    expect(added.data).toMatchObject({ created: false, templates: ['crm', 'support', 'product'], changed: ['Companies: 2 blocks on its screen', 'People: 2 blocks on its screen'] });
+    expect((added.data as { made: string[] }).made).toEqual(['collection Atlas/Requests', 'collection Atlas/Messages', 'collection Atlas/Feedback', 'folder Atlas/Saved replies', 'board Atlas/Roadmap.board.json', 'collection Atlas/Releases']);
     const about = (await readTool(agent, { path: 'Atlas/About Atlas.md' })).data.text;
     expect(about).toMatch(/## CRM[\s\S]*## Customer support[\s\S]*## Product development/);
     const app = JSON.parse((await readTool(agent, { path: 'Atlas/_app.json' })).data.text);

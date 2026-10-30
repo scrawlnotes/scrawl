@@ -37,6 +37,7 @@ import {
   type ReactElement,
   type ReactNode,
   type RefObject,
+  type PointerEvent,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -45,7 +46,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { type Option, Picker } from './choices';
-import { FieldInput, type ValueContext } from './Collection';
+import { FieldInput, SIGN_BOX, type ValueContext } from './Collection';
 import { isPhone, onPage, pageBox, pageWindow } from './device';
 import { Icon, type IconName } from './Icon';
 import type { ExportFormat } from './exporting';
@@ -1485,6 +1486,89 @@ function RowsQuestion({ q, ctx, onChange, onEnter }: { q: AskQuestion; ctx: Valu
   );
 }
 
+/** A signature drawn with a finger or the mouse, kept as the path of its strokes (design/scrawl-apps.md 3.3). */
+function SignaturePad({ label, value, onChange }: { label: string; value: string | null; onChange: (path: string | null) => void }) {
+  const box = useRef<SVGSVGElement>(null);
+  const drawing = useRef(false);
+  // The strokes as they are drawn, ahead of the answer: moves come faster than it is given back.
+  const path = useRef(value ?? '');
+  if (!drawing.current) path.current = value ?? '';
+  const draw = (part: string) => {
+    path.current = `${path.current} ${part}`.trim();
+    onChange(path.current);
+  };
+  const at = (event: PointerEvent<SVGSVGElement>) => {
+    const r = box.current!.getBoundingClientRect();
+    return `${Math.round(((event.clientX - r.left) / r.width) * SIGN_BOX.w)} ${Math.round(((event.clientY - r.top) / r.height) * SIGN_BOX.h)}`;
+  };
+  return (
+    <div className="sign-pad">
+      <svg
+        ref={box}
+        viewBox={`0 0 ${SIGN_BOX.w} ${SIGN_BOX.h}`}
+        role="img"
+        aria-label={label}
+        onPointerDown={(event) => {
+          event.currentTarget.setPointerCapture(event.pointerId);
+          drawing.current = true;
+          draw(`M${at(event)}`);
+        }}
+        onPointerMove={(event) => drawing.current && draw(`L${at(event)}`)}
+        onPointerUp={() => (drawing.current = false)}
+      >
+        {value && <path d={value} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />}
+      </svg>
+      <span className="sign-foot">
+        <small>{value ? t('collection.signed') : t('collection.signHere')}</small>
+        {value && (
+          <button type="button" className="txtbtn" onClick={() => onChange(null)}>
+            {t('collection.signClear')}
+          </button>
+        )}
+      </span>
+    </div>
+  );
+}
+
+/** A text's saved replies: a button whose menu puts a reply's text in the box. */
+function SavedReplies({ folder, load, onPick }: { folder: string; load: (folder: string) => Promise<{ name: string; text: string }[]>; onPick: (text: string) => void }) {
+  const [replies, setReplies] = useState<{ name: string; text: string }[] | null>(null);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    let live = true;
+    void load(folder).then((list) => live && setReplies(list));
+    return () => {
+      live = false;
+    };
+  }, [folder, load]);
+  if (!replies?.length) return null;
+  return (
+    <span className="snips">
+      <button type="button" className="st-btn" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <Icon name="plus" />
+        {t('run.savedReply')}
+      </button>
+      {open && (
+        <span className="snips-menu" role="menu">
+          {replies.map((r) => (
+            <button
+              key={r.name}
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                onPick(r.text);
+                setOpen(false);
+              }}
+            >
+              {r.name}
+            </button>
+          ))}
+        </span>
+      )}
+    </span>
+  );
+}
+
 /** A question of a button as a field, for the form's own box: a choice is a select, a link picks from its collection. */
 const askedField = (q: AskQuestion): Field =>
   ({ key: q.key, label: q.label, type: q.type === 'choice' ? 'select' : q.type === 'tick' ? 'checkbox' : q.type, ...(q.options && { options: q.options }), ...(q.collection && { collection: q.collection }), ...(q.time && { time: true }), ...(q.chips && { chips: true }), ...(q.within && { within: q.within.field }) }) as Field;
@@ -1495,7 +1579,7 @@ const askedField = (q: AskQuestion): Field =>
  * with what is typed, and its own name on its button, faint while a needed answer is empty or it
  * would stop. On a phone a sheet.
  */
-export function AskDialog({ name, given: start, ask, plan, ctx, onRun, onClose }: {
+export function AskDialog({ name, given: start, ask, plan, ctx, snippets, onRun, onClose }: {
   name: string;
   /** Answers it starts with: a deal's Log, the deal picked. */
   given?: AskAnswers;
@@ -1504,6 +1588,8 @@ export function AskDialog({ name, given: start, ask, plan, ctx, onRun, onClose }
   /** What it would do with the answers. */
   plan: (given: AskAnswers) => ButtonRun | RuleStop;
   ctx: ValueContext;
+  /** The notes of a folder, for a text's saved replies: their names and texts. */
+  snippets?: (folder: string) => Promise<{ name: string; text: string }[]>;
   onRun: (run: ButtonRun) => void;
   onClose: () => void;
 }) {
@@ -1534,8 +1620,15 @@ export function AskDialog({ name, given: start, ask, plan, ctx, onRun, onClose }
         {q.required && <i title={t('collection.required')}>*</i>}
       </label>
       <div className="pe">
-        {q.lines ? (
-          <textarea id={`field-${q.key}`} className="ask-lines-box" rows={3} value={typeof q.value === 'string' ? q.value : ''} onChange={(event) => answer(q.key, event.target.value || null)} />
+        {q.type === 'signature' ? (
+          <SignaturePad label={q.label} value={typeof q.value === 'string' ? q.value : null} onChange={(path) => answer(q.key, path)} />
+        ) : q.lines ? (
+          <>
+            <textarea id={`field-${q.key}`} className="ask-lines-box" rows={q.snippets ? 5 : 3} value={typeof q.value === 'string' ? q.value : ''} onChange={(event) => answer(q.key, event.target.value || null)} />
+            {q.snippets && snippets && <SavedReplies folder={q.snippets} load={snippets} onPick={(text) => answer(q.key, typeof q.value === 'string' && q.value.trim() ? `${q.value.trimEnd()}
+
+${text}` : text)} />}
+          </>
         ) : q.type === 'date' && q.chips ? (
           <>
             <DayChips value={q.value as FieldValue} onPick={(day) => answer(q.key, day)} />

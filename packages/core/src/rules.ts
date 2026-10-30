@@ -34,7 +34,7 @@ export interface CheckRule {
 }
 
 /** What a question of a button asks for. */
-export const ASK_TYPES = ['number', 'text', 'date', 'time', 'choice', 'link', 'person', 'rows', 'tick'] as const;
+export const ASK_TYPES = ['number', 'text', 'date', 'time', 'choice', 'link', 'person', 'rows', 'tick', 'signature'] as const;
 export type AskType = (typeof ASK_TYPES)[number];
 
 /**
@@ -77,6 +77,8 @@ export interface AskRule {
   chips?: boolean;
   /** A text of several lines: what was said. */
   lines?: boolean;
+  /** A text's saved replies, the notes of the app's folder of this name, one picked put in it (design/scrawl-apps.md 3.3). */
+  snippets?: string;
   /** It and the questions after it are a group of their own under this title: the next step (design/scrawl-apps.md 3.1). */
   section?: string;
   /** A link offers only the records whose field of this key points at the record pressed: a company's deals, its people. */
@@ -309,6 +311,9 @@ function readAsk(value: Node): AskRule[] {
       } else if (part.key === 'chips' || part.key === 'lines') {
         if (v.k !== 'bool') throw new LangError(t('rules.askFlag', { name: part.key }), v.at);
         ask[part.key] = v.v;
+      } else if (part.key === 'snippets') {
+        if (v.k !== 'str' || !v.v.trim()) throw new LangError(t('rules.askSnippets'), v.at);
+        ask.snippets = v.v.trim();
       } else if (part.key === 'section') {
         if (v.k !== 'str' || !v.v.trim()) throw new LangError(t('rules.askSection'), v.at);
         ask.section = v.v.trim();
@@ -340,7 +345,7 @@ function readAsk(value: Node): AskRule[] {
 export function askField(ask: AskRule, collection?: string, button = ''): Field {
   // Rows are read as a list of records of their own: input.lines, each with its row, count and why.
   if (ask.type === 'rows') return { key: ask.key, label: ask.label, type: 'link', many: true, collection: rowsPath(button, ask.key) };
-  const type = ask.type === 'choice' ? 'select' : ask.type === 'tick' ? 'checkbox' : ask.type;
+  const type = ask.type === 'choice' ? 'select' : ask.type === 'tick' ? 'checkbox' : ask.type === 'signature' ? 'text' : ask.type;
   return { key: ask.key, label: ask.label, type, ...(ask.options && { options: ask.options }), ...(ask.type === 'link' && { collection: collection ?? ask.collection ?? '' }), ...(ask.type === 'date' && ask.time && { time: true }) } as Field;
 }
 

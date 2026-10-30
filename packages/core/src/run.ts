@@ -335,6 +335,8 @@ export interface AskQuestion {
   chips?: boolean;
   lines?: boolean;
   section?: string;
+  /** A text's saved replies: the path of the folder whose notes it offers (AskRule.snippets). */
+  snippets?: string;
   /** A link offers only the records whose field of this key points at this one (AskRule.within). */
   within?: { field: string; link: Link };
 }
@@ -362,6 +364,7 @@ export function askOf(rules: string, name: string, dir: string, recordId: string
     ...(a.chips && { chips: true }),
     ...(a.lines && { lines: true }),
     ...(a.section && { section: a.section }),
+    ...(a.snippets && { snippets: `${dir.split('/').slice(0, -1).join('/')}/${a.snippets}`.replace(/^\//, '') }),
     ...(a.within && record && { within: { field: a.within, link: linkTo(record) } }),
     ...(rows && { rows: rows.rows, show: (a.show ?? []).map((s) => s.label), ...(a.why && { why: a.why }) }),
     required: a.required,

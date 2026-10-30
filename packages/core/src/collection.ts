@@ -71,6 +71,8 @@ export interface NumberFormat {
   bar?: true;
   /** The field whose value the bar says beside it, "7 of 24 books"; else the percent. */
   caption?: string;
+  /** A bar of something used up, a budget: yellow from 80%, red over all of it (design/scrawl-apps.md 3.3). */
+  warn?: true;
 }
 
 export const FORMAT_STYLES: readonly NumberFormat['style'][] = ['number', 'currency', 'percent', 'duration'];
@@ -151,6 +153,8 @@ export interface Field {
   format?: NumberFormat;
   /** A date that may hold a time too, `2026-10-22T14:30`; one with no time is all day. */
   time?: boolean;
+  /** A text holding a signature drawn with a finger, as the path of its strokes (design/scrawl-apps.md 3.3): shown as it was drawn. */
+  signature?: true;
 }
 
 /**
@@ -243,6 +247,8 @@ type LayoutBlockKind =
       tab?: string;
       /** What its + Add is called: New quote on a customer, Quote on a deal (design/scrawl-apps.md 3.2). */
       add?: string;
+      /** The records that link where this link field of the record points, the record left out: a request's company's other requests (design/scrawl-apps.md 3.3). */
+      through?: string;
     }
   /** A formula's text said as a line in a box, not as a field: an order's profit, "₺1.240 · commission ₺248 → ₺412 profit" (design/calendar.md 7). */
   | { block: 'note'; of: string }
@@ -304,8 +310,12 @@ export function fieldLabel(field: Field, values: Record['values']): string {
   return (typeof by === 'string' && field.labelBy!.labels[by]) || field.label;
 }
 
-/** How a table of linked records looks instead: days, a checklist, a split between people. */
-export type LinkedLook = 'days' | 'checklist' | 'split';
+/**
+ * How a table of linked records looks instead: days, a checklist, a split between people; or a
+ * thread, a request's messages day by day, each in the color of its `icon` choice, who wrote it
+ * and when (`time`) over what it says (`sub`) (design/scrawl-apps.md 3.3).
+ */
+export type LinkedLook = 'days' | 'checklist' | 'split' | 'thread';
 
 export type LinkedBlock = Extract<LayoutItem, { block: 'linked' }>;
 
@@ -350,6 +360,13 @@ export const CONDITION_OPS: readonly ConditionOp[] = ['contains', 'is', 'is-not'
 /** A day's condition's value that is always today: "due is before today". */
 export const TODAY = 'today';
 
+/** A person's condition's value that is always whoever looks: a request's Mine (design/scrawl-apps.md 3.3). */
+export const ME = 'me';
+
+/** The conditions with `me` as whoever looks, by their name; with no name, a condition on `me` holds for no one. */
+export const forMe = (conditions: Condition[], name: string | undefined): Condition[] =>
+  conditions.map((c) => (Array.isArray(c.value) && c.value.includes(ME) ? { ...c, value: c.value.map((v) => (v === ME ? (name ?? '\u0000') : v)) } : c));
+
 export interface Condition {
   field: string;
   op: ConditionOp;
@@ -381,6 +398,11 @@ export interface CalendarSettings {
    * automatically once it has an amount, design/more-apps.md 4.1).
    */
   auto?: string;
+  /**
+   * The link field whose records are the rows of its Day, a technician's day each, with a row for
+   * those given to no one, and those with no day beside it to drag onto a row (design/scrawl-apps.md 3.3).
+   */
+  lanes?: string;
 }
 
 /**
@@ -413,8 +435,10 @@ export interface RepeatSettings {
 export interface View {
   id: string;
   name: string;
-  /** A calendar of the records; unset for a table. */
-  kind?: 'calendar';
+  /** A calendar of the records, or a week's sheet of them; unset for a table. */
+  kind?: 'calendar' | 'sheet';
+  /** The sheet's settings, with `kind`. */
+  sheet?: SheetSettings;
   /** The calendar's settings, with `kind`. */
   calendar?: CalendarSettings;
   conditions: Condition[];
@@ -448,6 +472,17 @@ export interface View {
   set?: string;
   /** Its button pressed on each of its records in turn, from one button over the table: Reorder all (design/scrawl-apps.md 3.6). */
   all?: string;
+}
+
+/**
+ * A week of the records as Harvest's timesheet has it (design/scrawl-apps.md 3.3): a row for each
+ * record `row` links to, a column for each day by `day`, in each cell what their `value` comes to
+ * that day, typed in it.
+ */
+export interface SheetSettings {
+  row: string;
+  day: string;
+  value: string;
 }
 
 /**
@@ -825,6 +860,7 @@ function readField(raw: unknown): Field | null {
   if (typeof raw.beside === 'string' && raw.beside.trim()) field.beside = cleanFieldKey(raw.beside);
   if (type === 'number' && isRecord(raw.rate) && typeof raw.rate.field === 'string' && typeof raw.rate.main === 'string') field.rate = { field: cleanFieldKey(raw.rate.field), main: raw.rate.main };
   if ((type === 'link' || type === 'select' || type === 'multi-select') && raw.chips === true) field.chips = true;
+  if (type === 'text' && raw.signature === true) field.signature = true;
   if (type === 'link' && typeof raw.within === 'string' && raw.within.trim()) field.within = cleanFieldKey(raw.within);
   return field;
 }
@@ -842,6 +878,7 @@ function readFormat(raw: unknown): NumberFormat | undefined {
   if (style === 'percent' && raw.bar === true) {
     format.bar = true;
     if (typeof raw.caption === 'string' && cleanFieldKey(raw.caption)) format.caption = cleanFieldKey(raw.caption);
+    if (raw.warn === true) format.warn = true;
   }
   return format;
 }
@@ -889,8 +926,8 @@ function readBlock(raw: { [key: string]: unknown }): LayoutBlockKind | null {
       ...(raw.numbered === true && { numbered: true }),
       ...(Array.isArray(raw.where) && { where: raw.where.map((c) => readCondition(c)).filter((c): c is Condition => c !== null) }),
       ...(typeof raw.title === 'string' && raw.title.trim() && { title: raw.title.trim() }),
-      ...((raw.look === 'days' || raw.look === 'checklist' || raw.look === 'split') && { look: raw.look }),
-      ...keysOf(raw, ['time', 'end', 'icon', 'sub', 'pick', 'person', 'amount', 'parts', 'mode', 'total']),
+      ...((raw.look === 'days' || raw.look === 'checklist' || raw.look === 'split' || raw.look === 'thread') && { look: raw.look }),
+      ...keysOf(raw, ['time', 'end', 'icon', 'sub', 'pick', 'person', 'amount', 'parts', 'mode', 'total', 'through']),
       ...wordsOf(raw, ['icons', 'startSaid', 'endSaid']),
       ...(typeof raw.button === 'string' && raw.button.trim() && { button: raw.button.trim() }),
       ...(typeof raw.add === 'string' && raw.add.trim() && { add: raw.add.trim() }),
@@ -1073,6 +1110,11 @@ function readViews(raw: unknown, fields: Field[]): View[] {
       // With no date field left to go by it is a table again.
       if (calendar) Object.assign(view, { kind: 'calendar', calendar });
     }
+    if (item.kind === 'sheet' && isRecord(item.sheet)) {
+      const of = (key: unknown, type: FieldType) => (typeof key === 'string' ? fields.find((f) => f.key === cleanFieldKey(key) && f.type === type)?.key : undefined);
+      const [row, day, value] = [of(item.sheet.row, 'link'), of(item.sheet.day, 'date'), of(item.sheet.value, 'number')];
+      if (row && day && value) Object.assign(view, { kind: 'sheet', sheet: { row, day, value } });
+    }
     if (isSort(item.sort)) view.sort = { key: item.sort.key, dir: item.sort.dir };
     if (typeof item.group === 'string' && item.group) view.group = cleanFieldKey(item.group);
     if (Array.isArray(item.columns)) view.columns = strings(item.columns).map(cleanFieldKey).filter((k) => fields.some((f) => f.key === k));
@@ -1137,6 +1179,7 @@ function readCalendar(raw: unknown, fields: Field[]): CalendarSettings | null {
     ...(repeat && { repeat }),
     ...(typeof given.button === 'string' && given.button.trim() && { button: given.button.trim() }),
     ...(typeof given.auto === 'string' && fields.some((f) => f.key === cleanFieldKey(given.auto as string) && (f.type === 'checkbox' || f.type === 'formula')) && { auto: cleanFieldKey(given.auto) }),
+    ...(field(given.lanes, (f) => f.type === 'link' && !f.many) && { lanes: cleanFieldKey(given.lanes as string) }),
     ...(Array.isArray(given.words) && { words: given.words.filter((k): k is string => typeof k === 'string' && fields.some((f) => f.key === cleanFieldKey(k))).map(cleanFieldKey) }),
   };
 }
@@ -2306,6 +2349,19 @@ export function pointsAt(value: unknown, record: Pick<Record, 'id' | 'name'>): b
 export function linkedRecords(source: Collection, dir: string, record: Pick<Record, 'id' | 'name'>): Record[] {
   const fields = linkFieldsTo(source.schema, dir);
   return fields.length === 0 ? [] : source.records.filter((r) => fields.some((f) => pointsAt(r.values[f.key], record)));
+}
+
+/**
+ * The records a linked block lists: those linking to the record; with `through`, those linking
+ * where the record's link of that key points, the record left out (a request's company's requests).
+ */
+export function blockRecords(block: Pick<LinkedBlock, 'through'>, source: Collection, dir: string, record: Pick<Record, 'id' | 'name' | 'values'>, schema: Pick<Schema, 'fields'> | undefined): Record[] {
+  if (!block.through) return linkedRecords(source, dir, record);
+  const field = schema?.fields.find((f) => f.key === block.through && f.type === 'link');
+  const value = record.values[block.through];
+  const to = Array.isArray(value) ? value[0] : value;
+  if (!field?.collection || !isLink(to)) return [];
+  return linkedRecords(source, field.collection, to).filter((r) => r.id !== record.id);
 }
 
 /** The collections that have a link field pointing at the collection at `dir`. */

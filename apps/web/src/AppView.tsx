@@ -312,7 +312,8 @@ function AppHome({ modules, shows, collections, boards, notes, today, due, actio
       const own = placed.has(key) ? [] : [tileOf(m, s, glances.get(key) ?? null, key)];
       placed.add(key);
       const extra = (more.get(key) ?? []).flatMap((x, i) => {
-        const at = `${key}#${i}`;
+        // Two screens of one collection, Jobs and Schedule, show its boxes once.
+        const at = `${s.path}#${i}`;
         if (placed.has(at) || (x.of && m.template && x.of !== m.template && modules.some((o) => o.template === x.of))) return [];
         placed.add(at);
         return [tileOf(m, s, x.glance, at)];
