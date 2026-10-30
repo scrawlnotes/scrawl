@@ -6,6 +6,7 @@ import {
   columnStatus,
   computerFor,
   dayOf,
+  faceFields,
   type Field,
   type FieldValue,
   isComputed,
@@ -699,7 +700,7 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
           </select>
           <label htmlFor="card-labels">{t('card.labels')}</label>
           <LabelsField id="card-labels" path={path} labels={card.labels ?? []} onChange={(labels) => update({ labels })} />
-          <label htmlFor="card-due">{board.next ? t('card.closes') : t('card.due')}</label>
+          <label htmlFor="card-due">{closes(board) ? t('card.closes') : t('card.due')}</label>
           <input id="card-due" type="date" value={card.due ?? ''} onChange={(event) => update({ due: event.target.value || null })} />
           <label htmlFor="card-assignee">{board.next ? t('card.owner') : t('card.assignee')}</label>
           {team ? (
@@ -747,6 +748,9 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
     </div>
   );
 }
+
+/** A pipeline of money's day is when it is expected to close: a deal's, not a candidate's. */
+const closes = (board: Board) => !!board.next && faceFields(board).some((f) => f.type === 'number');
 
 /**
  * What presses a button of the record a card's link points at, the card given (Board.press): a
@@ -796,10 +800,12 @@ function DealHead({ board, path, card, actions }: { board: Board; path: string; 
         {!isFinished(board, card) &&
           (['done', 'dropped'] as const).map((kind) => {
             const to = board.columns.find((c) => c.kind === kind);
+            // Hire in place of Won is the position's button, the card given.
+            const won = kind === 'done' && board.press?.won;
             return (
               to && (
-                <button key={kind} type="button" className={kind === 'done' ? 'won' : 'lost'} onClick={() => actions.moveToColumn(path, card.id, to.id)}>
-                  {kind === 'done' ? t('board.won') : t('board.lost')}
+                <button key={kind} type="button" className={kind === 'done' ? 'won' : 'lost'} disabled={!!won && !press} onClick={() => (won ? press?.(won) : actions.moveToColumn(path, card.id, to.id))}>
+                  {kind === 'done' ? won || t('board.won') : board.press?.lost ?? t('board.lost')}
                 </button>
               )
             );
@@ -1040,7 +1046,7 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
               ),
               () => setPicking('labels'),
             )}
-            {row('calendar', board.next ? t('card.closes') : t('card.due'), card.due ? <span className={dueClass(card.due, today)}>{dueLabel(card.due, today)}</span> : none, () => setPicking('due'))}
+            {row('calendar', closes(board) ? t('card.closes') : t('card.due'), card.due ? <span className={dueClass(card.due, today)}>{dueLabel(card.due, today)}</span> : none, () => setPicking('due'))}
             {row(
               'person',
               t('card.assignee'),

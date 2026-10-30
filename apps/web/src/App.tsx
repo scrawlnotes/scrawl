@@ -2263,13 +2263,13 @@ export function App() {
     attach: descriptionHost.attach,
   };
   // A deal moved to Lost is asked why first (Board.dropAsks, design/scrawl-apps.md 3.1); any other move is made at once.
-  const [dropping, setDropping] = useState<{ board: string; id: string; place: { column: string; after: string | null }; field: Field; title: string } | null>(null);
+  const [dropping, setDropping] = useState<{ board: string; id: string; place: { column: string; after: string | null }; field: Field; title: string; column: string } | null>(null);
   const moveOrAsk = (board: string, id: string, place: { column: string; after: string | null }) => {
     const whole = boards[board];
     const card = whole?.cards.find((c) => c.id === id);
     const to = whole?.columns.find((c) => c.id === place.column);
     const field = whole?.dropAsks ? whole.fields?.find((f) => f.key === whole.dropAsks) : undefined;
-    if (field && card && to?.kind === 'dropped' && card.column !== to.id) return setDropping({ board, id, place, field, title: card.title });
+    if (field && card && to?.kind === 'dropped' && card.column !== to.id) return setDropping({ board, id, place, field, title: card.title, column: to.name });
     session.moveCard(board, id, place);
     if (whole && card && to && card.column !== to.id) followMove(whole, card, to.kind);
   };
@@ -3783,6 +3783,7 @@ export function App() {
         <DropDialog
           field={dropping.field}
           card={dropping.title}
+          column={dropping.column}
           onClose={() => setDropping(null)}
           onDone={(reason, what) => {
             session.moveCard(dropping.board, dropping.id, dropping.place);

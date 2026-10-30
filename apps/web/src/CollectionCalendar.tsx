@@ -1,6 +1,7 @@
 import {
   addDays,
   atMinutes,
+  collectionName,
   compareOnDay,
   monthDays,
   repeatCalendar,
@@ -405,6 +406,11 @@ function LaneDay({ collection, records, items, day, lanes, actions, colorOf, tit
     return isLink(link) ? link.id : '';
   };
   const unscheduled = settings ? records.filter((r) => isEmpty(r.values[settings.start] ?? null)) : [];
+  // Where every record has its day, as an appointment, there is nothing to drag on a row.
+  const sided = !schema.fields.find((f) => f.key === settings?.start)?.required;
+  // "2 appointments" by the collection's own words; "2 jobs" without them.
+  const many = schema.singular ? collectionName(dir).toLowerCase() : '';
+  const counted = (count: number) => (schema.singular ? (count === 1 ? `1 ${schema.singular}` : `${count} ${many}`) : t('calendar.jobs', { count }));
   const rows = [...people.map((p) => ({ id: p.id, name: recordLabel(p) || t('collection.untitled'), link: linkTo(p) as Link | null })), { id: '', name: t('calendar.unassigned'), link: null }];
   const drop = (event: DragEvent<HTMLDivElement>, row: (typeof rows)[number]) => {
     event.preventDefault();
@@ -427,7 +433,7 @@ function LaneDay({ collection, records, items, day, lanes, actions, colorOf, tit
     dragged.current = id;
   };
   return (
-    <div className="lane-day">
+    <div className={sided ? 'lane-day' : 'lane-day whole'}>
       <div className="lane-board">
         <div className="lane hd">
           <span className="nm" />
@@ -443,7 +449,7 @@ function LaneDay({ collection, records, items, day, lanes, actions, colorOf, tit
             <div key={row.id || 'none'} className="lane">
               <span className="nm">
                 <b>{row.name}</b>
-                <small>{mine.length === 0 ? t('calendar.free') : t('calendar.jobs', { count: mine.length })}</small>
+                <small>{mine.length === 0 ? t('calendar.free') : counted(mine.length)}</small>
               </span>
               <div
                 className={dropOn === (row.id || 'none') ? 'tl drop-on' : 'tl'}
@@ -478,7 +484,7 @@ function LaneDay({ collection, records, items, day, lanes, actions, colorOf, tit
           );
         })}
       </div>
-      <div className="lane-side">
+      {sided && <div className="lane-side">
         <div className="blk-h">
           <span>{t('calendar.unscheduled')}</span>
           <small>{unscheduled.length}</small>
@@ -490,7 +496,7 @@ function LaneDay({ collection, records, items, day, lanes, actions, colorOf, tit
             <small>{subOf(schema, r) ?? t('calendar.dragOnRow')}</small>
           </button>
         ))}
-      </div>
+      </div>}
     </div>
   );
 }

@@ -21938,6 +21938,13 @@ svg.sign.small {
   font-weight: 600;
 }
 
+.tl-r .we {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--sl-line) 45%, transparent);
+}
+
 .tl-r .bar {
   position: absolute;
   top: 13px;
@@ -21946,6 +21953,17 @@ svg.sign.small {
   background: hsl(var(--lh, 220) var(--ls, 40%) 55%);
   cursor: grab;
   touch-action: none;
+}
+
+.tl-r .bar .tx {
+  display: block;
+  overflow: hidden;
+  padding: 0 6px;
+  color: #fff;
+  font-size: 10.5px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tl-r .bar.cut {
@@ -22043,6 +22061,10 @@ svg.sign.small {
   gap: 16px;
   padding: 4px 16px 16px;
   overflow: auto;
+}
+
+.lane-day.whole {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .lane-board {

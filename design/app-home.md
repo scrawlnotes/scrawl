@@ -192,7 +192,6 @@ Her şablon bir modül; ekranlar bu sırayla. Satırlar menüde yok, sahibinin i
 | Incidents | Incidents, Actions | – |
 | Field service | Work orders, Equipment, Companies, Technicians, Products | Work order lines (Work orders) |
 | Consulting | Engagements, Time entries, Expenses, Deliverables, Companies | – |
-| Association | Members, Dues, Dues periods, Donations, People | – |
 | Personal finance | Transactions, Accounts, Bills, Categories | – |
 | Home | Items, Documents, Vehicles, Home upkeep | – |
 | Health | Appointments, Medications, Results, Vaccinations | – |

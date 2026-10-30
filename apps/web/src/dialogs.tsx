@@ -128,10 +128,10 @@ export function UpdateDialog({ onReload }: { onReload: () => void }) {
  * Why a deal was lost, asked as it is moved to a dropped column (Board.dropAsks, design/scrawl-apps.md
  * 3.1): the field's reasons side by side, as Pipedrive asks, and a line of what happened.
  */
-export function DropDialog({ field, card, onDone, onClose }: { field: Field; card: string; onDone: (reason: string | null, what: string) => void; onClose: () => void }) {
+export function DropDialog({ field, card, column, onDone, onClose }: { field: Field; card: string; column: string; onDone: (reason: string | null, what: string) => void; onClose: () => void }) {
   const [reason, setReason] = useState<string | null>(null);
   const [what, setWhat] = useState('');
-  const title = t('board.lostTitle', { card });
+  const title = t('board.lostTitle', { card, column });
   const done = () => onDone(reason, what.trim());
   return (
     <Dialog label={title} onClose={onClose}>
@@ -152,7 +152,7 @@ export function DropDialog({ field, card, onDone, onClose }: { field: Field; car
           {t('dialog.cancel')}
         </button>
         <button type="button" className="primary" onClick={done}>
-          {t('board.markLost')}
+          {t('board.markLost', { column })}
         </button>
       </div>
     </Dialog>

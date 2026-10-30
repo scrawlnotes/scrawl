@@ -159,7 +159,9 @@ async function checkSchema(fs: VaultFs, data: Json, text: string): Promise<Check
           rollup.where.forEach((c, j) => {
             if (!isObject(c) || !filled(c.field)) return void problems.push(`${key}: condition ${j + 1} of rollup.where needs a field, the key of a field of ${String(rollup.from)}`);
             if (!CONDITION_OPS.includes(c.op as ConditionOp)) problems.push(`${key}: the op of condition ${j + 1} is one of ${CONDITION_OPS.join(', ')}`);
-            if (source && !source.fields.some((f) => f.key === c.field)) problems.push(`${key}: ${String(rollup.from)} has no field with the key ${c.field}`);
+            // A board's cards are asked by their column too.
+            const column = c.field === 'column' && String(rollup.from).endsWith('.board.json');
+            if (source && !column && !source.fields.some((f) => f.key === c.field)) problems.push(`${key}: ${String(rollup.from)} has no field with the key ${c.field}`);
           });
         }
       }

@@ -1,9 +1,9 @@
-import { APP_TEMPLATES, type Answers, apartProblem, computerFor, goTogether, loadCollection, MemoryFs, parseBoard, saveMe, TEMPLATE_GROUPS, TEMPLATE_IDS, type TemplateId } from '@scrawlnotes/core';
+import { APP_TEMPLATES, type Answers, apartProblem, askOf, computerFor, goTogether, loadCollection, MemoryFs, parseBoard, saveMe, TEMPLATE_GROUPS, TEMPLATE_IDS, type TemplateId } from '@scrawlnotes/core';
 import { describe, expect, it } from 'vitest';
 import { checkFile, checkRules } from './check';
 import { fileKind, Refusal } from './paths';
 import { readTool, treeTool } from './read';
-import { dueRecordsTool, recordsTool, saveRecordTool } from './records';
+import { dueRecordsTool, recordsTool, ruleSpaceNow, saveRecordTool } from './records';
 import type { Agent, AgentSpace } from './space';
 import { createTool, writeTool } from './write';
 import { saveCardTool } from './cards';
@@ -49,7 +49,6 @@ const MOST: { [id in TemplateId]: Answers } = {
   incidents: { actions: true },
   field: { technicians: ['Ali', 'Veli'], contracts: true, stock: true, invoice: true },
   consulting: { time: true, deadlines: true, customers: 'people', payments: true },
-  association: { dues: 'monthly', donations: true, campaigns: true, payments: true },
   finance: { recurring: [{ name: 'Salary', amount: 50000, direction: 'In', every: 'Monthly', day: 15, category: 'Salary' }, { name: 'Rent', amount: 20000, direction: 'Out', every: 'Monthly', day: 1, category: 'Rent' }], budget: true },
   home: { jobs: ['Gutters cleaned yearly'] },
   health: { for: 'family', family: ['Ayşe', 'Can'], medications: true },
@@ -83,7 +82,6 @@ const LEAST: { [id in TemplateId]: Answers } = {
   incidents: { types: [], actions: false },
   field: { jobs: [], contracts: false, stock: false, invoice: false },
   consulting: { models: [], time: false, deadlines: false, payments: false },
-  association: { dues: 'none', types: [], donations: false },
   finance: { accounts: [], recurring: [], budget: false },
   home: { keeps: [] },
   health: { for: 'me', medications: false },
@@ -473,6 +471,41 @@ describe('apps', () => {
     expect(payments[0]!.values).toMatchObject({ name: 'Consultation with Can', direction: 'In', amount: 500, status: 'Invoiced', appointment: { id }, budget_line: { name: 'Appointments' } });
   });
 
+  it('books from a customer at a time it says is free, reminds them the day before, and books the next visit when one is done', async () => {
+    const { fs, agent } = await world();
+    await createTool(agent, { kind: 'app', name: 'Studio', templates: ['appointments'], answers: { appointments: { by: 'team', staff: ['Ayşe'], services: ['Massage 60'] } }, currencies: ['TRY'] });
+    const can = await saveRecordTool(agent, { collection: 'Studio/People', values: { name: 'Can Demir', phone: '+90 532 444 55 66' } });
+    const canId = can.data.record.id;
+    const ayse = (await recordsTool(agent, { collection: 'Studio/Staff' })).data.records[0]!;
+    const massage = (await recordsTool(agent, { collection: 'Studio/Services' })).data.records[0]!;
+    await saveRecordTool(agent, { collection: 'Studio/People', id: canId, action: 'Book', input: { service: 'Massage', staff: 'Ayşe', when: '2026-10-22T10:00' } });
+    const booked = (await recordsTool(agent, { collection: 'Studio/Appointments' })).data.records[0]!;
+    expect(booked).toMatchObject({ name: 'Can Demir · Massage', values: expect.objectContaining({ duration: 60, status: 'Booked', ends: '2026-10-22T11:00', remind_on: '2026-10-21', remind_said: 'tomorrow 10:00 · Massage with Ayşe · +90 532 444 55 66' }) });
+    // Book says the times still free that day, the hour booked and those that would run into it gone.
+    const asked = askOf(await fs.readText('Studio/People/_rules.js'), 'Book', 'Studio/People', canId, await ruleSpaceNow(fs, '2026-10-21', 'Kaan'), {
+      service: { id: massage.id, name: 'Massage' },
+      staff: { id: ayse.id, name: 'Ayşe' },
+      when: '2026-10-22T09:00',
+    })!;
+    expect(asked.questions.find((q) => q.key === 'when')!.note).toBe('Free: 09:00, 11:00, 11:30, 12:00, 12:30, 13:00, 13:30, 14:00, 14:30, 15:00, 15:30, 16:00, 16:30, 17:00');
+    // The day before, whom to remind, with Reminded.
+    const due = (await dueRecordsTool(agent, { from: '2026-10-21', to: '2026-10-21' })).data.records as { view: string; record: { name: string } }[];
+    expect(due.filter((d) => d.view === 'To remind').map((d) => d.record.name)).toEqual(['Can Demir · Massage']);
+    const press = (id: string, action: string, input?: object) => saveRecordTool(agent, { collection: 'Studio/Appointments', id, action, ...(input && { input: input as never }) });
+    expect((await press(booked.id, 'Reminded')).data.record.values.status).toBe('Confirmed');
+    // Done: the next visit two weeks on, the same time with the same person.
+    await press(booked.id, 'Done', { next: 'In 2 weeks' });
+    const all = (await recordsTool(agent, { collection: 'Studio/Appointments', sort: { field: 'start' } })).data.records;
+    expect(all.map((r) => [r.name, r.values.start, r.values.status, (r.values.staff as { name: string }).name])).toEqual([
+      ['Can Demir · Massage', '2026-10-22T10:00', 'Done', 'Ayşe'],
+      ['Can Demir · Massage', '2026-11-05T10:00', 'Booked', 'Ayşe'],
+    ]);
+    const person = (await recordsTool(agent, { collection: 'Studio/People' })).data.records[0]!.values;
+    expect(person).toMatchObject({ visits: 1, no_shows: 0, visits_said: '1 visit · last Oct 22 · next Nov 5' });
+    // No-show only once its time has come.
+    expect((await refusal(press(all[1]!.id, 'No-show'))).message).toMatch(/Only one whose time has come/);
+  });
+
   it('keeps a membership on its plan: renewed a period on with its payment, past due when its day has passed, its plan changed, paused and cancelled at the end of its term', async () => {
     const { agent } = await world();
     await createTool(agent, { kind: 'app', name: 'Gym', templates: ['subscriptions', 'budget'], answers: { subscriptions: { sells: 'memberships', plans: ['Monthly', 'Yearly'], customers: 'people' } }, currencies: ['TRY'] });
@@ -551,9 +584,9 @@ describe('apps', () => {
     expect(await read(draftId)).toMatchObject({ status: 'Ended', ended_on: '2026-10-21' });
   });
 
-  it('keeps leave: its days without weekends and holidays, approved and counted, marked when it overlaps or goes past the days left, and the one hired on the team', async () => {
+  it('keeps leave: its days without weekends and holidays, approved and counted, marked when it overlaps or goes past the days left, half a day asked, carried over', async () => {
     const { agent } = await world();
-    await createTool(agent, { kind: 'app', name: 'Team', templates: ['recruiting', 'timeoff'], answers: { timeoff: { holidays: 'tr' } } });
+    await createTool(agent, { kind: 'app', name: 'Team', templates: ['timeoff'], answers: { timeoff: { holidays: 'tr' } } });
     expect((await recordsTool(agent, { collection: 'Team/Holidays' })).data.total).toBe(28);
     await saveRecordTool(agent, { collection: 'Team/Employees', values: { name: 'Ayşe Yılmaz', team: 'Platform' } });
     const leave = (values: object) => saveRecordTool(agent, { collection: 'Team/Leave requests', values: { employee: 'Ayşe Yılmaz', ...values } });
@@ -564,6 +597,7 @@ describe('apps', () => {
     const approved = await saveRecordTool(agent, { collection: 'Team/Leave requests', id: autumn.data.record.id, action: 'Approve' });
     expect(approved.data.record.values).toMatchObject({ status: 'Approved', approved_by: 'Kaan' });
     const ayse = async () => (await recordsTool(agent, { collection: 'Team/Employees', where: [{ field: 'name', op: 'is', value: 'Ayşe Yılmaz' }] })).data.records[0]!.values;
+    
     expect(await ayse()).toMatchObject({ allowance: 20, used: 4, left: 16 });
 
     const oneDay = await leave({ first: '2026-10-29', type: 'Sick' });
@@ -580,15 +614,15 @@ describe('apps', () => {
     const due = (await dueRecordsTool(agent, { from: '2026-10-26', to: '2026-10-30' })).data.records as { start: string; end: string; record: { name: string } }[];
     expect(due.map((d) => [d.record.name, d.start, d.end])).toEqual([['Ayşe Yılmaz · Annual', '2026-10-26', '2026-10-30']]);
 
-    // The one hired is added to the team.
-    await saveRecordTool(agent, { collection: 'Team/Positions', values: { name: 'Backend developer', team: 'Platform' } });
-    const can = await saveRecordTool(agent, { collection: 'Team/Candidates', values: { name: 'Can Demir', email: 'can@example.com' } });
-    await saveRecordTool(agent, { collection: 'Team/Candidates', id: can.data.record.id, action: 'Hire', input: { position: 'Backend developer', start: '2026-11-02' } });
-    const team = (await recordsTool(agent, { collection: 'Team/Employees', sort: { field: 'name' } })).data.records.map((r) => [r.name, r.values.team, r.values.started, r.values.email]);
-    expect(team).toEqual([
-      ['Ayşe Yılmaz', 'Platform', undefined, undefined],
-      ['Can Demir', 'Platform', '2026-11-02', 'can@example.com'],
-    ]);
+    // Request leave on her screen: the morning of one day is half a day, said with what is left after.
+    const ayseId = (await recordsTool(agent, { collection: 'Team/Employees' })).data.records[0]!.id;
+    await saveRecordTool(agent, { collection: 'Team/Employees', id: ayseId, action: 'Request leave', input: { type: 'Annual', first: '2026-11-04', part: 'Morning' } });
+    const morning = (await recordsTool(agent, { collection: 'Team/Leave requests' })).data.records.find((r) => r.values.first === '2026-11-04')!;
+    expect(morning).toMatchObject({ name: 'Ayşe Yılmaz · Annual', values: expect.objectContaining({ last: '2026-11-04', part: 'Morning', days: 0.5, status: 'Requested', requested_on: '2026-10-21', when_said: 'Nov 4 · morning', left_said: '0.5 days · 15.5 left after' }) });
+    expect(await ayse()).toMatchObject({ requested: 39.5, said: 'Platform · 16 days left of 20 · 39.5 requested · next away Oct 26' });
+    // At the end of the year, what is left goes to the next, up to 5 days.
+    await saveRecordTool(agent, { collection: 'Team/Employees', id: ayseId, action: 'Carry over' });
+    expect(await ayse()).toMatchObject({ carried: 5, carried_for: 2027, allowed: 20 });
   });
 
   it('measures a goal by its key results and its project, works out whether it is on track, checks in every result at once and carries it over', async () => {
@@ -768,41 +802,6 @@ describe('apps', () => {
     await saveRecordTool(agent, { collection: 'Firm/Deadlines', id: vat.data.record.id, values: { status: 'Done' } });
     const next = (await recordsTool(agent, { collection: 'Firm/Deadlines', where: [{ field: 'status', op: 'is', value: 'To do' }] })).data.records;
     expect(next.map((r) => [r.name, r.values.due])).toEqual([['VAT return · Lara Turizm', '2026-11-26']]);
-  });
-
-  it('keeps members: dues issued by period, late ones marked and lapsed, paid into the budget; donations to a campaign', async () => {
-    const { agent } = await world();
-    await createTool(agent, { kind: 'app', name: 'Club', templates: ['association', 'budget'], answers: { association: { campaigns: true } }, currencies: ['TRY'] });
-    for (const [name, status] of [['Ayşe Yılmaz', 'Active'], ['Mehmet Kaya', 'Active'], ['Zeynep Ak', 'Left']]) await saveRecordTool(agent, { collection: 'Club/Members', values: { name, status } });
-    const first = await saveRecordTool(agent, { collection: 'Club/Dues periods', values: { amount: 1200, due: '2026-10-01' } });
-    expect(first.data.record.name).toBe('2026');
-    await saveRecordTool(agent, { collection: 'Club/Dues periods', id: first.data.record.id, action: 'Issue dues' });
-    const dues = async () => (await recordsTool(agent, { collection: 'Club/Dues', sort: { field: 'name' } })).data.records;
-    expect((await dues()).map((d) => [d.name, d.values.amount, d.values.status, d.problems?.[0]?.text])).toEqual([
-      ['Ayşe Yılmaz · 2026', 1200, 'Due', 'Past its due day'],
-      ['Mehmet Kaya · 2026', 1200, 'Due', 'Past its due day'],
-    ]);
-    const paid = await saveRecordTool(agent, { collection: 'Club/Dues', id: (await dues())[0]!.id, values: { status: 'Paid' } });
-    expect(paid.data.record.values.paid_on).toBe('2026-10-21');
-    expect((await recordsTool(agent, { collection: 'Club/Payments' })).data.records.map((p) => p.values)).toEqual([expect.objectContaining({ direction: 'In', amount: 1200, status: 'Paid', budget_line: expect.objectContaining({ name: 'Dues' }) })]);
-
-    // Mehmet is still late with 2026 when 2027 is issued: he lapses, and is active again once he pays.
-    const second = await saveRecordTool(agent, { collection: 'Club/Dues periods', values: { name: '2027', amount: 1300, due: '2027-01-31' } });
-    await saveRecordTool(agent, { collection: 'Club/Dues periods', id: second.data.record.id, action: 'Issue dues' });
-    const member = async (name: string) => (await recordsTool(agent, { collection: 'Club/Members', where: [{ field: 'name', op: 'is', value: name }] })).data.records[0]!.values;
-    expect(await member('Mehmet Kaya')).toMatchObject({ status: 'Lapsed', dues_late: 1 });
-    expect(await member('Ayşe Yılmaz')).toMatchObject({ status: 'Active', dues_paid: 1200 });
-    expect((await dues()).length).toBe(4);
-    const late = (await dues()).find((d) => d.name === 'Mehmet Kaya · 2026')!;
-    await saveRecordTool(agent, { collection: 'Club/Dues', id: late.id, values: { status: 'Paid' } });
-    expect(await member('Mehmet Kaya')).toMatchObject({ status: 'Active', dues_late: 0 });
-
-    await saveRecordTool(agent, { collection: 'Club/Campaigns', values: { name: 'New roof', target: 10000 } });
-    await saveRecordTool(agent, { collection: 'Club/People', values: { name: 'Can Demir' } });
-    const gift = await saveRecordTool(agent, { collection: 'Club/Donations', values: { donor: 'Can Demir', amount: 5000, campaign: 'New roof' } });
-    expect(gift.data.record).toMatchObject({ name: 'Can Demir · 2026-10-21', values: expect.objectContaining({ code: 'RCP-0001' }) });
-    expect((await recordsTool(agent, { collection: 'Club/Campaigns' })).data.records[0]!.values).toMatchObject({ raised: 5000, reached: 0.5 });
-    expect((await recordsTool(agent, { collection: 'Club/Payments', where: [{ field: 'name', op: 'is', value: 'Can Demir · 2026-10-21' }] })).data.records[0]!.values).toMatchObject({ amount: 5000, status: 'Paid', budget_line: expect.objectContaining({ name: 'Donations' }) });
   });
 
   it('keeps personal money: what comes again set up as rows, a transaction by its amount and category, a transfer, a budget, one paid with what it asks left to its defaults', async () => {
@@ -1352,44 +1351,52 @@ describe('apps', () => {
     expect(told).toEqual([['Tell them: Dark mode is out in 2.4', 'Acme']]);
   });
 
-  it('hires a candidate: on the board, interviewed and scored, hired with the first steps, the position filled', async () => {
+  it('hires a candidate: a card on Hiring, interviewed with feedback written in Today, an offer made, hired with the first steps and on the team, the position filled', async () => {
     const { fs, agent } = await world();
-    await createTool(agent, { kind: 'app', name: 'Team', templates: ['recruiting'] });
-    await saveRecordTool(agent, { collection: 'Team/Positions', values: { name: 'Backend developer', team: 'Platform' } });
-    const ayse = await saveRecordTool(agent, { collection: 'Team/Candidates', values: { name: 'Ayşe Yılmaz', source: 'Referral' } });
-    const id = ayse.data.record.id;
-    const press = (action: string, input?: object) => saveRecordTool(agent, { collection: 'Team/Candidates', id, action, ...(input && { input: input as never }) });
-    await press('Add to position', { position: 'Backend developer' });
-    const board = async () => JSON.parse(await fs.readText('Team/Hiring.board.json'));
-    const column = async () => {
-      const b = await board();
-      return b.columns.find((c: { id: string }) => c.id === b.cards[0].column).name;
-    };
-    expect((await board()).cards.map((c: { title: string; values: object }) => [c.title, c.values])).toEqual([
-      ['Ayşe Yılmaz', { candidate: expect.objectContaining({ name: 'Ayşe Yılmaz' }), position: expect.objectContaining({ name: 'Backend developer' }) }],
-    ]);
-    expect(await column()).toBe('Applied');
+    await createTool(agent, { kind: 'app', name: 'Team', templates: ['recruiting', 'timeoff'], currencies: ['TRY'] });
+    const backend = await saveRecordTool(agent, { collection: 'Team/Positions', values: { name: 'Backend developer', team: 'Platform' } });
+    await saveCardTool(agent, {}, { board: 'Team/Hiring', title: 'Ayşe Yılmaz', values: { position: 'Backend developer', source: 'Referral', email: 'ayse@example.com' } });
+    await saveCardTool(agent, {}, { board: 'Team/Hiring', title: 'Can Demir', column: 'Screening', values: { position: 'Backend developer' } });
     const position = async () => (await recordsTool(agent, { collection: 'Team/Positions' })).data.records[0]!.values;
-    expect(await position()).toMatchObject({ code: 'POS-0001', status: 'Open', openings: 1, applicants: 1, in_process: 1, hired: 0, left: 1, owner: 'Kaan' });
+    expect(await position()).toMatchObject({ code: 'POS-0001', status: 'Open', owner: 'Kaan', applicants: 2, in_process: 2, hired: 0, pipeline_said: '1 applied · 1 screening', hired_said: '0 of 1', open_said: '0 days' });
+    const hiring = JSON.parse(await fs.readText('Team/Hiring.board.json'));
+    expect(hiring.face).toEqual(['position', 'source']);
+    expect(hiring.press).toEqual({ link: 'position', buttons: ['Schedule interview', 'Make offer'], card: 'candidate', won: 'Hire', lost: 'Reject' });
+    const column = async (title: string) => {
+      const b = JSON.parse(await fs.readText('Team/Hiring.board.json'));
+      const card = b.cards.find((c: { title: string }) => c.title === title);
+      return [b.columns.find((c: { id: string }) => c.id === card.column).name, card.values];
+    };
+    // The card's buttons are its position's, the card given.
+    const press = (action: string, input: object) => saveRecordTool(agent, { collection: 'Team/Positions', id: backend.data.record.id, action, input: { candidate: 'Ayşe Yılmaz', ...input } as never });
 
-    await press('Schedule interview', { position: 'Backend developer', date: '2026-10-23', type: 'Technical' });
+    await press('Schedule interview', { type: 'Technical', date: '2026-10-21T10:00' });
     const interview = (await recordsTool(agent, { collection: 'Team/Interviews' })).data.records[0]!;
-    expect(interview).toMatchObject({ name: 'Technical with Ayşe Yılmaz', values: expect.objectContaining({ date: '2026-10-23', interviewer: 'Kaan', candidate: expect.objectContaining({ name: 'Ayşe Yılmaz' }) }) });
-    const scored = await saveRecordTool(agent, { collection: 'Team/Interviews', id: interview.id, values: { score: 7 } });
-    expect(scored.data.record.problems).toEqual([{ kind: 'check', field: 'score', text: 'A score is from 1 to 5' }]);
-    await saveRecordTool(agent, { collection: 'Team/Interviews', id: interview.id, values: { score: 4, recommendation: 'Yes' } });
+    expect(interview).toMatchObject({ name: 'Technical · Ayşe Yılmaz', values: expect.objectContaining({ date: '2026-10-21T10:00', interviewer: 'Kaan', candidate: expect.objectContaining({ name: 'Ayşe Yılmaz' }), position: expect.objectContaining({ name: 'Backend developer' }) }) });
+    // Its time in Today with Write feedback, till it is written.
+    const due = async () => ((await dueRecordsTool(agent, { from: '2026-10-21', to: '2026-10-21' })).data.records as { view: string; record: { name: string } }[]).filter((d) => d.view === 'Feedback').map((d) => d.record.name);
+    expect(await due()).toEqual(['Technical · Ayşe Yılmaz']);
+    const written = await saveRecordTool(agent, { collection: 'Team/Interviews', id: interview.id, action: 'Write feedback', input: { score: '4', verdict: 'Yes', takeaways: 'Solid on Postgres' } });
+    expect(written.data.record.values).toMatchObject({ score: 4, verdict: 'Yes', takeaways: 'Solid on Postgres', done: true });
+    expect(await due()).toEqual([]);
 
-    const hired = await press('Hire', { position: 'Backend developer', start: '2026-11-02' });
-    expect(hired.data.record.values).toMatchObject({ hired_for: expect.objectContaining({ name: 'Backend developer' }), start: '2026-11-02', interview_count: 1, score: 4 });
+    await press('Make offer', { salary: 4800, starts: '2026-12-01' });
+    expect(await column('Ayşe Yılmaz')).toEqual(['Offer', expect.objectContaining({ offer: 4800, starts: '2026-12-01' })]);
+    expect(await position()).toMatchObject({ pipeline_said: '1 screening · 1 offer' });
+
+    const hired = await press('Hire', { starts: '2026-12-01' });
+    expect((await column('Ayşe Yılmaz'))[0]).toBe('Hired');
+    expect(hired.data.record.values).toMatchObject({ status: 'Filled', hired: 1, in_process: 1, hired_said: '1 of 1', pipeline_said: '1 screening · 1 hired' });
     expect((hired.data.record as { subtasks: { title: string; due: string }[] }).subtasks.map((t) => [t.title, t.due])).toEqual([
-      ['Contract signed', '2026-11-02'],
-      ['Equipment ready', '2026-11-02'],
-      ['Accounts opened', '2026-11-02'],
-      ['First week planned', '2026-11-02'],
+      ['Contract signed · Ayşe Yılmaz', '2026-12-01'],
+      ['Equipment ready · Ayşe Yılmaz', '2026-12-01'],
+      ['Accounts opened · Ayşe Yılmaz', '2026-12-01'],
+      ['First week planned · Ayşe Yılmaz', '2026-12-01'],
     ]);
-    expect(await column()).toBe('Hired');
-    expect(await position()).toMatchObject({ status: 'Filled', applicants: 1, in_process: 0, hired: 1, left: 0 });
-    expect((await refusal(press('Hire', { position: 'Backend developer', start: '2026-11-02' }))).message).toMatch(/Hired already/);
+    // With Time off, the one hired is one of the team.
+    const team = (await recordsTool(agent, { collection: 'Team/Employees' })).data.records.map((r) => [r.name, r.values.team, r.values.started]);
+    expect(team).toEqual([['Ayşe Yılmaz', 'Platform', '2026-12-01']]);
+    expect((await refusal(press('Hire', { candidate: 'Can Demir', starts: '2026-12-01' }))).message).toMatch(/Only an open position/);
   });
 
   it("keeps an asset: checked out with a day to come back and in, its value today, serviced with the next planned and its cost on the budget, repaired, retired", async () => {

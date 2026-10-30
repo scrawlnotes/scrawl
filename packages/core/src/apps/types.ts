@@ -15,7 +15,7 @@ export const APP_FILE = '_app.json';
 export const RECORD_BODY = '#body';
 
 /** The templates, in the order they are set up: the one before sets up what a shared piece starts with. */
-export const TEMPLATE_IDS = ['crm', 'sales', 'support', 'appointments', 'projects', 'budget', 'stock', 'ecommerce', 'product', 'recruiting', 'assets', 'content', 'subscriptions', 'contracts', 'timeoff', 'goals', 'incidents', 'field', 'consulting', 'association', 'finance', 'home', 'health', 'recipes', 'travel', 'split', 'jobs', 'people', 'reading', 'sport', 'gym', 'habits'] as const;
+export const TEMPLATE_IDS = ['crm', 'sales', 'support', 'appointments', 'projects', 'budget', 'stock', 'ecommerce', 'product', 'recruiting', 'assets', 'content', 'subscriptions', 'contracts', 'timeoff', 'goals', 'incidents', 'field', 'consulting', 'finance', 'home', 'health', 'recipes', 'travel', 'split', 'jobs', 'people', 'reading', 'sport', 'gym', 'habits'] as const;
 
 export type TemplateId = (typeof TEMPLATE_IDS)[number];
 

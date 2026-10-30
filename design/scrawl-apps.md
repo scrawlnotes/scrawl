@@ -465,6 +465,22 @@ Stok elle yazılmaz, hareketlerden hesaplanır.
 
 ### 3.8 İşe alım
 
+30 Ekim, Workable ve Greenhouse'un aday kartı, mülakat geri bildirimi ve teklif ekranlarına bakılarak baştan; İzinler (`design/more-apps.md` 3.3) ve Randevuyla (`design/calendar.md` 6) birlikte. Mockup: `design/mockups.html` › İşe alım, izin ve randevu. Roadmap ROA-348, deneme ROA-349.
+
+- **Aday tek kart:** Candidates koleksiyonu kalktı; Hiring panosundaki kart adaydır: pozisyon (zorunlu), e-posta, telefon, LinkedIn, kaynak, teklif (para), başlama günü, ret nedeni (Not a fit, Took another offer, Withdrew, Salary, No answer). CV kartın açıklamasında.
+- **Pano:** Applied, Screening, Interview, Offer, Hired, Rejected; Rejected'a giden kart nedenini sorar. Kart yüzünde pozisyon ve kaynak, altında sıradaki mülakat ("Technical · Thu 14:00"), yoksa "No interview planned"; üstte "No interview planned: 2".
+- **Kart penceresi:** aşama çubuğu; pozisyonun düğmeleri kart verilerek: Schedule interview, Make offer, sağda Hire ve Reject (CRM'in Won ve Lost'u yerine). Mülakatlar gün gün, türün işaretiyle, altında "Mert Yılmaz · 4 · Yes · notlar"; + Schedule interview.
+- **Schedule interview:** tür çiplerle, saat, görüşen (ben); mülakat "Technical · Ayşe Kaya" adıyla açılır.
+- **Write feedback:** mülakat saatinde Today'de, yazılana kadar Overdue'da kalır; puan 1–5 çiplerle, Overall (Definitely not, No, Yes, Strong yes), Key take-aways.
+- **Make offer:** maaş, başlama günü, not; kartı Offer'a taşır, teklifi ve günü yazar.
+- **Hire:** başlama günü; kartı Hired'a taşır, kurulumdaki ilk adımları pozisyona aday adıyla alt görev olarak o güne açar ("Contract signed · Ayşe Kaya"), İzinler varsa Employees'e ekler; kadro dolunca pozisyon Filled.
+- **Positions:** sekmeler Open, On hold, Filled, Closed; üstte "2 open · 8 in the pipeline · 1 offers out"; satırda yönetici, "5 applied · 1 screening · 1 interview", "0 of 2", kaç gündür açık.
+- **Home:** Pipeline (aşama sayıları), Open positions, Interviews (gelen), Feedback due.
+- **Altyapı:** panoda toplama sütuna göre süzülür (`where` ile `column`); `press.won` ve `press.lost` Won ve Lost'un yerine; `next.say` ve `next.none` sıradaki adımın sözü; kuralda kart bağının `name`'i; CRM'e özgü "Closing this month" kutusu ve "Expected close" yalnız para alanı olan panoda.
+- **Mockup'tan kalan farklar:** kart yüzünde teklif ("Offer sent Oct 27 · $4,200") yazmıyor, teklif kartın alanında; mülakatın puan ortalaması pencere başlığında değil; Home'da Pipeline kutusu da var; pozisyon satırında ekip adın altında değil.
+
+Önceki hali:
+
 Açık pozisyonlar, adaylar, adayın süreçteki yeri ve görüşmeler. Şablon penceresinde Work grubunda.
 
 | Parça | Tür | İçinde | Hesaplanan |

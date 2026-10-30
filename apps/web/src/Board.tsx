@@ -313,7 +313,7 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, onHold
     step === undefined ? null : (
       <span className={step === null ? 'nx none' : late ? 'nx late' : 'nx'}>
         <i />
-        {step === null ? t('board.noNextStep') : `${recordTitle(step)} · ${when}`}
+        {step === null ? (board.next!.none ?? t('board.noNextStep')) : `${(board.next!.say && valueText(step.values[board.next!.say] ?? null)) || recordTitle(step)} · ${when}`}
       </span>
     );
   const menu = (event: MouseEvent) =>
@@ -1881,7 +1881,7 @@ export function BoardView({ path, board, name, embedded, today, actions, look, o
         </span>
         {view === 'calendar' && <MonthNav month={month} today={today} onMonth={setMonth} />}
         {waiting > 0 && <span className="wait">{t('board.toReview', { count: waiting })}</span>}
-        {stepless > 0 && <span className="wait">{t('board.stepless', { count: stepless })}</span>}
+        {stepless > 0 && <span className="wait">{board.next?.none ? t('board.steplessSaid', { none: board.next.none, count: stepless }) : t('board.stepless', { count: stepless })}</span>}
         <SearchBox value={asked.text} onChange={(text) => chooseFilter({ ...asked, text })} />
         {filter.button}
         <button type="button" className="ghost" onClick={() => setDesigning(true)}>

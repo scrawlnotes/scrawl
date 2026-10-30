@@ -333,6 +333,9 @@ export class Computer {
     const board = this.boards[ref.dir];
     if (board) {
       const card = board.cards.find((c) => c.id === ref.id);
+      // Its name is its title, its code its key: a candidate's.
+      if (key === 'name') return card?.title ?? ref.name;
+      if (key === 'code') return ref.code ?? null;
       const field = (board.fields ?? []).find((f) => f.key === key);
       return card && field ? toRuntime(field, (card.values?.[key] ?? null) as FieldValue) : null;
     }
@@ -365,13 +368,15 @@ export class Computer {
       const board = this.boards[r.from];
       if (!board) return null;
       const fields = board.fields ?? [];
+      // A card's column is asked as a choice too: a position's candidates in Interview.
+      const asked: Field[] = [...fields, { key: 'column', label: 'Column', type: 'select', options: board.columns.map((c) => c.name) }];
       let cards = linkedCards({ [r.from]: board }, dir, record).map((d) => d.card);
       if (r.open) cards = cards.filter((card) => !isFinished(board, card));
       if (r.won) cards = cards.filter((card) => columnOf(board, card)?.kind === 'done');
       if (where.length > 0) {
         cards = cards.filter((card) => {
-          const values = Object.fromEntries(fields.map((f) => [f.key, this.cardValue(r.from, card, f)]));
-          return where.every((c) => matchesCondition({ values }, { fields }, c, this.today));
+          const values = { ...Object.fromEntries(fields.map((f) => [f.key, this.cardValue(r.from, card, f)])), column: columnOf(board, card)?.name ?? null };
+          return where.every((c) => matchesCondition({ values }, { fields: asked }, c, this.today));
         });
       }
       if (r.fn === 'count') return cards.length;
@@ -381,7 +386,10 @@ export class Computer {
     const collection = this.dirs.get(r.from);
     if (!collection) return null;
     let records = this.linking(collection, dir, record, r.via);
-    if (where.length > 0) records = records.filter((rec) => where.every((c) => matchesCondition({ values: this.values(collection.dir, rec) }, collection.schema, c, this.today)));
+    // Only the fields asked are worked out: a leave's own words read its person's days left, which this is.
+    const asked = collection.schema.fields.filter((f) => isComputed(f.type) && where.some((c) => c.field === f.key));
+    const valuesOf = (rec: Record) => (asked.length === 0 ? rec.values : { ...rec.values, ...Object.fromEntries(asked.map((f) => [f.key, fromRuntime(this.run(collection.dir, rec, f, false))])) });
+    if (where.length > 0) records = records.filter((rec) => where.every((c) => matchesCondition({ values: valuesOf(rec) }, collection.schema, c, this.today)));
     if (r.fn === 'count') return records.length;
     const source = collection.schema.fields.find((f) => f.key === r.field);
     return source ? aggregate(r.fn, records.map((rec) => this.run(collection.dir, rec, source, false))) : null;

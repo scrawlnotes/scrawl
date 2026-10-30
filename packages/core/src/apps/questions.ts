@@ -1,6 +1,5 @@
 import { t } from '@scrawlnotes/i18n';
 import { appointments } from './templates/appointments';
-import { association } from './templates/association';
 import { assets } from './templates/assets';
 import { budget } from './templates/budget';
 import { consulting } from './templates/consulting';
@@ -34,7 +33,7 @@ import { travel } from './templates/travel';
 import { listed } from './about';
 import { type Answer, type AnswerRow, type Answers, type AppTemplate, audienceOf, type Question, TEMPLATE_IDS, type TemplateId } from './types';
 
-export const TEMPLATES: { [id in TemplateId]: AppTemplate } = { crm, sales, support, appointments, projects, budget, stock, ecommerce, product, recruiting, assets, content, subscriptions, contracts, timeoff, goals, incidents, field, consulting, association, finance, home, health, recipes, travel, split, jobs, people, reading, habits, sport, gym };
+export const TEMPLATES: { [id in TemplateId]: AppTemplate } = { crm, sales, support, appointments, projects, budget, stock, ecommerce, product, recruiting, assets, content, subscriptions, contracts, timeoff, goals, incidents, field, consulting, finance, home, health, recipes, travel, split, jobs, people, reading, habits, sport, gym };
 
 export const isTemplateId = (id: unknown): id is TemplateId => TEMPLATE_IDS.includes(id as TemplateId);
 

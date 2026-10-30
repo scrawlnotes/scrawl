@@ -1019,7 +1019,9 @@ function problemsOf(checks: { part: CollectionPart; fields: Field[]; rules: Rule
         if (!source) at(`${field.key} rolls up from ${field.rollup?.from}, which is not there`);
         else {
           if (field.rollup?.field && !source.fields.some((f) => f.key === field.rollup!.field)) at(`${field.key} rolls up ${field.rollup.field}, which ${field.rollup.from} does not have`);
-          for (const c of field.rollup?.where ?? []) if (!source.fields.some((f) => f.key === c.field)) at(`${field.key}: ${field.rollup!.from} has no ${c.field}`);
+          // A board's cards are asked by their column too.
+          const isBoard = !!boards[field.rollup?.from ?? ''];
+          for (const c of field.rollup?.where ?? []) if (!source.fields.some((f) => f.key === c.field) && !(isBoard && c.field === 'column')) at(`${field.key}: ${field.rollup!.from} has no ${c.field}`);
         }
       }
     }

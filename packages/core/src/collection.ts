@@ -509,6 +509,8 @@ export interface TimelineSettings {
   marks?: { collection: string; link: string; date: string; done?: string };
   /** The flag that says a record is late: from its end to today hatched red, a project past its day. */
   late?: string;
+  /** A row for each record this link field points at, its records bars on it: who is away, a row a person. */
+  rows?: string;
 }
 
 /**
@@ -1156,7 +1158,8 @@ function readViews(raw: unknown, fields: Field[]): View[] {
       const m = isRecord(given.marks) ? given.marks : null;
       const marks = m && typeof m.collection === 'string' && typeof m.link === 'string' && typeof m.date === 'string' ? { collection: m.collection, link: cleanFieldKey(m.link), date: cleanFieldKey(m.date), ...(typeof m.done === 'string' && { done: cleanFieldKey(m.done) }) } : undefined;
       const late = typeof given.late === 'string' ? fields.find((f) => f.key === cleanFieldKey(given.late as string) && (f.type === 'checkbox' || f.type === 'formula'))?.key : undefined;
-      if (start && end) Object.assign(view, { kind: 'timeline', timeline: { start, end, ...(color && { color }), ...(marks && { marks }), ...(late && { late }) } });
+      const rows = typeof given.rows === 'string' ? fields.find((f) => f.key === cleanFieldKey(given.rows as string) && f.type === 'link' && !f.many)?.key : undefined;
+      if (start && end) Object.assign(view, { kind: 'timeline', timeline: { start, end, ...(color && { color }), ...(marks && { marks }), ...(late && { late }), ...(rows && { rows }) } });
     }
     if (isSort(item.sort)) view.sort = { key: item.sort.key, dir: item.sort.dir };
     if (typeof item.group === 'string' && item.group) view.group = cleanFieldKey(item.group);

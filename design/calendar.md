@@ -120,6 +120,19 @@ Pano kartları zaten Upcoming'de; panonun takvimi yalnız görünümdür.
 
 ## 6. Randevu ve rezervasyon
 
+30 Ekim, Fresha ve Acuity'nin gün takvimi, randevu verme ve tekrar randevu ekranlarına bakılarak baştan; İşe alım ve İzinlerle birlikte. Mockup: `design/mockups.html` › İşe alım, izin ve randevu. Roadmap ROA-348, deneme ROA-349.
+
+- **Durumlar:** Booked, Confirmed, Arrived, Done, No-show, Cancelled. Arrived yalnız günündeki randevuda, No-show saati gelmiş olanda.
+- **Takvim:** randevu günü ve saatinde Today'de Done ile ("10:00 · Massage with Ayşe"); ekipte Day görünümü her çalışan bir satır, sayısı "2 appointments"; gün zorunlu olduğu için yan panel yok.
+- **Done:** Next visit sorar (In 1 week, 2, 4, 6 weeks, Not now); seçilirse aynı saatte aynı kişiyle yeni randevu açar, notta "Fri, Nov 13 · 10:00 with Ayşe is free; it is booked." ya da doluysa kimin olduğu.
+- **Book** (müşteride): hizmet ve kişi çiplerle, saat; notta o günün boş saatleri ("Free: 09:00, 11:00 …"): yarım saatte bir 09:00–18:30, kişinin mesaisi ve çalıştığı günler içinde, hizmet süresi kadar boş olanlar.
+- **Hatırlatma** (soruyla, varsayılan evet): Booked randevu bir gün önce Today'de "tomorrow 10:00 · Massage with Ayşe · telefon" ve Reminded ile; Reminded Confirmed yapar.
+- **Müşteri:** başlıkta "9 visits · last Oct 16 · next Nov 13 · 1 no-show"; randevuları gün gün, "Done · $80"; + Book.
+- **Home:** Today (sayı ve tutar), This week (kişi kişi), No-shows (bu ay).
+- **Mockup'tan kalan farklar:** gün görünümünün yanında "To remind" listesi yok (hatırlatma Today'de); müşteride "usually Massage 60 with Ayşe" yok; Book'ta boş saatler çip değil not.
+
+Önceki hali:
+
 Şablon penceresinde Customers grubunda. Bir hizmetin ya da bir yerin, kimin için, ne zaman ve kimle olduğu.
 
 | Parça | Tür | İçinde | Hesaplanan |

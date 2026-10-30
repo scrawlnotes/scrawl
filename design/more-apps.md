@@ -76,6 +76,21 @@ Kira, sigorta, tedarikçi, bakım, yazılım lisansı, müşteri sözleşmesi.
 
 ### 3.3 İzinler ve ekip (Work)
 
+30 Ekim, Timetastic'in duvar takvimi ve BambooHR'ın izin isteği ekranlarına bakılarak baştan; İşe alım ve Randevuyla birlikte. Mockup: `design/mockups.html` › İşe alım, izin ve randevu. Roadmap ROA-348, deneme ROA-349.
+
+- **Request leave** (çalışanın penceresinde): tür çiplerle, ilk ve son gün, tek günse Full day, Morning, Afternoon; notta "3 days · 11 left after this. It goes to Ahmet Koç for approval." Morning ya da Afternoon yarım gün sayılır; aynı günün iki yarısı çakışma sayılmaz.
+- **Onay:** talep istendiği günden onaylanana kadar Today'de Approve ile ("Nov 2 – Nov 4 · 3 days · 11 left after"); Reject nedenini sorar; Cancel gelecek izni iptal eder.
+- **Who's away** (açılış): her çalışan bir satır, her izin türünün renginde bir çubuk; Two weeks ya da Month bu pazartesiden, gün sütunlu, hafta sonu gölgeli; telefonda bugünden bir hafta.
+- **Leave:** sekmeler To approve, Upcoming, Away now, Past; satırda kim, tür, "Nov 4 · morning", gün, durum.
+- **Çalışan:** başlıkta "Platform · 11 days left of 16 · 3 requested · next away Nov 2"; kullanılan çubuğu "5 of 16"; izinleri listede.
+- **Carry over:** yıl sonunda kalanı bir sonraki yıla taşır; kurulumda None, Up to 5, Up to 10, All of them; listede hepsine birden.
+- **Home:** Away (bugün, gelen), To approve, Holidays.
+- **İşe alımla:** Hire, işe alınanı Employees'e ekler (Candidates kalktığı için kural İşe alım'da).
+- **Altyapı:** timeline'da `rows` (bağlı kayda göre satır), gün aralıkları ve hafta sonu.
+- **Mockup'tan kalan farklar:** istenmiş izin kesik çizgili değil; satırda ekip ve kalan gün yazmıyor; tatil günü gölgeli değil; Mine sekmesi yok (çalışan kişi alanı değil).
+
+Önceki hali:
+
 - **Employees:** ad, e-posta, telefon, ekip, yönetici, işe başlama, yıllık izin hakkı; bu yıl kullanılan (onaylı izinlerin günleri), kalan.
 - **Leave requests:** çalışan, tür, ilk ve son gün, gün sayısı (`workdays` eksi tatiller, kaydederken), durum (Requested, Approved, Rejected, Cancelled), onaylayan, not.
 - **Holidays:** ad, gün; kurulurken bölgenin bu yılki resmi tatilleri.
@@ -182,6 +197,8 @@ Danışmanlık firmaları; muhasebe ve hukuk büroları bir soruyla.
 - **Sorular:** ücret modelleri, saat tutuluyor mu, tekrarlayan son tarihler var mı (liste, "VAT return monthly"), Bütçe seçiliyse fatura ödeme olarak yazılsın mı.
 
 ### 3.8 Dernek ve kulüp: üyeler, aidat, bağışlar (Customers)
+
+**30 Ekim: şablon kaldırıldı** (kullanıcının isteğiyle); parçaları Members, Dues, Dues periods ve Donations da gitti. Kurulu bir app'te kalan dosyalar olduğu gibi durur, şablonu artık bilinmez. Aşağısı eski hali:
 
 - **Members:** ad, iletişim, üyelik türü, üyelik başlangıcı, durum (Active, Lapsed, Left), gönüllü mü, becerileri; ödenen ve geciken aidat.
 - **Dues:** üye, dönem, tutar, son gün, durum (Due, Paid, Waived). Issue dues düğmesi aktif üyelere dönemin aidatını yazar; Paid olunca Bütçe varsa gelen ödeme.

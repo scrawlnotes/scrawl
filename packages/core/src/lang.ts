@@ -872,6 +872,8 @@ export function check(node: Node, scope: Scope, stack: string[] = []): Checked {
           const said = keys.length > 1 ? `${keys.slice(0, -1).join(', ')} ${t('list.and')} ${keys[keys.length - 1]}` : (keys[0] ?? '');
           throw new LangError(t('rules.askNo', { button: target.slice(ASK_INPUT.length), name: n.name, keys: said }), n.at);
         }
+        // A card's link says its title as its name, and its key as its code.
+        if (!field && (n.name === 'name' || n.name === 'code')) return isList(of) ? { list: 'text' } : 'text';
         if (!field) throw new LangError(t('lang.noTargetField', { name: n.name, link: label(n.of) }), n.at);
         let kind: Kind;
         try {

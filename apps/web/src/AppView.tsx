@@ -107,11 +107,14 @@ function glanceOf(screen: AppScreen, collections: Record<string, Collection>, bo
       ...glance,
       count: { text: [t('app.open', { count: open.length }), money(open).text].filter(Boolean).join(' · '), check: 0 },
       pipe: stages.map((s) => ({ name: s.column.name, count: s.cards.length, sum: money(s.cards).text, share: money(s.cards).n / top })),
-      closing: closing.slice(0, 4).map((card) => {
-        const v = valueOf(card);
-        return { name: card.title, said: [typeof v === 'number' && sumField ? formatNumber(v, sumField.format) : '', dayWords(card.due!)].filter(Boolean).join(' · ') };
+      // What closes this month is a pipeline of money: a deal's; candidates have none.
+      ...(sumField && {
+        closing: closing.slice(0, 4).map((card) => {
+          const v = valueOf(card);
+          return { name: card.title, said: [typeof v === 'number' ? formatNumber(v, sumField.format) : '', dayWords(card.due!)].filter(Boolean).join(' · ') };
+        }),
+        closingSum: [t('app.deals', { count: closing.length }), money(closing).text].filter(Boolean).join(' · '),
       }),
-      closingSum: [t('app.deals', { count: closing.length }), money(closing).text].filter(Boolean).join(' · '),
     };
   }
   if (screen.kind === 'note') return null;
@@ -404,7 +407,7 @@ function AppHome({ modules, shows, collections, boards, notes, today, due, actio
             ))}
           </span>
         </button>,
-        <button key={`${key}#closing`} type="button" className="app-tile" onClick={open}>
+        glance.closingSum !== undefined && <button key={`${key}#closing`} type="button" className="app-tile" onClick={open}>
           <span className="h">
             <Icon name="calendar" />
             {t('app.closing')}

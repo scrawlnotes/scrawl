@@ -1303,7 +1303,7 @@ function LinkedRecords({ block, dir, record, today, actions, drafts, hint, onOpe
                 {typeof kind === 'string' && kind && <Chip text={kind} color={optionColor(choice, kind)} />}
                 <b>{recordTitle(r)}</b>
                 {typeof by === 'string' && by && <span className="by">{by}</span>}
-                <span className="t">{typeof when === 'string' && when ? dueLabel(when, today) : ''}</span>
+                <span className="t">{typeof when === 'string' && when ? dueLabel(when.slice(0, 10), today) : ''}</span>
               </span>
               {text && <span className="tx">{text}</span>}
             </button>

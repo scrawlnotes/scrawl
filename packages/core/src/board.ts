@@ -147,12 +147,20 @@ export interface BoardPress {
   card: string;
   /** Questions answered with the card's fields, question by field: Log's with, the deal's contact. */
   fields?: { [ask: string]: string };
+  /** The button that stands for Won, in its place: a candidate's Hire. */
+  won?: string;
+  /** What Lost is called: a candidate's Reject. */
+  lost?: string;
 }
 
 export interface BoardNext {
   collection: string;
   day: string;
   done: string;
+  /** The field of the next step said in place of its name: an interview's type. */
+  say?: string;
+  /** What a card with none says, in place of No next step: No interview planned. */
+  none?: string;
 }
 
 export interface BoardWins {
@@ -300,12 +308,14 @@ function readPress(raw: unknown): BoardPress | null {
   if (!isObject(raw) || typeof raw.link !== 'string' || typeof raw.card !== 'string' || !Array.isArray(raw.buttons)) return null;
   const buttons = raw.buttons.filter((n): n is string => typeof n === 'string' && !!n.trim());
   const fields = isObject(raw.fields) ? Object.fromEntries(Object.entries(raw.fields).filter((e): e is [string, string] => typeof e[1] === 'string')) : {};
-  return { link: raw.link, buttons, card: raw.card, ...(Object.keys(fields).length > 0 && { fields }) };
+  const named = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefined);
+  return { link: raw.link, buttons, card: raw.card, ...(Object.keys(fields).length > 0 && { fields }), ...(named(raw.won) && { won: named(raw.won) }), ...(named(raw.lost) && { lost: named(raw.lost) }) };
 }
 
 function readNext(raw: unknown): BoardNext | null {
   if (!isObject(raw) || typeof raw.collection !== 'string' || typeof raw.day !== 'string' || typeof raw.done !== 'string') return null;
-  return { collection: raw.collection, day: raw.day, done: raw.done };
+  const named = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefined);
+  return { collection: raw.collection, day: raw.day, done: raw.done, ...(named(raw.say) && { say: named(raw.say) }), ...(named(raw.none) && { none: named(raw.none) }) };
 }
 
 /** A card as a record a link points at: its id, its title for a name, its key for a code, its values. */
