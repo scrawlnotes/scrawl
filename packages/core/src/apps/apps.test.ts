@@ -69,7 +69,7 @@ const MOST: { [id in TemplateId]: Answers } = {
   people: { anniversaries: true, touch: 'Every month' },
   reading: { goal: '24', quotes: true, lending: true, releases: true },
   habits: { goals: true },
-  sport: { sets: true, body: true, races: true },
+  sport: { body: true, races: true },
   gym: { days: true, sets: true },
 };
 const LEAST: { [id in TemplateId]: Answers } = {
@@ -378,12 +378,17 @@ describe('setting up an app', () => {
     const board = (path: string) => parseBoard(plan.files.find((f) => f.path === path)!.text);
     expect(board('Team/Roadmap.board.json').fields!.find((f) => f.key === 'goal')!.collection).toBe('Team/Goals');
     expect(schema('Team/Requests').fields.find((f) => f.key === 'incident')!.collection).toBe('Team/Incidents');
-    expect(board('Team/Actions.board.json').columns.map((c) => c.name)).toEqual(['To do', 'Doing', 'Done']);
-    expect(schema('Team/Incidents').views![0]!.calendar).toEqual({ start: 'started', end: 'ended', color: 'severity', upcoming: false });
+    expect(board('Team/Actions.board.json').columns.map((c) => c.name)).toEqual(['To do', 'Doing', 'Done', "Won't do"]);
+    // An open incident in Today every day with Post update; one resolved, its review a few days on.
+    expect(schema('Team/Incidents').views!.filter((v) => v.kind === 'calendar').map((v) => [v.id, v.calendar])).toEqual([
+      ['ongoing', { start: 'started', color: 'severity', upcoming: 'today', button: 'Post update', words: ['said'] }],
+      ['reviews', { start: 'review_on', color: 'severity', upcoming: true, button: 'Write review', words: ['when_said'] }],
+      ['calendar', { start: 'started', end: 'ended', color: 'severity', upcoming: false }],
+    ]);
     expect(plan.templates.filter((s) => ['timeoff', 'goals', 'incidents'].includes(s.id)).map((s) => [s.id, s.buttons])).toEqual([
       ['timeoff', ['Request leave', 'Approve', 'Reject', 'Cancel', 'Carry over']],
       ['goals', ['Check in', 'Close goal']],
-      ['incidents', ['Resolve', 'Close', 'Add action']],
+      ['incidents', ['Post update', 'Write review', 'Close', 'Add action']],
     ]);
   });
 
@@ -1022,36 +1027,37 @@ describe('editing an app', () => {
   it('takes off the view and the rule an answer brought, keeps the records, and brings them back', async () => {
     const fs = new MemoryFs();
     await installApp(fs, planApp({ name: 'Atlas', templates: [{ id: 'sport', answers: { races: true } }] }, { ids }));
-    const races = await loadCollection(fs, 'Atlas/Races and goals');
+    const races = await loadCollection(fs, 'Atlas/Races');
     await addRecord(fs, races, { values: { name: 'Istanbul 10K', date: '2026-11-08' } });
     const off = await edit(fs, [{ id: 'sport', answers: { races: false } }]);
-    expect(said(off.edit!.takenOff)).toEqual(['Races and goals: the Calendar view', 'Races and goals: the rule Write the result']);
-    expect(said(off.edit!.kept)).toEqual(['Races and goals: with its record']);
+    expect(said(off.edit!.takenOff)).toEqual(['Races: the Calendar view', 'Races: the Coming view', 'Races: the Done view', 'Races: the Write result button']);
+    expect(said(off.edit!.kept)).toEqual(['Races: with its record']);
     await installApp(fs, off);
-    const schema = parseSchema(await fs.readText('Atlas/Races and goals/_collection.json'));
+    const schema = parseSchema(await fs.readText('Atlas/Races/_collection.json'));
     expect(schema.views ?? []).toEqual([]);
     expect(schema.fields.map((f) => f.key)).toContain('result');
-    expect(await fs.readText('Atlas/Races and goals/_rules.js')).not.toContain('Write how it went');
-    expect((await loadCollection(fs, 'Atlas/Races and goals')).records.map((r) => r.name)).toEqual(['Istanbul 10K']);
+    expect(await fs.readText('Atlas/Races/_rules.js')).not.toContain('Your time, and your place');
+    expect((await loadCollection(fs, 'Atlas/Races')).records.map((r) => r.name)).toEqual(['Istanbul 10K']);
     // Turned on again, what was taken off comes back; the record is where it was.
     const on = await edit(fs, [{ id: 'sport', answers: { races: true } }]);
-    expect(said(on.added)).toEqual(expect.arrayContaining(['Races and goals: 1 rule', 'Races and goals: the Calendar view']));
+    expect(said(on.added)).toEqual(expect.arrayContaining(['Races: 1 rule', 'Races: the Calendar view', 'Races: the Coming view']));
     await installApp(fs, on);
-    expect(parseSchema(await fs.readText('Atlas/Races and goals/_collection.json')).views!.map((v) => v.name)).toEqual(['Calendar']);
-    expect(await fs.readText('Atlas/Races and goals/_rules.js')).toContain('Write how it went');
+    expect(parseSchema(await fs.readText('Atlas/Races/_collection.json')).views!.map((v) => v.name)).toEqual(['Calendar', 'Coming', 'Done']);
+    expect(await fs.readText('Atlas/Races/_rules.js')).toContain('Your time, and your place');
   });
 
   it('keeps a view and a rule the person changed, and says so', async () => {
     const fs = new MemoryFs();
     await installApp(fs, planApp({ name: 'Atlas', templates: [{ id: 'sport', answers: { races: true } }] }, { ids }));
-    const schema = JSON.parse(await fs.readText('Atlas/Races and goals/_collection.json'));
+    const schema = JSON.parse(await fs.readText('Atlas/Races/_collection.json'));
     schema.views[0].name = 'My races';
-    await fs.writeText('Atlas/Races and goals/_collection.json', JSON.stringify(schema));
-    const rules = await fs.readText('Atlas/Races and goals/_rules.js');
-    await fs.writeText('Atlas/Races and goals/_rules.js', rules.replace('Write how', 'Say how'));
+    await fs.writeText('Atlas/Races/_collection.json', JSON.stringify(schema));
+    const rules = await fs.readText('Atlas/Races/_rules.js');
+    await fs.writeText('Atlas/Races/_rules.js', rules.replace('Your time', 'My time'));
     const plan = await edit(fs, [{ id: 'sport', answers: { races: false } }]);
-    expect(plan.edit!.takenOff).toEqual([]);
-    expect(said(plan.edit!.kept)).toEqual(['Races and goals: the Calendar view, changed by you', 'Races and goals: Write the result, changed by you', 'Races and goals: as it is']);
+    // What the person did not change goes; what they changed stays.
+    expect(said(plan.edit!.takenOff)).toEqual(['Races: the Coming view', 'Races: the Done view']);
+    expect(said(plan.edit!.kept)).toEqual(['Races: the Calendar view, changed by you', 'Races: Write result, changed by you', 'Races: as it is']);
   });
 
   it('renames a record an answer set up, with the links to it, and keeps one gone', async () => {

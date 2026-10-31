@@ -3330,7 +3330,7 @@ export function CollectionView({ collection, embedded, screen, today, look, onLo
       ) : (
         <span>{group.label}</span>
       )}
-      <small>{group.records.length}</small>
+      <small>{view?.groupSums ? viewSumParts(view.groupSums, group.records, { fields: schema.fields.map(asShown) }, today).map((p) => p.text).join(' · ') : group.records.length}</small>
     </button>
   );
   const empty = noFields ? (

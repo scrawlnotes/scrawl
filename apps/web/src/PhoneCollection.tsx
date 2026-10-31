@@ -71,6 +71,7 @@ import {
   TODAY,
   unplacedFields,
   valueText,
+  viewSumParts,
   type View,
   minutesOf,
   durationTyped,
@@ -1811,8 +1812,8 @@ export function PhoneCollectionList({ name, count, schema, today, fields, record
     return (
       <button key={`g\u0000${group.key}`} type="button" className={closed.has(group.key) ? 'mb-sec mb-gsec closed' : 'mb-sec mb-gsec'} aria-expanded={!closed.has(group.key)} onClick={() => onToggle(group.key)}>
         <span>{group.key === '' ? t('collection.noValue', { field: groupField?.label ?? '' }) : groupField ? optionName(groupField, group.key, group.records[0]?.values) : group.label}</span>
-        <small>{group.records.length}</small>
-        {sums !== null && <span className="sum">{sums.map((s) => formatNumber(s.value, number?.format, s.currency)).join(' · ')}</span>}
+        <small>{view?.groupSums ? viewSumParts(view.groupSums, group.records, schema, today).map((p) => p.text).join(' · ') : group.records.length}</small>
+        {sums !== null && !view?.groupSums && <span className="sum">{sums.map((s) => formatNumber(s.value, number?.format, s.currency)).join(' · ')}</span>}
       </button>
     );
   };

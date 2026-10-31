@@ -477,6 +477,8 @@ export interface View {
    * collection's records: "₺85.110 to collect · ₺19.150 overdue · 3 low".
    */
   sums?: ViewSum[];
+  /** What each group's head says of its records in place of their count, as `sums` does: a week's "3 workouts · 2 h 40 min · 21.4 km". */
+  groupSums?: ViewSum[];
   /** The field whose values are chips over the table, each with its count, one picked shows only its records: an order's channel (design/calendar.md 7). */
   chips?: string;
   /** The views of the same set are the tabs of a screen that opens on one of them, and no All: Sales' Quotes, Open, To invoice (design/scrawl-apps.md 3.2). */
@@ -1176,6 +1178,8 @@ function readViews(raw: unknown, fields: Field[]): View[] {
     if (view.button && item.ring === true) view.ring = true;
     const sums = readSums(item.sums, fields);
     if (sums.length > 0) view.sums = sums;
+    const groupSums = readSums(item.groupSums, fields);
+    if (groupSums.length > 0) view.groupSums = groupSums;
     if (typeof item.chips === 'string' && fields.some((f) => f.key === cleanFieldKey(item.chips as string) && (f.type === 'link' || f.type === 'select'))) view.chips = cleanFieldKey(item.chips);
     if (typeof item.set === 'string' && item.set.trim()) view.set = item.set.trim();
     if (typeof item.all === 'string' && item.all.trim()) view.all = item.all.trim();

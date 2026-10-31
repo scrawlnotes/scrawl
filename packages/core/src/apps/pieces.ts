@@ -161,7 +161,14 @@ export const PIECES: { [role: string]: PieceInfo } = {
   },
   'key-results': { kind: 'collection', name: 'Key results', singular: 'key result', about: 'what measures each goal: where it started, where it should get, and where it is.', lines: ['goals'], hidden: ['progress', 'expected', 'tone', 'now_said', 'value_said'] },
   'check-ins': { kind: 'collection', name: 'Check-ins', singular: 'check-in', about: "each goal's check-ins: how it was going, what moved and what changed.", lines: ['goals'] },
-  incidents: { kind: 'collection', name: 'Incidents', singular: 'incident', about: 'each incident: what happened, how bad, from when to when, why, and what was done.' },
+  incidents: {
+    kind: 'collection',
+    name: 'Incidents',
+    singular: 'incident',
+    about: 'each incident: what happened, how bad, what was done while it lasted, why, and what we learned.',
+    hidden: ['open', 'reviewed', 'to_review', 'review_on', 'this_month', 'minutes', 'when_said', 'request_count', 'open_actions', 'said'],
+  },
+  'incident-updates': { kind: 'collection', name: 'Incident updates', singular: 'update', about: "each update while an incident lasted: its status, who and when.", lines: ['incidents'] },
   actions: { kind: 'board', name: 'Actions', about: 'what is done so that it does not happen again, a card each, with whom and by when.' },
   equipment: { kind: 'collection', name: 'Equipment', singular: 'unit', about: "what you look after at your customers' sites: where it is, what it is, and when it is serviced next.", hidden: ['booked', 'next_said', 'said'] },
   'work-orders': {
@@ -236,10 +243,15 @@ export const PIECES: { [role: string]: PieceInfo } = {
   habits: { kind: 'collection', name: 'Habits', singular: 'habit', about: 'what you do again and again, ticked in Today, your streak and your last days.', hidden: ['since', 'done_days', 'per_week', 'streak', 'best', 'streak_text', 'best_text', 'week_done', 'this_week', 'in_30', 'kept', 'today_says'] },
   'habit-checkins': { kind: 'collection', name: 'Check-ins', singular: 'check-in', about: 'each day a habit was done, written as it is ticked.', lines: ['habits'], hidden: ['name', 'this_week', 'in_30'] },
   'personal-goals': { kind: 'collection', name: 'Goals', singular: 'goal', about: 'your own goals, by a number or by their steps, how far each is and whether it is on track.', hidden: ['shown', 'expected'] },
-  workouts: { kind: 'collection', name: 'Workouts', singular: 'workout', about: 'each workout: what, when, how long, how far and how hard.' },
-  'training-plan': { kind: 'collection', name: 'Plan', singular: 'session', about: 'what is planned on which day.' },
+  workouts: {
+    kind: 'collection',
+    name: 'Workouts',
+    singular: 'workout',
+    about: 'each workout: what, when, how long, how far and how hard, and how close it came to its plan.',
+    hidden: ['pace', 'fit', 'this_week', 'this_month', 'this_year', 'week_said', 'said'],
+  },
+  'training-plan': { kind: 'collection', name: 'Weekly plan', singular: 'plan', about: 'what you plan to do each week: the sport, its days, how long or how far.', hidden: ['ongoing', 'each_said', 'until_said'] },
   exercises: { kind: 'collection', name: 'Exercises', singular: 'exercise', about: 'each exercise and its muscle group, your best and when you last did it.', hidden: ['done_4w', 'in_4w'] },
-  sets: { kind: 'collection', name: 'Sets', singular: 'set', about: 'each set: the exercise, the weight and the reps.', lines: ['workouts'] },
   programs: { kind: 'collection', name: 'Programs', singular: 'program', about: 'each program: its days and its items, part by part.', hidden: ['from', 'items'] },
   'program-items': { kind: 'collection', name: 'Program items', singular: 'item', about: 'each item of a program: the move, its sets, reps, time and rest.', lines: ['programs'], hidden: ['name', 'order'] },
   'gym-workouts': {
@@ -251,7 +263,7 @@ export const PIECES: { [role: string]: PieceInfo } = {
   },
   'workout-items': { kind: 'collection', name: 'Workout items', singular: 'item', about: 'each item of a workout, ticked when done: its sets, reps and weight.', lines: ['gym-workouts'], hidden: ['name', 'order', 'day'] },
   'body-measures': { kind: 'collection', name: 'Body', singular: 'measure', about: 'your weight, waist and body fat on each day, and how far from the first.' },
-  races: { kind: 'collection', name: 'Races and goals', singular: 'race', about: 'each race or goal: when, what you aim for, and how it went.' },
+  races: { kind: 'collection', name: 'Races', singular: 'race', about: 'each race: when, how far, what you aim for, and how it went.', hidden: ['coming', 'when_said'] },
 };
 
 /** The roles, in the order the pieces are listed: by template, the shared ones first where they are first used. */

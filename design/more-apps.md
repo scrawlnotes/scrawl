@@ -127,6 +127,20 @@ Satış hedefinden çeyreklik ekip hedeflerine.
 
 ### 3.5 Olaylar ve düzeltici faaliyetler (Work)
 
+31 Ekim, incident.io'nun durum güncellemeleri ve follow-up'ları, FireHydrant'ın milestone'ları ve retrospektifi, SafetyCulture'ın incelemesine bakılarak baştan. Mockup: `design/mockups.html` › Olaylar ve spor. Roadmap ROA-350, deneme ROA-351.
+
+- **Report incident:** ne oldu, tür ve önem çiplerle, başlangıç şimdi; fotoğraf ve dosya notlarda. Investigating olarak başlar, bildiren sorumlu; zaman çizgisine "Reported" yazılır.
+- **Durumlar:** Investigating, Fixing, Monitoring, Resolved, Closed (incident.io).
+- **Post update:** durum çiplerle, "What's happening"; her güncelleme olayın penceresinde zaman çizgisinde (kim, saat, durum rengi). Açık olay her gün Today'de bu düğmeyle. Resolved bitişi yazar, Destek'teki bağlı talepleri yanıtı şimdi olarak yeniden açar.
+- **Süre:** "2 h 15 min so far", "Resolved in 3 h 20 min" (FireHydrant'ın MTTR'si).
+- **Write review:** Root cause, Impact, What we learned; kurulumda sorulan gün sayısı (2, 5, 10) sonra sorumlunun Today'inde, yazılana kadar kalır. Close incelemeyi ister ("Write its review first").
+- **Actions:** To do, Doing, Done, Won't do (incident.io'nun "not doing"u); kartta bağlı olay; olayın penceresinde Actions bloğunda yerinde eklenir, Add action kim ve ne zamanla.
+- **Liste:** sekmeler Open, To review, Closed, All; üstte "2 open · 1 critical · 2 reviews due · 6 actions open"; satırda tür, önem, durum, süre ve inceleme, sorumlu, açık aksiyon.
+- **Home:** Open now, This month (önem önem, inceleme bekleyen).
+- **Mockup'tan kalan farklar:** ekle düğmesi "Report incident" değil "Add record"; zaman çizgisi eskiden yeniye; Home'da ortalama çözüm süresi ve Actions kutusu yok; Post update'in notu metin yazılmadan görünmez.
+
+Önceki hali:
+
 Hizmet kesintisi, kalite sorunu, iş kazası ve ramak kala, büyüyen müşteri şikayeti, güvenlik olayı.
 
 - **Incidents:** başlık, tür, önem (Critical, Major, Minor), başlangıç ve bitiş (saatli), süre, durum (Open, Investigating, Resolved, Closed), sorumlu, kök neden; rapor kaydın gövdesinde.
@@ -365,6 +379,20 @@ Kişi için kurulur; para birimi kişisel finansta sorulur.
 - Önceden kurulmuş Habits and goals app'leri olduğu gibi kalır.
 
 ### 4.10 Spor ve antrenman (Health)
+
+31 Ekim, Strava'nın Training Log'u, TrainingPeaks'in plan ve uyum renkleri, Runna'nın takvimine bakılarak baştan. Mockup: `design/mockups.html` › Olaylar ve spor. Roadmap ROA-350, deneme ROA-351.
+
+- **Gym'le ayrım:** kuvvet antrenmanı Gym'de; Exercises ve Sets çıktı, sporlarda Gym yok (Run, Cycle, Swim, Walk, Yoga, Team sport).
+- **Weekly plan:** spor, günler (çiplerle), süre ya da mesafe, başlangıç ve isteğe bağlı bitiş ("Tue, Fri · 45 min"). Günü gelince Today'de Done ve Skip; Done antrenmanı planın sporu, süresi ve mesafesiyle açar, kaçan gün birikmez (Gym'in program günleri gibi).
+- **Workouts:** gün, saat, spor, süre, mesafe (mesafeli sporlarda), efor (1–10), not. Tempo spora göre: "5:09 /km", "28.1 km/h", "2:30 /100 m". Plana uyum TrainingPeaks gibi: ±%20 On plan (yeşil), %50'ye kadar Short ya da Long (sarı), ötesi Far off (turuncu), plansız Not planned. Pencere başlığında "5:09 /km · 17% longer than planned, on plan".
+- **Liste:** hafta hafta, başlıkta "3 workouts · 2 h 40 min · 21.4 km"; üstte bu hafta ve bu yıl; spor çipleri; sekmeler This week, This month, All.
+- **Races** (soruyla, varsayılan evet): gün, spor, mesafe, hedef, sonuç; günü geçince Today'de Write result.
+- **Body** (soruyla): önceki gibi.
+- **Home:** This week (spor spor), This year (mesafe), Next race.
+- **Altyapı:** görünümde `groupSums`, grup başlığında toplam (masaüstü ve telefon).
+- **Mockup'tan kalan farklar:** ekle düğmesi "Add workout" değil "Add record"; telefonda satır tempoyu göstermiyor; Home'daki satırlarda birim yok ("10.2").
+
+Önceki hali:
 
 22 Ekim'de eklendi.
 
