@@ -2,6 +2,18 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.21
+
+The business templates again, from the screens of the apps people use for each, with as little typed as can be.
+
+- Sales, Stock and E-commerce, as one app with the CRM.
+- Support, Field service and Consulting, as one app with the CRM.
+- Subscriptions, Budget and Assets, as one app with the CRM and Sales.
+- Projects, Goals and Contracts, as one app with the CRM and Budget.
+- Product development and Content, as one app with Projects, Support and the CRM.
+- Recruiting, Time off and Appointments; the Association template is gone.
+- Incidents and Sport.
+
 ## 0.1.20
 
 The apps of a person's templates and CRM again, from the screens of the apps people use, with as little typed as can be.
