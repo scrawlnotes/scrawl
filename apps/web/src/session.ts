@@ -1,5 +1,6 @@
 import { t } from '@scrawlnotes/i18n';
 import {
+  canonical,
   cardPiece,
   dropFromTrash,
   PieceHomeGone,
@@ -1750,7 +1751,8 @@ export class Session {
       const servers = new Map((latest?.servers ?? []).map((server) => [server.url, server]));
       for (const server of knownServers()) servers.set(server.url, { url: server.url, email: server.email, ...(server.name && { name: server.name }), ...(server.id && { id: server.id }), role: server.role });
       const next = { spaces: order.map((id) => spaces.get(id)!), servers: [...servers.values()] };
-      if (latest && JSON.stringify({ spaces: latest.spaces, servers: latest.servers }) === JSON.stringify(next)) return;
+      // Each device writes the keys of a space's place in its own order: only what they say counts.
+      if (latest && canonical({ spaces: latest.spaces, servers: latest.servers }) === canonical(next)) return;
       const now = new Date();
       await writeCarried(this.personal, this.deviceId, next, now);
       setCarriedSeen(now.toISOString());

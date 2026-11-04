@@ -11,21 +11,13 @@ import type { Connection, SpaceSync, SpaceSyncView, SyncPhase, SyncService, Sync
 import { hostOf } from './servers';
 import { isDesktop } from './storage';
 import { clockTime } from './text';
+import { ago, percent, shortOf } from './syncWords';
+
+export { ago, percent, shortOf, stripOf, syncedWhen } from './syncWords';
 
 // What sync shows: its row in a space's settings, this device's name, the window to choose a
 // folder of the cloud drive in, and its place in the status bar. After the Settings views of
 // design/mockups.html (Sync, Connect, Choose folder) and its status bar.
-
-/** How long ago a moment was, as the status bar and the settings say it. */
-export function ago(at: number, now = Date.now()): string {
-  const seconds = Math.max(0, Math.floor((now - at) / 1000));
-  if (seconds < 5) return t('ago.now');
-  if (seconds < 60) return t('ago.seconds', { count: seconds });
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return t('ago.minutes', { count: minutes });
-  const hours = Math.floor(minutes / 60);
-  return hours < 24 ? t('ago.hours', { count: hours }) : t('ago.days', { count: Math.floor(hours / 24) });
-}
 
 /** Draws again every few seconds, so that "12 s ago" keeps up. */
 export function useTicking(on: boolean) {
@@ -491,7 +483,7 @@ export function ServerIcon() {
   );
 }
 
-function ResyncIcon() {
+export function ResyncIcon() {
   return (
     <svg className="icon" viewBox="0 0 24 24" aria-hidden="true">
       <path d="M19.5 12a7.5 7.5 0 0 1-13.1 5M4.5 12a7.5 7.5 0 0 1 13.1-5" />
@@ -950,8 +942,8 @@ export interface SyncStatusProps {
   sync: SyncSnapshot;
   /** A turn of one space, or of every one. */
   onSyncNow: (space?: string | null) => void;
-  /** Opens Settings at a space's sync: the personal space's for null. */
-  onSettings: (space: string | null) => void;
+  /** Opens Settings at a space's sync: the personal space's for null, the spaces for none. */
+  onSettings: (space?: string | null) => void;
   /** Signs in again after the key stopped working: to OneDrive, or to the server of the space told. */
   onSignIn: (sync?: SpaceSyncView) => void;
   /** Goes over to a newer version, for a space a newer one synced; false when none is found. */
@@ -1119,11 +1111,6 @@ export function UpdateButton({ run, className = 'st-btn go' }: { run: () => Prom
   );
 }
 
-/** A share as the language writes it, never 100% before the end: `38%`. */
-export function percent(share: number): string {
-  return new Intl.NumberFormat(locale(), { style: 'percent', maximumFractionDigits: 0 }).format(Math.min(0.99, Math.floor(share * 100) / 100));
-}
-
 const UNITS = ['B', 'KB', 'MB', 'GB'];
 
 /** How much of how many bytes, both in the unit of the whole, so that the part moves visibly: `12.4 MB of 42.9 MB`. */
@@ -1253,50 +1240,35 @@ export function reasonOf(job: SyncJob, place: string): string {
 const ROW = 26;
 const ROW_NARROW = 34;
 
+/** Where a row's file is: its space's name with every space in one list, and its folder. */
+const whereOf = ({ job, name }: PanelRow) => [name, dirname(job.path)].filter(Boolean).join(' · ');
+
 /** A long list of jobs, of which only the rows in sight are drawn. */
-function JobRows({ jobs, height, place }: { jobs: readonly SyncJob[]; height: number; place: string }) {
+function JobRows({ rows, height }: { rows: readonly PanelRow[]; height: number }) {
   const box = useRef<HTMLDivElement>(null);
   const [top, setTop] = useState(0);
   const [seen, setSeen] = useState(480);
   useLayoutEffect(() => {
     if (box.current) setSeen(box.current.clientHeight || 480);
-  }, [jobs.length]);
+  }, [rows.length]);
   const first = Math.max(0, Math.floor(top / height) - 10);
-  const last = Math.min(jobs.length, Math.ceil((top + seen) / height) + 10);
+  const last = Math.min(rows.length, Math.ceil((top + seen) / height) + 10);
   return (
     <div ref={box} className="sp-list" onScroll={(event) => setTop(event.currentTarget.scrollTop)}>
-      <div className="sp-rows" style={{ height: jobs.length * height }}>
-        {jobs.slice(first, last).map((job, index) => (
-          <div key={first + index} className={`sp-row${job.state === 'waiting' ? ' wait' : ''}`} style={{ top: (first + index) * height, height }}>
-            <JobIcon job={job} />
-            <span className="nm" title={job.path}>
-              {basename(job.path)}
-              {dirname(job.path) && <small>{dirname(job.path)}</small>}
+      <div className="sp-rows" style={{ height: rows.length * height }}>
+        {rows.slice(first, last).map((row, index) => (
+          <div key={first + index} className={`sp-row${row.job.state === 'waiting' ? ' wait' : ''}`} style={{ top: (first + index) * height, height }}>
+            <JobIcon job={row.job} />
+            <span className="nm" title={row.job.path}>
+              {basename(row.job.path)}
+              {whereOf(row) && <small>{whereOf(row)}</small>}
             </span>
-            <span className="r">{rowEnd(job, place)}</span>
+            <span className="r">{rowEnd(row.job, row.place)}</span>
           </div>
         ))}
       </div>
     </div>
   );
-}
-
-/** A space's sync in a word on a phone: `12 s ago`, `38%`, or what keeps it from going on. */
-const SHORT: Record<Exclude<SyncPhase, 'off' | 'idle' | 'syncing'>, MessageKey> = {
-  offline: 'sync.offline',
-  signedOut: 'phone.signedOut',
-  folderGone: 'phone.folderGone',
-  moved: 'phone.moved',
-  update: 'phone.update',
-  failed: 'phone.syncFailed',
-};
-
-/** How a space's sync stands in a word, and whether something keeps it from going on. */
-export function shortOf({ phase, syncedAt, turn, connection, why }: SpaceSync): { text: string; bad: boolean } {
-  if (phase === 'syncing') return { text: percent(turn?.progress.share ?? 0), bad: false };
-  if (phase === 'off' || phase === 'idle') return { text: syncedAt === null ? t('sync.notYet') : ago(syncedAt), bad: false };
-  if (phase === 'signedOut' && connection?.server && why === 'notYet') return { text: t('sync.notSignedInShort'), bad: true };
-  return { text: phase === 'folderGone' && connection?.server ? t(why === 'removed' ? 'phone.removed' : 'phone.spaceGone') : t(SHORT[phase]), bad: true };
 }
 
 /** How a space's sync stands, on its row of the panel: `Synced 12 s ago`, `Syncing 38%`. */
@@ -1316,28 +1288,70 @@ export function syncWord(sync: SyncSnapshot): { text: string; bad: boolean } {
   return shown ? shortOf(shown) : { text: t('phone.off'), bad: false };
 }
 
-/** What a space's turn shows: whether one runs, how far it is, the file going now, its files by tab, and the tab shown first. */
-export function useTurnLists(sync: SpaceSync) {
-  const { phase, turn, lastDone } = sync;
+/** Where a space's turn is: whether one runs, how far it is, the file going now, and the turn whose files are told as done. */
+function turnState({ phase, turn, lastDone }: SpaceSync) {
   const running = phase === 'syncing' && turn !== null && turn.endedAt === null;
   const progress = turn?.progress;
   const current = running ? (progress?.current ?? null) : null;
   const doneFrom = running ? turn : (lastDone ?? turn);
+  return { running, progress, current, doneFrom };
+}
 
-  const lists = useMemo(() => {
-    const jobs = progress?.jobs ?? [];
-    return {
-      waiting: jobs.filter((job) => job.state === 'waiting' && job.path !== current?.path),
-      done: (doneFrom?.progress.jobs ?? []).filter((job) => job.state === 'done'),
-      notSynced: jobs.filter((job) => job.state === 'skipped' || job.state === 'refused'),
-    };
-    // The jobs change in place; the versions tell when.
-  }, [turn?.version, lastDone?.version, current?.path, running]);
+/** A space's files by tab: waiting to go, done, and not synced. */
+function listsOf({ progress, current, doneFrom }: ReturnType<typeof turnState>): Record<PanelTab, SyncJob[]> {
+  const jobs = progress?.jobs ?? [];
+  return {
+    waiting: jobs.filter((job) => job.state === 'waiting' && job.path !== current?.path),
+    done: (doneFrom?.progress.jobs ?? []).filter((job) => job.state === 'done'),
+    notSynced: jobs.filter((job) => job.state === 'skipped' || job.state === 'refused'),
+  };
+}
 
-  const stoppedWithWaiting = !running && turn?.stopped === true && lists.waiting.length > 0;
-  const tabs: PanelTab[] = running || stoppedWithWaiting ? ['waiting', 'done', 'notSynced'] : ['done', 'notSynced'];
-  const fallback: PanelTab = running || stoppedWithWaiting ? 'waiting' : lists.notSynced.length > 0 ? 'notSynced' : 'done';
-  return { running, progress, current, doneFrom, lists, tabs, fallback };
+/** The tabs a turn has, and the one shown first. */
+function tabsOf(running: boolean, stopped: boolean, lists: Record<PanelTab, readonly unknown[]>): { tabs: PanelTab[]; fallback: PanelTab } {
+  const waits = running || (stopped && lists.waiting.length > 0);
+  return { tabs: waits ? ['waiting', 'done', 'notSynced'] : ['done', 'notSynced'], fallback: waits ? 'waiting' : lists.notSynced.length > 0 ? 'notSynced' : 'done' };
+}
+
+/** What a space's turn shows: whether one runs, how far it is, the file going now, its files by tab, and the tab shown first. */
+export function useTurnLists(sync: SpaceSync) {
+  const state = turnState(sync);
+  const { turn, lastDone } = sync;
+  // The jobs change in place; the versions tell when.
+  const lists = useMemo(() => listsOf(state), [turn?.version, lastDone?.version, state.current?.path, state.running]);
+  return { ...state, lists, ...tabsOf(state.running, turn?.stopped === true, lists) };
+}
+
+/** A row of the panel's list: a job, where its space syncs, and with every space in one list, the space's name. */
+interface PanelRow {
+  job: SyncJob;
+  place: string;
+  name?: string;
+}
+
+/**
+ * Every space's files by tab in one list, each with its space: what the spaces did last, the
+ * newest first, and what waits or was not synced in the turns that run.
+ */
+function allLists(units: readonly SpaceSyncView[]) {
+  const rows: Record<PanelTab, PanelRow[]> = { waiting: [], done: [], notSynced: [] };
+  const endOf = (unit: SpaceSyncView) => {
+    const from = turnState(unit).doneFrom;
+    return from ? (from.endedAt ?? Date.now()) : 0;
+  };
+  let running = false;
+  let stopped = false;
+  let changedAt: number | null = null;
+  for (const unit of [...units].sort((a, b) => endOf(b) - endOf(a))) {
+    const state = turnState(unit);
+    const lists = listsOf(state);
+    const place = placeName(unit.connection);
+    for (const tab of ['waiting', 'done', 'notSynced'] as const) rows[tab].push(...lists[tab].map((job) => ({ job, place, name: unit.name })));
+    running ||= state.running;
+    stopped ||= unit.turn?.stopped === true && lists.waiting.length > 0;
+    if (lists.done.length > 0) changedAt = Math.max(changedAt ?? 0, endOf(unit));
+  }
+  return { rows, changedAt, ...tabsOf(running, stopped, rows) };
 }
 
 /**
@@ -1386,7 +1400,7 @@ interface PanelProps {
   onLeave: (event: PointerEvent) => void;
   onClose: () => void;
   onSyncNow: (space?: string | null) => void;
-  onSettings: (space: string | null) => void;
+  onSettings: (space?: string | null) => void;
   onSignIn: (sync: SpaceSyncView) => void;
   onUpdate: () => Promise<boolean>;
 }
@@ -1400,13 +1414,29 @@ interface PanelProps {
  */
 function SyncPanel({ sync: whole, narrow, anchor, kept, onEnter, onLeave, onClose, onSyncNow, onSettings, onSignIn, onUpdate }: PanelProps) {
   const box = useRef<HTMLElement>(null);
-  // With more than one space, each is a row on top, and the one chosen is told under them.
+  // With more than one space, each is a row on top. Under them every space is told in one list,
+  // whatever turn goes on where; one space alone when it is chosen, or when it cannot go on.
   const [picked, setPicked] = useState<string | null>(null);
   const units = whole.all;
   const many = units.length > 1;
-  const sync: SpaceSyncView = units.find((unit) => keyOf(unit) === picked) ?? standing(units) ?? { ...whole, space: null, name: '' };
+  const problem = units.find((unit) => STOPPED.has(unit.phase) || unit.phase === 'offline');
+  const one = units.find((unit) => keyOf(unit) === picked) ?? problem ?? (many ? undefined : units[0]);
+  const all = many && !one;
+  // A space moving files now is told over the list; one only looking for what changed is not.
+  const working = units.find((unit) => unit.phase === 'syncing' && unit.turn?.endedAt === null && unit.turn.progress.stage === 'sending' && unit.turn.progress.jobs.length > 0);
+  const sync: SpaceSyncView = one ?? working ?? standing(units) ?? { ...whole, space: null, name: '' };
   const { phase, turn } = sync;
-  const { running, progress, current, lists, tabs, fallback, doneFrom } = useTurnLists(sync);
+  const own = useTurnLists(sync);
+  const together = all ? allLists(units) : null;
+  const running = own.running && (!all || sync === working);
+  const { progress, current, doneFrom } = own;
+  const where = placeName(sync.connection);
+  const lists: Record<PanelTab, PanelRow[]> = together?.rows ?? {
+    waiting: own.lists.waiting.map((job) => ({ job, place: where })),
+    done: own.lists.done.map((job) => ({ job, place: where })),
+    notSynced: own.lists.notSynced.map((job) => ({ job, place: where })),
+  };
+  const { tabs, fallback } = together ?? own;
   const [chosen, setChosen] = useState<PanelTab | null>(null);
   const tab = chosen && tabs.includes(chosen) ? chosen : fallback;
 
@@ -1448,6 +1478,14 @@ function SyncPanel({ sync: whole, narrow, anchor, kept, onEnter, onLeave, onClos
         <span className="pct">{percent(progress.share)}</span>
       </>
     );
+  } else if (all) {
+    const last = Math.max(...units.map((unit) => unit.syncedAt ?? 0));
+    title = (
+      <>
+        <b>{t('panel.syncedAll')}</b>
+        {last > 0 && <small>{ago(last)}</small>}
+      </>
+    );
   } else if (phase === 'idle' || phase === 'off' || phase === 'syncing') {
     title = (
       <>
@@ -1460,7 +1498,12 @@ function SyncPanel({ sync: whole, narrow, anchor, kept, onEnter, onLeave, onClos
     const state = phase === 'signedOut' && sync.connection?.server && sync.why === 'notYet' ? t('sync.notSignedInHere') : statusText(phase, sync.connection, sync);
     title = <b>{many ? t('panel.of', { name: sync.name, state }) : state}</b>;
   }
-  const sub = turnLine(sync, running, doneFrom);
+  const sub =
+    together && !running
+      ? together.changedAt === null
+        ? t('panel.nothing')
+        : t('panel.lastChangesAt', { ago: ago(together.changedAt) })
+      : turnLine(sync, running, doneFrom);
   // Waiting for a sign-in with nothing done or to do: no tabs, nothing in them.
   const bare = phase === 'signedOut' && tabs.every((each) => lists[each].length === 0);
 
@@ -1496,9 +1539,10 @@ function SyncPanel({ sync: whole, narrow, anchor, kept, onEnter, onLeave, onClos
               key={keyOf(unit)}
               type="button"
               role="option"
-              aria-selected={unit === sync}
-              className={unit === sync ? 'sp-sp on' : 'sp-sp'}
-              onClick={() => setPicked(keyOf(unit))}
+              aria-selected={unit === one}
+              className={unit === one ? 'sp-sp on' : 'sp-sp'}
+              // The one chosen, chosen again, gives every space back.
+              onClick={() => setPicked(keyOf(unit) === picked ? null : keyOf(unit))}
             >
               <Icon name="space" />
               <span className="nm">{unit.name}</span>
@@ -1552,19 +1596,19 @@ function SyncPanel({ sync: whole, narrow, anchor, kept, onEnter, onLeave, onClos
         <p className="sp-empty">{empty}</p>
       ) : tab === 'notSynced' ? (
         <div className="sp-list">
-          {shown.map((job) => (
-            <div key={job.path} className="sp-row bad">
-              <JobIcon job={job} />
-              <span className="nm" title={job.path}>
-                {basename(job.path)}
-                {dirname(job.path) && <small>{dirname(job.path)}</small>}
-                <span className="why">{reasonOf(job, placeName(sync.connection))}</span>
+          {shown.map((row) => (
+            <div key={`${row.name ?? ''}/${row.job.path}`} className="sp-row bad">
+              <JobIcon job={row.job} />
+              <span className="nm" title={row.job.path}>
+                {basename(row.job.path)}
+                {whereOf(row) && <small>{whereOf(row)}</small>}
+                <span className="why">{reasonOf(row.job, row.place)}</span>
               </span>
             </div>
           ))}
         </div>
       ) : (
-        <JobRows key={tab} jobs={shown} height={narrow ? ROW_NARROW : ROW} place={placeName(sync.connection)} />
+        <JobRows key={tab} rows={shown} height={narrow ? ROW_NARROW : ROW} />
       )}
       <div className="sp-foot">
         {!narrow && (
@@ -1577,7 +1621,7 @@ function SyncPanel({ sync: whole, narrow, anchor, kept, onEnter, onLeave, onClos
                 : t('panel.when')}
           </span>
         )}
-        <button type="button" className="st-btn" onClick={() => onSettings(sync.space)}>
+        <button type="button" className="st-btn" onClick={() => onSettings(all ? undefined : sync.space)}>
           {t('panel.settings')}
         </button>
         {phase === 'update' ? (
@@ -1588,7 +1632,7 @@ function SyncPanel({ sync: whole, narrow, anchor, kept, onEnter, onLeave, onClos
           </button>
         ) : (
           !running && (
-            <button type="button" className="st-btn go" onClick={() => onSyncNow(many ? sync.space : undefined)}>
+            <button type="button" className="st-btn go" onClick={() => onSyncNow(many && !all ? sync.space : undefined)}>
               {t('sync.syncNow')}
             </button>
           )

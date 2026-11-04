@@ -166,6 +166,19 @@ describe('a space’s files, as a remote', () => {
     expect(await refusal(remote.read('Notes/Deep/b.md'))).toBeInstanceOf(RemoteConflict);
   });
 
+  it('removes a folder for sync only while no file is in it, its empty folders with it', async () => {
+    const s = start();
+    const remote = s.remote(await owner(s));
+    const b = await remote.write('Client/Deep/b.md', new Blob(['B']), null);
+    await remote.mkdir('Client/Empty');
+    expect(await refusal(remote.removeDir('Client'))).toBeInstanceOf(RemoteConflict);
+    expect((await remote.changes(null)).changed.map((e) => e.path)).toEqual(['Client', 'Client/Deep', 'Client/Deep/b.md', 'Client/Empty']);
+    await remote.remove('Client/Deep/b.md', b.tag);
+    await remote.removeDir('Client');
+    await remote.removeDir('Gone');
+    expect((await remote.changes(null)).changed).toEqual([]);
+  });
+
   it('takes a path whatever its case or Unicode form as the same, keeping the last spelling', async () => {
     const s = start();
     const remote = s.remote(await owner(s));

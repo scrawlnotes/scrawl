@@ -174,6 +174,11 @@ export class ServerRemote implements RemoteStore {
     if (!response.ok) await this.fail(response, path);
   }
 
+  async removeDir(path: string): Promise<void> {
+    const response = await this.client.request(`${this.base}/files/${encodePath(path)}?empty=1`, { method: 'DELETE' });
+    if (!response.ok) await this.fail(response, path);
+  }
+
   async mkdir(path: string): Promise<void> {
     const response = await this.client.request(`${this.base}/dirs`, jsonBody({ path }));
     if (!response.ok) await this.fail(response, path);

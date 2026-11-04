@@ -161,8 +161,12 @@ export class SpaceFiles {
     }));
   }
 
-  /** Removes a file while it has the tag `ifMatch`, or a folder with everything in it. */
-  remove(space: string, path: string, ifMatch: string | null, by: Actor) {
+  /**
+   * Removes a file while it has the tag `ifMatch`, or a folder with everything in it; with
+   * `emptyOnly`, a folder only while no file is in it, as sync asks: what another device put there
+   * since this one looked is not taken along.
+   */
+  remove(space: string, path: string, ifMatch: string | null, by: Actor, emptyOnly = false) {
     this.telling(space, () => transaction(this.db, () => {
       const key = keyOf(path);
       const row = this.live(space, key);
@@ -171,12 +175,14 @@ export class SpaceFiles {
         const within = this.db
           .prepare('SELECT * FROM entries WHERE space_id = ? AND deleted = 0 AND key >= ? AND key < ? ORDER BY key DESC')
           .all(space, low, high) as unknown as Row[];
+        if (emptyOnly && within.some((each) => each.kind === 'file')) throw new Conflict(path);
         for (const each of [...within, row]) {
           this.put(space, { ...each, seq: this.next(space), deleted: 1 }, by);
           if (each.kind === 'file') this.version(space, 'remove', each.path, null, each.hash, each.size, by);
         }
         return;
       }
+      if (!row && emptyOnly) return;
       if (!row || ifMatch === null || row.hash !== ifMatch) throw new Conflict(path);
       this.put(space, { ...row, seq: this.next(space), deleted: 1 }, by);
       this.version(space, 'remove', row.path, null, row.hash, row.size, by);

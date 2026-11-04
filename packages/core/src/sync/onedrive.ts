@@ -118,6 +118,7 @@ interface DriveItem {
   name?: string;
   size?: number;
   cTag?: string;
+  eTag?: string;
   parentReference?: { id?: string; driveId?: string };
   file?: { hashes?: { quickXorHash?: string } };
   image?: { width?: number; height?: number };
@@ -227,9 +228,15 @@ export class OneDriveRemote implements RemoteStore {
   async changes(cursor: string | null, onListed?: (count: number) => void): Promise<RemoteChanges> {
     const map = await this.loadMap();
     let base: Items | null = null;
+    // Asked again from the listing before, as the engine left something for the next turn: it may
+    // have taken in what the newer listing brought, so what that one had and is gone is told too.
+    let newer: Items | null = null;
     if (cursor !== null && map) {
       if (map.cursor === cursor) base = map.items;
-      else if (map.previous?.cursor === cursor) base = undo(map.items, map.previous.undo);
+      else if (map.previous?.cursor === cursor) {
+        base = undo(map.items, map.previous.undo);
+        newer = map.items;
+      }
     }
     const mode = map?.mode ?? (await this.modeOfDrive());
     const listing = await this.list(base ? cursor : null, base ?? {}, mode, onListed);
@@ -247,7 +254,9 @@ export class OneDriveRemote implements RemoteStore {
     // Nothing new: the same cursor again, and nothing written.
     if (Object.keys(undoing).length === 0) return { changed: [], removed: [], cursor: cursor! };
     await this.saveMap({ version: 1, folder, mode, cursor: listing.cursor, items: listing.items, previous: { cursor: cursor!, undo: undoing } });
-    return { ...differences(base!, listing.items, folder), cursor: listing.cursor };
+    const told = differences(base!, listing.items, folder);
+    if (newer) for (const path of differences(newer, listing.items, folder).removed) if (!told.removed.includes(path)) told.removed.push(path);
+    return { ...told, cursor: listing.cursor };
   }
 
   /**
@@ -438,6 +447,34 @@ export class OneDriveRemote implements RemoteStore {
     const response = await this.graph.request(this.at(path), { method: 'DELETE', headers: ifMatch === null ? {} : { 'If-Match': ifMatch } });
     if (response.ok || (response.status === 404 && ifMatch === null)) return;
     await this.answer(response, path);
+  }
+
+  // OneDrive deletes a folder with everything in it: what is in it is looked at first, and the
+  // folder goes only as it was then.
+  async removeDir(path: string): Promise<void> {
+    const response = await this.graph.request(`${this.at(path)}?$select=id,eTag`);
+    if (response.status === 404) return;
+    if (!response.ok) throw await failure(response);
+    const { eTag } = (await response.json()) as DriveItem;
+    if (await this.holdsFile(path)) throw new RemoteConflict(path);
+    const gone = await this.graph.request(this.at(path), { method: 'DELETE', headers: eTag ? { 'If-Match': eTag } : {} });
+    if (gone.ok || gone.status === 404) return;
+    await this.answer(gone, path);
+  }
+
+  /** Whether a file is in a folder there, or in a folder in it. */
+  private async holdsFile(path: string): Promise<boolean> {
+    for (let url: string | undefined = `${this.at(path, 'children')}?$select=name,file,folder`; url; ) {
+      const response = await this.graph.request(url);
+      if (!response.ok) throw await failure(response);
+      const page = (await response.json()) as { value: DriveItem[]; '@odata.nextLink'?: string };
+      for (const child of page.value) {
+        if (child.file) return true;
+        if (child.folder && child.name && (await this.holdsFile(`${path}/${child.name}`))) return true;
+      }
+      url = page['@odata.nextLink'];
+    }
+    return false;
   }
 
   async mkdir(path: string): Promise<void> {

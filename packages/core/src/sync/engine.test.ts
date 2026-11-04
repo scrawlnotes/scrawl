@@ -3,7 +3,7 @@ import { type Card, parseBoard, serializeBoard } from '../board';
 import { type Entry, MemoryFs, type VaultFs } from '../fs';
 import { parseList, serializeList, type Task } from '../tasks';
 import { deleteFromTrash, emptyTrash, readTrash, restoreFromTrash, trashFolder, trashItem, trashPiece } from '../vault';
-import { type SyncDevice, type SyncProgress, syncOnce } from './engine';
+import { changedHere, type SyncDevice, type SyncProgress, syncOnce } from './engine';
 import { LEVEL_FILE, parseLevel, serializeLevel, SYNC_LEVEL } from './level';
 import { isSynced } from './paths';
 import { MemoryRemote, RemoteNeedsNewer, type RemoteStore } from './remote';
@@ -68,6 +68,10 @@ function interrupted(remote: MemoryRemote, before: 'read' | 'write' | 'remove', 
     remove: async (path, ifMatch) => {
       if (before === 'remove') await once();
       return remote.remove(path, ifMatch);
+    },
+    removeDir: async (path) => {
+      if (before === 'remove') await once();
+      return remote.removeDir(path);
     },
     hashOf: (data) => remote.hashOf(data),
   };
@@ -595,7 +599,7 @@ describe('sync', () => {
       });
     };
 
-    it('a folder deleted there after its notes changed: removed here outright, the trash holding one of it', async () => {
+    it('a folder deleted there after its notes changed: the older version here goes to this device’s trash only, the trash there holding one of it', async () => {
       const { remote, laptop, phone, syncLaptop, syncPhone } = setup();
       await laptop.writeText('Scrawl/Plan.md', 'plan');
       await laptop.writeText('Scrawl/Deep/Notes.md', 'notes');
@@ -606,13 +610,19 @@ describe('sync', () => {
       await syncPhone();
       await trashFolder(phone, 'Scrawl', now());
       await syncPhone();
-      // The note not changed follows its move into the trash; the one changed there is gone here.
+      // The note not changed follows its move into the trash; the one changed there, as it was
+      // here, goes to this device's trash, and is not sent up: nothing is deleted for good.
       const report = await syncLaptop();
       expect(report.removedHere).toEqual(['Scrawl/Plan.md']);
       expect(report.uploaded).toEqual([]);
-      expect((await readTrash(laptop)).map((item) => item.from)).toEqual(['Scrawl']);
+      expect((await readTrash(laptop)).map((item) => [item.from, item.here])).toEqual([
+        ['Scrawl', undefined],
+        ['Scrawl/Plan.md', true],
+      ]);
+      await syncLaptop();
       await syncPhone();
-      expect(await contents(phone)).toEqual(await contents(laptop));
+      expect((await readTrash(phone)).map((item) => item.from)).toEqual(['Scrawl']);
+      expect(await laptop.readText(`${(await readTrash(laptop))[1]!.path}`)).toBe('plan');
     });
 
     it('a note in a folder deleted before it was written, deleted by another program: still to this device’s trash', async () => {
@@ -787,6 +797,46 @@ describe('sync', () => {
     });
   });
 
+  it('31. keeps a note put in a folder on the other device just as this one takes the folder away there', async () => {
+    const { remote, laptop, phone, syncLaptop, syncPhone } = setup();
+    await laptop.writeText('Client/Brief.md', 'brief');
+    await syncLaptop();
+    await syncPhone();
+    await trashFolder(laptop, 'Client', now());
+    // Just before the laptop takes the folder away there, the phone puts a new note in it.
+    await syncLaptop(
+      interrupted(remote, 'remove', async () => {
+        await phone.writeText('Client/New idea.md', 'new idea');
+        await syncPhone();
+      }),
+    );
+    await syncPhone();
+    await syncLaptop();
+    expect(await remote.text('Client/New idea.md')).toBe('new idea');
+    for (const fs of [laptop, phone]) expect(await fs.readText('Client/New idea.md')).toBe('new idea');
+  });
+
+  it('32. does not bring back a folder deleted meanwhile from a device that lost its record of syncing', async () => {
+    const { remote, laptop, phone, syncLaptop } = setup();
+    await laptop.writeText('Old/Plan.md', 'plan');
+    await laptop.writeText('Notes.md', 'notes');
+    await syncLaptop();
+    await syncOnce(phone, remote, PHONE, { now, saveEveryMs: 0 });
+    await trashFolder(laptop, 'Old', now());
+    await syncLaptop();
+    // The phone did not sync since, and its record is another device's now: its storage was reset.
+    const report = await syncOnce(phone, remote, { id: 'phone-again', name: 'Phone' }, { now, saveEveryMs: 0 });
+    expect(report.uploaded).not.toContain('Old/Plan.md');
+    expect(report.removedHere).toEqual(['Old/Plan.md']);
+    await syncLaptop();
+    expect(await remote.text('Old/Plan.md')).toBeNull();
+    expect(await laptop.stat('Old/Plan.md')).toBeNull();
+    expect((await readTrash(phone)).map((item) => [item.from, item.here])).toEqual([
+      ['Old', undefined],
+      ['Old/Plan.md', true],
+    ]);
+  });
+
   it('does nothing on a turn when nothing changed', async () => {
     const { remote, laptop, syncLaptop } = setup();
     await laptop.writeText('Scrawl/Plan.md', 'plan');
@@ -795,5 +845,26 @@ describe('sync', () => {
     const report = await syncLaptop();
     expect(Object.values(report).every((list: string[]) => list.length === 0)).toBe(true);
     expect(remote.calls).toEqual(calls);
+  });
+});
+
+describe('changedHere', () => {
+  it('counts what this device added, changed or deleted since its last turn, without the other side', async () => {
+    const { laptop, syncLaptop } = setup();
+    await laptop.writeText('Plan.md', 'plan');
+    await laptop.writeText('Notes.md', 'notes');
+    await laptop.writeText('Old.md', 'old');
+    expect(await changedHere(laptop, LAPTOP.id)).toBe(3);
+    await syncLaptop();
+    expect(await changedHere(laptop, LAPTOP.id)).toBe(0);
+    // Written again as it was: the same, though its time moved.
+    await laptop.writeText('Notes.md', 'notes');
+    expect(await changedHere(laptop, LAPTOP.id)).toBe(0);
+    await laptop.writeText('Plan.md', 'plan, changed');
+    await laptop.writeText('Gym/Workouts/a.md', 'new');
+    await laptop.remove('Old.md');
+    expect(await changedHere(laptop, LAPTOP.id)).toBe(3);
+    await syncLaptop();
+    expect(await changedHere(laptop, LAPTOP.id)).toBe(0);
   });
 });

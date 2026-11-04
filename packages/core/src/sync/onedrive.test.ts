@@ -7,7 +7,8 @@ import { OneDriveAccount, OneDriveRemote, oneDriveTakes, UPLOAD_PART } from './o
 import { LEVEL_FILE } from './level';
 import { isSynced } from './paths';
 import { quickXorHash } from './quickxor';
-import { RemoteConflict, RemoteFolderGone, RemoteOffline, RemoteSignedOut } from './remote';
+import { RemoteConflict, RemoteFolderGone, RemoteOffline, RemoteSignedOut, type RemoteStore } from './remote';
+import { trashFolder } from '../vault';
 
 // The OneDrive adapter against a Graph in memory (design/cloud.md, section 11), and the engine
 // through it.
@@ -41,8 +42,9 @@ function setup() {
     laptop,
     phone,
     laptopRemote,
+    phoneRemote,
     syncLaptop: () => syncOnce(laptop, laptopRemote, LAPTOP, { now, saveEveryMs: 0 }),
-    syncPhone: () => syncOnce(phone, phoneRemote, PHONE, { now, saveEveryMs: 0 }),
+    syncPhone: (store: RemoteStore = phoneRemote) => syncOnce(phone, store, PHONE, { now, saveEveryMs: 0 }),
   };
 }
 
@@ -475,5 +477,57 @@ describe('sync through OneDrive', () => {
     expect(report.removedHere).toEqual(['b.md']);
     expect(report.downloaded).toEqual(['c.md']);
     expect(Object.keys(await contents(phone)).filter((p) => !p.startsWith('.scrawl/trash'))).toEqual(['a.md', 'c.md']);
+  });
+
+  it('removes a folder for sync only while no file is in it, its empty folders with it', async () => {
+    const { graph, laptopRemote } = setup();
+    await graph.put('Scrawl/Client/Deep/b.md', 'B');
+    graph.folder('Scrawl/Client/Empty');
+    await expect(laptopRemote.removeDir('Client')).rejects.toBeInstanceOf(RemoteConflict);
+    expect(graph.paths('Scrawl')).toEqual(['Client/Deep/b.md']);
+    graph.remove('Scrawl/Client/Deep/b.md');
+    await laptopRemote.removeDir('Client');
+    await laptopRemote.removeDir('Gone');
+    expect((await laptopRemote.changes(null)).changed).toEqual([]);
+  });
+
+  it('takes a note it brought away from where it was once it moved, though the turn that brought it was listed again', async () => {
+    const { graph, laptop, phone, phoneRemote, syncLaptop, syncPhone } = setup();
+    await laptop.writeText('Other.md', 'other');
+    await syncLaptop();
+    await syncPhone();
+    // The phone brings a new note, and leaves Other.md for the next turn: it is typed in as the
+    // laptop's change comes. Its next turn lists again from where this one began.
+    await laptop.writeText('Personal/Karalamalar.md', 'karalamalar');
+    await laptop.writeText('Other.md', 'other, laptop');
+    await syncLaptop();
+    let typed = false;
+    const typing: RemoteStore = {
+      changes: (cursor, onListed) => phoneRemote.changes(cursor, onListed),
+      read: async (path, onBytes) => {
+        if (path === 'Other.md' && !typed) {
+          typed = true;
+          await phone.writeText('Other.md', 'other, phone');
+        }
+        return phoneRemote.read(path, onBytes);
+      },
+      mkdir: (path) => phoneRemote.mkdir(path),
+      write: (path, data, ifMatch, onBytes) => phoneRemote.write(path, data, ifMatch, onBytes),
+      move: (from, to, ifMatch) => phoneRemote.move(from, to, ifMatch),
+      remove: (path, ifMatch) => phoneRemote.remove(path, ifMatch),
+      removeDir: (path) => phoneRemote.removeDir(path),
+      hashOf: (data) => phoneRemote.hashOf(data),
+      accepts: (path) => phoneRemote.accepts(path),
+    };
+    const first = await syncPhone(typing);
+    expect(first.downloaded).toContain('Personal/Karalamalar.md');
+    expect(first.skipped).toEqual(['Other.md']);
+    // The laptop deletes the folder: the note moves into the trash.
+    await trashFolder(laptop, 'Personal', now());
+    await syncLaptop();
+    await syncPhone();
+    const notes = Object.keys(await contents(phone)).filter((path) => path.endsWith('Karalamalar.md'));
+    expect(notes).toEqual([expect.stringMatching(/^\.scrawl\/trash\/.* Personal\/Karalamalar\.md$/)]);
+    expect(await phone.stat('Personal')).toBeNull();
   });
 });

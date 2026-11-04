@@ -185,7 +185,7 @@ html:has(.phone-app) body {
 .mb-body {
   flex: 1;
   min-height: 0;
-  padding-bottom: calc(var(--ph-bar) + 96px);
+  padding-bottom: calc(var(--ph-bar) + var(--ph-strip, 0px) + 96px);
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
@@ -477,7 +477,7 @@ html:has(.phone-app) body {
 .mb-fab {
   position: absolute;
   right: 16px;
-  bottom: calc(var(--ph-bar) + 16px);
+  bottom: calc(var(--ph-bar) + var(--ph-strip, 0px) + 16px);
   z-index: 4;
   display: grid;
   place-items: center;
@@ -503,7 +503,7 @@ html:has(.phone-app) body {
   position: absolute;
   left: 16px;
   right: 16px;
-  bottom: calc(var(--ph-bar) + 86px);
+  bottom: calc(var(--ph-bar) + var(--ph-strip, 0px) + 86px);
   z-index: 6;
   display: flex;
   flex-direction: column;
@@ -10194,4 +10194,102 @@ body > .mb-lifted {
 .step-strip {
   margin-left: 16px;
   margin-right: 16px;
+}
+
+/* ---------- Sync strip (design/sync-strip.md) ---------- */
+
+/* Over the tab bar while a space cannot sync, or brings a long gap in; what floats over the tab bar goes up over it. */
+.mb {
+  --ph-strip: 0px;
+}
+
+.mb.strip {
+  --ph-strip: 64px;
+}
+
+.mb-sstrip {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: calc(var(--ph-bar) + 10px);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 8px 10px 8px 12px;
+  overflow: hidden;
+  box-sizing: border-box;
+  border: 1px solid var(--sl-line);
+  border-radius: 12px;
+  background: var(--sl-bg);
+  color: var(--sl-fg);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.28);
+  text-align: left;
+}
+
+.mb .mb-sstrip > .icon {
+  flex: none;
+  width: 19px;
+  height: 19px;
+  color: var(--sl-p2);
+}
+
+.mb .mb-sstrip.on > .icon:first-child {
+  color: var(--sl-accent);
+}
+
+.mb .mb-sstrip > .icon:nth-child(3) {
+  width: 16px;
+  height: 16px;
+  color: var(--sl-faint);
+}
+
+.mb-sstrip .tx {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.mb-sstrip .tx b {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.mb-sstrip .tx small {
+  overflow: hidden;
+  color: var(--sl-dim);
+  font-size: 12.5px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.mb-sstrip .ns {
+  color: var(--sl-p2);
+}
+
+.mb-sstrip .bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+}
+
+.mb-sstrip .bar i {
+  display: block;
+  height: 100%;
+  background: var(--sl-accent);
+}
+
+.mb.keyboard .mb-sstrip,
+.mb.choosing .mb-sstrip,
+.mb.card-page .mb-sstrip,
+.mb.chat-page .mb-sstrip {
+  display: none;
+}
+
+.mb.strip:is(.keyboard, .choosing, .card-page, .chat-page) {
+  --ph-strip: 0px;
 }

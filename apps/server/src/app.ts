@@ -301,7 +301,7 @@ export function createApp(parts: Parts) {
   app.delete('/api/v1/spaces/:id/files/*', syncing, (c) => {
     const space = c.req.param('id');
     const ifMatch = c.req.header('If-Match');
-    files.remove(space, pathIn(c, space), ifMatch ? unquote(ifMatch) : null, actor(c));
+    files.remove(space, pathIn(c, space), ifMatch ? unquote(ifMatch) : null, actor(c), c.req.query('empty') === '1');
     return c.body(null, 204);
   });
 

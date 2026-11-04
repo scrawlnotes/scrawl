@@ -1,3 +1,4 @@
+import { signInSettled } from './cloud';
 import { lookAtOpening, waitingAtOpen } from './newVersion';
 import { isDesktop } from './storage';
 
@@ -112,7 +113,9 @@ export async function startWebApp(): Promise<boolean> {
   if (!kept) return true;
   registration = kept;
   const ready = waitingAtOpen(kept, navigator.serviceWorker.controller !== null) as ServiceWorker | null;
-  if (ready) {
+  // Back from Microsoft, its code becomes the key first: a reload cuts that off, and the code is
+  // good once. Should that take long, the page opens as it is and the new version waits.
+  if (ready && (await within(signInSettled().then(() => true), TAKE_OVER_MS))) {
     const going = await new Promise<boolean>((resolve) => {
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         window.location.reload();

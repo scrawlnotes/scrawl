@@ -25,6 +25,9 @@ import {
   statusText,
   standingOf,
   STATUS,
+  stripOf,
+  syncedWhen,
+  ResyncIcon,
   TAB_LABEL,
   turnLine,
   updateLong,
@@ -45,7 +48,7 @@ const ROW = 64;
 const SPARE = 12;
 
 /** Nothing synced yet, for a space with no turn of its own. */
-const NONE: SpaceSync = { connection: null, phase: 'off', syncedAt: null, error: null, turn: null, lastDone: null, conflict: null, live: false, why: null, moved: null };
+const NONE: SpaceSync = { connection: null, phase: 'off', syncedAt: null, error: null, turn: null, lastDone: null, conflict: null, live: false, why: null, moved: null, notSent: 0 };
 
 const IMAGES = /\.(png|jpe?g|gif|webp|heic|avif|svg)$/i;
 const SOUNDS = /\.(m4a|mp3|wav|webm|ogg|aac|opus)$/i;
@@ -133,6 +136,11 @@ function FileRows({ jobs, top, place }: { jobs: readonly SyncJob[]; top: string;
 /** How a space's sync stands on its row of the Sync page: while a turn runs its files, else as the panel says it. */
 function lineOf(unit: SpaceSync): string {
   const progress = unit.turn?.progress;
+  // Kept from going on: what waits to go here, else when it last synced (design/sync-strip.md).
+  if (!['off', 'idle', 'syncing'].includes(unit.phase)) {
+    const more = unit.notSent > 0 ? t('sync.notSent', { count: unit.notSent }) : unit.syncedAt !== null ? t('sync.lastSyncedShort', { when: syncedWhen(unit.syncedAt, Date.now(), true) }) : null;
+    return more ? `${standingOf(unit)} · ${more}` : standingOf(unit);
+  }
   if (unit.phase !== 'syncing' || !progress) return standingOf(unit);
   if (progress.stage !== 'sending') return t('sync.syncing');
   return `${t('sync.syncingShort')} · ${t('panel.files', { done: progress.files.done, count: progress.files.total })}`;
@@ -181,6 +189,34 @@ export function PhoneSyncList({ sync, spaces, personalName, onOpen }: {
       </div>
       <p className="mb-p">{t('panel.when')}</p>
     </>
+  );
+}
+
+/**
+ * Over the tab bar, while a space cannot sync or brings a long gap in: what is wrong in a word,
+ * what waits to go and when it last synced; it opens the Sync page (design/sync-strip.md).
+ */
+export function PhoneSyncStrip({ syncs, onOpen }: { syncs: readonly SpaceSync[]; onOpen: () => void }) {
+  const strip = stripOf({ all: syncs });
+  if (!strip) return null;
+  return (
+    <button type="button" className={strip.share === null ? 'mb-sstrip' : 'mb-sstrip on'} onClick={onOpen}>
+      {strip.share === null ? <Icon name="warn" /> : <ResyncIcon />}
+      <span className="tx">
+        <b>{strip.word}</b>
+        <small>
+          {strip.waiting && <span className="ns">{strip.waiting}</span>}
+          {strip.waiting && strip.sub && ' · '}
+          {strip.sub}
+        </small>
+      </span>
+      <Icon name="chevron" />
+      {strip.share !== null && (
+        <span className="bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.floor(strip.share * 100)}>
+          <i style={{ width: `${Math.floor(strip.share * 1000) / 10}%` }} />
+        </span>
+      )}
+    </button>
   );
 }
 
@@ -356,6 +392,9 @@ export function PhoneSyncPage({ space, values, frame }: { space: string | null; 
             ? t('phone.movedText', { device: unit.moved.by || t('personal.anotherDevice'), place: placeOf(unit.moved.to), day: new Date(unit.moved.at).toLocaleDateString(locale(), { month: 'short', day: 'numeric' }) })
             : turnLine(unit, running, doneFrom)}
         </div>
+        {bad && (unit.notSent > 0 || unit.syncedAt !== null) && (
+          <div className="sub">{unit.notSent > 0 ? t('sync.notSent', { count: unit.notSent }) : t('sync.lastSynced', { when: syncedWhen(unit.syncedAt!, Date.now()) })}</div>
+        )}
         {current && current.size >= 512 * 1024 && (
           <div className="now">
             <Icon name={fileLook(current.path, top).icon} />

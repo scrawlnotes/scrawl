@@ -56,6 +56,12 @@ export interface RemoteStore {
   move(from: string, to: string, ifMatch: string | null): Promise<RemoteFile>;
   /** Removes a file, checked as `write` does, or a folder with everything in it. */
   remove(path: string, ifMatch: string | null): Promise<void>;
+  /**
+   * Removes a folder, with the empty folders in it, while no file is in it: one another device
+   * put there meanwhile is not taken along. With a file in it, removes nothing and throws a
+   * `RemoteConflict`; nothing happens when the folder is not there.
+   */
+  removeDir(path: string): Promise<void>;
   /** The provider's digest of some content, to compare with `RemoteFile.hash`. */
   hashOf?(data: Blob): Promise<string>;
   /** Whether the provider takes a path as it is; one it does not is not synced (no name is changed silently). */
@@ -207,6 +213,15 @@ export class MemoryRemote implements RemoteStore {
     const file = this.check(path, ifMatch);
     if (!file) throw new RemoteConflict(path);
     this.forget(key, file.path, this.files);
+  }
+
+  async removeDir(path: string): Promise<void> {
+    this.calls.remove++;
+    const key = keyOf(path);
+    if (!this.dirs.has(key)) return;
+    const inside = (k: string) => k === key || k.startsWith(`${key}/`);
+    if ([...this.files.keys()].some(inside)) throw new RemoteConflict(path);
+    for (const k of [...this.dirs.keys()]) if (inside(k)) this.forget(k, this.dirs.get(k)!.path, this.dirs);
   }
 
   async hashOf(data: Blob): Promise<string> {

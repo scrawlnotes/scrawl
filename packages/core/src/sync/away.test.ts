@@ -69,6 +69,7 @@ describe('files away', () => {
       write: (path, data, ifMatch) => remote.write(path, data, ifMatch),
       move: (from, to, ifMatch) => remote.move(from, to, ifMatch),
       remove: (path, ifMatch) => remote.remove(path, ifMatch),
+      removeDir: (path) => remote.removeDir(path),
     };
     await syncOnce(phone, telling, PHONE, { now, saveEveryMs: 0, leaveOver: LIMIT });
     expect(await readAway(phone)).toEqual([{ path: '_attachments/roof.png', size: 4000, width: 1400, height: 1000 }]);
@@ -160,7 +161,8 @@ describe('files away', () => {
   });
 
   it('removes outright a file deleted on the other side whose copy in the trash waits there', async () => {
-    const { laptop, phone, remote, syncLaptop, syncPhone } = setup();
+    // A provider that gives digests, as OneDrive and a Scrawl server do: the copy there is told by its content.
+    const { laptop, phone, remote, syncLaptop, syncPhone } = setup(true);
     await laptop.writeBlob('_attachments/roof.png', blob(4000));
     await syncLaptop();
     // The phone took it before it had a limit, as an app from before large files waited.

@@ -126,6 +126,34 @@ async function walk(fs: VaultFs, dir = '', files = new Map<string, Entry>(), dir
   return { files, dirs };
 }
 
+/** How a file here stands against the base: what the last turn left of it, and what is here now. */
+async function localStatusOf(record: FileRecord | undefined, entry: Entry | undefined, hash: () => Promise<string>): Promise<LocalStatus> {
+  // A file here where one is away came here otherwise than by syncing: `adopt` tells which it is.
+  if (record?.away) return entry ? 'changed' : 'away';
+  if (!entry) return record ? 'deleted' : 'none';
+  if (!record) return 'new';
+  if (entry.path === record.path && entry.size === record.size && entry.modified !== undefined && entry.modified === record.modified) return 'same';
+  return (await hash()) === record.hash ? 'same' : 'changed';
+}
+
+/**
+ * How many files of the space this device added, changed or deleted since its last turn, as a
+ * turn would find them: what is waiting to go. Asks nothing of the other side, so it can tell
+ * while offline (design/sync-strip.md 3.2). Not while a turn of the same space runs.
+ */
+export async function changedHere(fs: VaultFs, deviceId: string): Promise<number> {
+  const state = await loadSyncState(fs, deviceId);
+  const { files } = await walk(fs);
+  for (const path of await trashedHere(fs)) files.delete(keyOf(path));
+  let count = 0;
+  for (const key of new Set([...files.keys(), ...Object.keys(state.files)])) {
+    const entry = files.get(key);
+    const status = await localStatusOf(state.files[key], entry, async () => sha256(await fs.readBlob(entry!.path)));
+    if (status === 'new' || status === 'changed' || status === 'deleted') count++;
+  }
+  return count;
+}
+
 const pad = (n: number) => String(n).padStart(2, '0');
 /** A moment as a conflict copy's name carries it, in local time: `2026-10-07 1432`. */
 const moment = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}${pad(d.getMinutes())}`;
@@ -262,7 +290,21 @@ class Turn {
       }
       if ((here === 'new' || here === 'changed') && (there === 'same' || there === 'none' || there === 'deleted')) {
         const entry = this.local.files.get(key)!;
-        plan.push({ job: this.planned(entry.path, 'up', entry.size ?? 0), run: () => this.upload(key, there === 'same' ? this.state.files[key]!.tag : null) });
+        const job = this.planned(entry.path, 'up', entry.size ?? 0);
+        // With no record of this device's turns, a file here alone that the trash, come over by
+        // now, says was deleted after it last changed here is an old copy: it goes to this
+        // device's trash rather than back to the other side (a device whose record was lost).
+        const old = startCursor === null && here === 'new' && there === 'none';
+        plan.push({
+          job,
+          run: async () => {
+            if (old && (await deletedSince(this.fs, entry.path, entry.modified))) {
+              job.kind = 'trash';
+              return this.keepHere(key);
+            }
+            return this.upload(key, there === 'same' ? this.state.files[key]!.tag : null);
+          },
+        });
       }
     }
     for (const [key, [here, there]] of status) {
@@ -395,15 +437,8 @@ class Turn {
     return hash;
   }
 
-  private async localStatus(key: string): Promise<LocalStatus> {
-    const record = this.state.files[key];
-    const entry = this.local.files.get(key);
-    // A file here where one is away came here otherwise than by syncing: `adopt` tells which it is.
-    if (record?.away) return entry ? 'changed' : 'away';
-    if (!entry) return record ? 'deleted' : 'none';
-    if (!record) return 'new';
-    if (entry.path === record.path && entry.size === record.size && entry.modified !== undefined && entry.modified === record.modified) return 'same';
-    return (await this.hashOf(key)) === record.hash ? 'same' : 'changed';
+  private localStatus(key: string): Promise<LocalStatus> {
+    return localStatusOf(this.state.files[key], this.local.files.get(key), () => this.hashOf(key));
   }
 
   private remoteStatus(key: string): RemoteStatus {
@@ -722,21 +757,30 @@ class Turn {
   }
 
   /**
-   * Gone on the other side. What is in the trash already is removed: the app moved it there and
-   * the trash came over, or the trash's index says it, or a folder it was in, was deleted after
-   * it last changed here, its copy in the trash left on the other side or another version of it,
-   * as on a device back after a long time. What went otherwise goes to this device's trash, as
-   * everything sync deletes does, and stays there: found here alone, it is not sent up.
+   * Gone on the other side. What is in the trash already is removed: a file of the trash itself,
+   * or one whose content came into the trash, as the app moved it there and the trash came over.
+   * Anything else goes to this device's trash, as everything sync deletes does, and stays there:
+   * found here alone, it is not sent up. Nothing is deleted for good that is nowhere else, though
+   * a device back after a long time may so find in its trash what was deleted meanwhile.
    */
   private async removeHere(key: string): Promise<void> {
     const entry = this.local.files.get(key)!;
     const record = this.state.files[key]!;
     if (!(await this.untouched(key, entry.path))) return;
-    if (isUnder(key, TRASH) || (await this.inTrash(record)) || (await deletedSince(this.fs, entry.path, entry.modified))) await this.fs.remove(entry.path);
+    if (isUnder(key, TRASH) || (await this.inTrash(record))) await this.fs.remove(entry.path);
     else await trashItem(this.fs, entry.path, this.now(), { here: true });
     this.report.removedHere.push(entry.path);
     this.result = 'trashed';
     await this.drop(key);
+  }
+
+  /** An old copy of a file deleted elsewhere, found here alone: to this device's trash, never sent up. */
+  private async keepHere(key: string): Promise<void> {
+    const entry = this.local.files.get(key)!;
+    if (!(await this.untouched(key, entry.path))) return;
+    await trashItem(this.fs, entry.path, this.now(), { here: true });
+    this.report.removedHere.push(entry.path);
+    this.result = 'trashed';
   }
 
   private trashed: Map<string, Entry> | null = null;
@@ -748,7 +792,11 @@ class Turn {
       if (entry.size !== record.size) continue;
       if ((await sha256(await this.fs.readBlob(entry.path))) === record.hash) return true;
     }
-    return false;
+    // Its copy in the trash left on the other side, over this device's limit, as the provider's digest tells it.
+    const away = Object.values(this.state.files).filter((r) => r.away && r.remoteHash !== undefined && r.size === record.size && isUnder(keyOf(r.path), TRASH));
+    if (away.length === 0 || !this.remote.hashOf) return false;
+    const digest = await this.remote.hashOf(await this.fs.readBlob(record.path));
+    return away.some((r) => r.remoteHash === digest);
   }
 
   private async removeThere(key: string): Promise<void> {
@@ -799,7 +847,9 @@ class Turn {
         this.state.dirs[key] = path;
       } else if (!here && known !== undefined) {
         if (holds(key)) continue;
-        if (there) await this.remote.remove(known, null).catch(() => undefined);
+        // Only while nothing is in it there: a file another device put in it since stays, and
+        // comes here with the next turn, the folder with it.
+        if (there) await this.remote.removeDir(known).catch(() => undefined);
         delete this.state.dirs[key];
       }
     }

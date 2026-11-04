@@ -13,9 +13,9 @@ import { PhoneAgents } from './Agents';
 import { PhoneLogs, useLogView } from './Logs';
 import { Spin } from './Loading';
 import { PhoneAddSpaceSheet, PhonePersonalPage, PhoneSpaceMenu, PhoneSpacePage, PhoneSpacesList, RemoveSpaceSheet, spacePlace } from './PhoneSpaces';
-import { PhoneSyncList, PhoneSyncPage } from './PhoneSync';
+import { PhoneSyncList, PhoneSyncPage, PhoneSyncStrip } from './PhoneSync';
 import type { SpaceSyncView } from './sync';
-import { percent, placeName, signInAsk, signInFresh } from './SyncViews';
+import { percent, placeName, signInAsk, signInFresh, stripOf } from './SyncViews';
 import { PhoneServerPage, YouAre } from './ServerPeople';
 import { hostOf, knownServers, pendingJoin } from './servers';
 import { PhoneSearch, type SearchAction, type Thing } from './Search';
@@ -1717,10 +1717,12 @@ export function Phone(props: PhoneProps) {
           ? () => props.onAdd(top.id)
           : null;
 
+  // The sync strip over the tab bar, but on the Sync page it opens (design/sync-strip.md).
+  const stripOn = top.kind !== 'sync' && stripOf({ all: props.syncs }) !== null;
   return (
     // The phone's own layout fills what the phone shows: with the keyboard up it ends on the keyboard.
     // A card's page has its comment box where the tab bar is.
-    <div className={['mb', keyboard ? 'keyboard' : '', top.kind === 'card' ? 'card-page' : '', top.kind === 'chatConv' ? 'chat-page' : '', choosing ? 'choosing' : ''].filter(Boolean).join(' ')} style={{ top: view.top, height: view.height }}>
+    <div className={['mb', keyboard ? 'keyboard' : '', stripOn ? 'strip' : '', top.kind === 'card' ? 'card-page' : '', top.kind === 'chatConv' ? 'chat-page' : '', choosing ? 'choosing' : ''].filter(Boolean).join(' ')} style={{ top: view.top, height: view.height }}>
       <div ref={stage} className="mb-stage" onTouchStartCapture={edgeStart} onTouchMoveCapture={edgeMove} onTouchEndCapture={edgeEnd} onTouchCancelCapture={edgeEnd}>
         {shownPages.map((page, index) => {
           const isLeaving = leaving?.page.key === page.key;
@@ -1827,6 +1829,7 @@ export function Phone(props: PhoneProps) {
       {making?.kind === 'newMessage' && makingServer && (
         <PhoneNewMessage server={makingServer} menu={props.chat.menu} links={props.chat.links} onDone={(made) => openMade(making.url, made)} onClose={() => setMaking(null)} />
       )}
+      {stripOn && <PhoneSyncStrip syncs={props.syncs} onOpen={() => push({ kind: 'sync' })} />}
       <nav className={places.length > 4 ? 'mb-tabbar five' : 'mb-tabbar'} aria-label={t('phone.places')}>
         {places.map((each) => (
           <button key={each} type="button" aria-current={each === place ? 'page' : undefined} onClick={() => choose(each)}>

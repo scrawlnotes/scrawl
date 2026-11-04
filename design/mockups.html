@@ -4723,6 +4723,16 @@ p { margin: 0; max-width: 68ch; }
 .ah-mtoday .tx small .late { color: var(--m-p1); }
 .ah-mtoday .bar { width: 3px; align-self: stretch; margin: 10px 0; border-radius: 2px; background: var(--rc, var(--m-dim)); }
 .mb-row .warn { color: var(--m-p2); }
+/* Phone, sync strip, Nov 4: over the tab bar on every tab while the phone is offline, cannot sync, or brings a long gap in; gone when all is well. */
+.mb-sstrip { position: absolute; left: 12px; right: 12px; bottom: 86px; z-index: 4; display: flex; align-items: center; gap: 10px; padding: 9px 10px 9px 12px; overflow: hidden; border: 1px solid var(--m-line); border-radius: 12px; background: var(--m-bg); box-shadow: 0 6px 18px rgb(0 0 0 / .28); }
+.mock .mb-sstrip > svg { flex: none; width: 19px; height: 19px; color: var(--m-p2); }
+.mock .mb-sstrip.on > svg { color: var(--m-accent); }
+.mb-sstrip .tx { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.mb-sstrip .tx b { font-size: 14px; font-weight: 600; }
+.mb-sstrip .tx small { overflow: hidden; color: var(--m-dim); font-size: 12.5px; white-space: nowrap; text-overflow: ellipsis; }
+.mb-sstrip .tx small .ns { color: var(--m-p2); }
+.mock .mb-sstrip .chev { flex: none; width: 16px; height: 16px; color: var(--m-faint); }
+.mb-sstrip .mb-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 0; background: transparent; }
 </style>
 
 <main class="page">
@@ -6032,6 +6042,21 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-swview="swpassport">Passport</button>
         <button type="button" data-swview="swtable">Documents</button>
         <button type="button" data-swview="swphone">Telefon</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="syncstrip">
+    <div class="brief">
+      <div>
+        <span class="letter">TELEFON · SYNC · TASLAK</span>
+        <h2>Telefonda sync şeridi</h2>
+        <p>Telefonda sync bugün yalnız Browse'un altındaki Sync satırında görünüyor; Today'de ve öbür sekmelerde yok. 3 Kasım'da telefon 2 Kasım akşamki değişiklikleri almamıştı: program hâlâ Mon, Wed, Fri idi, Today 3 Kasım yerine Overdue'da <b>Mon, Nov 2</b>'yi gösterdi, Start o günü yazdı; yazılan antrenman da bir gün sonra gitti. Bunu söyleyen hiçbir şey yoktu. Şerit, bir sorun varken her sekmede tab bar'ın hemen üstünde durur: <b>Offline</b> ve son sync'in ne zaman olduğu; bu telefonda yazılıp gitmemiş bir şey varsa kaç değişiklik beklediği; sync edilemiyorsa bugünkü sözler (<i>Could not sync</i>, <i>Sign in to OneDrive again</i>). Bağlıyken yalnız uzun aradan sonraki ilk turda (son sync 1 saatten eskiyse) yüzdesiyle çıkar; her 30 saniyelik turda çıkmaz. Dokununca Sync sayfası açılır. Her şey yolundayken hiçbir şey görünmez.</p>
+        <ul class="traits"><li>yalnız telefonda</li><li>her sekmede</li><li>yalnız sorun varken</li><li>son sync zamanı</li><li>gitmemiş değişiklik</li><li>dokununca Sync</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Sync şeridi görünümü">
+        <button type="button" data-skview="skphone">Telefon</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -19432,6 +19457,49 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderOp(sectionOp, b.dataset.opview);
   });
   renderOp(sectionOp, 'inlist');
+
+  // Phone sync strip (Nov 4): Kaan's Tuesday, Nov 3, at the gym with no connection. The phone last
+  // synced on Sunday at 21:40, before the program's days moved from Mon, Wed, Fri to Tue, Wed, Fri.
+  var SK_PROGRAM = '3-Day Full Body';
+  var SK_LAST = 'Last synced Sun, Nov 2, 21:40';
+  /** The strip over the tab bar: what is wrong in a word, when it last synced under it. */
+  function skStrip(word, sub, pct) {
+    return '<div class="mb-sstrip' + (pct ? ' on' : '') + '">' + (pct ? ICON.resync : ICON.warn) + '<span class="tx"><b>' + word + '</b><small>' + sub + '</small></span>' + MB_CHEV +
+      (pct ? '<span class="mb-bar"><i style="width: ' + pct + '%"></i></span>' : '') + '</div>';
+  }
+  /** Today as the phone has it: the head, Today and Upcoming with their numbers, then the list. */
+  function skToday(today, body) {
+    return mbPage(mbHead('Today', 'Tuesday, Nov 3', true) + '<div class="mb-seg"><span class="on">Today' + (today ? '<small>' + today + '</small>' : '') + '</span><span>Upcoming<small>2</small></span></div>', body);
+  }
+  var SK_LATE = '<div class="gy-mcap">Overdue</div><div class="gy-mtoday"><div class="gy-mt">' + ICON.collection + '<span class="tx"><b>' + SK_PROGRAM + '</b><small><span class="late">Mon, Nov 2</span> · Programs</small></span><span class="skip">Didn’t go</span><span class="go">Start</span></div></div>';
+  // + goes up over the strip, as the toasts do.
+  var SK_FAB = MB_FAB.replace('class="mb-fab"', 'class="mb-fab" style="bottom: 162px"');
+  function skPhone() {
+    var spaces = function (name, sub, bad) {
+      return '<div class="mb-row mb-spsync">' + ICON.space + '<span class="tx"><b>' + name + '</b><small' + (bad ? ' class="bad"' : '') + '>' + (bad ? ICON.warn : '') + sub + '</small></span>' + MB_CHEV + '</div>';
+    };
+    var sync = mbPage(mbNav('Today', ['Sync now']) + mbHead('Sync'),
+      spaces('Personal', 'Offline · 14 changes not sent yet', true) +
+      spaces('Game Development', 'Offline · last synced Nov 2, 21:40', true) +
+      spaces('Klinitra', 'Offline · last synced Nov 2, 21:40', true) +
+      spaces('OzBI', 'Offline · last synced Nov 2, 21:40', true) +
+      spaces('Scrawl', 'Offline · last synced Nov 2, 21:40', true) +
+      '<p class="mb-p">What you write here is kept on this phone and sent when it is back online.</p>');
+    return mbPhone('Offline: Today eski olabilir; son sync şeritte', skToday(1, SK_LATE), skStrip('Offline', SK_LAST) + mbTabs('today') + SK_FAB) +
+      mbPhone('Kaydedince: gitmeyen değişiklik sayısı', skToday(0, mbEmpty('sun', 'Nothing due today', 'Tasks and cards due today, or late, show up here.', 'Add task')),
+        skStrip('Offline', '<span class="ns">14 changes not sent yet</span> · ' + SK_LAST.replace('Last synced Sun, ', 'synced ')) + mbTabs('today') + SK_FAB) +
+      mbPhone('Uzun aradan sonra bağlanınca: tur bitince gider', skToday(1, SK_LATE), skStrip('Syncing 38%', SK_LAST, 38) + mbTabs('today') + SK_FAB) +
+      mbPhone('Şeride dokununca: Sync', sync, '');
+  }
+  function renderSk(section) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    mock.className = 'mock dir-a phones four mbs';
+    mock.innerHTML = skPhone();
+    section.querySelectorAll('.brief [data-skview]').forEach(function (b) { b.setAttribute('aria-pressed', 'true'); });
+  }
+  var sectionSk = document.querySelector('.dir[data-dir="syncstrip"]');
+  renderSk(sectionSk);
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });

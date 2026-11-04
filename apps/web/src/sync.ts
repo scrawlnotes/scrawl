@@ -1,4 +1,5 @@
 import {
+  changedHere,
   clearLeftPlace,
   foldersNest,
   inSpace,
@@ -147,6 +148,8 @@ export interface SpaceSync {
   why: 'removed' | 'left' | 'notYet' | 'server' | null;
   /** The personal space moved on another device: where to, by which device, when. */
   moved: MovedMark | null;
+  /** While a turn cannot go: how many files this device added, changed or deleted that wait to go (design/sync-strip.md). */
+  notSent: number;
 }
 
 /** A server asked to sign in to: its address, the account, and the spaces on it here, which one sign-in opens. */
@@ -234,10 +237,22 @@ async function loadDevice(): Promise<SyncDevice> {
 }
 
 /** What a new connection, or none, starts from. */
-const FRESH = { syncedAt: null, error: null, turn: null, lastDone: null, conflict: null, live: false, why: null, moved: null } satisfies Partial<SpaceSync>;
+const FRESH = { syncedAt: null, error: null, turn: null, lastDone: null, conflict: null, live: false, why: null, moved: null, notSent: 0 } satisfies Partial<SpaceSync>;
 
 /** The personal space's key, which its connection is kept for: another notes folder is not connected with it. */
 const vaultKey = () => (isDesktop ? (vaultFolder() ?? '') : 'browser');
+
+/** When each space last synced well here, with the folder it synced with, kept so a page opened again still knows. */
+const SYNCED_AT = 'scrawl.syncedAt';
+const syncedKey = (space: string | null) => (space === null ? `personal:${vaultKey()}` : space);
+function keptSyncedAt(space: string | null, connection: Connection): number | null {
+  const kept = read<Record<string, { folder: string; at: number }>>(SYNCED_AT)?.[syncedKey(space)];
+  // Another folder is another sync: what was kept of the old one does not hold.
+  return kept && kept.folder === connection.folder.id ? kept.at : null;
+}
+function keepSyncedAt(space: string | null, connection: Connection, at: number) {
+  write(SYNCED_AT, { ...read<Record<string, unknown>>(SYNCED_AT), [syncedKey(space)]: { folder: connection.folder.id, at } });
+}
 
 /** The connection kept for the personal space here, before anything opens; null when there is none. */
 export function keptConnection(): Connection | null {
@@ -267,6 +282,8 @@ interface Unit extends SpaceSyncView {
   gone: boolean;
   /** The last turn missed a file of this device that was being written just then: the next one goes at once. */
   missed: boolean;
+  /** Something was saved since `notSent` was counted: a turn that cannot go counts again. */
+  recount: boolean;
 }
 
 /** A folder's path in the drive in one spelling, OneDrive's being of any case. */
@@ -338,6 +355,7 @@ export class SyncService {
       live: unit.live,
       why: unit.why,
       moved: unit.moved,
+      notSent: unit.notSent,
     });
     const { space: _s, name: _n, ...own } = personal ? view(personal) : { space: null, name: '', connection: null, phase: 'off' as const, ...FRESH };
     this.set({ ...own, all: all.map(view) });
@@ -366,6 +384,8 @@ export class SyncService {
     void openingUpdate().then(async (found) => {
       if (found) {
         await this.session.beforeSync();
+        // A sign-in coming back from Microsoft is finished first: the reload would cut it off.
+        await signInSettled();
         reloadIntoUpdate();
         // Should the page not go over to it, it syncs as it is: the space's level keeps an old version from undoing anything.
         await new Promise((resolve) => window.setTimeout(resolve, 5000));
@@ -445,6 +465,7 @@ export class SyncService {
     const key = space ?? PERSONAL;
     const unit = this.units.get(key);
     if (!unit?.connection) return;
+    unit.recount = true;
     window.clearTimeout(this.afterOutside.get(key));
     this.afterOutside.set(
       key,
@@ -495,7 +516,7 @@ export class SyncService {
   }
 
   private unit(space: string | null, name: string, vault: VaultFs, connection: Connection): Unit {
-    return { space, name, vault, connection, phase: 'idle', ...FRESH, store: null, running: null, again: false, gone: false, missed: false };
+    return { space, name, vault, connection, phase: 'idle', ...FRESH, syncedAt: keptSyncedAt(space, connection), store: null, running: null, again: false, gone: false, missed: false, recount: true };
   }
 
   /** The personal space opened, or none: its own connection, if it has one. */
@@ -595,6 +616,7 @@ export class SyncService {
 
   /** A save done: a turn shortly, a space on a server's sooner; more saves meanwhile wait for it. */
   private soon() {
+    for (const unit of this.units.values()) unit.recount = true;
     window.clearTimeout(this.afterSave);
     window.clearTimeout(this.afterServerSave);
     const keys = (server: boolean) => [...this.units].flatMap(([key, unit]) => (!!unit.connection?.server === server ? [key] : []));
@@ -648,10 +670,12 @@ export class SyncService {
     };
     // A space waiting for a sign-in stays shown so while its turn tries again, as one with no key
     // here does every time: it is syncing only once the place answers with what changed.
-    const waiting = unit.phase === 'signedOut';
+    // So does one offline: the strip over a phone's tab bar stays put while it tries (design/sync-strip.md).
+    const was = unit.phase;
+    const waiting = was === 'signedOut' || was === 'offline';
     const onProgress = (next: SyncProgress) => {
       progress = next;
-      if (waiting && unit.phase === 'signedOut' && (next.stage !== 'reading' || next.looked > 0)) this.change(unit, { phase: 'syncing' });
+      if (waiting && unit.phase === was && (next.stage !== 'reading' || next.looked > 0)) this.change(unit, { phase: 'syncing' });
       if (next.stage === 'sending' && sendingSince === null) sendingSince = Date.now();
       timer ||= window.setTimeout(showTurn, PROGRESS_MS);
     };
@@ -670,8 +694,10 @@ export class SyncService {
       await this.session.afterSync(report, unit.space);
       const copy = report.conflicts.at(-1);
       const turn = view(Date.now(), false);
+      if (connection) keepSyncedAt(unit.space, connection, Date.now());
       this.change(unit, {
         phase: 'idle',
+        notSent: 0,
         syncedAt: Date.now(),
         error: null,
         why: null,
@@ -705,12 +731,26 @@ export class SyncService {
       else if (error instanceof RemoteNeedsNewer) this.change(unit, { phase: 'update', why: error.level === null ? 'server' : null, turn, lastDone });
       else this.change(unit, { phase: 'failed', error: error instanceof Error ? error.message : String(error), turn, lastDone });
       if (!missed) unit.missed = false;
+      if (!missed && unit.recount) await this.countNotSent(unit);
     } finally {
       unit.running = null;
       if (unit.again && !unit.gone) {
         unit.again = false;
         this.syncNow(unit.space);
       }
+    }
+  }
+
+  /** A turn could not go: how many files wait here to go, counted against the last turn's record, alone as a turn is. */
+  private async countNotSent(unit: Unit) {
+    unit.recount = false;
+    const { device } = this.snapshot;
+    try {
+      const notSent = await alone(unit.space, () => changedHere(unit.vault, device.id));
+      if (!unit.gone) this.change(unit, { notSent });
+    } catch {
+      // Not told this time: the next turn that cannot go counts again.
+      unit.recount = true;
     }
   }
 
