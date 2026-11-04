@@ -635,7 +635,7 @@ export const en = {
   'panel.changedHere': 'Changed here while it was being synced; it goes with the next turn.',
   'panel.changedThere': 'Changed in {place} while it was being synced; it comes with the next turn.',
   'panel.started': 'Started {ago}',
-  'panel.when': 'Every 30 s while open, soon after a save, and when the app is left or comes back',
+  'panel.when': 'Looks for changes every minute while open, soon after a save, and when the app is left or comes back',
   'panel.settings': 'Sync settings',
   'panel.close': 'Close',
   'cloud.browserDone': 'Signed in to OneDrive. You can go back to Scrawl.',

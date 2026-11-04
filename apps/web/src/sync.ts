@@ -49,8 +49,8 @@ import { isDesktop, vaultFolder } from './storage';
  * Sooner on a phone, which is put away soon after something is jotted down.
  */
 const afterSaveMs = () => (isPhone() ? 1500 : 5000);
-/** While the app is open and on screen (on the desktop, open at all), a turn this often; for a space on a server that says what changes as it does, every other time. */
-const EVERY_MS = 30_000;
+/** While the app is open and on screen (on the desktop, open at all), a look for what changed this often, unseen, in every space. */
+const EVERY_MS = 60_000;
 /** A save goes to a server this soon: the others see it in a second or two. */
 const SERVER_AFTER_SAVE_MS = 1000;
 /** How often a turn's progress is shown at most; the engine tells it far more often. */
@@ -278,6 +278,8 @@ interface Unit extends SpaceSyncView {
   running: Promise<void> | null;
   /** A turn was asked for while one ran: one more follows it. */
   again: boolean;
+  /** The person asked for the next turn (Sync now, signing in): it is shown even when it finds nothing to do. */
+  asked: boolean;
   /** Taken out of sync: no turn starts, and one running ends unheard. */
   gone: boolean;
   /** The last turn missed a file of this device that was being written just then: the next one goes at once. */
@@ -376,7 +378,7 @@ export class SyncService {
       this.session.deviceName = device.name;
       this.session.deviceId = device.id;
       void this.session.carry();
-      this.syncNow();
+      this.syncNow(undefined, false);
     });
     // They wait too for the look for a new version as the app opens: one that comes down while
     // nothing was done yet is gone over to before anything syncs, so that an old version kept on
@@ -391,7 +393,7 @@ export class SyncService {
         await new Promise((resolve) => window.setTimeout(resolve, 5000));
       }
       this.looked = true;
-      this.syncNow();
+      this.syncNow(undefined, false);
     });
     let wasSaved = true;
     let seen: { spaces: SpaceView[] | null; reading: ReadonlySet<string> | null } = { spaces: null, reading: null };
@@ -410,19 +412,19 @@ export class SyncService {
     };
     this.stops.push(this.session.subscribe(onSession));
     onSession();
-    const onFocus = () => this.syncNow();
+    const onFocus = () => this.syncNow(undefined, false);
     const onOnline = () => {
       this.wakeLives();
-      this.syncNow();
+      this.syncNow(undefined, false);
     };
     // Put away, what was typed goes at once: a phone stops the page soon after, and what is left
     // here would meet what is typed meanwhile on another device. Back on screen, what came from
     // there comes before more is typed. A phone tells neither with focus.
     const onVisibility = () => {
       if (document.visibilityState === 'visible') this.wakeLives();
-      this.syncNow();
+      this.syncNow(undefined, false);
     };
-    const onShow = (event: PageTransitionEvent) => event.persisted && this.syncNow();
+    const onShow = (event: PageTransitionEvent) => event.persisted && this.syncNow(undefined, false);
     window.addEventListener('focus', onFocus);
     window.addEventListener('online', onOnline);
     document.addEventListener('visibilitychange', onVisibility);
@@ -433,14 +435,11 @@ export class SyncService {
       () => document.removeEventListener('visibilitychange', onVisibility),
       () => window.removeEventListener('pageshow', onShow),
     );
-    let ticks = 0;
     this.every = window.setInterval(() => {
       // The desktop app syncs with its window hidden or minimized too: it runs on in the tray for
       // the agents on the computer (design/background.md 3).
       if (!isDesktop && document.visibilityState !== 'visible') return;
-      ticks++;
-      // A space on a server that tells what changes needs the turn only as a check, every other time.
-      for (const [key, unit] of this.units) if (!(unit.live && ticks % 2)) this.syncNow(key);
+      this.syncNow(undefined, false);
     }, EVERY_MS);
   }
 
@@ -471,7 +470,7 @@ export class SyncService {
       key,
       window.setTimeout(() => {
         this.afterOutside.delete(key);
-        this.syncNow(key);
+        this.syncNow(key, false);
       }, unit.connection.server ? SERVER_AFTER_SAVE_MS : afterSaveMs()),
     );
   }
@@ -494,7 +493,7 @@ export class SyncService {
         url,
         token: () => serverKey(url),
         onChanged: (space) => {
-          for (const [key, unit] of this.units) if (unit.connection?.server === url && unit.connection.folder.id === space) this.syncNow(key);
+          for (const [key, unit] of this.units) if (unit.connection?.server === url && unit.connection.folder.id === space) this.syncNow(key, false);
         },
         onLive: (on) => {
           if (on) this.liveOn.add(url);
@@ -516,7 +515,7 @@ export class SyncService {
   }
 
   private unit(space: string | null, name: string, vault: VaultFs, connection: Connection): Unit {
-    return { space, name, vault, connection, phase: 'idle', ...FRESH, syncedAt: keptSyncedAt(space, connection), store: null, running: null, again: false, gone: false, missed: false, recount: true };
+    return { space, name, vault, connection, phase: 'idle', ...FRESH, syncedAt: keptSyncedAt(space, connection), store: null, running: null, again: false, asked: false, gone: false, missed: false, recount: true };
   }
 
   /** The personal space opened, or none: its own connection, if it has one. */
@@ -529,7 +528,7 @@ export class SyncService {
     const connection = kept && kept.vault === vaultKey() && !oneDrive().fake ? kept : null;
     if (vault && connection) this.units.set(PERSONAL, this.unit(null, '', vault, connection));
     this.show();
-    if (connection) this.syncNow(PERSONAL);
+    if (connection) this.syncNow(PERSONAL, false);
     // How a sign-in that left the page ended is dealt with once the space is open and the return is finished.
     if (vault) void signInSettled().then(() => this.afterSignIn());
   }
@@ -553,7 +552,7 @@ export class SyncService {
       if (!connection || !vault) continue;
       this.units.set(space.id, this.unit(space.id, space.name, vault, connection));
       // Two turns never run on one space at once: a new one waits for the old one to end.
-      if (unit?.running) void unit.running.finally(() => this.syncNow(space.id));
+      if (unit?.running) void unit.running.finally(() => this.syncNow(space.id, false));
       else fresh.push(space.id);
     }
     for (const [key, unit] of this.units) {
@@ -563,7 +562,7 @@ export class SyncService {
     }
     this.followLives();
     this.show();
-    for (const key of fresh) this.syncNow(key);
+    for (const key of fresh) this.syncNow(key, false);
   }
 
   /**
@@ -620,16 +619,21 @@ export class SyncService {
     window.clearTimeout(this.afterSave);
     window.clearTimeout(this.afterServerSave);
     const keys = (server: boolean) => [...this.units].flatMap(([key, unit]) => (!!unit.connection?.server === server ? [key] : []));
-    this.afterSave = window.setTimeout(() => keys(false).forEach((key) => this.syncNow(key)), afterSaveMs());
-    this.afterServerSave = window.setTimeout(() => keys(true).forEach((key) => this.syncNow(key)), SERVER_AFTER_SAVE_MS);
+    this.afterSave = window.setTimeout(() => keys(false).forEach((key) => this.syncNow(key, false)), afterSaveMs());
+    this.afterServerSave = window.setTimeout(() => keys(true).forEach((key) => this.syncNow(key, false)), SERVER_AFTER_SAVE_MS);
   }
 
-  /** A turn now, of one space or of every one; while one runs, another right after it. */
-  syncNow(space?: string | null) {
+  /**
+   * A turn now, of one space or of every one; while one runs, another right after it. Asked for by
+   * the person, it is shown from the start; otherwise it only looks for what changed, unseen, and
+   * is shown once it finds files to send or bring.
+   */
+  syncNow(space?: string | null, asked = true) {
     const keys = space === undefined ? [...this.units.keys()] : [space ?? PERSONAL];
     for (const key of keys) {
       const unit = this.units.get(key);
       if (!unit || unit.gone || !unit.connection || !this.snapshot.device.id || !this.looked || unit.phase === 'moved' || unit.phase === 'update') continue;
+      unit.asked ||= asked;
       if (unit.running) unit.again = true;
       else unit.running = this.turn(unit);
     }
@@ -673,13 +677,21 @@ export class SyncService {
     // So does one offline: the strip over a phone's tab bar stays put while it tries (design/sync-strip.md).
     const was = unit.phase;
     const waiting = was === 'signedOut' || was === 'offline';
+    // A turn nobody asked for only looks for what changed, and that is not syncing: it is shown
+    // once it has files to send or bring, and otherwise nothing of it is.
+    let shown = unit.asked;
+    unit.asked = false;
     const onProgress = (next: SyncProgress) => {
       progress = next;
-      if (waiting && unit.phase === was && (next.stage !== 'reading' || next.looked > 0)) this.change(unit, { phase: 'syncing' });
+      if (waiting && unit.phase === was && (next.stage !== 'reading' || next.looked > 0)) this.change(unit, { phase: shown ? 'syncing' : 'idle' });
+      if (!shown && next.stage === 'sending' && next.files.total > 0) {
+        shown = true;
+        this.change(unit, { phase: 'syncing', turn: view(null, false) });
+      }
       if (next.stage === 'sending' && sendingSince === null) sendingSince = Date.now();
-      timer ||= window.setTimeout(showTurn, PROGRESS_MS);
+      if (shown) timer ||= window.setTimeout(showTurn, PROGRESS_MS);
     };
-    if (!waiting) this.change(unit, { phase: 'syncing', turn: view(null, false) });
+    if (shown && !waiting) this.change(unit, { phase: 'syncing', turn: view(null, false) });
     try {
       const report = await alone(unit.space, async () => {
         // The space may have been closed, removed or disconnected while another tab's turn ran.
@@ -694,15 +706,15 @@ export class SyncService {
       await this.session.afterSync(report, unit.space);
       const copy = report.conflicts.at(-1);
       const turn = view(Date.now(), false);
-      if (connection) keepSyncedAt(unit.space, connection, Date.now());
+      // A look that found nothing leaves the last sync as it was: its time is when something last went or came.
+      const synced = shown || unit.syncedAt === null || progress.jobs.some((job) => job.state === 'done');
+      if (connection && synced) keepSyncedAt(unit.space, connection, Date.now());
       this.change(unit, {
         phase: 'idle',
         notSent: 0,
-        syncedAt: Date.now(),
         error: null,
         why: null,
-        turn,
-        lastDone: progress.jobs.some((job) => job.state === 'done') ? turn : unit.lastDone,
+        ...(synced && { syncedAt: Date.now(), turn, lastDone: progress.jobs.some((job) => job.state === 'done') ? turn : unit.lastDone }),
         moved: null,
         ...(copy && { conflict: { path: inSpace(unit.space, copy), at: Date.now() } }),
       });
@@ -736,7 +748,8 @@ export class SyncService {
       unit.running = null;
       if (unit.again && !unit.gone) {
         unit.again = false;
-        this.syncNow(unit.space);
+        // Shown if it was asked for meanwhile, as `asked` keeps.
+        this.syncNow(unit.space, false);
       }
     }
   }
