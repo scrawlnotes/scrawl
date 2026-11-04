@@ -2,6 +2,14 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.23
+
+Looking for changes is not syncing.
+
+- The look for changes goes on unseen, once a minute: Syncing shows only while files go or come.
+- Synced … ago tells when something last went or came.
+- Sync now still shows its turn, even when there is nothing to do.
+
 ## 0.1.22
 
 Sync loses nothing and brings nothing back.
