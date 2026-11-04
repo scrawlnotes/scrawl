@@ -2,6 +2,18 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.22
+
+Sync loses nothing and brings nothing back.
+
+- A folder deleted on one device no longer takes along a note another device put in it meanwhile: the note stays, and the folder comes back with it.
+- What was deleted on another device goes to this device's trash, never away for good.
+- A device that lost its record of syncing no longer brings back what was deleted meanwhile: its old copies go to its own trash.
+- With OneDrive, a note moved or deleted on another device no longer stays where it was here.
+- Two devices open at once no longer keep syncing each other every half minute.
+- The sync panel shows every space in one list, each file with its space; choose a space on top to see it alone.
+- New quick note is no longer in a folder's + menu: a quick note always goes to Personal's quick notes.
+
 ## 0.1.21
 
 The business templates again, from the screens of the apps people use for each, with as little typed as can be.
