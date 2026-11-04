@@ -1553,9 +1553,7 @@ export function App() {
     };
     const label = (here: MessageKey, named: MessageKey) => t(short ? named : here);
     return [
-      // A quick note first and apart: it goes to the personal space from any folder, so it is not "here".
-      { label: label('quick.new', 'create.quick'), icon: 'quick', run: newQuick },
-      { label: label('menu.newNoteHere', 'menu.add.note'), icon: 'note', apart: true, run: createHere('note') },
+      { label: label('menu.newNoteHere', 'menu.add.note'), icon: 'note', run: createHere('note') },
       { label: label('menu.newListHere', 'menu.add.list'), icon: 'tasks', run: createHere('tasks') },
       { label: label('menu.newBoardHere', 'menu.add.board'), icon: 'board', run: createHere('board') },
       { label: label('menu.newKeysHere', 'menu.add.keys'), icon: 'keys', run: createHere('keys') },

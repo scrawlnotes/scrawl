@@ -90,7 +90,7 @@ Durum: 24 Ekim 2026'da kullanıcı Google Keep'teki gibi hızlı not istedi. Öl
 ### 3.5 Ekleme yerleri
 
 - **Create:** en üstte Quick note, `1`; "A few lines, seen at a glance". Altında çizgi, sonra öbür türler, numaraları birer kayar (Note `2`). Quick note'un ikinci adımı yok: Create kapanır, açık olan şeyin üstünde boş bir hızlı not penceresi açılır, imleç notta.
-- **Space ve klasör + menüsü:** en üstte New quick note, altında çizgi, sonra New note here… ve öbürleri. Sağ tıktaki Add new'de de en üstte Quick note. Hangi space'ten açılırsa açılsın not Personal'a gider; o yüzden adında "here" yok.
+- **Space ve klasör + menüsü:** hızlı not yok (4 Kasım). Not her zaman Personal'a gittiği için klasörün menüsünde o klasöre ekliyormuş gibi görünüyordu.
 - **Başlangıç sayfası:** Create'in türlerinin sırasında da ilk Quick note; tıklayınca aynı pencere açılır.
 - **Arama penceresi:** Actions'ta yazınca adı uyan işlemlere New quick note eklenir.
 - **Quick notes sekmesi:** yazma kutusu.
@@ -110,7 +110,7 @@ Durum: 24 Ekim 2026'da kullanıcı Google Keep'teki gibi hızlı not istedi. Öl
 - **Kart:** dokununca not sayfası açılır. Basılı tutup bırakınca action sheet: Pin (ya da Unpin), Copy, Move to…, kırmızı Delete. Custom'da basılı tutup kaydırınca kart sürüklenir (görevlerdeki gibi).
 - **Not sayfası:** üst barda geri (Quick notes), pin ve ···; altında notun format bar'ı, notlardaki gibi hep görünür (PLAN 4.9 Not). Sonra Title (büyük, soluk ipucu "Title"), altında not (ipucu "Note"). ··· menüsü: Copy, Move to…, Find, Markdown, History, Delete; en altta soluk "Modified today, 19:23" (notlardaki gibi).
 - **Yeni hızlı not:** imleç notta, klavye açık. Title'a dokununca oraya geçer, Title'da return nota iner. Geri dönünce kaydedilmiş olur; başlık ve not boşsa iz kalmaz.
-- **+ sheet'i:** Browse'da ve klasörde + Create sheet'ini açar; en üstte Quick note, altında çizgi. Seçince sheet kapanır, yeni hızlı not sayfası açılır. Klasörün ··· menüsünde de en üstte New quick note.
+- **+ sheet'i:** Browse'da ve klasörde + Create sheet'ini açar; en üstte Quick note, altında çizgi. Seçince sheet kapanır, yeni hızlı not sayfası açılır.
 - Hızlı not sayfası Recent'e girmez.
 
 ## 5. Ajan
