@@ -1316,8 +1316,8 @@ function MessageEditor({ body, onSave, onCancel }: { body: string; onSave: (body
     else onCancel();
   };
   useEffect(() => {
-    // On a phone, a sentence begins with a capital, as in a note.
-    const made = createEditor({ parent: box.current!, doc: body, touch: isPhone() });
+    // On a phone, a sentence begins with a capital, as in a note. No `/` menu: a message is not a note.
+    const made = createEditor({ parent: box.current!, doc: body, touch: isPhone(), slash: false });
     editor.current = made;
     made.view.focus();
     made.view.dispatch({ selection: { anchor: made.view.state.doc.length } });
@@ -1656,8 +1656,9 @@ export function Composer({ server, chat, replyTo, nameOf, menu, links, dropping,
     const made = createEditor({
       parent: box.current!,
       doc: text,
-      // On a phone, a sentence begins with a capital, as in a note.
+      // On a phone, a sentence begins with a capital, as in a note. No `/` menu: a message is not a note.
       touch: phone,
+      slash: false,
       onChange: (doc) => {
         setText(doc);
         keepDraft(server.url, draftKey, doc);

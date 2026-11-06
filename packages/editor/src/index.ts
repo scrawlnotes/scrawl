@@ -120,6 +120,8 @@ export interface ScrawlEditorOptions extends LivePreviewOptions {
   onAttachments?: (removed: string[], added: string[]) => void;
   /** What an empty note shows until something is written in it. */
   placeholder?: (view: EditorView) => HTMLElement;
+  /** False for no `/` menu: a chat message, whose headings, tables and callouts its conversation does not show. */
+  slash?: boolean;
 }
 
 export type { EditorView };
@@ -338,7 +340,7 @@ export function createEditor(options: ScrawlEditorOptions): ScrawlEditor {
         // On a phone the keyboard starts a sentence with a capital, after a full stop and on a new
         // line, as a notes app's does; the editor's own default turns it off.
         options.touch ? EditorView.contentAttributes.of({ autocapitalize: 'sentences' }) : [],
-        slashMenu(slashItems, options.touch),
+        options.slash === false ? [] : slashMenu(slashItems, options.touch),
         cursorBehavior,
         clipboard,
         linkPaste(),
