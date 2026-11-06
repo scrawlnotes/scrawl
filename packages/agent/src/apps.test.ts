@@ -1,5 +1,5 @@
 import { APP_TEMPLATES, type Answers, apartProblem, askOf, computerFor, goTogether, loadCollection, MemoryFs, parseBoard, saveMe, TEMPLATE_GROUPS, TEMPLATE_IDS, type TemplateId } from '@scrawlnotes/core';
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { checkFile, checkRules } from './check';
 import { fileKind, Refusal } from './paths';
 import { readTool, treeTool } from './read';
@@ -9,6 +9,13 @@ import { createTool, writeTool } from './write';
 import { saveCardTool } from './cards';
 
 const NOW = new Date(2026, 9, 21, 10, 30);
+
+// A rule's now() is today at this device's clock: the clock is NOW too, or "in 4 hours" passes midnight late in the evening.
+beforeAll(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(NOW);
+});
+afterAll(() => vi.useRealTimers());
 
 async function world() {
   const fs = new MemoryFs();
