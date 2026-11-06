@@ -496,7 +496,8 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
       return;
     }
     if (atEnd.current) box.scrollTop = box.scrollHeight;
-  }, [messages.length, pending.length, lastSeq]);
+    // Any message changed, not only one more: a reaction or an edit on the last makes it longer.
+  }, [messages, pending.length, lastSeq]);
 
   // Made smaller (a phone's keyboard, the box written in growing) or longer (a picture come in): still at the end if it was.
   const height = useRef(0);
