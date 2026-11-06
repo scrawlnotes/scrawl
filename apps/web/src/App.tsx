@@ -136,6 +136,7 @@ import {
   RenameDialog,
   type TaskPlaceChoice,
   UpdateDialog,
+  DesktopUpdateDialog,
   DropDialog,
 } from './dialogs';
 import { type BoardActions, boardPlace, BoardView } from './Board';
@@ -225,12 +226,12 @@ import { RemoveSpaceDialog, type Section as SettingsSection, Settings, type Sett
 import { StartPage } from './StartPage';
 import { type SpaceSyncView, SyncService } from './sync';
 import { reloadIntoUpdate, subscribeUpdate, updateReady } from './pwa';
-import { restartIntoUpdate, useDesktopUpdate } from './desktopUpdate';
+import { restartIntoUpdate, useUpdateView } from './desktopUpdate';
 import { SyncStatus, syncWord, trayText } from './SyncViews';
 import { startTray, trayStatus } from './tray';
 import { startWatching } from './watch';
 import { ConnectServerDialog, ConnectServerSheet } from './ServerConnect';
-import { LoadingView, Spin, stillOpening } from './Loading';
+import { BootGoes, LoadingView, Spin, stillOpening } from './Loading';
 import { AppView, PhoneAppHome } from './AppView';
 import { AppMenuDialog } from './AppMenuDialog';
 import { openingDrawn, openingFailed } from './opening';
@@ -478,7 +479,13 @@ export function App() {
     document.addEventListener('visibilitychange', away);
     return () => document.removeEventListener('visibilitychange', away);
   }, [update]);
-  const desktopUpdate = useDesktopUpdate();
+  const desktopUpdate = useUpdateView();
+  // After Update, the app restarts into the new version once it is downloaded.
+  const restartWhenDownloaded = desktopUpdate.ask === 'download' && desktopUpdate.status.state === 'ready';
+  useEffect(() => {
+    if (restartWhenDownloaded) restartUpdate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restartWhenDownloaded]);
   const { ready, reading, folder, defaultFolder, me, tree, quick, quickOrder, quickSort, quickTexts, quickFormat, spaces, tabs, active, recent, titles, tasks, sections, boards, boardLooks, listLooks, labelLooks, folderLooks, created, keys: keyFiles, keysLooks, collections, collectionLooks, appLooks, filters, favorites, labels: spaceLabels, space, trash, fileCount, downloads, fileVersion, saved, stats, written, format, source, recording, recordError } =
     useSyncExternalStore(
     session.subscribe,
@@ -3071,6 +3078,7 @@ export function App() {
   return (
     <LabelsContext.Provider value={labelsApi}>
     <div className={phone ? 'app phone-app' : drawer ? 'app drawer-open' : 'app'}>
+      <BootGoes waits={phone} read={ready && reading.size === 0} />
       {phone ? (
         <>
           <Phone
@@ -3598,14 +3606,6 @@ export function App() {
                 )}
               </span>
             )}
-            {desktopUpdate.state === 'ready' && (
-              <span className="update" role="status" title={t('status.updateTip', { version: desktopUpdate.version })}>
-                {t('status.updateReady')}
-                <button type="button" onClick={restartUpdate}>
-                  {t('status.restart')}
-                </button>
-              </span>
-            )}
             {openFailed && !ready ? (
               <span className="push update" role="alert">
                 {t('status.openFailed', { error: openFailed })}
@@ -3777,6 +3777,8 @@ export function App() {
         />
       )}
       {update && <UpdateDialog onReload={goToUpdate} />}
+      {/* Over no other window: one open, it waits till that one closes. */}
+      {isDesktop && !dialog && <DesktopUpdateDialog onRestart={restartUpdate} />}
       {dropping && (
         <DropDialog
           field={dropping.field}

@@ -608,6 +608,7 @@ pub fn run() {
             cloud::device_name,
             update::update_state,
             update::update_check,
+            update::update_download,
             update::update_restart,
             background::tray_start,
             alerts::chat_notify,

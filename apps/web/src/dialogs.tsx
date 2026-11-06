@@ -53,6 +53,8 @@ import type { ExportFormat } from './exporting';
 import { collectionLabel, placeWords, shownPath, spaceLabel } from './items';
 import type { ButtonRun } from './session';
 import { ActionSheet, AskSheet, Sheet, SheetClose } from './sheets';
+import { closeUpdate, downloadUpdate, releasePage, useAppVersion, useUpdateView } from './desktopUpdate';
+import { openUrlOnDesktop } from './storage';
 
 interface DialogProps {
   label: string;
@@ -121,6 +123,88 @@ export function UpdateDialog({ onReload }: { onReload: () => void }) {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * The desktop app's update window (design/desktop-release.md): a new version is out, Later or
+ * Update; then its download, which goes on when the window is closed; then Restart. After Update
+ * the app restarts by itself once the download is done (App.tsx).
+ */
+export function DesktopUpdateDialog({ onRestart }: { onRestart: () => void }) {
+  const { status, ask, found } = useUpdateView();
+  const running = useAppVersion();
+  if (ask === null) return null;
+  const version = 'version' in status ? status.version : found;
+  const notes = (
+    <button type="button" className="link" onClick={() => void openUrlOnDesktop(releasePage(version)).catch(() => undefined)}>
+      {t('about.whatsNew')}
+    </button>
+  );
+  const later = (
+    <button type="button" onClick={closeUpdate}>
+      {t('update.later')}
+    </button>
+  );
+  let body: ReactNode;
+  if (ask === 'ready' && status.state === 'ready') {
+    body = (
+      <>
+        <h2>{t('update.ready', { version })}</h2>
+        <p className="confirm">{t('update.readyNote')}</p>
+        <div className="dialog-actions">
+          {later}
+          <button type="button" className="primary" autoFocus onClick={onRestart}>
+            {t('about.restart')}
+          </button>
+        </div>
+      </>
+    );
+  } else if (ask === 'download' && status.state === 'failed') {
+    body = (
+      <>
+        <h2>{t('update.updating', { version })}</h2>
+        <p className="confirm warn">{status.offline ? t('update.offline') : t('update.failed', { reason: status.reason })}</p>
+        <div className="dialog-actions">
+          {later}
+          <button type="button" className="primary" autoFocus onClick={() => void downloadUpdate()}>
+            {t('about.tryAgain')}
+          </button>
+        </div>
+      </>
+    );
+  } else if (ask === 'download') {
+    const percent = status.state === 'downloading' ? status.percent : null;
+    body = (
+      <>
+        <h2>{t('update.updating', { version })}</h2>
+        <p className="confirm">{status.state === 'ready' ? t('update.restarting') : percent === null ? t('update.downloading') : t('update.downloadingPct', { pct: percent })}</p>
+        <span className="update-bar" aria-hidden="true">
+          <i style={{ width: `${status.state === 'ready' ? 100 : (percent ?? 0)}%` }} />
+        </span>
+        <p className="update-note">{t('update.downloadNote')}</p>
+      </>
+    );
+  } else {
+    body = (
+      <>
+        <h2>{t('update.out', { version })}</h2>
+        <p className="confirm">
+          {t('update.youHave', { version: running })} {notes}
+        </p>
+        <div className="dialog-actions">
+          {later}
+          <button type="button" className="primary" autoFocus onClick={() => void downloadUpdate()}>
+            {t('update.update')}
+          </button>
+        </div>
+      </>
+    );
+  }
+  return (
+    <Dialog label={t('update.out', { version })} className="desktop-update" onClose={closeUpdate}>
+      {body}
+    </Dialog>
   );
 }
 

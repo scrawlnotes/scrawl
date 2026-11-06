@@ -1185,6 +1185,50 @@ input:focus {
   z-index: 100;
 }
 
+/* The desktop app's update window: What's new as a link in its sentence, a download's bar, and a
+   faint line under it. */
+.dialog.desktop-update .link {
+  padding: 0;
+  color: var(--sl-accent);
+}
+
+.dialog.desktop-update .link:hover {
+  text-decoration: underline;
+}
+
+.dialog.desktop-update p.warn {
+  color: var(--sl-kind-dropped);
+}
+
+.dialog.desktop-update .update-bar {
+  display: block;
+  height: 4px;
+  margin: 0 2px;
+  border-radius: 2px;
+  background: var(--sl-line);
+}
+
+.dialog.desktop-update .update-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--sl-accent);
+  transition: width 0.2s;
+}
+
+.dialog.desktop-update .update-note {
+  margin: 4px 2px 2px;
+  color: var(--sl-faint);
+  font-size: 12px;
+}
+
+/* The sidebar's row while a new version waits: in the accent, above Files. */
+.side-foot .it.update-row,
+.side-foot .it.update-row:hover {
+  background: color-mix(in srgb, var(--sl-accent) 13%, transparent);
+  color: var(--sl-accent);
+}
+
 .backdrop > .dialog:not(.history) {
   box-sizing: border-box;
   max-height: 100%;

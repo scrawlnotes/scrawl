@@ -313,6 +313,21 @@ const recentOf = (tabs: string[], seen: Record<string, number>): string[] =>
     .slice(0, RECENT)
     .map((each) => each.id);
 
+/** How long the sync strip's reason holds before the strip comes. */
+const STRIP_AFTER_MS = 3000;
+
+/** True once `on` has held for `ms` without a break. */
+function useLasting(on: boolean, ms: number) {
+  const [lasted, setLasted] = useState(false);
+  useEffect(() => {
+    setLasted(false);
+    if (!on) return;
+    const timer = window.setTimeout(() => setLasted(true), ms);
+    return () => window.clearTimeout(timer);
+  }, [on, ms]);
+  return on && lasted;
+}
+
 /**
  * A finger resting on a row: after a moment its menu opens, and the tap that ends it opens
  * nothing. A finger that moves is scrolling. A right click, or a long press where the phone
@@ -1719,12 +1734,14 @@ export function Phone(props: PhoneProps) {
           ? () => props.onAdd(top.id)
           : null;
 
-  // The sync strip over the tab bar, but on the Sync page it opens (design/sync-strip.md).
-  const stripOn = top.kind !== 'sync' && stripOf({ all: props.syncs }) !== null;
+  // The sync strip over the tab bar, but on the Sync page it opens (design/sync-strip.md). It comes
+  // once it has held for a while: a short turn, or a moment offline as the phone wakes, moves nothing.
+  const stripOn = useLasting(stripOf({ all: props.syncs }) !== null, STRIP_AFTER_MS) && top.kind !== 'sync';
   return (
     // The phone's own layout fills what the phone shows: with the keyboard up it ends on the keyboard.
     // A card's page has its comment box where the tab bar is.
-    <div className={['mb', keyboard ? 'keyboard' : '', stripOn ? 'strip' : '', top.kind === 'card' ? 'card-page' : '', top.kind === 'chatConv' ? 'chat-page' : '', choosing ? 'choosing' : ''].filter(Boolean).join(' ')} style={{ top: view.top, height: view.height }}>
+    // Without the keyboard it is the whole screen, as phone.css has it, so a size the phone tells for a moment moves nothing.
+    <div className={['mb', keyboard ? 'keyboard' : '', stripOn ? 'strip' : '', top.kind === 'card' ? 'card-page' : '', top.kind === 'chatConv' ? 'chat-page' : '', choosing ? 'choosing' : ''].filter(Boolean).join(' ')} style={keyboard ? { top: view.top, height: view.height } : undefined}>
       <div ref={stage} className="mb-stage" onTouchStartCapture={edgeStart} onTouchMoveCapture={edgeMove} onTouchEndCapture={edgeEnd} onTouchCancelCapture={edgeEnd}>
         {shownPages.map((page, index) => {
           const isLeaving = leaving?.page.key === page.key;

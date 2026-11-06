@@ -6593,19 +6593,6 @@ body > .mb-lifted {
   border-width: 2px;
 }
 
-.still.mb-still {
-  gap: 10px;
-  padding: 14px 16px;
-  color: var(--sl-dim);
-  font-size: 14px;
-}
-
-.still.mb-still .spin {
-  width: 13px;
-  height: 13px;
-  border-width: 2px;
-}
-
 /* The buttons of a collection's rules under a record's name; one that may not run now is faint. */
 .mb-rbuttons {
   display: flex;

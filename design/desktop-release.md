@@ -6,29 +6,26 @@ Aşama dışı bir altyapı işi. Durum: plan onaylandı (16 Ekim 2026): imzası
 
 - Her sürümde Windows setup'ı GitHub Releases'ta durur; sonra mac de.
 - Yayın tek adımdır: tag push. Derleme, yükleme ve yayın CI'dadır.
-- Kurulu uygulama kendini günceller ve kullanıcının işini bölmez.
+- Kurulu uygulama yeni sürümü görünür biçimde haber verir; kişi isterse günceller. Otomatik güncelleme yok.
 
 ## 2. İnsanlar nasıl yapıyor
 
-VS Code, Chrome, Slack, Obsidian, Todoist ve Electron'un `autoUpdater`'ı aynı yolu izler:
-
-- Arka planda sessizce kontrol eder ve indirir. İzin sormaz.
-- İnince küçük bir "Restart to update" düğmesi gösterir. Modal pencere yok, zorla yeniden başlatma yok.
-- Düğmeye basılmazsa güncelleme uygulama kapanınca kurulur. Sonraki açılış yeni sürümdür.
-
-Kurulum açılışta değil kapanışta yapılır: açılış hiç yavaşlamaz.
+Çoğu uygulama (VS Code, Chrome, Slack, Electron'un `autoUpdater`'ı) arka planda sessizce indirip "Restart to update" düğmesi gösterir. Scrawl 6 Kasım'a kadar böyleydi. 6 Kasım'da değişti: kullanıcı otomatik güncelleme istemiyor, sessiz indirme de yok. Yeni sürüm sorulur, kişi Update derse iner.
 
 ## 3. Kullanıcı ne görür
 
-1. Açılıştan 30 sn sonra ve sonra 4 saatte bir `latest.json` okunur.
-2. Yeni sürüm varsa sessizce iner ve imzası doğrulanır. İnerken hiçbir şey görünmez.
-3. Durum çubuğunda **New version ready · Restart** çıkar. Web'deki "Reload"ın yeri ve sözü aynıdır, yalnız düğme Restart'tır.
-4. Restart: yazılan kaydedilir, uygulama kapanır, uygulama yeni sürümle açılır. Birkaç saniye sürer. 24 Ekim'den beri kurulum sessizdir (NSIS quiet): ilerleme penceresi görünmez, çünkü pencere kapalıyken kendiliğinden kurulan güncelleme hiçbir şey göstermemeli ve eklenti kurulum biçimini kurulum başına seçtirmiyor (`design/background.md` 6).
-5. Basılmazsa: pencere kapatılınca uygulama tepside çalışmayı sürdürür ve güncelleme o an kurulur, yeni sürüm penceresiz açılır. Kişi Quit ile ya da arka planda çalışma kapalıyken pencereyi kapatarak çıkarsa kurulur, uygulama yeniden açılmaz. Sistem kapanırken kurulmaz (`design/background.md` 2.6).
-6. İnternet yoksa ya da GitHub'a ulaşılamazsa hiçbir şey görünmez.
-7. Settings › About (yeni bölüm, yalnız masaüstünde): sürüm, What's new (bu sürümün GitHub sayfası), Check for updates ve sonucu (Up to date, Downloading 0.2.0…, Restart, ya da neden kontrol edilemediği); en altta açık kaynak ve GitHub linki.
+6 Kasım'da onaylanan akış (mockup sohbette, uygulama penceresinin içinde tıklanabilir):
 
-Otomatik güncellemeyi kapatma ayarı ilk sürümde yok.
+1. `latest.json` açılıştan 3 sn sonra ve yarım saatte bir okunur. Pencere tepsiden ya da Dock'tan geri getirilince de okunur, son başarılı bakış 10 dakikadan eskiyse. Önceki "30 sn sonra ve 4 saatte bir" pratikte işlemiyordu: uygulama girişte tepsiye başlayıp günlerce açık kalıyor, pencereyi açıp kapamak yeniden başlatmıyor, 4 saatlik bekleme de bilgisayar uyurken ilerlemiyor.
+2. Yeni sürüm varsa hiçbir şey inmez. Ortada bir pencere sorar: **Scrawl 0.1.24 is out**, "You have 0.1.23.", What's new linki, **Later** ve **Update**.
+3. Later: bu açılışta bir daha sorulmaz. Pencere tepsiden yeniden açılınca yine sorar. Kenar çubuğunun altında, Files'ın üstünde vurgulu **Update to 0.1.24** satırı güncellenene kadar kalır. Satıra tıklamak pencereyi açar.
+4. Update: en yeni sürüm iner, pencerede yüzde ve çubuk görünür. Pencere kapatılabilir, iniş sürer, satır "Downloading · 62%" der. İnince uygulama kendiliğinden yeniden başlar (Update'e basıldı). Pencere kapatılmışsa yeniden başlamaz, bir kez "0.1.24 is ready · Later / Restart" diye sorar, satır "Restart to update" olur.
+5. İnmezse pencere nedenini söyler, Try again ve Later çıkar. Satır yine "Update to 0.1.24" der.
+6. Restart: yazılan kaydedilir, uygulama kapanır, yeni sürümle açılır. Kurulum sessizdir (NSIS quiet, 24 Ekim'den beri).
+7. İnmiş ama Restart'a basılmamış güncelleme: pencere tepsiye kapatılınca kurulur, yeni sürüm penceresiz açılır; Quit ile çıkılınca kurulur. Sistem kapanırken kurulmaz (`design/background.md` 2.6). İnen yalnız Update'e basılınca indiği için bu da kişinin kararıdır.
+8. Başka bir pencere açıksa güncelleme penceresi onun üstüne çıkmaz, o kapanınca çıkar.
+9. Settings › About: sürüm, What's new, Check for updates ve sonucu. Check yalnız bakar; yeni sürüm varsa **Update** ve What's new in 0.1.24 çıkar, iniş ve Restart burada da görünür. Durum çubuğunda artık güncelleme yazısı yok.
+10. İnternet yoksa ya da GitHub'a ulaşılamazsa kendiliğinden bakışta hiçbir şey görünmez.
 
 ## 4. Teknoloji
 
@@ -70,19 +67,19 @@ Secret'lar: `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. �
 **Rust** (`apps/desktop/src-tauri/src/update.rs`):
 
 - `tauri-plugin-updater` kaydı. Yalnız release derlemede çalışır, `tauri dev`'de kapalıdır.
-- Durum: `Idle`, `Checking`, `UpToDate { checked }`, `Downloading { version, percent }`, `Ready { version }`, `Failed { offline, reason }`. İnen setup bellekte durur (birkaç MB).
-- Zamanlayıcı: 30 sn sonra ve 4 saatte bir `check` → yeni sürüm varsa `download` → `Ready`. Her değişiklik `update` event'iyle web'e gider.
-- Komutlar: `update_state`, `update_check` (About'tan), `update_restart` (`install`, `restart_after_install(true)`).
+- Durum: `Idle`, `Checking`, `UpToDate { checked }`, `Available { version }`, `Downloading { version, percent }`, `Ready { version }`, `Failed { offline, reason }`. İnen setup bellekte durur (birkaç MB).
+- Zamanlayıcı: 3 sn sonra ve yarım saatte bir yalnız `check` → `Available` ya da `UpToDate`. `background::show` pencereyi geri getirince `shown` event'i gönderir ve `look_if_stale` son başarılı bakış 10 dakikadan eskiyse bakar. `Available` iken kendiliğinden bakış tekrar edilmez; Update zaten en yenisini indirir. Her değişiklik `update` event'iyle web'e gider.
+- Komutlar: `update_state`, `update_check` (About'tan, yalnız bakar), `update_download` (Update: `check` + `download` → `Ready`; pencere gizliyse kurulur), `update_restart` (`install`, `restart_after_install(true)`).
 - `RunEvent::ExitRequested`: durum `Ready` ise `restart_after_install(false)` ile `install`. Windows'ta `install` uygulamayı kendisi kapatır.
 - Config: `plugins.updater` içinde `pubkey`, `endpoints`, `windows.installMode: "quiet"` (24 Ekim'e kadar `"passive"`). `bundle.createUpdaterArtifacts: true` yalnız `tauri.release.conf.json`'da, CI `--config` ile verir: yoksa elle `pnpm desktop:build` özel anahtar ister.
 - JS eklentisinin izinleri (`updater:default`) verilmez. Web yalnız bizim üç komutumuzu çağırır.
 
 **Web:**
 
-- `apps/web/src/desktopUpdate.ts`: `pwa.ts`'nin masaüstü eşi (durum ve abonelik).
-- `App.tsx` durum çubuğu: masaüstünde Restart. Önce `session.beforeSync()`, sonra `update_restart`, web'deki Reload gibi.
-- Settings › About: mockup onaylanınca.
-- i18n: `status.restart`, `settings.about` ve About'un metinleri.
+- `apps/web/src/desktopUpdate.ts`: `pwa.ts`'nin masaüstü eşi (durum ve abonelik) ve güncelleme penceresinin adımı (`ask` / `download` / `ready`), Later'ın tuttuğu sürüm.
+- `dialogs.tsx` `DesktopUpdateDialog`; `App.tsx` onu başka pencere yokken gösterir, Update'ten sonra iniş bitince Restart'ı çağırır (önce `session.beforeSync()`, sonra `update_restart`).
+- `Sidebar.tsx`: alt kısımda güncelleme satırı.
+- Settings › About; i18n `update.*`, `side.updateTo` ve yanındakiler.
 
 ## 8. Windows imzası
 

@@ -242,7 +242,7 @@ Onaylanan sırayla. Her dilim bitince commit sorulur.
 
 ## 14. Verilen kararlar (19 Ekim 2026)
 
-1. **Açılış sürerken Today, Upcoming, Search ve başlangıç sayfası** okunan işleri gösterir; altlarında "Still opening …" satırı durur.
+1. **Açılış sürerken Today, Upcoming, Search ve başlangıç sayfası** okunan işleri gösterir; altlarında "Still opening …" satırı durur. 6 Kasım'da telefon için değişti: açılış ekranı space'ler okunup yazı tipleri gelene kadar, en fazla 1,5 sn kalır; sayfa parça parça gelmez, "Still opening …" satırı telefonda yoktur.
 2. **Ölçüm About'ta değil,** Settings'te ayrı bir Logs bölümündedir. Satırları standart log biçimindedir, sonra başka loglar da oraya yazar (10. bölüm). About bugünkü gibi kalır, telefonda yine görünmez.
 3. **Açılış ekranı:** temanın arka planı, 400 ms'den sonra ortada Scrawl simgesi; yazı yok. 19 Ekim gecesi değişti: simge beklemeden ve yumuşak geçişle gelir, masaüstü penceresi beyaz değil temanın renginde açılır (9. bölüm).
 4. **Paralel listeleme** kapsama girdi (11. bölüm).

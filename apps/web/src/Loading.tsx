@@ -1,4 +1,5 @@
 import { locale, t } from '@scrawlnotes/i18n';
+import { useEffect, useState } from 'react';
 import { isPhone } from './device';
 
 // What is still read as the app opens says so where it will be (design/opening.md, section 3):
@@ -18,11 +19,38 @@ export function stillOpening(reading: ReadonlySet<string>, names: ReadonlyMap<st
   return t('opening.still', { spaces });
 }
 
-/** The line under what is shown so far, while some spaces are still read. */
+/** How long, at most, a phone's boot screen waits for the page under it. */
+const BOOT_WAIT_MS = 1500;
+
+/**
+ * The boot screen of index.html goes softly once the app is drawn under it. On a phone it waits
+ * till the spaces are read and the fonts are in, 1.5 s at most, so the page does not come in pieces.
+ */
+export function BootGoes({ waits, read }: { waits: boolean; read: boolean }) {
+  const [fonts, setFonts] = useState(false);
+  const [late, setLate] = useState(false);
+  useEffect(() => {
+    if (!waits) return;
+    void document.fonts.ready.then(() => setFonts(true));
+    const timer = window.setTimeout(() => setLate(true), BOOT_WAIT_MS);
+    return () => window.clearTimeout(timer);
+  }, [waits]);
+  const go = !waits || (read && fonts) || late;
+  useEffect(() => {
+    const boot = document.getElementById('boot');
+    if (!go || !boot) return;
+    boot.classList.add('gone');
+    const timer = window.setTimeout(() => boot.remove(), 300);
+    return () => window.clearTimeout(timer);
+  }, [go]);
+  return null;
+}
+
+/** The line under what is shown so far, while some spaces are still read; a phone waits under its boot screen instead. */
 export function StillOpening({ text }: { text: string | null }) {
-  if (!text) return null;
+  if (!text || isPhone()) return null;
   return (
-    <p className={isPhone() ? 'still mb-still' : 'still'} role="status">
+    <p className="still" role="status">
       <Spin />
       {text}
     </p>

@@ -15,7 +15,7 @@ import { ROLE_WORD, ServerMembers, ServerPage, useSpaceRename } from './ServerPe
 import { hostOf, knownServers, type KnownServer, noteRole, pendingJoin, serverAccount, type SignInWhy, signInWhy, tookJoin, useKnownServers } from './servers';
 import { Agents } from './Agents';
 import { LogsSection } from './Logs';
-import { checkForUpdates, releasePage, useAppVersion, useDesktopUpdate } from './desktopUpdate';
+import { checkForUpdates, downloadUpdate, releasePage, useAppVersion, useDesktopUpdate } from './desktopUpdate';
 import { APP_VERSION, checkForWebUpdate, PUBLISHED, subscribeUpdate, webUpdatesOn, webUpdateStatus } from './pwa';
 import { type AskOneDrive, isDesktop, type OneDriveAnswer, openUrlOnDesktop } from './storage';
 import { readAutostart, setAutostart, setBackground, useAutostart, useBackground } from './tray';
@@ -375,6 +375,24 @@ function DesktopAbout({ onRestartUpdate }: Pick<SettingsValues, 'onRestartUpdate
         </span>
       );
       acts = checkButton('about.check');
+      break;
+    case 'available':
+      state = (
+        <span className="state ready">
+          <i />
+          {t('about.available', { version: update.version })}
+        </span>
+      );
+      acts = (
+        <>
+          <button type="button" className="st-btn go" onClick={() => void downloadUpdate().catch(() => undefined)}>
+            {t('update.update')}
+          </button>
+          <button type="button" className="st-btn" onClick={() => open(releasePage(update.version))}>
+            {t('about.whatsNewIn', { version: update.version })}
+          </button>
+        </>
+      );
       break;
     case 'downloading':
       state = (

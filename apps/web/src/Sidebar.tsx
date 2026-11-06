@@ -1,7 +1,7 @@
 import { DEFAULT_LOOK, dirname, droppedSpaces, type FolderLook, INBOX_TASKS, isUnder, type NodeTimes, inSpace, listName, localPath, shownName, sortedNodes, spaceOf, type TreeNode } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type DragEvent, type FormEvent, Fragment, type MouseEvent, type ReactNode, useEffect, useRef, useState } from 'react';
-import { LATEST_RELEASE } from './desktopUpdate';
+import { LATEST_RELEASE, openUpdate, useUpdateView } from './desktopUpdate';
 import { cutShort, useHoverTip } from './HoverTip';
 import { Icon, type IconName } from './Icon';
 import { Spin } from './Loading';
@@ -515,8 +515,20 @@ export function Sidebar({
     </div>
   );
 
+  const update = useUpdateView();
+  const updateLabel =
+    update.status.state === 'ready'
+      ? t('side.restartToUpdate')
+      : update.status.state === 'downloading'
+        ? update.status.percent === null
+          ? t('side.downloadingUpdate', { version: update.status.version })
+          : t('side.downloadingUpdatePct', { pct: update.status.percent })
+        : update.found && (update.status.state === 'available' || update.status.state === 'failed')
+          ? t('side.updateTo', { version: update.found })
+          : null;
+
   // Sync and Settings open the settings window; the one whose section is on screen is marked.
-  const windowRow = (on: boolean, onClick: () => void, icon: IconName, label: string) => (
+  const windowRow =(on: boolean, onClick: () => void, icon: IconName, label: string) => (
     <div className={`it${on ? ' on' : ''}`}>
       <button type="button" className="it-main" onClick={onClick}>
         <Icon name={icon} />
@@ -858,6 +870,15 @@ export function Sidebar({
       </nav>
       {/* Files, the trash, sync and the settings stay at the foot of the sidebar, apart from the folders: a row each, named, as on a phone. In the browser, Downloads opens the desktop apps' latest release on GitHub. */}
       <div className="side-foot">
+        {/* A new version found, its download, or Restart: until the person updates (design/desktop-release.md). */}
+        {isDesktop && updateLabel && (
+          <div className="it update-row">
+            <button type="button" className="it-main" onClick={openUpdate}>
+              <Icon name="download" />
+              <span>{updateLabel}</span>
+            </button>
+          </div>
+        )}
         {viewRow(
           FILES,
           <>
