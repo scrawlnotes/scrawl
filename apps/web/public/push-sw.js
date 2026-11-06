@@ -50,8 +50,13 @@ self.addEventListener('notificationclick', (event) => {
       // Scrawl open: in front, and Chat at the message; closed, it opens there.
       const app = open.find((client) => client.focused) ?? open[0];
       if (app) {
-        await app.focus();
+        // The message first: a browser may refuse to bring the app in front (iOS), and Chat opens all the same.
         if (href) app.postMessage({ type: 'open-chat', href });
+        try {
+          await app.focus();
+        } catch {
+          // Not allowed to come in front here.
+        }
         return;
       }
       await self.clients.openWindow(href ? `/?chat=${encodeURIComponent(href)}` : '/');

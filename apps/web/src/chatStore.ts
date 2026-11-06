@@ -56,6 +56,8 @@ export interface ChatServer {
   visiting: ChatInfo | null;
   /** Whether it sends notifications by Web Push (design/chat.md, 11.4). */
   push: boolean;
+  /** Whether its conversations were asked of the server once, reached or not: before that, one missing may only be on its way. */
+  ready: boolean;
 }
 
 export interface ChatSnapshot {
@@ -194,7 +196,7 @@ class OneServer {
     private unconfirmed = false,
   ) {
     this.client = new ChatClient({ url, token: () => serverKey(url) });
-    this.state = { url, me, chats: [], messages: {}, older: {}, pending: [], typing: {}, active: [], maxFileMb, visiting: null, push };
+    this.state = { url, me, chats: [], messages: {}, older: {}, pending: [], typing: {}, active: [], maxFileMb, visiting: null, push, ready: false };
   }
 
   async start() {
@@ -222,6 +224,7 @@ class OneServer {
     });
     this.live.start();
     await this.turn();
+    this.set({ ready: true });
     void this.flush();
   }
 

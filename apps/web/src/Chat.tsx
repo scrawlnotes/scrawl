@@ -255,12 +255,14 @@ export function ChatView({ snapshot, menu, onStatus, links, goTo }: Props) {
     pick({ url: link.server, chat: link.chat });
     setTarget({ message: link.message, at: Date.now() });
   };
+  const goToServer = goTo ? parseChatLink(goTo.href)?.server : undefined;
+  const goToReady = snapshot.servers.some((each) => each.url === goToServer && each.ready);
   useEffect(() => {
-    // Once each: Chat opened again later does not go back to it.
-    if (!goTo || goTo.at <= followedAt || !snapshot.servers.length) return;
+    // Once each, when its server's conversations are in: Chat opened again later does not go back to it.
+    if (!goTo || goTo.at <= followedAt || !goToReady) return;
     followedAt = goTo.at;
     follow(goTo.href);
-  }, [goTo?.at, snapshot.servers.length > 0]);
+  }, [goTo?.at, goToReady]);
 
   return (
     <div ref={self} className={`chat${listShown ? ' list-shown' : ''}`}>

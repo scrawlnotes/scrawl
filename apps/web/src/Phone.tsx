@@ -1664,17 +1664,19 @@ export function Phone(props: PhoneProps) {
     });
   // A message's link followed in a note or a task's description opens Chat at it.
   const followed = useRef(0);
+  const goToLink = props.chat.goTo ? parseChatLink(props.chat.goTo.href) : null;
+  const goToReady = goToLink ? chat.servers.some((each) => each.url === goToLink.server && each.ready) : false;
   useEffect(() => {
     const goTo = props.chat.goTo;
-    if (!goTo || goTo.at <= followed.current || !chat.servers.length) return;
+    if (!goTo || goTo.at <= followed.current || !goToLink) return;
+    // shortcut: a link to a server this device does not open waits for good, silently; say so if it ever matters.
+    if (!goToReady) return;
     followed.current = goTo.at;
-    const link = parseChatLink(goTo.href);
-    if (!link) return;
-    if (!chat.servers.find((each) => each.url === link.server)?.chats.some((each) => each.id === link.chat)) return props.chat.links.say(t('chat.linkGone'));
-    openChat(link.server, link.chat, link.message);
-    // Each link once, when Chat is there.
+    if (!chat.servers.find((each) => each.url === goToLink.server)?.chats.some((each) => each.id === goToLink.chat)) return props.chat.links.say(t('chat.linkGone'));
+    openChat(goToLink.server, goToLink.chat, goToLink.message);
+    // Each link once, when its server's conversations are in: a notification opens the app before they are.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.chat.goTo?.at, chat.servers.length > 0]);
+  }, [props.chat.goTo?.at, goToReady]);
   /** A conversation from New room, Browse rooms or New message: one this person is in opens; a room they are not in is read. */
   const openMade = (url: string, made: ChatInfo) => {
     setMaking(null);
