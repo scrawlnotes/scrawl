@@ -87,6 +87,7 @@ pnpm typecheck
 - `apps/web`: the interface, for the browser and inside the desktop app
 - `apps/desktop`: the Tauri shell
 - `apps/server`: the Scrawl server, a Docker image; see its [README](apps/server/README.md)
+- `apps/site`: the website at https://scrawlnotes.com, plain files on Cloudflare; `pnpm --filter @scrawlnotes/site run release` publishes it
 
 ## License
 

@@ -1,0 +1,13 @@
+// www.scrawlnotes.com sends every address to scrawlnotes.com for good (301), from public/_redirects;
+// no Worker code. Published together with the site by its release script.
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "scrawl-www",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./public"
+  },
+  "routes": [{ "pattern": "www.scrawlnotes.com", "custom_domain": true }],
+  "workers_dev": false,
+  "send_metrics": false
+}

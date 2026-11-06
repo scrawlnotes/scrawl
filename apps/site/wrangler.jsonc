@@ -1,0 +1,14 @@
+// The website on Cloudflare, at scrawlnotes.com: the files in public/ only, no Worker code.
+// Published with `pnpm --filter @scrawlnotes/site run release`, which also publishes www/.
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "scrawl-site",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./public"
+  },
+  "routes": [{ "pattern": "scrawlnotes.com", "custom_domain": true }],
+  "workers_dev": false,
+  // Wrangler tells Cloudflare nothing about how it is used.
+  "send_metrics": false
+}
