@@ -25,7 +25,6 @@ import { ActionSheet, Empty, useViewport } from './sheets';
 import { LabelsPage } from './labels';
 import type { ChatLinks } from './Chat';
 import type { MenuItem } from './dialogs';
-import { log } from './log';
 import type { InfoTab } from './ChatRooms';
 import { store as chatStore, useChat } from './chatStore';
 import { partName, PhoneChatConversation, PhoneChatInfo, PhoneChatList, PhoneChatPart } from './PhoneChat';
@@ -864,35 +863,6 @@ export function Phone(props: PhoneProps) {
     const timer = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(timer);
   }, []);
-
-  // The phone's sizes in Settings › Logs once the keyboard has settled, each time they change: what
-  // the window and what shows of it are, whether the keyboard is taken to be up, and the room under
-  // Chat's box to write in, to see on an iPhone what keeps the box off the keyboard.
-  const sized = useRef('');
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const shows = window.visualViewport;
-      const box = document.querySelector('.ch-cmp.chp-box');
-      const home = window.matchMedia?.('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true;
-      const text = [
-        `keyboard ${keyboard ? 'up' : 'down'}`,
-        `window ${window.innerHeight}`,
-        `shows ${shows ? Math.round(shows.height) : '-'} from ${shows ? Math.round(shows.offsetTop) : '-'}`,
-        `page ${document.documentElement.clientHeight}`,
-        `screen ${window.screen.height}`,
-        `scrolled ${Math.round(window.scrollY)}`,
-        home ? 'home screen' : 'browser',
-        `focus ${document.activeElement?.tagName.toLowerCase() ?? '-'}`,
-        box ? `chat box under ${getComputedStyle(box).paddingBottom}, ends ${Math.round(box.getBoundingClientRect().bottom)}` : '',
-      ]
-        .filter(Boolean)
-        .join(' · ');
-      if (text === sized.current) return;
-      sized.current = text;
-      log('info', 'phone', text);
-    }, KEYBOARD_SETTLES_MS * 4);
-    return () => window.clearTimeout(timer);
-  }, [keyboard, view.height, view.top]);
 
   // The keyboard came up, or grew, over what is typed in: the cursor is brought above it, once the
   // keyboard has settled and the editor has taken its new height, which keeps its first line where
