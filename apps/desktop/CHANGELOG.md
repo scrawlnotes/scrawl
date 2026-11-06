@@ -2,13 +2,6 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
-## 0.1.25
-
-Chat.
-
-- A conversation at its end stays there when a message in it changes: a reaction put on the last message, or an edit, no longer leaves its end out of sight.
-- The box to write in has no / menu. A message shows no headings, tables or callouts; lists, quotes and code are in Aa and +. A / at the start of a line stays as you wrote it.
-
 ## 0.1.24
 
 Scrawl asks before it updates.
