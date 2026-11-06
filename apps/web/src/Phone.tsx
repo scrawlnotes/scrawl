@@ -1746,8 +1746,7 @@ export function Phone(props: PhoneProps) {
   return (
     // The phone's own layout fills what the phone shows: with the keyboard up it ends on the keyboard.
     // A card's page has its comment box where the tab bar is.
-    // Without the keyboard it is the whole screen, as phone.css has it, so a size the phone tells for a moment moves nothing.
-    <div className={['mb', keyboard ? 'keyboard' : '', stripOn ? 'strip' : '', top.kind === 'card' ? 'card-page' : '', top.kind === 'chatConv' ? 'chat-page' : '', choosing ? 'choosing' : ''].filter(Boolean).join(' ')} style={keyboard ? { top: view.top, height: view.height } : undefined}>
+    <div className={['mb', keyboard ? 'keyboard' : '', stripOn ? 'strip' : '', top.kind === 'card' ? 'card-page' : '', top.kind === 'chatConv' ? 'chat-page' : '', choosing ? 'choosing' : ''].filter(Boolean).join(' ')} style={{ top: view.top, height: view.height }}>
       <div ref={stage} className="mb-stage" onTouchStartCapture={edgeStart} onTouchMoveCapture={edgeMove} onTouchEndCapture={edgeEnd} onTouchCancelCapture={edgeEnd}>
         {shownPages.map((page, index) => {
           const isLeaving = leaving?.page.key === page.key;
