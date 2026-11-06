@@ -225,6 +225,7 @@ export const en = {
   'logs.note': 'Kept on this device: the last {count} lines. They leave it only when you copy or save them.',
   'settings.about': 'About',
   'about.version': 'Version',
+  'about.published': 'Published',
   'about.name': 'Scrawl {version}',
   'about.whatsNew': 'What’s new',
   'about.updates': 'Updates',

@@ -114,16 +114,14 @@ export interface SettingsProps extends SettingsValues {
 
 /**
  * The sections, General on the desktop only, Notifications once a server with messaging is
- * signed in to, Language once there is more than one language, About on the desktop and the web,
- * not on a phone.
+ * signed in to, Language once there is more than one language.
  */
 export const settingsSections = () =>
   SECTIONS.filter(
     (section) =>
       (section.id !== 'general' || isDesktop) &&
       (section.id !== 'notifications' || chatStore.read().servers.length > 0) &&
-      (section.id !== 'language' || languages.length > 1) &&
-      (section.id !== 'about' || isDesktop || !isPhone()),
+      (section.id !== 'language' || languages.length > 1),
   );
 
 /** What a section is set to, beside it in the list of a phone. */
@@ -160,72 +158,75 @@ function AboutSource({ open }: { open: (url: string) => void }) {
  * under it how the updates stand, with Check for updates. A version found is kept on the device,
  * and Reload goes over to it, as the status bar's Reload does.
  */
-function WebAbout({ onRestartUpdate }: Pick<SettingsValues, 'onRestartUpdate'>) {
+/** How the web app's updates stand, and what can be done: Check for updates, or Reload once a new version is ready. */
+function useWebUpdate(onRestartUpdate: (() => void) | undefined): { state: ReactNode; act: { label: MessageKey; run: () => void; disabled: boolean; go: boolean } | null } {
   const update = useSyncExternalStore(subscribeUpdate, webUpdateStatus);
   const on = useSyncExternalStore(subscribeUpdate, webUpdatesOn);
   useTicking(update.state === 'upToDate');
-  const check = () => void checkForWebUpdate();
-  const checkButton = (label: MessageKey, disabled = false) => (
-    <button type="button" className="st-btn" disabled={disabled || !on} onClick={check}>
-      {t(label)}
-    </button>
-  );
-  let state: ReactNode;
-  let acts: ReactNode = null;
+  const check = (label: MessageKey, disabled = false) => ({ label, run: () => void checkForWebUpdate(), disabled: disabled || !on, go: false });
   switch (update.state) {
     case 'idle':
-      state = <span className="state off">{t('about.notYet')}</span>;
-      acts = checkButton('about.check');
-      break;
+      return { state: <span className="state off">{t('about.notYet')}</span>, act: check('about.check') };
     case 'checking':
-      state = (
-        <span className="state">
-          <span className="spinner" aria-hidden="true" />
-          {t('about.checking')}
-        </span>
-      );
-      acts = checkButton('about.check', true);
-      break;
+      return {
+        state: (
+          <span className="state">
+            <span className="spinner" aria-hidden="true" />
+            {t('about.checking')}
+          </span>
+        ),
+        act: check('about.check', true),
+      };
     case 'upToDate':
-      state = (
-        <span className="state">
-          <i />
-          {t('about.upToDate', { ago: ago(update.checked) })}
-        </span>
-      );
-      acts = checkButton('about.check');
-      break;
+      return {
+        state: (
+          <span className="state">
+            <i />
+            {t('about.upToDate', { ago: ago(update.checked) })}
+          </span>
+        ),
+        act: check('about.check'),
+      };
     case 'downloading':
-      state = (
-        <span className="state">
-          <span className="spinner" aria-hidden="true" />
-          {t('about.webDownloading')}
-        </span>
-      );
-      break;
+      return {
+        state: (
+          <span className="state">
+            <span className="spinner" aria-hidden="true" />
+            {t('about.webDownloading')}
+          </span>
+        ),
+        act: null,
+      };
     case 'ready':
-      state = (
-        <span className="state ready">
-          <i />
-          {t('about.webReady')}
-        </span>
-      );
-      acts = (
-        <button type="button" className="st-btn go" onClick={onRestartUpdate}>
-          {t('status.reload')}
-        </button>
-      );
-      break;
+      return {
+        state: (
+          <span className="state ready">
+            <i />
+            {t('about.webReady')}
+          </span>
+        ),
+        act: { label: 'status.reload', run: () => onRestartUpdate?.(), disabled: false, go: true },
+      };
     case 'failed':
-      state = (
-        <span className="state warn">
-          <Icon name="warn" />
-          {update.offline ? t('about.webOffline', { host: window.location.host }) : t('about.failed', { reason: update.reason })}
-        </span>
-      );
-      acts = checkButton('about.tryAgain');
-      break;
+      return {
+        state: (
+          <span className="state warn">
+            <Icon name="warn" />
+            {update.offline ? t('about.webOffline', { host: window.location.host }) : t('about.failed', { reason: update.reason })}
+          </span>
+        ),
+        act: check('about.tryAgain'),
+      };
   }
+}
+
+function WebAbout({ onRestartUpdate }: Pick<SettingsValues, 'onRestartUpdate'>) {
+  const { state, act } = useWebUpdate(onRestartUpdate);
+  const acts = act && (
+    <button type="button" className={act.go ? 'st-btn go' : 'st-btn'} disabled={act.disabled} onClick={act.run}>
+      {t(act.label)}
+    </button>
+  );
   return (
     <>
       <span className="st-label">{t('settings.about')}</span>
@@ -244,6 +245,52 @@ function WebAbout({ onRestartUpdate }: Pick<SettingsValues, 'onRestartUpdate'>) 
       </div>
       <p className="st-note">{t('about.webNote')}</p>
       <AboutSource open={(url) => void window.open(url, '_blank', 'noopener')} />
+    </>
+  );
+}
+
+/**
+ * Settings › About on a phone, as the web's: the version and when it went out, how the updates
+ * stand, and under it Check for updates, which is Reload once a new version is ready.
+ */
+export function PhoneAbout({ onRestartUpdate }: Pick<SettingsValues, 'onRestartUpdate'>) {
+  const { state, act } = useWebUpdate(onRestartUpdate);
+  return (
+    <>
+      <div className="mb-form">
+        <div className="mb-group">
+          <div className="mb-fr">
+            <span className="fl">{t('about.version')}</span>
+            <span className="in">{t('about.name', { version: APP_VERSION })}</span>
+          </div>
+          <div className="mb-fr">
+            <span className="fl">{t('about.published')}</span>
+            <span className="in">{new Date(PUBLISHED).toLocaleString(locale(), { dateStyle: 'medium', timeStyle: 'short' })}</span>
+          </div>
+        </div>
+      </div>
+      <div className="mb-sec">
+        <span>{t('about.updates')}</span>
+      </div>
+      <div className="mb-form">
+        <div className="mb-group">
+          <div className="mb-fr mb-about-state" role="status">
+            {state}
+          </div>
+          {act && (
+            <button type="button" className="mb-fr go" disabled={act.disabled} onClick={act.run}>
+              {t(act.label)}
+            </button>
+          )}
+        </div>
+      </div>
+      <p className="mb-p">{t('about.webNote')}</p>
+      <p className="mb-p">
+        {t('about.openSource')}{' '}
+        <button type="button" className="st-link" onClick={() => void window.open('https://github.com/scrawlnotes/scrawl', '_blank', 'noopener')}>
+          github.com/scrawlnotes/scrawl
+        </button>
+      </p>
     </>
   );
 }

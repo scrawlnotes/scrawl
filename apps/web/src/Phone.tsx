@@ -8,7 +8,7 @@ import { Icon, type IconName } from './Icon';
 import { boardOf, CHAT, collectionPathOf, collectionTab, countItems, FILES, filterOf, FILTERS, folderLabel, folderOf, iconOf, isNote, nameOf, NEW_FILTER, pathOf, seenText, spaceLabel, spaceWhere, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
 import type { SpaceView } from './session';
 import type { FavoriteRow } from './Sidebar';
-import { type Section, sectionValue, SettingsSection, settingsSections, type SettingsValues } from './Settings';
+import { PhoneAbout, type Section, sectionValue, SettingsSection, settingsSections, type SettingsValues } from './Settings';
 import { PhoneAgents } from './Agents';
 import { PhoneLogs, useLogView } from './Logs';
 import { Spin } from './Loading';
@@ -1558,6 +1558,13 @@ export function Phone(props: PhoneProps) {
       return (
         <PageFrame title={titleOf(page, of)} nav={{ ...nav, ...(logView.shown.length > 0 && { action: copy }) }}>
           <PhoneLogs view={logView} />
+        </PageFrame>
+      );
+    }
+    if (page.kind === 'section' && page.section === 'about') {
+      return (
+        <PageFrame title={titleOf(page, of)} nav={nav}>
+          <PhoneAbout onRestartUpdate={props.settings.values.onRestartUpdate} />
         </PageFrame>
       );
     }

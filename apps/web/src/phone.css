@@ -1982,6 +1982,65 @@ body > .mb-lifted {
   color: var(--sl-p1);
 }
 
+/* Settings › About: how the updates stand, in words that may wrap; Check for updates, or Reload, under it */
+.mb-fr.go {
+  color: var(--sl-accent);
+}
+
+.mb-fr.go:disabled {
+  color: var(--sl-faint);
+}
+
+.mb-about-state {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  color: var(--sl-dim);
+  line-height: 1.35;
+}
+
+.mb-about-state .state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mb-about-state .state i {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--sl-kind-done);
+}
+
+.mb-about-state .state.off i {
+  background: var(--sl-faint);
+}
+
+.mb-about-state .state.ready {
+  color: var(--sl-fg);
+}
+
+.mb-about-state .state.ready i {
+  background: var(--sl-accent);
+}
+
+.mb .mb-about-state .state .icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--sl-accent);
+}
+
+.mb-about-state .spinner {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--sl-line);
+  border-top-color: var(--sl-accent);
+  border-radius: 50%;
+  animation: turning 0.9s linear infinite;
+}
+
 /* one version of a note: the note as it was, Restore at the foot */
 .mb-version-page {
   display: flex;
