@@ -210,6 +210,16 @@ export function liftUntilTouch(row: HTMLElement) {
   window.setTimeout(() => window.addEventListener('pointerdown', drop, true), 0);
 }
 
+/** Takes the click that comes after a finger lifted from a hold: what is under it now is the menu the hold opened. */
+export function suppressClick() {
+  const take = (event: Event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+  window.addEventListener('click', take, { capture: true, once: true });
+  window.setTimeout(() => window.removeEventListener('click', take, { capture: true }), 250);
+}
+
 /** A menu on a phone. A Delete, or anything else that takes something away, comes last and red. */
 export function ActionSheet({ head, items: all, onClose }: { head?: MenuHead; items: MenuItem[]; onClose: () => void }) {
   // An item with a menu of its own shows that menu in the sheet's place, under the item's name.

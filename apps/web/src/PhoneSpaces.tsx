@@ -9,7 +9,7 @@ import type { SpaceView } from './session';
 import type { Connection } from './sync';
 import { type PersonalPlace, type SettingsValues, spaceWords, useAddSpace, useSyncPersonal } from './Settings';
 import { OwnAppSheet, PhoneFolderSheet } from './PhoneSync';
-import { ActionSheet, Sheet, SheetClose } from './sheets';
+import { ActionSheet, Sheet, SheetClose, suppressClick } from './sheets';
 import { CloudIcon, personalPlace, placeWords, providerName, ServerIcon, shortOf, sourcePlace } from './SyncViews';
 import { ConnectServerSheet, signInWords } from './ServerConnect';
 import { PhoneServerMembers, ROLE_WORD, useSpaceRename } from './ServerPeople';
@@ -140,6 +140,7 @@ export function PhoneSpacesList({ values, reordering, onOpen, onAdd, onServer }:
 function PersonRow({ person, you, onHold }: { person: Person; you: boolean; onHold?: () => void }) {
   const timer = useRef(0);
   const start = useRef<{ x: number; y: number } | null>(null);
+  const fired = useRef(false);
   const stop = () => {
     window.clearTimeout(timer.current);
     start.current = null;
@@ -148,15 +149,21 @@ function PersonRow({ person, you, onHold }: { person: Person; you: boolean; onHo
   const hold = onHold && {
     onPointerDown: (event: { clientX: number; clientY: number }) => {
       start.current = { x: event.clientX, y: event.clientY };
+      fired.current = false;
       timer.current = window.setTimeout(() => {
         start.current = null;
+        fired.current = true;
         onHold();
       }, HOLD_MS);
     },
     onPointerMove: (event: { clientX: number; clientY: number }) => {
       if (start.current && Math.hypot(event.clientX - start.current.x, event.clientY - start.current.y) > 8) stop();
     },
-    onPointerUp: stop,
+    // The menu is open under the finger: the tap that ends the hold is not on it.
+    onPointerUp: () => {
+      if (fired.current) suppressClick();
+      stop();
+    },
     onPointerCancel: stop,
     onContextMenu: (event: MouseEvent) => {
       event.preventDefault();

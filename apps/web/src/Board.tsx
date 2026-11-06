@@ -58,7 +58,7 @@ import { Icon, type IconName } from './Icon';
 import { CardQuickAdd, cardHead, ColumnTabs, KindMark, StatusSheet } from './PhoneBoard';
 import { LabelChip } from './labels';
 import { Chip } from './choices';
-import { Empty, liftUntilTouch, Sheet, SheetClose } from './sheets';
+import { Empty, liftUntilTouch, Sheet, SheetClose, suppressClick } from './sheets';
 import { dueClass, dueLabel, toDate } from './Tasks';
 import { holdToDrag } from './touchDrag';
 import { SubtaskCount } from './Subtasks';
@@ -1448,7 +1448,9 @@ function PhoneBoardList({ board, path, today, actions, visible, onStatus, onAdd 
   };
   const letGo = () => {
     const at = pressed.current;
-    if (at && !at.fired) {
+    // The menu is open under the finger: the tap that ends the hold is not on it.
+    if (at?.fired) suppressClick();
+    else if (at) {
       window.clearTimeout(at.timer);
       pressed.current = null;
     }

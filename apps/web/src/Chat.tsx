@@ -28,6 +28,7 @@ import { ChatResults } from './ChatSearch';
 import { ChatIntro, notWrittenTo } from './ChatStart';
 import { type Hit, type HitFilters, useMessageSearch } from './messageSearch';
 import { hostOf } from './servers';
+import { suppressClick } from './sheets';
 import { ITEM_DRAG_TYPE } from './Sidebar';
 import { clipboardFilesOnDesktop, isDesktop } from './storage';
 import { isPhone } from './device';
@@ -1070,16 +1071,6 @@ function usePress(onHold?: (row: HTMLElement) => void, onSwipe?: () => void) {
       },
     },
   };
-}
-
-/** Takes the click that comes after a finger lifted from a hold. */
-function suppressClick() {
-  const take = (event: Event) => {
-    event.preventDefault();
-    event.stopPropagation();
-  };
-  window.addEventListener('click', take, { capture: true, once: true });
-  window.setTimeout(() => window.removeEventListener('click', take, { capture: true }), 250);
 }
 
 /**

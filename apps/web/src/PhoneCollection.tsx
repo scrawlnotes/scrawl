@@ -85,7 +85,7 @@ import { fieldChoices, LabelSheet } from './labels';
 import { Icon, type IconName } from './Icon';
 import { Subtasks } from './Subtasks';
 import { DateSheet } from './PhoneTasks';
-import { Empty, Sheet, SheetClose } from './sheets';
+import { Empty, Sheet, SheetClose, suppressClick } from './sheets';
 import { dueClass, dueLabel } from './Tasks';
 import { dateLabel, DateTimeSheet, TimeSheet } from './TimeInputs';
 import { quote } from './text';
@@ -134,7 +134,9 @@ function useHold() {
   const pressed = useRef<{ x: number; y: number; timer: number; fired: boolean } | null>(null);
   const letGo = () => {
     const at = pressed.current;
-    if (at && !at.fired) {
+    // The menu is open under the finger: the tap that ends the hold is not on it.
+    if (at?.fired) suppressClick();
+    else if (at) {
       window.clearTimeout(at.timer);
       pressed.current = null;
     }

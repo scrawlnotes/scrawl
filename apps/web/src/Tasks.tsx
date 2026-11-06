@@ -86,7 +86,7 @@ import { StillOpening } from './Loading';
 import { boardHeading, boardLabel, boardWhere, collectionHeading, collectionLabel, collectionWhere, folderLabel, listHeading, listLabel, listWhere } from './items';
 import { TaskActivity } from './Activity';
 import { AssigneeChip, NameOf, PersonPicker, type SpacePeople, WhoOf } from './People';
-import { Empty, liftUntilTouch } from './sheets';
+import { Empty, liftUntilTouch, suppressClick } from './sheets';
 import { holdToDrag, pressOnField } from './touchDrag';
 
 /** A task in its list, or a card on its board: something with a day to move. */
@@ -672,7 +672,11 @@ function PhoneTaskItem({ list, task, tasks, today, showDone, actions, flat, grou
     touch.current = null;
     if (!at) return;
     window.clearTimeout(at.timer);
-    if (at.held) event.preventDefault();
+    if (at.held) {
+      event.preventDefault();
+      // Nor on the menu now under the finger.
+      suppressClick();
+    }
     if (at.way === 'across' && pull !== null) {
       if (pull > DONE_PULL) {
         setOpened(false);

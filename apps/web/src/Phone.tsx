@@ -21,7 +21,7 @@ import { hostOf, knownServers, pendingJoin } from './servers';
 import { PhoneSearch, type SearchAction, type Thing } from './Search';
 import { PhoneChatSearch } from './ChatSearch';
 import type { Hit } from './messageSearch';
-import { ActionSheet, Empty, useViewport } from './sheets';
+import { ActionSheet, Empty, suppressClick, useViewport } from './sheets';
 import { LabelsPage } from './labels';
 import type { ChatLinks } from './Chat';
 import type { MenuItem } from './dialogs';
@@ -366,9 +366,11 @@ export function useHold(onHold?: (row: HTMLElement) => void) {
     },
     onTouchEnd: (event: TouchEvent<HTMLElement>) => {
       stop();
-      // The menu is open: the tap ends here.
-      if (at.current?.fired) event.preventDefault();
-      else at.current = null;
+      // The menu is open: the tap ends here, and not on the menu now under the finger.
+      if (at.current?.fired) {
+        event.preventDefault();
+        suppressClick();
+      } else at.current = null;
     },
     onTouchCancel: () => {
       stop();

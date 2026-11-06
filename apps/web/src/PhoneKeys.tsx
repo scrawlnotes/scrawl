@@ -16,7 +16,7 @@ import { t } from '@scrawlnotes/i18n';
 import { type FormEvent, type MouseEvent, type PointerEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from './Icon';
 import { type KeysActions, writeClipboard } from './Keys';
-import { Empty, liftUntilTouch, Sheet } from './sheets';
+import { Empty, liftUntilTouch, Sheet, suppressClick } from './sheets';
 import { quote } from './text';
 
 // Keys on a phone, after the Phone keys view of design/mockups.html. A group is a rounded block
@@ -55,7 +55,9 @@ function useHold() {
   const pressed = useRef<{ x: number; y: number; timer: number; fired: boolean } | null>(null);
   const letGo = () => {
     const at = pressed.current;
-    if (at && !at.fired) {
+    // The menu is open under the finger: the tap that ends the hold is not on it.
+    if (at?.fired) suppressClick();
+    else if (at) {
       window.clearTimeout(at.timer);
       pressed.current = null;
     }
