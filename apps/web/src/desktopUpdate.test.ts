@@ -6,7 +6,7 @@ vi.mock('@tauri-apps/api/core', () => ({ invoke: () => new Promise(() => undefin
 vi.mock('@tauri-apps/api/app', () => ({ getVersion: () => Promise.resolve('0.1.23') }));
 vi.mock('./storage', () => ({ isDesktop: true }));
 
-const { closeUpdate, downloadUpdate, startDesktopUpdates, useUpdateView } = await import('./desktopUpdate');
+const { closeUpdate, downloadUpdate, openUpdate, startDesktopUpdates, useUpdateView } = await import('./desktopUpdate');
 // The store's snapshot, read without React.
 let view: ReturnType<typeof useUpdateView>;
 vi.mock('react', () => ({ useSyncExternalStore: (_: unknown, get: () => unknown) => get() }));
@@ -16,15 +16,13 @@ const shell = (payload: unknown) => handlers.get('update')!({ payload });
 describe('the desktop update window', () => {
   beforeAll(() => startDesktopUpdates());
 
-  it('asks once a version is found, and Later holds till the window opens again', () => {
+  it('does not ask when a version is found: the window opens only from the sidebar', () => {
     shell({ state: 'available', version: '0.1.24' });
+    expect(read()).toMatchObject({ ask: null, found: '0.1.24' });
+    openUpdate();
     expect(read().ask).toBe('ask');
     closeUpdate();
-    shell({ state: 'checking' });
-    shell({ state: 'available', version: '0.1.24' });
     expect(read().ask).toBe(null);
-    handlers.get('shown')!({ payload: null });
-    expect(read().ask).toBe('ask');
   });
 
   it('downloads only on Update, and asks to restart when its window was closed', () => {

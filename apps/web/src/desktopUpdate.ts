@@ -5,8 +5,8 @@ import { useSyncExternalStore } from 'react';
 import { isDesktop } from './storage';
 
 // The desktop app's own updates, as its shell tells them (src-tauri/src/update.rs): it looks for
-// a new version by itself and only says so; the update window asks, and nothing is downloaded
-// until the person says Update. Then the app restarts into it; a download not restarted into goes
+// a new version by itself and only says so, in the sidebar's row; the update window opens from it,
+// and nothing is downloaded until the person says Update. Then the app restarts into it; a download not restarted into goes
 // in when the app closes. The web app has its own way (pwa.ts).
 
 /** How the updates stand. */
@@ -33,8 +33,6 @@ let version = '';
 let ask: UpdateAsk = null;
 /** The newest version found, kept through a download that failed; '' when up to date. */
 let found = '';
-/** The version Later was said to, until the window is opened again. */
-let declined = '';
 let view: { status: UpdateStatus; ask: UpdateAsk; found: string } = { status, ask, found };
 const listeners = new Set<() => void>();
 
@@ -45,8 +43,7 @@ function changed() {
 
 function set(next: UpdateStatus) {
   if (next.state === 'available') {
-    // Asked once each time a version is found, or the window opened again; Later holds till then.
-    if (status.state !== 'available' && ask === null && declined !== next.version) ask = 'ask';
+    // Not asked: the sidebar's row says so, and opens the window.
     found = next.version;
   } else if (next.state === 'upToDate') {
     found = '';
@@ -68,14 +65,6 @@ const subscribe = (listener: () => void) => {
 export function startDesktopUpdates() {
   if (!isDesktop) return;
   void listen<UpdateStatus>('update', (event) => set(event.payload));
-  // The window brought back from the tray: a version found is asked about again.
-  void listen('shown', () => {
-    declined = '';
-    if (status.state === 'available' && ask === null) {
-      ask = 'ask';
-      changed();
-    }
-  });
   void invoke<UpdateStatus>('update_state').then(set, () => undefined);
   void getVersion().then((found) => {
     version = found;
@@ -107,9 +96,8 @@ export function openUpdate() {
   changed();
 }
 
-/** Later, or the window closed: a download goes on; Later on a version is not asked again till the window opens again. */
+/** Later, or the window closed: a download goes on. */
 export function closeUpdate() {
-  if (ask === 'ask') declined = found;
   ask = null;
   changed();
 }

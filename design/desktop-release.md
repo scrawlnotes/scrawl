@@ -17,8 +17,8 @@ Aşama dışı bir altyapı işi. Durum: plan onaylandı (16 Ekim 2026): imzası
 6 Kasım'da onaylanan akış (mockup sohbette, uygulama penceresinin içinde tıklanabilir):
 
 1. `latest.json` açılıştan 3 sn sonra ve yarım saatte bir okunur. Pencere tepsiden ya da Dock'tan geri getirilince de okunur, son başarılı bakış 10 dakikadan eskiyse. Önceki "30 sn sonra ve 4 saatte bir" pratikte işlemiyordu: uygulama girişte tepsiye başlayıp günlerce açık kalıyor, pencereyi açıp kapamak yeniden başlatmıyor, 4 saatlik bekleme de bilgisayar uyurken ilerlemiyor.
-2. Yeni sürüm varsa hiçbir şey inmez. Ortada bir pencere sorar: **Scrawl 0.1.24 is out**, "You have 0.1.23.", What's new linki, **Later** ve **Update**.
-3. Later: bu açılışta bir daha sorulmaz. Pencere tepsiden yeniden açılınca yine sorar. Kenar çubuğunun altında, Files'ın üstünde vurgulu **Update to 0.1.24** satırı güncellenene kadar kalır. Satıra tıklamak pencereyi açar.
+2. Yeni sürüm varsa hiçbir şey inmez, kendiliğinden pencere de açılmaz (7 Kasım: açılıştaki pencere rahatsız ediyordu, kaldırıldı). Kenar çubuğunun altında, Files'ın üstünde vurgulu **Update to 0.1.24** satırı güncellenene kadar kalır.
+3. Satıra tıklamak ortada pencereyi açar: **Scrawl 0.1.24 is out**, "You have 0.1.23.", What's new linki, **Later** ve **Update**. Later pencereyi kapatır, satır kalır.
 4. Update: en yeni sürüm iner, pencerede yüzde ve çubuk görünür. Pencere kapatılabilir, iniş sürer, satır "Downloading · 62%" der. İnince uygulama kendiliğinden yeniden başlar (Update'e basıldı). Pencere kapatılmışsa yeniden başlamaz, bir kez "0.1.24 is ready · Later / Restart" diye sorar, satır "Restart to update" olur.
 5. İnmezse pencere nedenini söyler, Try again ve Later çıkar. Satır yine "Update to 0.1.24" der.
 6. Restart: yazılan kaydedilir, uygulama kapanır, yeni sürümle açılır. Kurulum sessizdir (NSIS quiet, 24 Ekim'den beri).
@@ -68,7 +68,7 @@ Secret'lar: `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. �
 
 - `tauri-plugin-updater` kaydı. Yalnız release derlemede çalışır, `tauri dev`'de kapalıdır.
 - Durum: `Idle`, `Checking`, `UpToDate { checked }`, `Available { version }`, `Downloading { version, percent }`, `Ready { version }`, `Failed { offline, reason }`. İnen setup bellekte durur (birkaç MB).
-- Zamanlayıcı: 3 sn sonra ve yarım saatte bir yalnız `check` → `Available` ya da `UpToDate`. `background::show` pencereyi geri getirince `shown` event'i gönderir ve `look_if_stale` son başarılı bakış 10 dakikadan eskiyse bakar. `Available` iken kendiliğinden bakış tekrar edilmez; Update zaten en yenisini indirir. Her değişiklik `update` event'iyle web'e gider.
+- Zamanlayıcı: 3 sn sonra ve yarım saatte bir yalnız `check` → `Available` ya da `UpToDate`. `background::show` pencereyi geri getirince `look_if_stale` son başarılı bakış 10 dakikadan eskiyse bakar. `Available` iken kendiliğinden bakış tekrar edilmez; Update zaten en yenisini indirir. Her değişiklik `update` event'iyle web'e gider.
 - Komutlar: `update_state`, `update_check` (About'tan, yalnız bakar), `update_download` (Update: `check` + `download` → `Ready`; pencere gizliyse kurulur), `update_restart` (`install`, `restart_after_install(true)`).
 - `RunEvent::ExitRequested`: durum `Ready` ise `restart_after_install(false)` ile `install`. Windows'ta `install` uygulamayı kendisi kapatır.
 - Config: `plugins.updater` içinde `pubkey`, `endpoints`, `windows.installMode: "quiet"` (24 Ekim'e kadar `"passive"`). `bundle.createUpdaterArtifacts: true` yalnız `tauri.release.conf.json`'da, CI `--config` ile verir: yoksa elle `pnpm desktop:build` özel anahtar ister.
@@ -76,7 +76,7 @@ Secret'lar: `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. �
 
 **Web:**
 
-- `apps/web/src/desktopUpdate.ts`: `pwa.ts`'nin masaüstü eşi (durum ve abonelik) ve güncelleme penceresinin adımı (`ask` / `download` / `ready`), Later'ın tuttuğu sürüm.
+- `apps/web/src/desktopUpdate.ts`: `pwa.ts`'nin masaüstü eşi (durum ve abonelik) ve güncelleme penceresinin adımı (`ask` / `download` / `ready`); `ask` yalnız satırdan açılır.
 - `dialogs.tsx` `DesktopUpdateDialog`; `App.tsx` onu başka pencere yokken gösterir, Update'ten sonra iniş bitince Restart'ı çağırır (önce `session.beforeSync()`, sonra `update_restart`).
 - `Sidebar.tsx`: alt kısımda güncelleme satırı.
 - Settings › About; i18n `update.*`, `side.updateTo` ve yanındakiler.

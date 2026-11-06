@@ -263,7 +263,7 @@ Teknik tasarımı `design/integrations.md` (29 Ekim'de onaylandı).
 | Mobil (sonra) | Native kabuk içinde aynı arayüz kodu (Capacitor veya Tauri mobile); telefon düzeni (4.9) olduğu gibi kullanılır |
 | Arama | Web worker içinde bellek içi indeks; yetmezse SQLite FTS |
 | Yayın servisi | Cloudflare Worker + R2 |
-| Dağıtım | Masaüstü setup'ı GitHub Releases'ta, `desktop-v*` etiketiyle CI'da derlenir; uygulama yeni sürümü açılışta sorar ve kenar çubuğunda gösterir, kişi Update demedikçe hiçbir şey inmez ya da kurulmaz (6 Kasım, `design/desktop-release.md` 3) |
+| Dağıtım | Masaüstü setup'ı GitHub Releases'ta, `desktop-v*` etiketiyle CI'da derlenir; uygulama yeni sürümü kenar çubuğunda gösterir (açılışta sormaz, 7 Kasım), kişi Update demedikçe hiçbir şey inmez ya da kurulmaz (6 Kasım, `design/desktop-release.md` 3) |
 
 Arayüz web-first yazılır; Tauri aynı uygulamayı sarar. Platform farkı yalnızca depolama ve OAuth katmanındadır. Düzen baştan dar ekrana uyumlu tutulur.
 

@@ -242,7 +242,7 @@ export const en = {
   'about.check': 'Check for updates',
   'about.tryAgain': 'Try again',
   'about.restart': 'Restart',
-  'about.note': 'Scrawl looks for a new version when it opens and every half hour, and asks you. Nothing is downloaded until you say Update; a version downloaded is installed when you restart Scrawl or close it.',
+  'about.note': 'Scrawl looks for a new version when it opens and every half hour, and shows it at the foot of the sidebar. Nothing is downloaded until you say Update; a version downloaded is installed when you restart Scrawl or close it.',
   'update.out': 'Scrawl {version} is out',
   'update.youHave': 'You have {version}.',
   'update.later': 'Later',

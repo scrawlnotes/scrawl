@@ -238,8 +238,6 @@ pub fn show(app: &AppHandle) {
         let _ = window.show();
         let _ = window.set_focus();
     }
-    // An opening of its own: the web app asks about a new version again, found now or before.
-    let _ = app.emit("shown", ());
     crate::update::look_if_stale(app);
 }
 
