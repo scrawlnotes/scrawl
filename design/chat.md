@@ -92,7 +92,7 @@ Chat sekmesi bütün sunucuları birlikte gösterir: önce her sunucunun space'l
 ### 3.1 Yazmak
 
 - Mesaj markdown'dır: kalın, italik, üstü çizili, kod, kod bloğu, link, liste, alıntı. Kod bloğunun dili seçilir; renklenir ve kopyalanır.
-- Yazma kutusu kart yorumlarının editörüdür. Live preview ve "yazılan yazıldığı gibi kalır" kuralı burada da geçerlidir. Biçim çubuğu Aa düğmesiyle açılır.
+- Yazma kutusu kart yorumlarının editörüdür. Live preview ve "yazılan yazıldığı gibi kalır" kuralı burada da geçerlidir. Biçim çubuğu Aa düğmesiyle açılır. Notlardaki `/` menüsü yoktur (7 Kasım): mesaj başlık, tablo, callout ve çizgi göstermez; liste, alıntı ve kod Aa'da ve +'da. Telefonda cümle büyük harfle başlar.
 - Masaüstünde Enter gönderir, Shift+Enter alt satıra geçer; kod bloğunda Enter alt satıra geçer. Telefonda Enter alt satıra geçer, Send düğmesi gönderir. Arayüzde kısayol anlatılmaz.
 - Yazılıp gönderilmeyen metin konuşmada taslak olarak kalır, bu cihazda. Listede konuşmanın altında "Draft" yazar.
 - 20 satırdan uzun mesaj katlanır, altında "Show more".
