@@ -90,14 +90,26 @@ a{color:#d5d9e0;text-decoration:none}a:hover{color:#e0a84a}
     <p style="flex: 1 1 440px; min-width: 0; margin: 0; font-size: clamp(22px, 2.6vw, 30px); line-height: 1.25; letter-spacing: -0.015em; font-weight: 500; color: #a9b0bc">For you, your team and your agents.</p>
     <div style="flex: 1 1 540px; min-width: 0">
       <p style="margin: 0; font-size: 18px; line-height: 1.6; color: #a9b0bc">Notes, tasks, boards and records in one app, on your computer, in the browser and on your phone. Share a space with your team. Your agents work in it too.</p>
-      <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px">
-        <a class="btn btn-a" href="https://github.com/scrawlnotes/scrawl/releases/latest/download/Scrawl-setup.exe">
+      <div id="get" style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px">
+        <a class="btn btn-a" data-os="win" href="https://github.com/scrawlnotes/scrawl/releases/latest/download/Scrawl-setup.exe">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 20h14"></path></svg>
           Download for Windows
         </a>
-        <a class="btn btn-g" href="https://github.com/scrawlnotes/scrawl/releases/latest/download/Scrawl.dmg">Download for Mac</a>
-        <a class="btn btn-g" href="https://app.scrawlnotes.com">Open in browser</a>
+        <a class="btn btn-g" data-os="mac" href="https://github.com/scrawlnotes/scrawl/releases/latest/download/Scrawl.dmg">Download for Mac</a>
+        <a class="btn btn-g" data-os="web" href="https://app.scrawlnotes.com">Open in browser</a>
       </div>
+      <script>
+        // The visitor's own platform gets the first, highlighted button: phones, iPads and Linux get the web app.
+        (function () {
+          var ua = navigator.userAgent;
+          var os = /iPhone|iPad|Android/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) ? 'web' : /Macintosh/.test(ua) ? 'mac' : /Windows/.test(ua) ? 'win' : 'web';
+          var row = document.getElementById('get'), pick = row.querySelector('[data-os="' + os + '"]');
+          row.querySelectorAll('a').forEach(function (a) { a.className = a === pick ? 'btn btn-a' : 'btn btn-g'; });
+          var icon = row.querySelector('svg');
+          if (os === 'web') icon.remove(); else pick.prepend(icon);
+          row.prepend(pick);
+        })();
+      </script>
       <p class="m" style="margin: 14px 0 0; font-size: 12.5px; color: #8b93a1">No account. In the browser, everything stays on your device.</p>
     </div>
   </div>
