@@ -927,6 +927,8 @@ export class Session {
   /** Identifies the current start; a start that was disposed while loading must not finish. */
   private run = 0;
   private parent: HTMLElement | null = null;
+  /** A tab asked for before the app was open, as Chat by a notification: the first on screen once it is. */
+  private askedFirst: string | null = null;
 
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
@@ -1007,6 +1009,12 @@ export class Session {
     if (!this.welcomeClosed && welcomeHere && !tabs.includes(WELCOME_NOTE)) {
       tabs = [WELCOME_NOTE, ...tabs];
       active = WELCOME_NOTE;
+    }
+    const asked = this.askedFirst;
+    this.askedFirst = null;
+    if (asked) {
+      if (!tabs.includes(asked)) tabs = [...tabs, asked];
+      active = asked;
     }
     const spaces = [...this.opened].map(
       ([id, each], index): SpaceView => ({ id, name: each.name, folder: each.entry.folder ?? null, source: each.entry.source ?? null, people: people[index]!, tree: [] }),
@@ -4016,7 +4024,10 @@ export class Session {
     // A quick note opens in its window, from wherever it is asked for: a search, a task's note, Files.
     if (isQuickNote(id) && this.showQuick) return this.showQuick(id);
     const editor = this.editor;
-    if (!editor) return;
+    if (!editor) {
+      this.askedFirst = id;
+      return;
+    }
     const { active, tabs } = this.snapshot;
     if (id !== active) {
       if (active && isNote(active)) {
