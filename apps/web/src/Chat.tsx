@@ -30,6 +30,7 @@ import { type Hit, type HitFilters, useMessageSearch } from './messageSearch';
 import { hostOf } from './servers';
 import { ITEM_DRAG_TYPE } from './Sidebar';
 import { clipboardFilesOnDesktop, isDesktop } from './storage';
+import { isPhone } from './device';
 
 // Chat (design/chat.md, 8.1; design/mockups.html, Messaging): one tab, the conversations of every
 // server on its left, each server's rooms under their spaces and then the direct messages; the
@@ -1315,7 +1316,8 @@ function MessageEditor({ body, onSave, onCancel }: { body: string; onSave: (body
     else onCancel();
   };
   useEffect(() => {
-    const made = createEditor({ parent: box.current!, doc: body });
+    // On a phone, a sentence begins with a capital, as in a note.
+    const made = createEditor({ parent: box.current!, doc: body, touch: isPhone() });
     editor.current = made;
     made.view.focus();
     made.view.dispatch({ selection: { anchor: made.view.state.doc.length } });
@@ -1654,6 +1656,8 @@ export function Composer({ server, chat, replyTo, nameOf, menu, links, dropping,
     const made = createEditor({
       parent: box.current!,
       doc: text,
+      // On a phone, a sentence begins with a capital, as in a note.
+      touch: phone,
       onChange: (doc) => {
         setText(doc);
         keepDraft(server.url, draftKey, doc);
