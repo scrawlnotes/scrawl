@@ -54,7 +54,9 @@ export function useViewport() {
       view.removeEventListener('scroll', update);
     };
   }, []);
-  return { ...box, keyboard: window.innerHeight - box.height > KEYBOARD };
+  // The page's height, not the window's: on the Home Screen an iPhone scrolled over a box at the
+  // foot says the window is only as tall as what shows, while the page keeps its own.
+  return { ...box, keyboard: document.documentElement.clientHeight - box.height > KEYBOARD };
 }
 
 /**
