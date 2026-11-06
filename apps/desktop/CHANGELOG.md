@@ -2,6 +2,16 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.24
+
+Scrawl asks before it updates.
+
+- When a new version is out, a window says so as Scrawl opens: Later, or Update.
+- Nothing is downloaded or installed until you say Update. Then Scrawl downloads it and restarts into it.
+- Until you update, a row at the foot of the sidebar shows the new version, its download, or Restart.
+- Settings › About checks for updates and updates from there too.
+- Scrawl looks for a new version when it opens, when you bring its window back from the tray, and every half hour.
+
 ## 0.1.23
 
 Looking for changes is not syncing.
