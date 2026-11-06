@@ -3105,6 +3105,8 @@ export const en = {
   'chat.someone': 'Someone',
   'chat.fileLine': 'File: {name}',
   'chat.newMessages': { one: '{count} new message', other: '{count} new messages' },
+  'chat.reactedTo': 'Reacted {emoji} to: "{text}"',
+  'chat.reacted': 'Reacted {emoji}',
   'chat.notifyAbout': 'Notify me about',
   'chat.notifyAll': 'All messages',
   'chat.notifyAllRoom': 'Every new message in {name}.',

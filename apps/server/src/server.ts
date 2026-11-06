@@ -37,6 +37,7 @@ export function makeServer(
   const subject = config.url.startsWith('https://') ? config.url : 'mailto:push@scrawlnotes.com';
   const push = new Push(db, live, chats, vapidKeys(join(config.data, 'vapid.json')), subject, config.url, options.sender, options.later);
   chats.onSent = (chat, message) => push.sent(chat, message);
+  chats.onReacted = (chat, message, by, emoji) => push.reacted(chat, message, by, emoji);
   const app = createApp({ config, blobs, files, accounts, spaces, live, invites, oauth, chats, push, now, ...(options.minSyncLevel !== undefined && { minSyncLevel: options.minSyncLevel }) });
   return { db, blobs, files, accounts, spaces, live, invites, oauth, chats, push, app };
 }

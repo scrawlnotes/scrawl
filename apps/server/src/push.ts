@@ -14,6 +14,7 @@ import type { Live } from './live';
 // conversation is on one of their screens; someone using Scrawl on a device has a minute to read
 // it there before their other devices hear of it; and the device in use is told by the live
 // channel, not by a push. What waits is kept in the process: a restart drops it, the message stays.
+// A reaction tells whoever wrote the message the same way (Chats.reactionAlertFor).
 
 /** How long a message waits for someone using Scrawl on a device before their other devices are told. */
 export const WAIT_MS = 60_000;
@@ -37,6 +38,8 @@ export interface PushPayload {
   message: string;
   /** One notification a conversation: the next replaces it. */
   tag: string;
+  /** A reaction's: it stays when its conversation is read. */
+  reaction?: boolean;
 }
 
 /** Sends a push; the push service's status comes back, or the call throws with it. */
@@ -117,20 +120,29 @@ export class Push {
 
   /** A message was written: those it tells hear of it now, or in a minute if they use Scrawl elsewhere and have not read it. */
   sent(chat: string, message: string) {
-    for (const { account } of this.chats.alertsFor(message)) {
-      if (this.live.isViewing(account, chat)) continue;
-      if (!this.live.isActive(account)) {
-        void this.tell(account, chat, message);
-        continue;
-      }
-      const timer = this.later(() => {
-        this.waiting.delete(timer);
-        void this.tell(account, chat, message);
-      }, WAIT_MS);
-      // A minute's wait never keeps the process alive on its own.
-      (timer as { unref?: () => void }).unref?.();
-      this.waiting.add(timer);
+    for (const { account } of this.chats.alertsFor(message)) this.soon(account, chat, () => this.tell(account, chat, message));
+  }
+
+  /** A reaction was put on a message: whoever wrote it hears of it as of a message, unless it is taken off before. */
+  reacted(chat: string, message: string, by: string, emoji: string) {
+    const account = this.chats.reactionAlertFor(message, by, emoji);
+    if (account) this.soon(account, chat, () => this.tellReaction(account, chat, message, by, emoji));
+  }
+
+  /** Now, not while the conversation is on their screen, and after a minute while they use Scrawl on a device. */
+  private soon(account: string, chat: string, run: () => Promise<void>) {
+    if (this.live.isViewing(account, chat)) return;
+    if (!this.live.isActive(account)) {
+      void run();
+      return;
     }
+    const timer = this.later(() => {
+      this.waiting.delete(timer);
+      void run();
+    }, WAIT_MS);
+    // A minute's wait never keeps the process alive on its own.
+    (timer as { unref?: () => void }).unref?.();
+    this.waiting.add(timer);
   }
 
   stop() {
@@ -151,6 +163,16 @@ export class Push {
     // The device in use hears it on the live channel.
     const rows = this.subscriptionsOf(account).filter((row) => !this.live.isDeviceActive(row.device_id));
     await Promise.all(rows.map((row) => this.deliver(row, payload, still.mention || content.direct ? 'high' : 'normal')));
+  }
+
+  /** Tells someone's devices of a reaction still there. One notification a message, beside its conversation's, and no count: it is not unread. */
+  private async tellReaction(account: string, chat: string, message: string, by: string, emoji: string) {
+    if (this.chats.reactionAlertFor(message, by, emoji) !== account || this.live.isViewing(account, chat)) return;
+    const content = this.chats.reactionContent(message, account, by, emoji);
+    if (!content) return;
+    const payload: PushPayload = { title: content.title, body: content.body, badge: this.chats.alertCount(account), count: 1, server: this.server, chat, message, tag: `reaction:${message}`, reaction: true };
+    const rows = this.subscriptionsOf(account).filter((row) => !this.live.isDeviceActive(row.device_id));
+    await Promise.all(rows.map((row) => this.deliver(row, payload, content.direct ? 'high' : 'normal')));
   }
 
   /** One push; a subscription its service says is gone (404, 410) goes too, one that failed otherwise is marked. */

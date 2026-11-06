@@ -301,6 +301,7 @@ class OneServer {
       this.put([event.message]);
       // The counts are the server's: they come with the next turn, and a notification after them.
       void this.turn().then(() => fresh && store.onNew?.(this.url, event.message));
+      if (event.reacted) store.onReacted?.(this.url, event.message, event.reacted);
     } else if (event.type === 'chat') void this.turn();
     else if (event.type === 'typing') {
       const typing = { ...this.state.typing, [event.chat]: { ...this.state.typing[event.chat], [event.account]: Date.now() + TYPING_MS } };
@@ -666,6 +667,8 @@ class ChatStore {
 
   /** Told of a new message of someone else's, once the counts are in: what shows it as a notification on the desktop. */
   onNew: ((url: string, message: ChatMessage) => void) | null = null;
+  /** Told of a reaction put on a message: what shows it as a notification on the desktop, when the message is the person's. */
+  onReacted: ((url: string, message: ChatMessage, reacted: { by: string; emoji: string }) => void) | null = null;
 
   /** Whether a conversation is on screen here, the window in front. */
   onScreen(url: string, chat: string): boolean {

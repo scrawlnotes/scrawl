@@ -120,7 +120,7 @@ export interface ChatFound {
 
 /** What the live channel brings of messaging (design/chat.md, 11.3). */
 export type ChatEvent =
-  | { type: 'message'; chat: string; message: ChatMessage }
+  | { type: 'message'; chat: string; message: ChatMessage; reacted?: { by: string; emoji: string } }
   | { type: 'chat'; cursor: number }
   | { type: 'typing'; chat: string; account: string }
   | { type: 'presence'; active: string[] }

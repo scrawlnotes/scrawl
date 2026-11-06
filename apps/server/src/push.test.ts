@@ -150,6 +150,36 @@ describe('push', () => {
     expect(s.sent).toHaveLength(0);
   });
 
+  it('tells whoever wrote a message of a reaction someone else put on, not one taken off before the minute ends', async () => {
+    const s = await start();
+    await s.subscribe(s.kaan, 'kaan');
+    const general = await s.general();
+    const message = await s.say(s.kaan, general.id, 'Good morning');
+    const react = (token: string, emoji: string, on = true) => s.call(token, on ? 'PUT' : 'DELETE', `/chat/messages/${message.id}/reactions/${encodeURIComponent(emoji)}`);
+    await react(s.kaan, '🎉');
+    await react(s.mert, '👍');
+    await react(s.mert, '👍', false);
+    await s.settle();
+    // A reaction is not unread: no count, and its own notification beside the conversation's.
+    expect(s.sent.map((each) => each.payload)).toEqual([
+      { title: 'Mert · #general', body: 'Reacted 👍 to: "Good morning"', badge: 0, count: 1, server: URL, chat: general.id, message: message.id, tag: `reaction:${message.id}`, reaction: true },
+    ]);
+
+    // In use elsewhere: taken off within the minute, nothing; left on, told after it.
+    s.using(KAAN, 'another-device', null);
+    await react(s.elif, '❤️');
+    await react(s.elif, '❤️', false);
+    await react(s.mert, '👀');
+    await s.minutePasses();
+    expect(s.sent.map((each) => each.payload.body)).toEqual(['Reacted 👍 to: "Good morning"', 'Reacted 👀 to: "Good morning"']);
+
+    // Off: nothing.
+    await s.call(s.kaan, 'PATCH', `/chat/${general.id}/me`, { notify: 'off' });
+    await react(s.elif, '✅');
+    await s.minutePasses();
+    expect(s.sent).toHaveLength(2);
+  });
+
   it('drops a subscription its push service says is gone, and sends a test to this device', async () => {
     const s = await start((endpoint) => (endpoint.endsWith('/old') ? 410 : 201));
     expect((await s.call(s.mert, 'POST', '/push/subscriptions', { endpoint: 'http://not-https', keys: { p256dh: 'a', auth: 'b' } })).status).toBe(400);

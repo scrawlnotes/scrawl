@@ -296,6 +296,39 @@ function heardNew(url: string, message: ChatMessage) {
   else show();
 }
 
+/**
+ * A reaction someone else put on the person's message, as the server's push says it (design/chat.md,
+ * 3.6): beside the conversation's notification, not taken away when it is read; not in a
+ * conversation turned Off, not while it is on screen here, after a minute while in use elsewhere.
+ */
+function heardReaction(url: string, message: ChatMessage, reacted: { by: string; emoji: string }) {
+  if (!isDesktop || stateNow() !== 'on') return;
+  const tells = () => {
+    const server = store.read().servers.find((each) => each.url === url);
+    const chat = server?.chats.find((each) => each.id === message.chat);
+    if (!server || !chat || message.author !== server.me || message.agent || message.deleted || reacted.by === server.me) return null;
+    if (!chat.joined || chat.archived !== null || chat.notify === 'off' || store.onScreen(url, chat.id)) return null;
+    // Taken off in the minute: what the conversation now has is what was heard last.
+    const now = server.messages[chat.id]?.find((each) => each.id === message.id) ?? message;
+    if (!now.reactions.some((each) => each.emoji === reacted.emoji && each.people.includes(reacted.by))) return null;
+    return { server, chat };
+  };
+  const show = () => {
+    const now = tells();
+    if (!now) return;
+    const { server, chat } = now;
+    const text = bodyOf(message);
+    const title = titleOf(server, chat, { ...message, author: reacted.by });
+    const body = text ? t('chat.reactedTo', { emoji: reacted.emoji, text }) : t('chat.reacted', { emoji: reacted.emoji });
+    // One a message, its tag short: a toast's tag is at most 64 characters, a message's id may be.
+    void invoke('chat_notify', { alert: { title, body, more: null, tag: `r${groupOf(message.id)}`, group: groupOf(url), href: chatLink(url, chat.id, message.id) } }).catch(() => undefined);
+  };
+  const first = tells();
+  if (!first) return;
+  if (!store.inUse() && first.server.active.includes(first.server.me)) window.setTimeout(show, ELSEWHERE_MS);
+  else show();
+}
+
 /** The notifications of conversations read, here or on another device, go. */
 function takeAwayRead() {
   const servers = store.read().servers;
@@ -317,7 +350,9 @@ function takeAwayRead() {
           const server = servers.find((each) => each.url === url);
           if (!server?.chats.length) return;
           for (const notification of await registration.getNotifications()) {
-            const chat = server.chats.find((each) => each.id === (notification.data as { chat?: string } | null)?.chat);
+            const data = notification.data as { chat?: string; reaction?: boolean } | null;
+            // A reaction's is not unread: reading its conversation does not take it away.
+            const chat = data?.reaction ? undefined : server.chats.find((each) => each.id === data?.chat);
             if (chat && chat.alerts === 0) notification.close();
           }
         }),
@@ -408,6 +443,7 @@ export function startNotifications() {
   if (started) return;
   started = true;
   store.onNew = heardNew;
+  store.onReacted = heardReaction;
   let servers = '';
   store.subscribe(() => {
     const now = store.read();

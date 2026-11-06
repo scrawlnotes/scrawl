@@ -457,7 +457,7 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
   const [reacting, setReacting] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   // On a phone: a message held, lifted over the dimmed page as it showed.
-  const [lifted, setLifted] = useState<{ message: ChatMessage; html: string } | null>(null);
+  const [lifted, setLifted] = useState<{ message: ChatMessage; html: string; top: number } | null>(null);
   // Files dragged over the conversation go in the box to write in.
   const [dropping, setDropping] = useState(false);
   const addFiles = useRef<((files: File[]) => void) | null>(null);
@@ -480,9 +480,13 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
     });
   }, [target?.at]);
 
-  // On opening: at the line before what is new, else at the end. After that, at the end while it was there.
+  // On opening: at the line before what is new, else at the end. After that, at the end while it was there, and after a message of one's own.
+  const sentCount = useRef(pending.length);
   useLayoutEffect(() => {
     const box = scroller.current;
+    const sent = pending.length > sentCount.current;
+    sentCount.current = pending.length;
+    if (sent) atEnd.current = true;
     if (!box || !messages.length || aiming.current) return;
     if (!placed.current) {
       placed.current = true;
@@ -493,6 +497,26 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
     }
     if (atEnd.current) box.scrollTop = box.scrollHeight;
   }, [messages.length, pending.length, lastSeq]);
+
+  // Made smaller (a phone's keyboard, the box written in growing) or longer (a picture come in): still at the end if it was.
+  const height = useRef(0);
+  useEffect(() => {
+    const box = scroller.current;
+    if (!box) return;
+    const keep = () => {
+      height.current = box.clientHeight;
+      if (atEnd.current && placed.current && !aiming.current) box.scrollTop = box.scrollHeight;
+    };
+    const watch = new ResizeObserver(keep);
+    watch.observe(box);
+    box.addEventListener('load', keep, true);
+    box.addEventListener('loadedmetadata', keep, true);
+    return () => {
+      watch.disconnect();
+      box.removeEventListener('load', keep, true);
+      box.removeEventListener('loadedmetadata', keep, true);
+    };
+  }, []);
 
   // What is on screen at the end, with the window in front, is read.
   const readNow = () => {
@@ -513,7 +537,8 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
   const onScroll = () => {
     const box = scroller.current;
     if (!box) return;
-    atEnd.current = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+    // A scroll that comes while it is being made smaller is not the reader's: the resize above keeps it.
+    if (box.clientHeight === height.current) atEnd.current = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
     readNow();
     if (box.scrollTop < 120 && server.older[chat.id] !== false && messages[0] && messages[0].seq > 1) {
       const before = box.scrollHeight;
@@ -732,7 +757,7 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
                 chipState={links.stateOf}
                 onLink={onLink}
                 {...(phone && {
-                  onHold: (row: HTMLElement) => !message.deleted && setLifted({ message, html: row.outerHTML }),
+                  onHold: (row: HTMLElement) => !message.deleted && setLifted({ message, html: row.outerHTML, top: row.getBoundingClientRect().top }),
                   onSwipe: () => !message.deleted && setReplyTo(message),
                 })}
               />
@@ -774,6 +799,8 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
       {lifted && (
         <PhoneHold
           html={lifted.html}
+          top={lifted.top}
+          mine={(messages.find((each) => each.id === lifted.message.id) ?? lifted.message).reactions.filter((each) => each.people.includes(server.me)).map((each) => each.emoji)}
           actions={[
             { label: t('chat.reply'), icon: 'reply', run: () => setReplyTo(lifted.message) },
             { label: t('chat.forward'), icon: 'forward', run: () => setForwarding(lifted.message) },
@@ -1057,19 +1084,37 @@ function suppressClick() {
  * On a phone, a message held (design/chat.md, 8.2; design/mockups.html, Messaging): it lifts over
  * the dimmed page, the reactions above it, every emoji behind +, and what can be done under it.
  */
-function PhoneHold({ html, actions, onReact, onClose }: { html: string; actions: MenuItem[]; onReact: (emoji: string) => void; onClose: () => void }) {
+function PhoneHold({ html, top, mine, actions, onReact, onClose }: { html: string; top: number; mine: string[]; actions: MenuItem[]; onReact: (emoji: string) => void; onClose: () => void }) {
   const [all, setAll] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  // The lifted copy stays over the message itself; the whole moves only as far as the screen asks, again as the emoji list grows.
+  useLayoutEffect(() => {
+    const hold = box.current;
+    const layer = hold?.parentElement;
+    if (!hold || !layer) return;
+    const place = () => {
+      const pad = getComputedStyle(layer);
+      const above = hold.querySelector<HTMLElement>('.chp-lift')?.offsetTop ?? 0;
+      const lowest = layer.clientHeight - parseFloat(pad.paddingBottom) - hold.offsetHeight;
+      hold.style.top = `${Math.max(parseFloat(pad.paddingTop), Math.min(top - above, lowest))}px`;
+    };
+    place();
+    const watch = new ResizeObserver(place);
+    watch.observe(hold);
+    return () => watch.disconnect();
+  }, [top]);
   return (
     <div className="chp-hold-layer" onClick={onClose}>
-      <div className="chp-hold" onClick={(event) => event.stopPropagation()}>
+      <div className="chp-hold" ref={box} onClick={(event) => event.stopPropagation()}>
         {all ? (
           <div className="chp-allrx">
             <ReactionPicker onPick={onReact} onClose={() => setAll(false)} startWide />
           </div>
         ) : (
           <div className="chp-rxbar">
-            {QUICK.map((emoji) => (
-              <button type="button" key={emoji} onClick={() => onReact(emoji)}>
+            {/* Yours marked, as under the message, one from the full list too: a tap takes it off. */}
+            {[...QUICK, ...mine.filter((emoji) => !QUICK.includes(emoji))].map((emoji) => (
+              <button type="button" key={emoji} className={mine.includes(emoji) ? 'me' : undefined} aria-pressed={mine.includes(emoji)} onClick={() => onReact(emoji)}>
                 {emoji}
               </button>
             ))}

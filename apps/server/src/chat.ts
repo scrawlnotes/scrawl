@@ -159,7 +159,7 @@ interface FileRow {
 }
 
 /** What a device hears on the live channel: a message as it now is, or that something else changed. */
-export type ChatEvent = { type: 'message'; chat: string; message: Message } | { type: 'chat'; cursor: number };
+export type ChatEvent = { type: 'message'; chat: string; message: Message; reacted?: { by: string; emoji: string } } | { type: 'chat'; cursor: number };
 
 const MESSAGE_ID = /^[A-Za-z0-9_-]{8,64}$/;
 const HASH = /^[0-9a-f]{64}$/;
@@ -606,7 +606,12 @@ export class Chats {
       if (Number(done.changes) > 0) this.db.prepare('UPDATE messages SET rev = ? WHERE id = ?').run(this.nextRev(), message.id);
       return this.messageRow(message.id)!;
     });
-    return row.rev === message.rev ? this.messagesOf([row])[0]! : this.told(chat, row);
+    if (row.rev === message.rev) return this.messagesOf([row])[0]!;
+    // One put on: the live channel says by whom, for the desktop's notification, and the push hears of it.
+    const reacted = on ? { by: by.id, emoji } : undefined;
+    const told = this.told(chat, row, reacted);
+    if (reacted) this.onReacted?.(chat.id, row.id, by.id, emoji);
+    return told;
   }
 
   /** Someone read up to a message; never back. Their other devices hear it, and in a direct message the others, for Seen. */
@@ -765,6 +770,31 @@ export class Chats {
 
   /** Told of every new message, after those in its conversation heard it: the push (design/chat.md, 11.4). */
   onSent: ((chat: string, message: string) => void) | null = null;
+  /** Told of a reaction put on a message: the push to whoever wrote it (design/chat.md, 3.6). */
+  onReacted: ((chat: string, message: string, by: string, emoji: string) => void) | null = null;
+
+  /**
+   * Whom a reaction tells: whoever wrote the message, when someone else put it on, it is still
+   * there, they are still in the conversation and have not turned it Off. An agent's message tells
+   * no one; a deleted one, or one in an archived room, neither.
+   */
+  reactionAlertFor(messageId: string, by: string, emoji: string): string | null {
+    const row = this.messageRow(messageId);
+    if (!row || row.deleted_at !== null || row.agent_id !== null || row.author_id === by) return null;
+    const chat = this.row(row.chat_id);
+    if (chat.archived_at !== null || !this.listeners(chat).includes(row.author_id)) return null;
+    if (!this.db.prepare('SELECT 1 FROM reactions WHERE message_id = ? AND account_id = ? AND emoji = ?').get(row.id, by, emoji)) return null;
+    const notify = this.member(chat.id, row.author_id)?.notify ?? DEFAULT_NOTIFY[chat.kind];
+    return notify === 'off' ? null : row.author_id;
+  }
+
+  /** A reaction as its notification says it: who put it on, and where, as a message's; then the emoji and what it is on. */
+  reactionContent(messageId: string, account: string, by: string, emoji: string): { title: string; body: string; direct: boolean } | null {
+    const row = this.messageRow(messageId);
+    const said = this.pushContent(messageId, account);
+    if (!row || !said) return null;
+    return { title: this.titleFor(this.row(row.chat_id), by, account), body: said.body ? `Reacted ${emoji} to: "${said.body}"` : `Reacted ${emoji}`, direct: said.direct };
+  }
 
   /**
    * Whom a message tells (design/chat.md, 6.1): those in its conversation but whoever wrote it, who
@@ -801,17 +831,7 @@ export class Chats {
     const row = this.messageRow(messageId);
     if (!row || row.deleted_at !== null) return null;
     const chat = this.row(row.chat_id);
-    const nameOf = (id: string) => {
-      const found = this.db.prepare('SELECT name, email FROM accounts WHERE id = ?').get(id) as { name: string; email: string } | undefined;
-      return found ? found.name || found.email : 'Someone';
-    };
-    const author = nameOf(row.author_id);
-    let title = author;
-    if (chat.kind !== 'direct') title = `${author} · #${chat.name}`;
-    else {
-      const others = this.listeners(chat).filter((each) => each !== account);
-      if (others.length > 1) title = `${author} · ${others.map((each) => nameOf(each).split(/\s+/)[0]).join(', ')}`;
-    }
+    const title = this.titleFor(chat, row.author_id, account);
     let body = plainOf(row.body);
     if (!body) {
       const file = this.filesOf([row.id]).get(row.id)?.[0];
@@ -821,6 +841,18 @@ export class Chats {
       else if (file) body = `File: ${file.name}`;
     }
     return { title, body: body.length > 140 ? `${body.slice(0, 139)}…` : body, direct: chat.kind === 'direct' };
+  }
+
+  /** A notification's title for someone: who did it, and where unless it is a direct message of two. */
+  private titleFor(chat: ChatRow, who: string, account: string): string {
+    const nameOf = (id: string) => {
+      const found = this.db.prepare('SELECT name, email FROM accounts WHERE id = ?').get(id) as { name: string; email: string } | undefined;
+      return found ? found.name || found.email : 'Someone';
+    };
+    const name = nameOf(who);
+    if (chat.kind !== 'direct') return `${name} · #${chat.name}`;
+    const others = this.listeners(chat).filter((each) => each !== account);
+    return others.length > 1 ? `${name} · ${others.map((each) => nameOf(each).split(/\s+/)[0]).join(', ')}` : name;
   }
 
   /** What is unread and tells someone, in every conversation: the app's badge. */
@@ -1025,9 +1057,9 @@ export class Chats {
   }
 
   /** A message as it now is, told to everyone in its conversation. */
-  private told(chat: ChatRow, row: MessageRow): Message {
+  private told(chat: ChatRow, row: MessageRow, reacted?: { by: string; emoji: string }): Message {
     const message = this.messagesOf([row])[0]!;
-    this.tell(this.listeners(chat), { type: 'message', chat: chat.id, message });
+    this.tell(this.listeners(chat), { type: 'message', chat: chat.id, message, ...(reacted && { reacted }) });
     return message;
   }
 

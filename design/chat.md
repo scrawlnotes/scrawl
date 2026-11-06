@@ -128,7 +128,7 @@ Chat sekmesi bütün sunucuları birlikte gösterir: önce her sunucunun space'l
 
 - Üstüne gelince çıkan ilk düğmedir. Altı hızlı tepki vardır (👍 ❤️ 😂 🎉 👀 ✅), sonra aramalı tam liste.
 - Mesajın altında çip olarak durur: emoji ve sayı. Üstüne gelince kimlerin bıraktığı görünür. Kendi tepkin vurguludur, tıklayınca kalkar.
-- Tepki bildirim vermez.
+- Başkasının mesajına koyduğu tepki mesajın sahibine bildirim verir (6.1). Kendi mesajına koyduğun ve kaldırılan tepki vermez.
 
 ### 3.7 Scrawl'la bağ
 
@@ -166,7 +166,8 @@ Chat sekmesi bütün sunucuları birlikte gösterir: önce her sunucunun space'l
 - Public room'da yalnız mention bildirim verir; `general` da public'tir.
 - `@room` room'daki herkese bildirim verir.
 - Her konuşmada üç seçim vardır: All, Mentions, Off. Off'ta bildirim yoktur, okunmamışlar sayıya girmez, ad soluk durur.
-- Kendi mesajın ve tepkiler bildirim vermez. Ajanın mesajı insanınki gibi bildirim verir.
+- Kendi mesajın bildirim vermez. Ajanın mesajı insanınki gibi bildirim verir.
+- Mesajına başkası tepki koyunca yalnız sana bildirim gelir. All'da da Mentions'ta da gelir, Off'ta gelmez. 6.3'teki kurallar geçerlidir; bir dakikalık beklemede tepki kalkarsa gitmez. Ajanın mesajına konan tepki bildirim vermez. Tepki okunmamış sayılmaz, sayıyı artırmaz.
 
 ### 6.2 Nereye
 
@@ -190,6 +191,7 @@ Bizim tarafımızda hiçbir şey çalışmaz. Sunucu kendi anahtarını üretir 
 - Başlık: DM'de kişinin adı, room'da "Mert Kaya · #dev", grup DM'de "Mert Kaya · Mert, Elif".
 - Gövde: mesajın ilk 140 karakteri, markdown işaretleri olmadan. Resimde "Photo", seste "Voice message · 0:14", dosyada "File: release-notes.pdf".
 - Aynı konuşmadan gelenler tek bildirimde toplanır: sonuncusu görünür, altında "3 new messages".
+- Tepki: başlıkta tepkiyi koyanın adı, mesajdaki gibi yeriyle; gövdede `Reacted 👍 to: "Good morning"`. Konuşmanın bildiriminin yerini almaz, yanında durur; aynı mesaja gelen yeni tepki öncekinin yerine geçer. Konuşma okununca kalkmaz.
 - Bildirime tıklamak Chat'i o mesajda açar.
 
 ### 6.5 Sayı
