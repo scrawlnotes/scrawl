@@ -25,6 +25,7 @@ import { ActionSheet, Empty, useViewport } from './sheets';
 import { LabelsPage } from './labels';
 import type { ChatLinks } from './Chat';
 import type { MenuItem } from './dialogs';
+import { log } from './log';
 import type { InfoTab } from './ChatRooms';
 import { store as chatStore, useChat } from './chatStore';
 import { partName, PhoneChatConversation, PhoneChatInfo, PhoneChatList, PhoneChatPart } from './PhoneChat';
@@ -862,6 +863,49 @@ export function Phone(props: PhoneProps) {
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(timer);
+  }, []);
+
+  // For a while: an editor focused writes in Settings › Logs what the keyboard is told, to see on an
+  // iPhone why Chat's box starts in lower case where a note starts with a capital.
+  useEffect(() => {
+    const told = (event: FocusEvent) => {
+      const content = (event.target as Element | null)?.closest?.('.cm-content');
+      if (!(content instanceof HTMLElement)) return;
+      const where = content.closest('.ch-cmp') ? 'chat' : content.closest('.mb-card-holder, .mb-record-holder') ? 'card' : 'note';
+      const say = (when: string) => {
+        const selection = window.getSelection();
+        let before = '-';
+        try {
+          if (selection?.anchorNode && content.contains(selection.anchorNode)) {
+            const range = document.createRange();
+            range.setStart(content, 0);
+            range.setEnd(selection.anchorNode, selection.anchorOffset);
+            before = JSON.stringify(range.toString().slice(-24));
+          }
+        } catch {
+          before = '?';
+        }
+        const style = getComputedStyle(content);
+        const anchor = selection?.anchorNode;
+        log(
+          'info',
+          'focus',
+          [
+            `${where} ${when}`,
+            `autocapitalize ${content.getAttribute('autocapitalize')}`,
+            `before caret ${before}`,
+            `at ${anchor ? (anchor.nodeType === 3 ? 'text' : (anchor as Element).className || anchor.nodeName.toLowerCase()) : '-'}:${selection?.anchorOffset ?? '-'}`,
+            `select ${style.webkitUserSelect || style.userSelect}`,
+            `modify ${style.getPropertyValue('-webkit-user-modify') || '-'}`,
+            `focused ${document.activeElement === content}`,
+          ].join(' · '),
+        );
+      };
+      say('now');
+      window.setTimeout(() => say('later'), 400);
+    };
+    document.addEventListener('focusin', told);
+    return () => document.removeEventListener('focusin', told);
   }, []);
 
   // The keyboard came up, or grew, over what is typed in: the cursor is brought above it, once the
