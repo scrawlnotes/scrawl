@@ -7,8 +7,11 @@ const VERSION = '__VERSION__';
 const FILES = __FILES__;
 const CACHE = `scrawl-${VERSION}`;
 
+// The page is asked for as a browser asks for it: only then does Cloudflare put its Web Analytics
+// script in, so that an opening from the device is counted too.
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(FILES)));
+  const requests = FILES.map((file) => (file === '/' ? new Request(file, { headers: { Accept: 'text/html' } }) : file));
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(requests)));
 });
 
 // The version taking over drops the files of the ones before. The page opening waits only for it
