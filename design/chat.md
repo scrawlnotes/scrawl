@@ -252,7 +252,7 @@ Mockup: `design/mockups.html`, Mesajlaşma.
 ### 8.2 Telefon
 
 - Tab bar'da beş sekme: Recent, Browse, Today, Search, Chat. Chat'te rozet. Sunucu space'i yoksa Chat sekmesi yoktur.
-- Chat sayfası: büyük başlık, arama, bildirim şeridi, space'ler ve Direct. + düğmesi New message ve New room'u açar.
+- Chat sayfası: büyük başlık ve yanında +, arama, bildirim şeridi, çipler ve room'larla DM'lerin tek listesi (26. bölüm). + New message, New room ve Browse rooms'u açar.
 - Konuşma bir sayfadır. Başlığa dokununca Info sayfası açılır.
 - Mesaja basılı tutunca mesaj öne çıkar; üstte tepkiler, altta işlemler. Sağa kaydırmak cevaplar.
 - Ses kaydı: basılı tut, sola kaydır, yukarı kaydır (4).
@@ -652,3 +652,20 @@ Kullanıcı iPhone'da denedi: ekran klavyeyle bozuluyordu, boş hâller (her spa
 - **Uzun mesaj:** telefonda on iki satırı geçen mesaj katlanır, altında Show more; açılınca Show less. Gönderilmeyi bekleyen mesaj da katlanır. Bilgisayarda katlanmaz.
 - **Kenar çubuğu:** Upcoming'in altında bir ayırıcı çizgi var; Chat ve altındakiler ondan sonra.
 - **Denenmeyen:** gerçek iPhone'da klavye, odak ve büyümenin gittiği; denemede tarayıcı odağı bildirmediği için kart hâli yazı varken görüldü. Yalnız olunan bir sunucuda Invite people satırı bu ortamda görülmedi (denemede herkesin bir arkadaşı var).
+
+## 26. Telefonda tek liste (6 Kasım)
+
+Kullanıcı iPhone'da listeyi "çok kullanışsız" buldu. Dört space'in her biri bir başlık ve tek bir boş ya da az kullanılan general satırı alıyordu; ekranın yarısından çoğu buna gidiyordu. Bugün gelen DM en alttaydı, sağ alttaki + onun saatinin üstüne biniyordu. Satırda yalnız "general" yazdığı için hangi space olduğu başlığa bakmadan anlaşılmıyordu.
+
+Piyasada: WhatsApp tek liste, en yeni üstte, üstte All, Unread, Groups çipleri. Teams'in telefon listesinde Unread, Chats, Channels çipleri ve en son mesaja göre sıra. Slack telefonda DM'leri ayrı sekmeye aldı, Home'da okunmamışlar filtresi var. Hiçbiri space başına başlık açıp tek satır koymuyor.
+
+Taslak: `design/mockups.html`, Mesajlaşma › **Telefon tek liste** (6 Kasım onaylandı). Bu bölüm 25. bölümdeki telefon listesinin yerine geçer; bilgisayardaki liste değişmez.
+
+- **Tek liste:** room'lar ve DM'ler birlikte, son mesajı en yeni olan üstte. Satır öncekiyle aynı: işaret ya da yüz, ad, son mesaj ya da taslak, saat, sayı, sessizse zil.
+- **Room'un space'i:** adın yanında soluk " · Klinitra". Kişinin Chat'li tek space'i varsa yazılmaz. Birden çok sunucu varsa DM'in adının yanında sunucunun adı yazar (eski "Direct messages on …" başlığının yerine).
+- **Çipler:** arama kutusunun altında All, Unread, Rooms, Direct. Unread okunmamışı olan konuşmalardır (sessizdekiler dahil). Seçilen çip bu cihazda kalır. Unread boşsa listede "You're all caught up." yazar.
+- **No messages yet:** listenin sonunda bu başlığın altında hiç mesajı olmayan room'lar (ada göre) ve henüz yazılmamış kişiler (en çok beş, "In OZBI · say hello"). Kimseyle space paylaşılmıyorsa orada Invite people. Rooms çipinde yalnız room'lar, Direct'te yalnız kişiler kalır.
+- **+ başlıkta:** "Chat" yazısının sağında. Sağ alttaki + kalkar, hiçbir satırın üstüne binmez. Menü aynı: New message, New room, Browse rooms.
+- **Bildirim şeridi** arama kutusuyla çiplerin arasında, önceki gibi.
+- **Kod:** yalnız web. `PhoneChat.tsx` (`PhoneChatList`: tek liste, çipler, No messages yet), `Phone.tsx` (Chat'te FAB yerine başlıktaki +), stiller ve metinler. Çipin seçimi `localStorage`'da. Sunucu ve core değişmez.
+- **Deneme:** tarayıcıda telefon boyutunda iki kişiyle: sıra yeni mesajla değişiyor, çipler süzüyor, No messages yet'teki room'a ilk mesaj gidince yukarı çıkıyor, + menüsü açılıyor. Sonra iPhone'da.

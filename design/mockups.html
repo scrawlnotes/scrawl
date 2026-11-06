@@ -3430,6 +3430,9 @@ p { margin: 0; max-width: 68ch; }
 .ch-c .nm.faint { color: var(--m-faint); }
 /* on a phone: a row always has a second line, an empty room says it has nothing yet */
 .chp-c .tx small.none { font-style: italic; }
+.chp-c .tx b .inspc { color: var(--m-faint); font-weight: 400; }
+.mb-head .chp-new { display: grid; flex: none; place-items: center; width: 36px; height: 36px; color: var(--m-accent); }
+.mock .mb-head .chp-new svg { width: 26px; height: 26px; stroke-width: 2.2; }
 .chp-c.addr .chp-ic { background: color-mix(in srgb, var(--m-accent) 16%, var(--m-side)); color: var(--m-accent); }
 .chp-intro { display: flex; flex-direction: column; gap: 10px; padding: 0 16px 18px; }
 .chp-intro .lead { display: grid; place-items: center; width: 60px; height: 60px; border-radius: 14px; background: color-mix(in srgb, var(--m-accent) 16%, var(--m-side)); color: var(--m-accent); font: 600 30px/1 var(--m-mono); }
@@ -5454,6 +5457,7 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-chview="chphone4">Telefon yazarken</button>
         <button type="button" data-chview="chphone5">Telefon liste</button>
         <button type="button" data-chview="chphone6">Telefon oda</button>
+        <button type="button" data-chview="chphone7">Telefon tek liste</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -14078,7 +14082,7 @@ p { margin: 0; max-width: 68ch; }
   };
   CI.belloff = CI.bell.replace('</svg>', '<path d="M4.5 4.5l15 15"/></svg>');
   ICON.chchat = CI.chat;
-  var CH_P = { K: { name: 'Kaan Arslan', c: '#6aa5f0' }, M: { name: 'Mert Kaya', c: '#4cc3a0' }, E: { name: 'Elif Demir', c: '#c792ea' } };
+  var CH_P = { K: { name: 'Kaan Arslan', c: '#6aa5f0' }, M: { name: 'Mert Kaya', c: '#4cc3a0' }, E: { name: 'Elif Demir', c: '#c792ea' }, A: { name: 'Ahmet Yıldız', c: '#e0a458' } };
   /** A face: a person round in their own color, an agent square; the green dot while they use Scrawl. */
   function chF(ini, o) {
     o = o || {};
@@ -14515,12 +14519,45 @@ p { margin: 0; max-width: 68ch; }
         chnSheet(chnHead('Cancel', 'Browse rooms'), pills + '<div class="mb-search chn-find">' + ICON.find + 'Find a room</div><div class="chn-list">' + rooms + '</div>'))
     ].join('');
   }
+  // Round 4 (Nov 6): one list, the latest first, as WhatsApp's and Teams' phone lists. A room carries
+  // its space after its name; All, Unread, Rooms and Direct over the list; the rooms with no message
+  // and the people to write to at the foot, under No messages yet; the + in the heading, over no row.
+  function chpOne(chip, rows, foot) {
+    var chips = ['All', 'Unread', 'Rooms', 'Direct'].map(function (c) { return '<span' + (c === chip ? ' class="on"' : '') + '>' + c + '</span>'; }).join('');
+    return mbPage('<div class="mb-head root split"><div><h2>Chat</h2></div><span class="chp-new">' + ICON.plus + '</span></div>' +
+      '<div class="mb-searchbar">' + ICON.find + 'Search messages</div><div class="chn-spaces">' + chips + '</div>',
+      '<div class="chp-scroll">' + rows + (foot || '') + '</div>');
+  }
+  function chpIn(name, space) { return name + '<span class="inspc"> · ' + space + '</span>'; }
+  var CHP_ONE = {
+    founders: chpC({ name: chpIn('founders', 'Scrawl'), priv: true, un: true, n: 2, last: 'Mert: Two investor intros came in…', t: '11:52' }),
+    elif: chpC({ dm: 'E', online: true, name: 'Elif Demir', un: true, n: 2, last: 'Sure, sending one now', t: '11:49' }),
+    dev: chpC({ name: chpIn('dev', 'Scrawl'), last: 'Mert: Voice message · 0:14', t: '11:43' }),
+    releases: chpC({ name: chpIn('releases', 'Scrawl'), off: true, last: 'Claude Code: 0.2.21 is live', t: '11:20' }),
+    design: chpC({ name: chpIn('design', 'Scrawl'), last: 'Elif: New icons for the tab bar', t: '10:05' }),
+    mert: chpC({ dm: 'M', online: true, name: 'Mert Kaya', last: 'You: Merged, thanks', t: '9:30' }),
+    klinitra: chpC({ name: chpIn('general', 'Klinitra'), last: 'Mert: Is the demo on Friday?', t: 'Mon' }),
+    game: chpC({ name: chpIn('general', 'Game Development'), last: 'You: test', t: 'Oct 24' })
+  };
+  var CHP_ONE_FOOT = '<div class="mb-sec">No messages yet</div>' +
+    chpC({ name: chpIn('general', 'OZBI'), last: '<span class="none">No messages yet</span>' }) +
+    chpC({ dm: 'A', name: 'Ahmet Yıldız', last: 'In OZBI · say hello' });
+  function chPhone7() {
+    var o = CHP_ONE;
+    var all = o.founders + o.elif + o.dev + o.releases + o.design + o.mert + o.klinitra + o.game;
+    return [
+      mbPhone('All: odalar ve DM’ler tek listede, en yeni üstte; oda adının yanında space’i', chpOne('All', all, CHP_ONE_FOOT), chTabs(4)),
+      mbPhone('Aşağı kaydırılmış: mesajı olmayanlar ve yazılmamış kişiler en altta', chpOne('All', o.releases + o.design + o.mert + o.klinitra + o.game, CHP_ONE_FOOT), chTabs(4)),
+      mbPhone('Unread: yalnız okunmamışlar; Rooms ve Direct aynı biçimde süzer', chpOne('Unread', o.founders + o.elif), chTabs(4)),
+      mbPhone('+ başlıkta: New message, New room, Browse rooms', chpOne('All', all, CHP_ONE_FOOT), chTabs(4) + CHN_PLUS)
+    ].join('');
+  }
   function renderCh(section, view) {
     var mock = section.querySelector('.mock');
     mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
-    if (/^chphone[2-6]?$/.test(view)) {
+    if (/^chphone[2-7]?$/.test(view)) {
       mock.className = 'mock dir-a phones mbs chm four';
-      mock.innerHTML = { chphone: chPhone, chphone2: chPhone2, chphone3: chPhone3, chphone4: chPhone4, chphone5: chPhone5, chphone6: chPhone6 }[view]();
+      mock.innerHTML = { chphone: chPhone, chphone2: chPhone2, chphone3: chPhone3, chphone4: chPhone4, chphone5: chPhone5, chphone6: chPhone6, chphone7: chPhone7 }[view]();
     } else {
       mock.className = 'mock dir-a wider chm';
       mock.innerHTML = CH_VIEWS[view]();

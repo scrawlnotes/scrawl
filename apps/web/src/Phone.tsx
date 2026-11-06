@@ -1286,7 +1286,15 @@ export function Phone(props: PhoneProps) {
     const nav = below ? { back, onBack: pop } : undefined;
     if (page.kind === 'root' && of === 'chat') {
       return (
-        <PageFrame title={titleOf(page, of)}>
+        <PageFrame
+          title={titleOf(page, of)}
+          side={
+            // Chat's + is in its heading, over no row (design/chat.md, 26).
+            <button type="button" className="mb-ib" aria-label={t('chat.add')} title={t('chat.add')} onClick={chatAdd}>
+              <Icon name="plus" />
+            </button>
+          }
+        >
           <PhoneChatList
             onOpen={(url, id) => push({ kind: 'chatConv', url, chat: id })}
             onSearch={() => push({ kind: 'chatSearch' })}
@@ -1724,8 +1732,6 @@ export function Phone(props: PhoneProps) {
           props.quick.onNew();
           push({ kind: 'quickNote', path: null });
         }
-      : top.kind === 'root' && place === 'chat'
-      ? (chatAdd as () => void)
       : top.kind === 'root' && place === 'today'
       ? () => props.onAdd(due === 'today' ? TODAY : UPCOMING)
       : (top.kind === 'root' && place !== 'search' && place !== 'chat') || top.kind === 'folder'
@@ -1762,7 +1768,7 @@ export function Phone(props: PhoneProps) {
         })}
       </div>
       {fab && (
-        <button type="button" className="mb-fab" aria-label={place === 'chat' ? t('chat.add') : t('phone.create')} title={place === 'chat' ? t('chat.add') : t('phone.create')} onClick={fab}>
+        <button type="button" className="mb-fab" aria-label={t('phone.create')} title={t('phone.create')} onClick={fab}>
           <Icon name="plus" />
         </button>
       )}

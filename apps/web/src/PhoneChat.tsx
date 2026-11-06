@@ -1,6 +1,6 @@
 import { type ChatInfo, type ChatMessage, plainText } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
-import { type MouseEvent, useEffect } from 'react';
+import { type MouseEvent, useEffect, useState } from 'react';
 import { type ChatLinks, Conversation } from './Chat';
 import { Face, namesOf, others, shortDay, timeOf, titleOf } from './ChatFaces';
 import { clock } from './chatMedia';
@@ -56,7 +56,34 @@ function PhoneLead({ chat, server, size = 'list' }: { chat: ChatInfo; server: Ch
   );
 }
 
-/** Chat's first page: each space's rooms by name, then the direct messages, the latest first; each with its latest message. */
+/** Which conversations the list shows: all, the ones with something unread, the rooms, the direct messages. */
+type Chip = 'all' | 'unread' | 'rooms' | 'direct';
+const CHIPS: Chip[] = ['all', 'unread', 'rooms', 'direct'];
+const CHIP = 'scrawl.chatChip';
+
+/** The chip chosen on this device, else All. */
+function loadChip(): Chip {
+  try {
+    const kept = localStorage.getItem(CHIP);
+    return CHIPS.includes(kept as Chip) ? (kept as Chip) : 'all';
+  } catch {
+    return 'all';
+  }
+}
+
+function saveChip(chip: Chip) {
+  try {
+    localStorage.setItem(CHIP, chip);
+  } catch {
+    // Not kept; the list opens on All next time.
+  }
+}
+
+/**
+ * Chat's first page (design/chat.md, 26): the rooms and the direct messages in one list, the latest
+ * message first, a room with its space after its name; All, Unread, Rooms and Direct over it. The
+ * conversations with no message and the people to write to come last, under No messages yet.
+ */
 export function PhoneChatList({ onOpen, onSearch, onWrite, onInvite }: {
   onOpen: (url: string, chat: string) => void;
   onSearch: () => void;
@@ -66,9 +93,20 @@ export function PhoneChatList({ onOpen, onSearch, onWrite, onInvite }: {
   onInvite: () => void;
 }) {
   const snapshot = useChat();
-  const many = snapshot.servers.length > 1;
+  const [chip, setChip] = useState(loadChip);
   if (!snapshot.servers.length) return <p className="chp-none">{t('chat.loading')}</p>;
-  const row = (server: ChatServer, chat: ChatInfo, nameOf: (id: string) => string) => {
+  const many = snapshot.servers.length > 1;
+  const shown = snapshot.servers.flatMap((server) => server.chats.filter((chat) => !chat.hidden && chat.archived === null).map((chat) => ({ server, chat })));
+  // A room's space is said only when there is more than one to tell apart.
+  const spaced = new Set(shown.filter(({ chat }) => chat.kind !== 'direct' && chat.space).map(({ server, chat }) => `${server.url} ${chat.space}`)).size > 1;
+  const fits = ({ chat }: { chat: ChatInfo }) =>
+    chip === 'unread' ? chat.unread > 0 : chip === 'rooms' ? chat.kind !== 'direct' : chip === 'direct' ? chat.kind === 'direct' : true;
+  const listed = shown.filter(fits);
+  const latest = listed.filter(({ chat }) => chat.last).sort((a, b) => b.chat.last!.at - a.chat.last!.at);
+  const empty = chip === 'unread' ? [] : listed.filter(({ chat }) => !chat.last).sort((a, b) => a.chat.name.localeCompare(b.chat.name, locale()));
+  const people = chip === 'all' || chip === 'direct';
+  const row = (server: ChatServer, chat: ChatInfo) => {
+    const nameOf = namesOf(server);
     const off = chat.notify === 'off';
     const draft = draftOf(server.url, chat.id).trim();
     const last = chat.last;
@@ -82,11 +120,15 @@ export function PhoneChatList({ onOpen, onSearch, onWrite, onInvite }: {
           : solo
             ? whatOf(last)
             : `${nameOf(last.author).split(/\s+/)[0]}: ${whatOf(last)}`;
+    const where = chat.kind === 'direct' ? (many ? hostOf(server.url) : null) : spaced ? chat.spaceName || chat.space : null;
     return (
-      <button type="button" key={chat.id} className={off ? 'chp-c off' : 'chp-c'} onClick={() => onOpen(server.url, chat.id)}>
+      <button type="button" key={`${server.url} ${chat.id}`} className={off ? 'chp-c off' : 'chp-c'} onClick={() => onOpen(server.url, chat.id)}>
         <PhoneLead chat={chat} server={server} />
         <span className="tx">
-          <b className={chat.unread > 0 && !off ? 'un' : ''}>{titleOf(chat, server.me)}</b>
+          <b className={chat.unread > 0 && !off ? 'un' : ''}>
+            {titleOf(chat, server.me)}
+            {where && <span className="at"> · {where}</span>}
+          </b>
           {line ? <small className={draft ? 'dr' : ''}>{line}</small> : <small className="none">{t('chat.noMessagesYet')}</small>}
         </span>
         <span className="rt">
@@ -96,50 +138,12 @@ export function PhoneChatList({ onOpen, onSearch, onWrite, onInvite }: {
       </button>
     );
   };
-  return (
-    <div className="chp-list">
-      <button type="button" className="mb-searchbar chp-find" onClick={onSearch}>
-        <Icon name="search" />
-        <span>{t('chat.searchMessages')}</span>
-      </button>
-      <NotifyBanner phone />
-      {snapshot.servers.map((server) => {
-        const nameOf = namesOf(server);
-        const shown = server.chats.filter((chat) => !chat.hidden && chat.archived === null);
-        const spaces = new Map<string, { name: string; chats: ChatInfo[] }>();
-        for (const chat of shown) {
-          if (chat.kind === 'direct' || !chat.space) continue;
-          const group = spaces.get(chat.space) ?? { name: chat.spaceName || chat.space, chats: [] };
-          group.chats.push(chat);
-          spaces.set(chat.space, group);
-        }
-        const direct = shown.filter((chat) => chat.kind === 'direct').sort((a, b) => (b.last?.at ?? b.createdAt) - (a.last?.at ?? a.createdAt));
-        return (
-          <div key={server.url}>
-            {[...spaces.values()]
-              .sort((a, b) => a.name.localeCompare(b.name))
-              .map((group) => (
-                <div key={group.name}>
-                  <div className="mb-sec">{group.name}</div>
-                  {group.chats.sort((a, b) => a.name.localeCompare(b.name)).map((chat) => row(server, chat, nameOf))}
-                </div>
-              ))}
-            <div className="mb-sec chp-dm">{many ? t('chat.directMessagesOn', { server: hostOf(server.url) }) : t('chat.directMessages')}</div>
-            {direct.map((chat) => row(server, chat, nameOf))}
-            {/* The people to write to with no direct message yet; with no one at all, Invite people. */}
-            {notWrittenTo(server)
-              .slice(0, 5)
-              .map((person) => (
-                <button type="button" key={person.id} className="chp-c" onClick={() => onWrite(server.url, person.id)}>
-                  <Face id={person.id} name={person.name} size="lg" online={server.active.includes(person.id)} />
-                  <span className="tx">
-                    <b>{person.name}</b>
-                    <small>{t('chat.sayHello', { space: person.space })}</small>
-                  </span>
-                </button>
-              ))}
-            {teammatesOf(server).length === 0 && (
-              <button type="button" className="chp-c addr" onClick={onInvite}>
+  // The people to write to with no direct message yet; with no one at all, Invite people.
+  const toWrite = people
+    ? snapshot.servers.flatMap((server) =>
+        teammatesOf(server).length === 0
+          ? [
+              <button type="button" key={`${server.url} invite`} className="chp-c addr" onClick={onInvite}>
                 <span className="chp-ic">
                   <Icon name="plus" />
                 </span>
@@ -147,11 +151,53 @@ export function PhoneChatList({ onOpen, onSearch, onWrite, onInvite }: {
                   <b>{t('chat.invitePeople')}</b>
                   <small>{t('chat.aloneSoFar')}</small>
                 </span>
-              </button>
-            )}
-          </div>
-        );
-      })}
+              </button>,
+            ]
+          : notWrittenTo(server)
+              .slice(0, 5)
+              .map((person) => (
+                <button type="button" key={`${server.url} ${person.id}`} className="chp-c" onClick={() => onWrite(server.url, person.id)}>
+                  <Face id={person.id} name={person.name} size="lg" online={server.active.includes(person.id)} />
+                  <span className="tx">
+                    <b>{person.name}</b>
+                    <small>{t('chat.sayHello', { space: person.space })}</small>
+                  </span>
+                </button>
+              )),
+      )
+    : [];
+  const foot = [...empty.map(({ server, chat }) => row(server, chat)), ...toWrite];
+  return (
+    <div className="chp-list">
+      <button type="button" className="mb-searchbar chp-find" onClick={onSearch}>
+        <Icon name="search" />
+        <span>{t('chat.searchMessages')}</span>
+      </button>
+      <NotifyBanner phone />
+      <div className="chn-spaces chp-chips" role="tablist" aria-label={t('chat.show')}>
+        {CHIPS.map((each) => (
+          <button
+            type="button"
+            role="tab"
+            key={each}
+            aria-selected={each === chip}
+            onClick={() => {
+              setChip(each);
+              saveChip(each);
+            }}
+          >
+            {t(`chat.chip.${each}`)}
+          </button>
+        ))}
+      </div>
+      {latest.map(({ server, chat }) => row(server, chat))}
+      {chip === 'unread' && !latest.length && <p className="chp-none">{t('chat.caughtUp')}</p>}
+      {foot.length > 0 && (
+        <>
+          <div className="mb-sec">{t('chat.noMessagesYet')}</div>
+          {foot}
+        </>
+      )}
     </div>
   );
 }

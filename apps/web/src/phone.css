@@ -8689,10 +8689,14 @@ body > .mb-lifted {
   background: color-mix(in srgb, var(--sl-fg) 6%, var(--sl-bg));
 }
 
-/* no line between the rows; one over Direct messages, apart from the spaces' rooms (design/mockups.html, Telefon liste) */
-.mb-sec.chp-dm {
-  margin-top: 8px;
-  border-top: 1px solid var(--sl-line);
+/* one list, its chips over it and a room's space after its name (design/chat.md, 26) */
+.chn-spaces.chp-chips {
+  padding: 2px 16px 6px;
+}
+
+.chp-c .tx b .at {
+  color: var(--sl-faint);
+  font-weight: 400;
 }
 
 .chp-ic {
