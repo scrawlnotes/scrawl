@@ -4,11 +4,15 @@ The desktop app's versions. The notes of each go on its GitHub release and into 
 
 ## 0.1.26
 
-Chat's messages easier to read.
+Help, a picture of you, and Chat easier to read.
 
-- Messages are set as in Slack: 15 px words on 22 px lines, 36 px faces, and a little more room between one person's messages.
-- The time shown beside a message as you point at it stays on one line.
+- Help, at the foot of the sidebar under Settings: how each part of Scrawl works, every app template and the Scrawl server, each in a note of its own, its headings beside it.
+- Settings › Profile takes a picture, moved and scaled to fit its round. It shows wherever your initial did: in Chat, on what is given to you, and in the people of a space, for those you share one with.
+- Chat's messages are set as in Slack: 15 px words on 22 px lines, 36 px faces, and a little more room between one person's messages. The time shown beside a message as you point at it stays on one line.
 - A conversation opened at a message, from a notification or a link, is there at once, with the message marked.
+- A room's Settings come first in its Info: its name, its topic and whether it is public or private. Whoever opened a private room and the space's managers can take someone out of it.
+- Buttons and rows take a click at 28 px, and icons are 16 px.
+- Apps: a subscription cancelled at the end of its term and a contract given notice end by themselves on their day; a project's update, a goal's check-in and an incident's review come to their owner's Today, not everyone's; a meal plan's change leaves the days gone by as they were.
 
 ## 0.1.25
 
