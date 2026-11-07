@@ -18422,8 +18422,13 @@ button.ppl:hover {
   text-align: left;
 }
 
-.ch-vis .o:hover {
+.ch-vis .o:enabled:hover {
   border-color: color-mix(in srgb, var(--sl-accent) 45%, var(--sl-line));
+}
+
+/* a room's, read by whoever does not change it */
+.ch-vis .o:disabled {
+  cursor: default;
 }
 
 .ch-vis .o.on {
@@ -18922,6 +18927,24 @@ button.ppl:hover {
 
 .ch-about .val {
   margin: 0 2px;
+}
+
+/* a room's topic, as tall as what is written in it */
+.ch-about .ch-topic {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 5px 8px;
+  overflow: hidden;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  background: var(--sl-bg);
+  color: var(--sl-fg);
+  font: inherit;
+  resize: none;
+}
+
+.ch-about .ch-topic:focus {
+  border-color: var(--sl-accent);
 }
 
 .ch-about .val.none {

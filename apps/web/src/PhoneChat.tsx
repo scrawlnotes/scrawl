@@ -308,9 +308,9 @@ function InfoPage({ server, chat, menu, say, onPart, onLeft, onClose }: {
       </div>
       <div className="chp-info">
         <div className="mb-group">
+          {!direct && row('settings', t('chat.settings'), '', () => onPart('about'))}
           {chat.joined && row(chat.notify === 'off' ? 'bellOff' : 'bell', t('chat.notifications'), t(`chat.notify.${chat.notify}`), (event) => menu(event, info.notifyItems()))}
           {row('people', t('chat.people'), String(chat.members.length), () => onPart('people'))}
-          {!direct && row('info', t('chat.about'), '', () => onPart('about'))}
         </div>
         <div className="cap">
           <span>
@@ -387,4 +387,4 @@ function PartPage({ server, chat, tab, say, onJump }: { server: ChatServer; chat
 
 /** What a part of Info is called, as its page's title. */
 export const partName = (tab: InfoTab) =>
-  ({ about: t('chat.about'), people: t('chat.people'), media: t('chat.media'), files: t('chat.files'), voice: t('chat.voiceTab'), links: t('chat.links') })[tab];
+  ({ about: t('chat.settings'), people: t('chat.people'), media: t('chat.media'), files: t('chat.files'), voice: t('chat.voiceTab'), links: t('chat.links') })[tab];

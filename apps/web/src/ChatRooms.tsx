@@ -1,6 +1,6 @@
 import { type ChatFile, type ChatInfo, type ChatNotify, type ChatPerson, type ChatShared, ServerError } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
-import { type KeyboardEvent, type MouseEvent, type ReactNode, useEffect, useRef, useState } from 'react';
+import { type KeyboardEvent, type MouseEvent, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AudioPlayer, FileRow, isAudio, isImage, isVideo, Lightbox, useFileUrl } from './ChatParts';
 import { Face, leadOf, shortDay, titleOf } from './ChatFaces';
 import { clock } from './chatMedia';
@@ -522,7 +522,7 @@ export function ChatInfoDialog({ server, chat, tab: first, nameOf, menu, onJump,
   const info = useChatInfo({ server, chat, say, onLeft, onClose });
   const count = (n: number) => (info.shared ? <small>{n}</small> : null);
   const tabs: { id: InfoTab; label: string; n?: ReactNode }[] = [
-    ...(direct ? [] : [{ id: 'about' as const, label: t('chat.about') }]),
+    ...(direct ? [] : [{ id: 'about' as const, label: t('chat.settings') }]),
     { id: 'people', label: t('chat.people'), n: <small>{chat.members.length}</small> },
     { id: 'media', label: t('chat.media'), n: count(info.media.length) },
     { id: 'files', label: t('chat.files'), n: count(info.files.length) },
@@ -585,15 +585,28 @@ export function ChatInfoDialog({ server, chat, tab: first, nameOf, menu, onJump,
   );
 }
 
-/** A room's name and topic, changed where they are by whoever may; who opened it and when. */
+/**
+ * A room's Settings: its name, its topic and whether it is public or private, changed where they are
+ * by whoever may (whoever opened it and its space's managers), the kind after asking; who opened it
+ * and when. The general room is public all the time.
+ */
 function About({ server, chat, nameOf, say }: { server: ChatServer; chat: ChatInfo; nameOf: (id: string) => string; say: (text: string) => void }) {
   const one = store.server(server.url)!;
   const [name, setName] = useState(chat.name);
   const [topic, setTopic] = useState(chat.topic);
+  const [asking, setAsking] = useState<'public' | 'private' | null>(null);
+  const topicBox = useRef<HTMLTextAreaElement>(null);
   useEffect(() => setName(chat.name), [chat.name]);
   useEffect(() => setTopic(chat.topic), [chat.topic]);
+  // The topic's box is as tall as what is written in it.
+  useLayoutEffect(() => {
+    const box = topicBox.current;
+    if (!box) return;
+    box.style.height = 'auto';
+    box.style.height = `${box.scrollHeight + box.offsetHeight - box.clientHeight}px`;
+  }, [topic]);
   const can = chat.manage === true && chat.archived === null;
-  const keep = async (change: { name?: string; topic?: string }) => {
+  const keep = async (change: { name?: string; topic?: string; kind?: 'public' | 'private' }) => {
     try {
       await one.changeRoom(chat.id, change);
     } catch (error) {
@@ -603,16 +616,21 @@ function About({ server, chat, nameOf, say }: { server: ChatServer; chat: ChatIn
       setTopic(chat.topic);
     }
   };
-  // Enter and a click away keep what was written; Esc leaves it as it was.
-  const keys = (was: string, set: (value: string) => void) => (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter') event.currentTarget.blur();
-    else if (event.key === 'Escape') {
+  // Enter and a click away keep what was written, the topic on one line as its room's head shows it;
+  // Esc leaves it as it was.
+  const keys = (was: string, set: (value: string) => void) => (event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+      event.preventDefault();
+      event.currentTarget.blur();
+    } else if (event.key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();
       set(was);
-      window.setTimeout(() => (event.target as HTMLInputElement).blur());
+      window.setTimeout(() => (event.target as HTMLElement).blur());
     }
   };
+  const written = topic.replace(/\s+/g, ' ').trim();
+  const room = `#${chat.name}`;
   return (
     <div className="ch-about">
       <p className="choices-label">{t('chat.roomName')}</p>
@@ -621,6 +639,7 @@ function About({ server, chat, nameOf, say }: { server: ChatServer; chat: ChatIn
           <span className="hs">#</span>
           <input
             maxLength={40}
+            enterKeyHint="done"
             value={name}
             onChange={(event) => setName(event.target.value)}
             onKeyDown={keys(chat.name, setName)}
@@ -632,16 +651,59 @@ function About({ server, chat, nameOf, say }: { server: ChatServer; chat: ChatIn
       )}
       <p className="choices-label">{t('chat.topic')}</p>
       {can ? (
-        <input
+        <textarea
+          ref={topicBox}
+          className="ch-topic"
+          rows={1}
           value={topic}
           maxLength={250}
+          enterKeyHint="done"
           placeholder={t('chat.noTopic')}
           onChange={(event) => setTopic(event.target.value)}
           onKeyDown={keys(chat.topic, setTopic)}
-          onBlur={() => topic.trim() !== chat.topic && void keep({ topic: topic.trim() })}
+          onBlur={() => (written !== chat.topic ? void keep({ topic: written }) : setTopic(chat.topic))}
         />
       ) : (
         <p className={chat.topic ? 'val' : 'val none'}>{chat.topic || t('chat.noTopic')}</p>
+      )}
+      {!chat.general && (
+        <div className="ch-vis" role="radiogroup">
+          {(['public', 'private'] as const).map((each) => (
+            <button
+              type="button"
+              role="radio"
+              aria-checked={chat.kind === each}
+              key={each}
+              className={chat.kind === each ? 'o on' : 'o'}
+              disabled={!can}
+              onClick={() => chat.kind !== each && setAsking(each)}
+            >
+              <span className="rdo" />
+              <span>
+                <b>{each === 'public' ? t('chat.public') : t('chat.private')}</b>
+                <small>{each === 'public' ? t('chat.publicAbout', { space: chat.spaceName }) : t('chat.privateAbout')}</small>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+      {asking === 'private' && (
+        <ConfirmDialog
+          title={t('chat.makePrivateTitle', { name: room })}
+          message={t('chat.makePrivateText', { count: chat.members.length, space: chat.spaceName })}
+          action={t('chat.makePrivate')}
+          onConfirm={() => (setAsking(null), void keep({ kind: 'private' }))}
+          onClose={() => setAsking(null)}
+        />
+      )}
+      {asking === 'public' && (
+        <ConfirmDialog
+          title={t('chat.makePublicTitle', { name: room })}
+          message={t('chat.makePublicText', { space: chat.spaceName })}
+          action={t('chat.makePublic')}
+          onConfirm={() => (setAsking(null), void keep({ kind: 'public' }))}
+          onClose={() => setAsking(null)}
+        />
       )}
       <p className="ch-made">
         {chat.general

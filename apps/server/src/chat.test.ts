@@ -183,6 +183,25 @@ describe('rooms', () => {
     expect((await s.call(s.mert, 'POST', `/chat/${design.id}/messages`, { id: s.id(), body: 'Still here?' })).body.error.code).toBe('archived');
   });
 
+  it('is made private or public by whoever opened it and the space’s managers; the general room stays public', async () => {
+    const s = await start();
+    const design = await s.room(s.mert, 'design', 'public');
+    await s.call(s.elif, 'POST', `/chat/${design.id}/join`);
+    expect((await s.call(s.elif, 'PATCH', `/chat/${design.id}`, { kind: 'private' })).body.error.code).toBe('not-allowed');
+    expect((await s.call(s.mert, 'PATCH', `/chat/${design.id}`, { kind: 'secret' })).body.error.code).toBe('bad-kind');
+    // Made private, those in it stay; Kaan, who manages Acme but did not join it, no longer sees it.
+    expect((await s.call(s.mert, 'PATCH', `/chat/${design.id}`, { kind: 'private' })).body.kind).toBe('private');
+    expect((await s.list(s.elif)).some((chat) => chat.id === design.id)).toBe(true);
+    expect((await s.call(s.kaan, 'GET', `/chat/${design.id}`)).status).toBe(404);
+    // Made public again, he reads it.
+    expect((await s.call(s.mert, 'PATCH', `/chat/${design.id}`, { kind: 'public' })).body.kind).toBe('public');
+    expect((await s.call(s.kaan, 'GET', `/chat/${design.id}`)).status).toBe(200);
+    const general = (await s.list(s.kaan)).find((chat) => chat.general)!;
+    expect((await s.call(s.kaan, 'PATCH', `/chat/${general.id}`, { kind: 'private' })).body.error.code).toBe('general');
+    await s.call(s.mert, 'PATCH', `/chat/${design.id}`, { archived: true });
+    expect((await s.call(s.mert, 'PATCH', `/chat/${design.id}`, { kind: 'private' })).body.error.code).toBe('archived');
+  });
+
   it('takes someone taken out of a space out of its rooms, and does not bring them back when they come back', async () => {
     const s = await start();
     const founders = await s.room(s.kaan, 'founders', 'private', [MERT]);

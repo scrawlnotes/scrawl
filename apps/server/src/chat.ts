@@ -350,24 +350,37 @@ export class Chats {
     return this.info(chat, by.id);
   }
 
-  /** A room's name, topic, or archive, by whoever opened it and the space's managers. The general room is not archived. */
-  change(by: Account, id: string, input: { name?: unknown; topic?: unknown; archived?: unknown }): ChatInfo {
+  /**
+   * A room's name, topic, whether it is public or private, or archive, by whoever opened it and the
+   * space's managers. The general room is public and not archived; an archived room keeps its kind.
+   */
+  change(by: Account, id: string, input: { name?: unknown; topic?: unknown; kind?: unknown; archived?: unknown }): ChatInfo {
     const chat = this.see(id, by.id);
     if (chat.kind === 'direct') throw new Refused(400, 'direct', 'A direct message has no name');
     if (chat.created_by !== by.id && !this.spaces.manages(chat.space_id!, by)) throw new Refused(403, 'not-allowed', 'Only whoever opened the room and the managers of its space change it');
     const name = input.name === undefined ? chat.name : roomName(input.name);
     const topic = input.topic === undefined ? chat.topic : text(input.topic, MAX_TOPIC);
+    let kind = chat.kind;
+    if (input.kind !== undefined && input.kind !== chat.kind) {
+      if (input.kind !== 'public' && input.kind !== 'private') throw new Refused(400, 'bad-kind', 'A room is public or private');
+      if (chat.general) throw new Refused(409, 'general', 'Everyone in a space is in its general room');
+      if (chat.archived_at !== null) throw new Refused(410, 'archived', 'This room is archived');
+      kind = input.kind;
+    }
     let archived = chat.archived_at;
     if (input.archived !== undefined) {
       if (input.archived && chat.general) throw new Refused(409, 'general', 'The general room is not archived');
       archived = input.archived ? (chat.archived_at ?? this.now()) : null;
     }
+    // Made private, whoever only read it in public no longer sees it: they hear that it is gone.
+    const before = kind === 'private' && chat.kind === 'public' ? this.spacePeople(chat.space_id!) : [];
     const changed = transaction(this.db, () => {
       if (name.toLowerCase() !== chat.name.toLowerCase()) this.checkName(chat.space_id!, name, chat.id);
-      this.db.prepare('UPDATE chats SET name = ?, topic = ?, archived_at = ?, rev = ? WHERE id = ?').run(name, topic, archived, this.nextRev(), chat.id);
+      this.db.prepare('UPDATE chats SET name = ?, topic = ?, kind = ?, archived_at = ?, rev = ? WHERE id = ?').run(name, topic, kind, archived, this.nextRev(), chat.id);
       return this.row(chat.id);
     });
-    this.changed(changed);
+    if (before.length) this.tell(before, { type: 'chat', cursor: this.cursor() });
+    else this.changed(changed);
     return this.info(changed, by.id);
   }
 

@@ -193,7 +193,7 @@ export class ChatClient {
     return this.client.json('/chat/rooms', json('POST', room));
   }
 
-  changeRoom(chat: string, change: { name?: string; topic?: string; archived?: boolean }): Promise<ChatInfo> {
+  changeRoom(chat: string, change: { name?: string; topic?: string; kind?: 'public' | 'private'; archived?: boolean }): Promise<ChatInfo> {
     return this.client.json(`/chat/${encodeURIComponent(chat)}`, json('PATCH', change));
   }
 

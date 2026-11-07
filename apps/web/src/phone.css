@@ -9809,23 +9809,59 @@ body > .mb-lifted {
 }
 
 .chp-part .ch-about input,
+.chp-part .ch-about .ch-topic,
 .chp-part .ch-about .ch-name {
   font-size: 16px;
 }
 
-.chp-part .ch-about input {
+.chp-part .ch-about input,
+.chp-part .ch-about .ch-topic {
   box-sizing: border-box;
   width: 100%;
-  padding: 8px 10px;
+  min-height: 44px;
+  padding: 9px 10px;
   border: 1px solid var(--sl-line);
   border-radius: 8px;
   background: var(--sl-bg);
   color: var(--sl-fg);
 }
 
+.chp-part .ch-about .ch-name {
+  min-height: 44px;
+}
+
 .chp-part .ch-about .ch-name input {
+  min-height: 0;
   border: 0;
   padding-left: 2px;
+}
+
+/* Public and Private, one under the other, in the phone's sizes */
+.chp-part .ch-vis {
+  grid-template-columns: 1fr;
+  margin-top: 10px;
+}
+
+.chp-part .ch-vis .o {
+  gap: 12px;
+  min-height: 44px;
+  padding: 11px 12px;
+  border-radius: 10px;
+  font-size: 16px;
+}
+
+.chp-part .ch-vis .o small {
+  font-size: 14px;
+}
+
+.chp-part .ch-vis .rdo {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+}
+
+.chp-part .ch-vis .o.on .rdo {
+  border-width: 5px;
 }
 
 /* the windows of Chat as sheets */
