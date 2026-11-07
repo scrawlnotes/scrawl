@@ -374,7 +374,7 @@ function PartPage({ server, chat, tab, say, onJump }: { server: ChatServer; chat
   const info = useChatInfo({ server, chat, say, onLeft: () => undefined, onClose: () => undefined });
   return (
     <div className="chp-part">
-      <InfoBody server={server} chat={chat} tab={tab} info={info} nameOf={namesOf(server)} say={say} onJump={onJump} />
+      <InfoBody server={server} chat={chat} tab={tab} info={info} nameOf={namesOf(server)} say={say} onJump={onJump} addHere={false} />
     </div>
   );
 }

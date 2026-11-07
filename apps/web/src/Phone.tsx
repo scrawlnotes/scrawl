@@ -25,10 +25,10 @@ import { ActionSheet, Empty, suppressClick, useViewport } from './sheets';
 import { LabelsPage } from './labels';
 import type { ChatLinks } from './Chat';
 import type { MenuItem } from './dialogs';
-import type { InfoTab } from './ChatRooms';
+import { canAddPeople, type InfoTab } from './ChatRooms';
 import { store as chatStore, useChat } from './chatStore';
 import { partName, PhoneChatConversation, PhoneChatInfo, PhoneChatList, PhoneChatPart } from './PhoneChat';
-import { PhoneBrowseRooms, PhoneNewMessage, PhoneNewRoom } from './PhoneChatNew';
+import { PhoneAddPeople, PhoneBrowseRooms, PhoneNewMessage, PhoneNewRoom } from './PhoneChatNew';
 import { titleOf as chatTitle } from './ChatFaces';
 
 // A phone has a layout of its own, after the Phone views of design/mockups.html: a tab bar with
@@ -580,6 +580,8 @@ export function Phone(props: PhoneProps) {
   const places: Place[] = chat.servers.length ? [...PLACES, 'chat'] : PLACES;
   // New room, Browse rooms and New message, from Chat's +, for a server.
   const [making, setMaking] = useState<{ kind: 'newRoom' | 'browse' | 'newMessage'; url: string } | null>(null);
+  // Info › People's Add: the private room people are added to.
+  const [addingTo, setAddingTo] = useState<{ url: string; chat: string } | null>(null);
   // What was typed in Search, kept while another tab is on screen.
   const [query, setQuery] = useState('');
   /** A page sliding in, by its key: it starts at the right edge. */
@@ -1358,8 +1360,12 @@ export function Phone(props: PhoneProps) {
       );
     }
     if (page.kind === 'chatPart') {
+      // People has Add in its bar, as Slack's Members: a private room's space's people.
+      const server = chat.servers.find((each) => each.url === page.url);
+      const room = server?.chats.find((each) => each.id === page.chat);
+      const add = page.tab === 'people' && server && room && canAddPeople(server, room) ? { label: t('chat.add'), run: () => setAddingTo({ url: page.url, chat: page.chat }) } : null;
       return (
-        <PageFrame title={titleOf(page, of)} nav={nav}>
+        <PageFrame title={titleOf(page, of)} nav={add ? { ...nav, action: add } : nav}>
           <PhoneChatPart url={page.url} chat={page.chat} tab={page.tab} say={props.chat.links.say} onJump={(message) => jumpChat(page.url, page.chat, message)} />
         </PageFrame>
       );
@@ -1707,6 +1713,7 @@ export function Phone(props: PhoneProps) {
     if (!chat.servers.find((each) => each.url === goToLink.server)?.chats.some((each) => each.id === goToLink.chat)) return props.chat.links.say(t('chat.linkGone'));
     // What this page had open over it goes, as App's own do (openScrawl).
     setMaking(null);
+    setAddingTo(null);
     setNewFolderIn(null);
     setAddingSpace(false);
     setSpaceMenu(undefined);
@@ -1737,6 +1744,8 @@ export function Phone(props: PhoneProps) {
       }),
     );
   const makingServer = making ? chat.servers.find((each) => each.url === making.url) : undefined;
+  const addingServer = addingTo ? chat.servers.find((each) => each.url === addingTo.url) : undefined;
+  const addingChat = addingTo ? addingServer?.chats.find((each) => each.id === addingTo.chat) : undefined;
 
   const shownPages = leaving?.place === place ? [...stack, leaving.page] : stack;
   // + adds what the page is for: on Today a task due today, on Upcoming one due tomorrow, or on the
@@ -1866,6 +1875,7 @@ export function Phone(props: PhoneProps) {
           ))}
         </nav>
       )}
+      {addingTo && addingServer && addingChat && <PhoneAddPeople server={addingServer} chat={addingChat} onClose={() => setAddingTo(null)} />}
       {making?.kind === 'newRoom' && makingServer && <PhoneNewRoom server={makingServer} space={null} onDone={(made) => openMade(making.url, made)} onClose={() => setMaking(null)} />}
       {making?.kind === 'browse' && makingServer && <PhoneBrowseRooms server={makingServer} space={null} onOpen={(room) => openMade(making.url, room)} onClose={() => setMaking(null)} />}
       {making?.kind === 'newMessage' && makingServer && (

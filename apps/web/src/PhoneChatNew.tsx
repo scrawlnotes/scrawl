@@ -102,8 +102,6 @@ export function PhoneNewRoom({ server, space, onDone, onClose }: { server: ChatS
   const [name, setName] = useState('');
   const [kind, setKind] = useState<'public' | 'private'>('public');
   const [made, setMade] = useState<ChatInfo | null>(null);
-  const [picked, setPicked] = useState<string[]>([]);
-  const [query, setQuery] = useState('');
   const [failed, setFailed] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const chosen = spaces.find((each) => each.id === where);
@@ -135,22 +133,8 @@ export function PhoneNewRoom({ server, space, onDone, onClose }: { server: ChatS
       } else setFailed(t('chat.notMade'));
     }
   };
-  const add = async () => {
-    if (!made || !one || !picked.length || busy) return;
-    setBusy(true);
-    setFailed(null);
-    try {
-      await one.add(made.id, picked);
-      onDone(made);
-    } catch {
-      setFailed(t('chat.notChanged'));
-      setBusy(false);
-    }
-  };
   // Once it is made, closing opens it.
   const close = made ? () => onDone(made) : onClose;
-  const words = fold(query.trim());
-  const nameOf = (id: string) => people.find((person) => person.id === id)?.name ?? '';
 
   return (
     <Sheet label={t('chat.createARoom')} className="chn" onClose={close} onEscape={step === 'kind' ? () => setStep('name') : close}>
@@ -234,43 +218,108 @@ export function PhoneNewRoom({ server, space, onDone, onClose }: { server: ChatS
         </>
       )}
       {step === 'people' && made && (
-        <>
-          <div className="mb-sh three">
-            <button type="button" className="cancel" onClick={() => onDone(made)}>
-              {t('chat.skip')}
-            </button>
-            <b>{t('chat.addPeople')}</b>
-            <button type="button" className="ok" disabled={!picked.length || busy} onClick={() => void add()}>
-              {t('chat.add')}
-            </button>
-          </div>
-          <ToLine
-            chips={picked.map((id) => ({ key: id, lead: <Face id={id} name={nameOf(id)} size="xs" />, name: nameOf(id), remove: () => setPicked(picked.filter((each) => each !== id)) }))}
-            query={query}
-            placeholder={t('chat.findPerson')}
-            onQuery={setQuery}
-            onRemoveLast={() => setPicked(picked.slice(0, -1))}
-          />
-          {failed && <p className="chn-fail">{failed}</p>}
-          <div className="chn-list mb-scroll">
-            {people
-              .filter((person) => has(person.name, words))
-              .map((person) => (
-                <PickRow
-                  key={person.id}
-                  lead={personMark(server, person)}
-                  name={person.name}
-                  on={picked.includes(person.id)}
-                  onPick={() => {
-                    setPicked(picked.includes(person.id) ? picked.filter((each) => each !== person.id) : [...picked, person.id]);
-                    setQuery('');
-                  }}
-                />
-              ))}
-            {words && !people.some((person) => has(person.name, words)) && <p className="chn-none">{t('chat.noOneFound')}</p>}
-          </div>
-        </>
+        <AddPeople
+          server={server}
+          people={people}
+          cancel={t('chat.skip')}
+          onCancel={() => onDone(made)}
+          onAdd={async (ids) => {
+            await one!.add(made.id, ids);
+            onDone(made);
+          }}
+        />
       )}
+    </Sheet>
+  );
+}
+
+/**
+ * Add people, as Slack's: the people of the room's space, found by name and ticked, the ones picked
+ * in the line over them; those in the room already are there, faint, and cannot be picked.
+ */
+function AddPeople({ server, people, inRoom = [], cancel, onCancel, onAdd }: {
+  server: ChatServer;
+  people: ChatPerson[];
+  inRoom?: string[];
+  cancel: string;
+  onCancel: () => void;
+  /** Adds them; throws when it could not. */
+  onAdd: (ids: string[]) => Promise<void>;
+}) {
+  const [picked, setPicked] = useState<string[]>([]);
+  const [query, setQuery] = useState('');
+  const [failed, setFailed] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const words = fold(query.trim());
+  const nameOf = (id: string) => people.find((person) => person.id === id)?.name ?? '';
+  const add = async () => {
+    if (!picked.length || busy) return;
+    setBusy(true);
+    setFailed(null);
+    try {
+      await onAdd(picked);
+    } catch {
+      setFailed(t('chat.notChanged'));
+      setBusy(false);
+    }
+  };
+  return (
+    <>
+      <div className="mb-sh three">
+        <button type="button" className="cancel" onClick={onCancel}>
+          {cancel}
+        </button>
+        <b>{t('chat.addPeople')}</b>
+        <button type="button" className="ok" disabled={!picked.length || busy} onClick={() => void add()}>
+          {t('chat.add')}
+        </button>
+      </div>
+      <ToLine
+        chips={picked.map((id) => ({ key: id, lead: <Face id={id} name={nameOf(id)} size="xs" />, name: nameOf(id), remove: () => setPicked(picked.filter((each) => each !== id)) }))}
+        query={query}
+        placeholder={t('chat.findPerson')}
+        onQuery={setQuery}
+        onRemoveLast={() => setPicked(picked.slice(0, -1))}
+      />
+      {failed && <p className="chn-fail">{failed}</p>}
+      <div className="chn-list mb-scroll">
+        {people
+          .filter((person) => has(person.name, words))
+          .map((person) => (
+            <PickRow
+              key={person.id}
+              lead={personMark(server, person)}
+              name={person.name}
+              {...(inRoom.includes(person.id) && { sub: t('chat.alreadyInRoom'), disabled: true })}
+              on={picked.includes(person.id)}
+              onPick={() => {
+                setPicked(picked.includes(person.id) ? picked.filter((each) => each !== person.id) : [...picked, person.id]);
+                setQuery('');
+              }}
+            />
+          ))}
+        {words && !people.some((person) => has(person.name, words)) && <p className="chn-none">{t('chat.noOneFound')}</p>}
+      </div>
+    </>
+  );
+}
+
+/** Info › People's Add on a phone: the people of a private room's space, to add to it. */
+export function PhoneAddPeople({ server, chat, onClose }: { server: ChatServer; chat: ChatInfo; onClose: () => void }) {
+  const people = (spacesOf(server).find((each) => each.id === chat.space)?.people ?? []).filter((person) => person.id !== server.me);
+  return (
+    <Sheet label={t('chat.addPeople')} className="chn" onClose={onClose}>
+      <AddPeople
+        server={server}
+        people={people}
+        inRoom={chat.members.map((member) => member.id)}
+        cancel={t('dialog.cancel')}
+        onCancel={onClose}
+        onAdd={async (ids) => {
+          await store.server(server.url)!.add(chat.id, ids);
+          onClose();
+        }}
+      />
     </Sheet>
   );
 }

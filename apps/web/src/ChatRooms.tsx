@@ -442,7 +442,7 @@ export function useChatInfo({ server, chat, say, onLeft, onClose }: { server: Ch
 export type ChatInfoState = ReturnType<typeof useChatInfo>;
 
 /** One part of a conversation's Info: its About, its people, or what was shared in it. */
-export function InfoBody({ server, chat, tab, info, nameOf, say, onJump }: {
+export function InfoBody({ server, chat, tab, info, nameOf, say, onJump, addHere = true }: {
   server: ChatServer;
   chat: ChatInfo;
   tab: InfoTab;
@@ -450,6 +450,8 @@ export function InfoBody({ server, chat, tab, info, nameOf, say, onJump }: {
   nameOf: (id: string) => string;
   say: (text: string) => void;
   onJump: (message: string) => void;
+  /** Add people… in People itself; a phone has it in its page's bar instead. */
+  addHere?: boolean;
 }) {
   const { shared, media, files, voice, links } = info;
   /** Who shared it and when: it goes to the message. */
@@ -460,7 +462,7 @@ export function InfoBody({ server, chat, tab, info, nameOf, say, onJump }: {
   );
   const loading = <p className="ch-none">{t('chat.loading')}</p>;
   if (tab === 'about') return <About server={server} chat={chat} nameOf={nameOf} say={say} />;
-  if (tab === 'people') return <People server={server} chat={chat} say={say} />;
+  if (tab === 'people') return <People server={server} chat={chat} say={say} addHere={addHere} />;
   if (!shared) return loading;
   if (tab === 'media') return <Media url={server.url} items={media} onJump={onJump} />;
   if (tab === 'files') {
@@ -650,13 +652,17 @@ function About({ server, chat, nameOf, say }: { server: ChatServer; chat: ChatIn
   );
 }
 
-/** Who is in it, with who uses Scrawl now; in a private room, Add people… from its space. */
-function People({ server, chat, say }: { server: ChatServer; chat: ChatInfo; say: (text: string) => void }) {
+/** Whether people of its space can be added to a conversation here: a private room one is in, not archived. */
+export const canAddPeople = (server: ChatServer, chat: ChatInfo) =>
+  chat.kind === 'private' && chat.joined && chat.archived === null && spacesOf(server).some((each) => each.id === chat.space);
+
+/** Who is in it, with who uses Scrawl now; in a private room, Add people… from its space (a phone's is in its page's bar). */
+function People({ server, chat, say, addHere }: { server: ChatServer; chat: ChatInfo; say: (text: string) => void; addHere: boolean }) {
   const [adding, setAdding] = useState(false);
   const [picked, setPicked] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const space = spacesOf(server).find((each) => each.id === chat.space);
-  const canAdd = chat.kind === 'private' && chat.joined && chat.archived === null && !!space;
+  const canAdd = addHere && canAddPeople(server, chat);
   const add = async () => {
     if (!picked.length || busy) return;
     setBusy(true);

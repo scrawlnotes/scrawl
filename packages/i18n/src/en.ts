@@ -3058,6 +3058,7 @@ export const en = {
   'chat.privateAbout': 'Only the people you add see it.',
   'chat.people': 'People',
   'chat.addPeople': 'Add people',
+  'chat.alreadyInRoom': 'Already in room',
   'chat.addPeopleDots': 'Add people…',
   'chat.removePerson': 'Remove {name}',
   'chat.create': 'Create',
