@@ -36,27 +36,37 @@ export function useAdded() {
   return { say: (text: string) => setAdded({ text, key: Date.now() }), line };
 }
 
+/** Whether something that takes the keyboard is focused: a field, or an editor. */
+const typingIn = () => document.activeElement?.matches('input, textarea, select, [contenteditable]:not([contenteditable="false"])') ?? false;
+
 /** The part of the page the phone shows: the keyboard, when up, is not in it. */
 export function useViewport() {
   const read = () => {
     const view = window.visualViewport;
-    return view ? { top: view.offsetTop, height: view.height } : { top: 0, height: window.innerHeight };
+    return { ...(view ? { top: view.offsetTop, height: view.height } : { top: 0, height: window.innerHeight }), typing: typingIn() };
   };
   const [box, setBox] = useState(read);
   useEffect(() => {
     const view = window.visualViewport;
     if (!view) return;
     const update = () => setBox(read());
+    // After the focus has moved: going from one field to the next leaves nothing focused for a moment.
+    const moved = () => window.setTimeout(update);
     view.addEventListener('resize', update);
     view.addEventListener('scroll', update);
+    document.addEventListener('focusin', moved);
+    document.addEventListener('focusout', moved);
     return () => {
       view.removeEventListener('resize', update);
       view.removeEventListener('scroll', update);
+      document.removeEventListener('focusin', moved);
+      document.removeEventListener('focusout', moved);
     };
   }, []);
   // The page's height, not the window's: on the Home Screen an iPhone scrolled over a box at the
-  // foot says the window is only as tall as what shows, while the page keeps its own.
-  return { ...box, keyboard: document.documentElement.clientHeight - box.height > KEYBOARD };
+  // foot says the window is only as tall as what shows, while the page keeps its own. And only
+  // while something is typed in: put away by its ✓, an iPhone tells the short size for seconds more.
+  return { top: box.top, height: box.height, keyboard: box.typing && document.documentElement.clientHeight - box.height > KEYBOARD };
 }
 
 /**
