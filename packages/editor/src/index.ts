@@ -192,6 +192,12 @@ export function focusOnCapital(view: EditorView) {
   else view.focus();
 }
 
+/** Whether a phone's keyboard is up: the page then sees less of the window (as apps/web's sheets.tsx). */
+const keyboardUp = () => {
+  const seen = window.visualViewport;
+  return seen !== null && document.documentElement.clientHeight - seen.height > 120;
+};
+
 /**
  * A phone's editor gets the keyboard on a capital whenever it is empty and comes into use: tapped,
  * focused from anywhere in the app (a photo added, a picker closed, Reply), or emptied by the app.
@@ -199,7 +205,10 @@ export function focusOnCapital(view: EditorView) {
 const capitalsOnTouch = [
   EditorView.domEventHandlers({
     mousedown(event, view) {
-      if (view.hasFocus || view.state.doc.length > 0) return false;
+      // Tapped while it kept the focus with the keyboard down, as after a photo picker or a sheet (an
+      // iPhone does not take the focus to a button tapped): handed over all the same. With the
+      // keyboard up a tap is the editor's own, so that a tap on the cursor still offers Paste.
+      if (view.state.doc.length > 0 || (view.hasFocus && keyboardUp())) return false;
       event.preventDefault();
       handKeyboard(view);
       return true;
