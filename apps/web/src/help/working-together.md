@@ -1,4 +1,4 @@
-# 🤝 Working together
+# 👥 Working together
 
 A shared space is where a team works on the same notes, lists, boards and collections. Everyone keeps it on their own devices, and sync brings each change to the others. See [Sync](sync).
 

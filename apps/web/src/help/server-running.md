@@ -1,4 +1,4 @@
-# ⚙️ Running a server
+# 🧰 Running a server
 
 Once it is set up, a server needs little: backups, and an update now and then. The commands are run where its `compose` file is.
 

@@ -1,4 +1,4 @@
-# 🤖 Building an app with an agent
+# 🏗️ Building an app with an agent
 
 When no template fits how you work, an agent builds the app with you: the collections, their forms, the links between them, the rules and buttons, and the boards and lists around them. It writes them as Scrawl's own files, the same as a template does, so you change the result as you would any app.
 

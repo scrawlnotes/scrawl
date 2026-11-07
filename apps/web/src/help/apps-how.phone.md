@@ -32,8 +32,8 @@ An app's work comes to Today with what it takes to do it: a call to log, an invo
 - Work: [Project management](projects), [Product development](product), [Recruiting](recruiting), [Contracts and renewals](contracts), [Time off and team](timeoff), [Goals](goals), [Incidents and actions](incidents).
 
 **For a person.**
-- Money and home: Personal finance; Home, car and documents; Recipes and meal plan.
-- Health: Health, Habits and goals, Gym, Sport and training.
-- Life: Travel, Shared expenses, Job search, People and birthdays, Reading and watching.
+- Money and home: [Personal finance](finance); [Home, car and documents](home); [Recipes and meal plan](recipes).
+- Health: [Health](health), [Sport and training](sport), [Gym](gym), [Habits and goals](habits).
+- Life: [Travel](travel), [Shared expenses](split), [Job search](jobs), [People and birthdays](people), [Reading and watching](reading).
 
 To change an app once it is set up, see [Editing an app](apps-editing). For one no template covers, see [Building an app with an agent](apps-building).

@@ -19,9 +19,16 @@ export function pictureSession(made: Session) {
   session = made;
 }
 
-/** Sets the person's picture from an image they picked, or takes it away with null. */
-export async function setMyPicture(image: Blob | null) {
-  await session?.setPicture(image ? await squarePicture(image) : null);
+/** The part of an image that becomes a picture: a square, in the image's own pixels, as Move and Scale leaves it. */
+export interface PictureCut {
+  x: number;
+  y: number;
+  side: number;
+}
+
+/** Sets the person's picture from the part of an image they picked, or takes it away with null. */
+export async function setMyPicture(image: Blob | null, cut?: PictureCut) {
+  await session?.setPicture(image ? await squarePicture(image, cut) : null);
 }
 
 /** Where someone's picture is read from: what it is known by, its version with it, and how it is read. */
@@ -98,12 +105,14 @@ export function usePicture(id: string | undefined): string | null {
 }
 
 /**
- * A picture made from an image picked: a square from its middle, 256 pixels a side, as a JPEG,
- * which every browser writes; what has no colour of its own is white.
+ * A picture made from an image picked: the part cut from it, a square from its middle without one,
+ * 256 pixels a side, as a JPEG, which every browser writes; what has no colour of its own is white.
  */
-export async function squarePicture(image: Blob): Promise<Blob> {
+export async function squarePicture(image: Blob, cut?: PictureCut): Promise<Blob> {
   const bitmap = await createImageBitmap(image);
-  const side = Math.min(bitmap.width, bitmap.height);
+  const side = cut?.side ?? Math.min(bitmap.width, bitmap.height);
+  const x = cut?.x ?? (bitmap.width - side) / 2;
+  const y = cut?.y ?? (bitmap.height - side) / 2;
   const canvas = document.createElement('canvas');
   canvas.width = SIDE;
   canvas.height = SIDE;
@@ -112,7 +121,7 @@ export async function squarePicture(image: Blob): Promise<Blob> {
   draw.fillStyle = '#fff';
   draw.fillRect(0, 0, SIDE, SIDE);
   draw.imageSmoothingQuality = 'high';
-  draw.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, SIDE, SIDE);
+  draw.drawImage(bitmap, x, y, side, side, 0, 0, SIDE, SIDE);
   bitmap.close();
   return new Promise((resolve, reject) => canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('No picture'))), 'image/jpeg', 0.86));
 }

@@ -20,7 +20,8 @@ import { APP_VERSION, checkForWebUpdate, PUBLISHED, subscribeUpdate, webUpdatesO
 import { type AskOneDrive, isDesktop, type OneDriveAnswer, openUrlOnDesktop } from './storage';
 import { readAutostart, setAutostart, setBackground, useAutostart, useBackground } from './tray';
 import { store as chatStore } from './chatStore';
-import { setMyPicture, usePicture } from './pictures';
+import { type PictureCut, setMyPicture, usePicture } from './pictures';
+import { PictureCrop } from './PictureCrop';
 import { ActionSheet } from './sheets';
 import { PictureOr } from './ChatFaces';
 import { notifySnapshot, sendTest, turnOff, turnOn, useNotify } from './notify';
@@ -690,11 +691,13 @@ function ProfilePicture({ me }: { me: Me | null }) {
   const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
-  const set = async (image: Blob | null) => {
+  // An image picked waits in Move and Scale, where the part of it that becomes the picture is chosen.
+  const [cropping, setCropping] = useState<Blob | null>(null);
+  const set = async (image: Blob | null, cut?: PictureCut) => {
     setBusy(true);
     setFailed(false);
     try {
-      await setMyPicture(image);
+      await setMyPicture(image, cut);
     } catch {
       setFailed(true);
     }
@@ -703,7 +706,7 @@ function ProfilePicture({ me }: { me: Me | null }) {
   const picked = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
-    if (file) void set(file);
+    if (file) setCropping(file);
   };
   const has = !!me?.picture;
   const face = (
@@ -737,6 +740,16 @@ function ProfilePicture({ me }: { me: Me | null }) {
       {failed && <p className="st-note error">{t('settings.pictureFailed')}</p>}
       <input ref={library} type="file" accept="image/*" hidden onChange={picked} />
       <input ref={camera} type="file" accept="image/*" capture="user" hidden onChange={picked} />
+      {cropping && (
+        <PictureCrop
+          image={cropping}
+          onCancel={() => setCropping(null)}
+          onDone={(cut) => {
+            setCropping(null);
+            void set(cropping, cut);
+          }}
+        />
+      )}
       {asking && (
         <ActionSheet
           head={{ icon: 'person', title: me?.name || t('settings.you') }}
