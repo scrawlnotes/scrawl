@@ -1,5 +1,6 @@
 import { signInSettled } from './cloud';
 import { lookAtOpening, waitingAtOpen } from './newVersion';
+import { openedByNotification } from './notificationClicks';
 import { isDesktop } from './storage';
 
 // The web app as an app of its own: its service worker, which keeps the app's files on the device
@@ -157,7 +158,8 @@ export function openingUpdate(): Promise<boolean> {
 async function lookHere(): Promise<boolean> {
   const kept = registration;
   if (!kept || waiting) return false;
-  const came = await lookAtOpening(kept, navigator.serviceWorker.controller !== null, () => touched);
+  // Opened at a message by a notification: the page does not reload under it; the new version is offered.
+  const came = await lookAtOpening(kept, navigator.serviceWorker.controller !== null, () => touched || openedByNotification());
   if (!came) return false;
   found(came.worker as ServiceWorker);
   return came.go;

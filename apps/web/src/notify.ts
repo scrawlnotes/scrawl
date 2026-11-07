@@ -6,6 +6,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useSyncExternalStore } from 'react';
 import { clock } from './chatMedia';
 import { type ChatServer, store } from './chatStore';
+import { takeClicks } from './notificationClicks';
 import { isDesktop } from './storage';
 
 // Notifications of new messages on this device (design/chat.md, 6). On the desktop the app shows
@@ -404,20 +405,8 @@ async function overlayOf(count: number): Promise<Uint8Array> {
 // ---------- a click on a notification ----------
 
 const opens = new Set<(href: string) => void>();
-/** The message the app was opened at by a notification: `?chat=<link>`, taken off the address at once. */
-let openedAt: string | null = (() => {
-  try {
-    const params = new URLSearchParams(location.search);
-    const href = params.get('chat');
-    if (!href) return null;
-    params.delete('chat');
-    const rest = params.toString();
-    history.replaceState(history.state, '', `${location.pathname}${rest ? `?${rest}` : ''}${location.hash}`);
-    return href;
-  } catch {
-    return null;
-  }
-})();
+/** A notification's message clicked before the app listens for it. */
+let openedAt: string | null = null;
 
 /** Calls `open` with the link of each notification clicked, the one the app was opened with first. */
 export function onNotificationClick(open: (href: string) => void): () => void {
@@ -431,6 +420,7 @@ export function onNotificationClick(open: (href: string) => void): () => void {
 
 const clicked = (href: string) => {
   if (!href.startsWith('scrawl:chat/')) return;
+  if (opens.size === 0) openedAt = href;
   for (const open of opens) open(href);
 };
 
@@ -461,12 +451,7 @@ export function startNotifications() {
     takeAwayRead();
   });
   if (isDesktop) void listen<string>('chat-open', (event) => clicked(event.payload));
-  else if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.addEventListener('message', (event: MessageEvent<{ type?: string; href?: string }>) => {
-      if (event.data?.type === 'open-chat' && typeof event.data.href === 'string') clicked(event.data.href);
-    });
-    navigator.serviceWorker.startMessages();
-  }
+  else takeClicks(clicked);
   // Allowed or blocked in the browser's own settings meanwhile.
   void navigator.permissions
     ?.query({ name: 'notifications' })

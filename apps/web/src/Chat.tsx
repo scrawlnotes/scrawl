@@ -478,7 +478,7 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
   useEffect(() => {
     if (!target) return;
     aiming.current = true;
-    void jump(target.message).finally(() => {
+    void jump(target.message, false).finally(() => {
       aiming.current = false;
       placed.current = true;
     });
@@ -554,8 +554,12 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
     }
   };
 
-  /** Brings a quoted message into sight and marks it a moment; one not here yet is asked for with those around it. */
-  const jump = async (id: string) => {
+  /**
+   * Brings a quoted message into sight and marks it a moment; one not here yet is asked for with
+   * those around it. A conversation opened at a message is there at once: a phone's page is still
+   * coming in from the side then, and a smooth scroll in it does not move.
+   */
+  const jump = async (id: string, smooth = true) => {
     let row = scroller.current?.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`);
     if (!row && one) {
       try {
@@ -569,7 +573,11 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
     if (!row) return;
     // Away from the end: new messages do not take the reader there.
     atEnd.current = false;
-    row.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    // The conversation alone is scrolled, not what holds it: a phone's page coming in would be moved too.
+    const box = scroller.current!;
+    const rowAt = row.getBoundingClientRect();
+    const top = box.scrollTop + rowAt.top - box.getBoundingClientRect().top - (box.clientHeight - rowAt.height) / 2;
+    box.scrollTo({ top, behavior: smooth ? 'smooth' : 'auto' });
     setFlash(id);
     window.setTimeout(() => setFlash(null), 1600);
   };

@@ -1,3 +1,5 @@
+import { listenForClicks } from './notificationClicks';
+
 // The boot screen of index.html is drawn before the app's code comes (start.tsx). That code is
 // large, and the first time a version opens, reading it takes a while, the page waiting for it
 // before it is drawn. iOS takes the colour of the bar above an app on the home screen from the
@@ -11,4 +13,5 @@ const bootDrawn = () =>
     setTimeout(resolve, 100);
   });
 
+listenForClicks();
 void bootDrawn().then(() => import('./start'));
