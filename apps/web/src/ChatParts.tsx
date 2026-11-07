@@ -15,20 +15,21 @@ import { isDesktop, saveFile } from './storage';
 
 /** A file of a message as an address the page shows, once it is read; null until then. */
 export function useFileUrl(url: string, hash: string | undefined, type = ''): string | null {
-  const [shown, setShown] = useState<string | null>(null);
+  // Kept with the file it is of: another file asked for has none until its own comes.
+  const [shown, setShown] = useState<{ hash: string; address: string } | null>(null);
   useEffect(() => {
     if (!hash) return;
     let live = true;
     void store
       .server(url)
       ?.fileUrl(hash, type)
-      .then((address) => live && setShown(address))
+      .then((address) => live && setShown({ hash, address }))
       .catch(() => undefined);
     return () => {
       live = false;
     };
   }, [url, hash]);
-  return shown;
+  return shown && shown.hash === hash ? shown.address : null;
 }
 
 export const isImage = (file: { type: string }) => file.type.startsWith('image/');
@@ -86,6 +87,8 @@ export function Lightbox({ url, images, at, onClose, onShow }: { url: string; im
   const [index, setIndex] = useState(at);
   const file = images[index]!;
   const shown = useFileUrl(url, file.hash, file.type);
+  // The photo drawn: until then it turns, a large photo being read and then drawn.
+  const [drawn, setDrawn] = useState<string | null>(null);
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => box.current?.focus(), []);
   const step = (by: number) => setIndex((index + by + images.length) % images.length);
@@ -116,7 +119,17 @@ export function Lightbox({ url, images, at, onClose, onShow }: { url: string; im
           <Icon name="close" />
         </button>
       </div>
-      {shown ? <img src={shown} alt={file.name} onMouseDown={(event) => event.stopPropagation()} /> : <span className="ch-wait big" />}
+      {shown && (
+        <img
+          key={file.hash}
+          src={shown}
+          alt={file.name}
+          className={drawn === file.hash ? undefined : 'coming'}
+          onLoad={() => setDrawn(file.hash)}
+          onMouseDown={(event) => event.stopPropagation()}
+        />
+      )}
+      {drawn !== file.hash && <span className="ch-wait big" role="status" aria-label={t('opening.loading')} />}
       {images.length > 1 && (
         <>
           <button type="button" className="go prev" aria-label={t('chat.previous')} onClick={() => step(-1)}>

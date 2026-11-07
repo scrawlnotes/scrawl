@@ -9799,6 +9799,28 @@ body > .mb-lifted {
   flex-basis: 100%;
 }
 
+/* A photo opened on a phone takes the screen's width, as Photos does; its arrows go over it. */
+html:has(.phone-app) .ch-view {
+  padding: 48px 0 env(safe-area-inset-bottom);
+}
+
+html:has(.phone-app) .ch-view > img {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+html:has(.phone-app) .ch-view .go {
+  background: rgb(0 0 0 / 0.4);
+}
+
+html:has(.phone-app) .ch-view .go.prev {
+  left: 8px;
+}
+
+html:has(.phone-app) .ch-view .go.next {
+  right: 8px;
+}
+
 .chp-part .ch-person {
   min-height: 48px;
   font-size: 16px;
