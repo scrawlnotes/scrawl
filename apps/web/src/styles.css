@@ -104,15 +104,45 @@ input:focus {
   height: 100%;
 }
 
+/* Icon sizes, named by what they were: on a computer most are 16 px, as macOS's sidebars and
+   toolbars; the small marks beside small words a step under them. A phone keeps its own (phone.css). */
+:root {
+  --icon-11: 13px;
+  --icon-12: 14px;
+  --icon-13: 16px;
+  --icon-14: 16px;
+  --icon-15: 17px;
+}
+
 .icon {
   flex: none;
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
   fill: none;
   stroke: currentColor;
   stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+/* Apple's 28 pt on a computer: a control drawn smaller is clicked from a 28 px square around it;
+   it is drawn as it was. A phone's are 44 (phone.css). */
+:where(
+  .vsw button, .lrow.head button, .lsec-main, .lsec .ladd, .colm .qa, .ph, .ph-more, .attach,
+  .cp-actions button, .st-modes button, .ch-rx button, .ch-voice .spd, .cd .n, .cd .plus,
+  .fl-head .fl-name, button.tt, .st-link
+) {
+  position: relative;
+}
+
+:where(
+  .vsw button, .lrow.head button, .lsec-main, .lsec .ladd, .colm .qa, .ph, .ph-more, .attach,
+  .cp-actions button, .st-modes button, .ch-rx button, .ch-voice .spd, .cd .n, .cd .plus,
+  .fl-head .fl-name, button.tt, .st-link
+)::after {
+  content: '';
+  position: absolute;
+  inset: min(0px, calc(50% - 14px));
 }
 
 /* sidebar: one tree, as in design/mockups.html (direction A) */
@@ -204,6 +234,7 @@ input:focus {
   align-items: center;
   gap: 6px;
   min-width: 0;
+  min-height: 28px;
   padding: 2px 8px 2px calc(8px + var(--d, 0) * 16px);
   text-align: left;
 }
@@ -224,7 +255,7 @@ input:focus {
 }
 
 .it.more .it-main span {
-  padding-left: 19px;
+  padding-left: calc(var(--icon-13) + 6px);
   font-size: 12px;
 }
 
@@ -242,8 +273,8 @@ input:focus {
 }
 
 .it .chev .icon {
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
   stroke-width: 2.2;
   transition: transform 0.12s;
 }
@@ -465,7 +496,7 @@ input:focus {
   display: grid;
   flex: none;
   place-items: center;
-  width: 24px;
+  width: 28px;
   margin-left: auto;
   height: 100%;
   color: var(--sl-faint);
@@ -504,7 +535,7 @@ input:focus {
   flex: none;
   align-items: center;
   gap: 2px;
-  height: 30px;
+  height: 36px;
   padding: 0 8px;
   border-bottom: 1px solid var(--sl-line);
   font-size: 12px;
@@ -535,10 +566,10 @@ input:focus {
 }
 
 .fmt button {
-  min-width: 26px;
-  height: 22px;
+  min-width: 28px;
+  height: 28px;
   padding: 0 6px;
-  border-radius: 4px;
+  border-radius: 5px;
   color: var(--sl-dim);
   white-space: nowrap;
 }
@@ -894,8 +925,8 @@ input:focus {
 }
 
 .start-more .icon {
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
   stroke-width: 2;
 }
 
@@ -925,8 +956,8 @@ input:focus {
 
 .start-tpl .icon {
   grid-row: span 2;
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
   color: var(--sl-dim);
 }
 
@@ -996,7 +1027,7 @@ input:focus {
   flex: none;
   align-items: center;
   gap: 18px;
-  height: 24px;
+  height: 28px;
   padding: 0 12px env(safe-area-inset-bottom);
   background: var(--sl-side);
   border-top: 1px solid var(--sl-line);
@@ -1009,6 +1040,11 @@ input:focus {
 
 .status .push {
   margin-left: auto;
+}
+
+/* its words clicked anywhere up and down the bar */
+.status > button {
+  align-self: stretch;
 }
 
 .status button:hover {
@@ -1046,8 +1082,8 @@ input:focus {
 /* A priority in a menu, as Todoist's: its flag in its colour, the one set ticked on the right. */
 .menu button.prio .icon {
   flex: none;
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
   color: var(--sl-faint);
 }
 
@@ -1059,8 +1095,8 @@ input:focus {
    the note draws its title. */
 .menu button.callout-kind .icon {
   flex: none;
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
 }
 
 .callout-kind.callout-note .icon { color: var(--sl-kind-active); }
@@ -1115,8 +1151,8 @@ input:focus {
 }
 
 .menu button.has-sub .icon {
-  width: 11px;
-  height: 11px;
+  width: var(--icon-11);
+  height: var(--icon-11);
   margin-left: 6px;
   color: var(--sl-faint);
 }
@@ -1409,8 +1445,8 @@ input:focus {
 
 .choices button .icon {
   flex: none;
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
   color: var(--sl-dim);
 }
 
@@ -1542,7 +1578,7 @@ input:focus {
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 20px;
+  height: 28px;
   margin-left: -6px;
   padding: 0 6px;
   border-radius: 4px;
@@ -1558,8 +1594,8 @@ input:focus {
 }
 
 .status .sync-st .icon {
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
 }
 
 .status .sync-st.offline .sync-text,
@@ -1572,8 +1608,8 @@ input:focus {
 .status .sync-now {
   display: grid;
   place-items: center;
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
   border-radius: 4px;
   color: var(--sl-dim);
 }
@@ -1688,8 +1724,8 @@ input:focus {
 }
 
 .sp-now .icon {
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
   color: var(--sl-accent);
 }
 
@@ -1781,8 +1817,8 @@ input:focus {
 }
 
 .sp-row .icon {
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
   color: var(--sl-dim);
 }
 
@@ -2025,8 +2061,8 @@ input:focus {
 .folder-field > .icon,
 .folder-field .chev .icon {
   flex: none;
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
   color: var(--sl-dim);
 }
 
@@ -2378,9 +2414,17 @@ input:focus {
 }
 
 .sec .chev {
+  position: relative;
   width: 10px;
   color: var(--sl-faint);
   font-size: 10px;
+}
+
+/* clicked from 28 px, more to its left than into the name */
+.sec .chev::after {
+  content: '';
+  position: absolute;
+  inset: -7px -2px -7px -16px;
 }
 
 .sec .chev:hover {
@@ -2630,6 +2674,13 @@ body > .touch-ghost {
   opacity: 0;
 }
 
+/* 28 px to a click, the box drawn as it is */
+.cb::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+
 button.cb:hover::after {
   opacity: 1;
 }
@@ -2730,11 +2781,13 @@ textarea.tt-edit {
   opacity: 1;
 }
 
+/* 28 px, over the row's padding so that it stays as tall */
 .task-actions button {
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
+  margin: -4px 0;
   border-radius: 4px;
   color: var(--sl-faint);
 }
@@ -2745,8 +2798,8 @@ textarea.tt-edit {
 }
 
 .task-actions .icon {
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
 }
 
 /* A task's description reads under its title, two lines at most. */
@@ -2847,8 +2900,8 @@ textarea.tt-edit {
 }
 
 .attach .icon {
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
 }
 
 .attach:hover,
@@ -2865,8 +2918,8 @@ textarea.tt-edit {
 }
 
 .clips .icon {
-  width: 11px;
-  height: 11px;
+  width: var(--icon-11);
+  height: var(--icon-11);
 }
 
 .edit-foot {
@@ -3000,8 +3053,8 @@ textarea.tt-edit {
 .edit-bar .chip .icon,
 .task-composer .chip.ic .icon {
   flex: none;
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
 }
 
 .edit-bar .chip span {
@@ -3088,8 +3141,8 @@ textarea.tt-edit {
 
 .lbl-at .icon {
   flex: none;
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
 }
 
 .lbl-at .nm {
@@ -3239,8 +3292,8 @@ textarea.tt-edit {
 }
 
 .stk-count .icon {
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
 }
 
 .stk-count.all {
@@ -3257,8 +3310,8 @@ textarea.tt-edit {
 
 .sub-row .meta .icon,
 .start-task .meta .icon {
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
 }
 
 .lrow .tt .stk-count {
@@ -3316,8 +3369,8 @@ textarea.tt-edit {
 
 .up-gap .plus .icon {
   flex: none;
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
 }
 
 /* Upcoming's Calendar, after the Calendar views of the Upcoming mockups: the month in the header
@@ -3341,8 +3394,8 @@ textarea.tt-edit {
 .up-month button {
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
   border: 1px solid var(--sl-line);
   border-radius: 5px;
   color: var(--sl-dim);
@@ -3354,8 +3407,8 @@ textarea.tt-edit {
 }
 
 .up-month .icon {
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
 }
 
 .up-cal {
@@ -3471,8 +3524,8 @@ textarea.tt-edit {
 }
 
 .cd .plus .icon {
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
 }
 
 .cal-t {
@@ -3580,8 +3633,8 @@ textarea.tt-edit {
 }
 
 .day-window h4 .x .icon {
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
 }
 
 .day-window .task {
@@ -3674,8 +3727,8 @@ textarea.tt-edit {
 
 .task-composer .chip .icon {
   flex: none;
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
 }
 
 .task-composer .chip span {
@@ -3713,8 +3766,8 @@ textarea.tt-edit {
 
 .task-composer .where .icon {
   flex: none;
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
 }
 
 .task-composer .where > span:not(.chev) {
@@ -3735,8 +3788,8 @@ textarea.tt-edit {
 }
 
 .task-composer .where .chev .icon {
-  width: 11px;
-  height: 11px;
+  width: var(--icon-11);
+  height: var(--icon-11);
 }
 
 .task-composer .foot .ghost,
@@ -3800,8 +3853,8 @@ textarea.tt-edit {
 
 .day-pop .opt .icon {
   flex: none;
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
   color: var(--sl-dim);
 }
 
@@ -3845,8 +3898,8 @@ textarea.tt-edit {
 }
 
 .mini-cal .mh .icon {
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
 }
 
 .mini-cal .g {
@@ -3932,8 +3985,8 @@ textarea.tt-edit {
 
 .trow > .icon {
   justify-self: center;
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
   color: var(--sl-dim);
 }
 
@@ -4045,8 +4098,8 @@ textarea.tt-edit {
 
 .tp-task .icon {
   flex: none;
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
   color: var(--sl-dim);
 }
 
@@ -4147,8 +4200,8 @@ textarea.tt-edit {
 
 .files-view .th .search .icon {
   flex: none;
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
 }
 
 .files-view .th .search input {
@@ -4300,8 +4353,8 @@ textarea.tt-edit {
 
 .flrow .use .icon {
   flex: none;
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
   color: var(--sl-faint);
 }
 
@@ -4366,8 +4419,8 @@ textarea.tt-edit {
 }
 
 .fthumb .icon {
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
 }
 
 .fthumb i,
@@ -4547,8 +4600,8 @@ textarea.tt-edit {
 
 .confirm-places .icon {
   flex: none;
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
   color: var(--sl-dim);
 }
 
@@ -4655,8 +4708,8 @@ textarea.tt-edit {
 }
 
 .th.chosen-bar .ghost .icon {
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
 }
 
 .th.chosen-bar .ghost.danger {
@@ -4680,8 +4733,8 @@ textarea.tt-edit {
 }
 
 .th .let-go .icon {
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
 }
 
 /* A narrow window or a phone, after the Phone view of design/mockups.html (direction A): the
@@ -4777,7 +4830,7 @@ textarea.tt-edit {
   flex: none;
   place-items: center;
   width: 28px;
-  height: 22px;
+  height: 28px;
   color: var(--sl-faint);
   letter-spacing: 1px;
 }
@@ -4788,12 +4841,12 @@ textarea.tt-edit {
 
 /* A space heading's + and the button of how it is viewed, icons where a row has its ···. */
 .it-more.it-icon {
-  width: 24px;
+  width: 28px;
 }
 
 .it-more.it-icon .icon {
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
 }
 
 @media (hover: hover) {
@@ -5272,8 +5325,11 @@ textarea.tt-edit {
   color: var(--sl-faint);
 }
 
+/* 28 px to click, over the heading's own height */
 .colm-name {
   min-width: 0;
+  margin: -6px 0;
+  padding: 6px 0;
   overflow: hidden;
   color: inherit;
   font: inherit;
@@ -5306,8 +5362,9 @@ textarea.tt-edit {
 .colm h3 .more {
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 18px;
+  width: 28px;
+  height: 28px;
+  margin: -5px -3px;
   border-radius: 4px;
   color: var(--sl-faint);
   letter-spacing: 1px;
@@ -5435,8 +5492,8 @@ textarea.tt-edit {
 }
 
 .kc .cm .icon {
-  width: 11px;
-  height: 11px;
+  width: var(--icon-11);
+  height: var(--icon-11);
 }
 
 .kc .phase {
@@ -5614,6 +5671,13 @@ textarea.tt-edit {
   border-radius: 4px;
   color: var(--sl-faint);
   letter-spacing: 1px;
+}
+
+.cp-head .more,
+.cp-head .x {
+  min-width: 28px;
+  min-height: 28px;
+  margin-block: -5px;
 }
 
 .cp-head .x {
@@ -5981,8 +6045,8 @@ textarea.tt-edit {
 .lbl-rows .icon,
 .lbl-edit .icon {
   flex: none;
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
   color: var(--sl-faint);
 }
 
@@ -6068,8 +6132,8 @@ textarea.tt-edit {
 }
 
 .labels-dot .icon {
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
   color: var(--sl-faint);
 }
 
@@ -6153,8 +6217,8 @@ textarea.tt-edit {
 }
 
 .labels-add .icon {
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
 }
 
 .labels-add:hover,
@@ -6880,8 +6944,8 @@ textarea.tt-edit {
 }
 
 .kv-row .ib .icon {
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
 }
 
 /* a key's menu shows when its row is pointed at; on a touch screen it is always there */
@@ -7036,8 +7100,8 @@ textarea.tt-edit {
 
 .kv-bad > .icon {
   flex: none;
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
   color: #e0a84a;
 }
 
@@ -7651,8 +7715,8 @@ textarea.tt-edit {
 }
 
 .st-space .top .icon {
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
   color: var(--sl-dim);
 }
 
@@ -7676,8 +7740,8 @@ textarea.tt-edit {
 }
 
 .st-space .top .st-rename .icon {
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
 }
 
 .st-space .top .st-rename:hover,
@@ -7824,8 +7888,8 @@ textarea.tt-edit {
 
 .st-sync .who .icon {
   flex: none;
-  width: 15px;
-  height: 15px;
+  width: var(--icon-15);
+  height: var(--icon-15);
   color: var(--sl-dim);
 }
 
@@ -7896,8 +7960,8 @@ textarea.tt-edit {
 
 .st-sync .state.warn .icon {
   flex: none;
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
   color: var(--sl-accent);
 }
 
@@ -8028,8 +8092,8 @@ textarea.tt-edit {
 }
 
 .st-btn .icon {
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
 }
 
 .st-link {
@@ -8163,8 +8227,8 @@ textarea.tt-edit {
 
 .fp .row .icon {
   flex: none;
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
   color: var(--sl-dim);
 }
 
@@ -9820,8 +9884,8 @@ textarea.tt-edit {
 }
 
 .meta .from.rec .icon {
-  width: 11px;
-  height: 11px;
+  width: var(--icon-11);
+  height: var(--icon-11);
   color: var(--sl-faint);
 }
 
@@ -11014,8 +11078,8 @@ button.st-li:hover,
 .st-li > .icon,
 .st-li-main > .icon {
   flex: none;
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
   color: var(--sl-dim);
 }
 
@@ -11046,8 +11110,8 @@ button.st-li:hover,
 }
 
 .st-li .r .icon {
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
 }
 
 .st-li .it-more {
@@ -11149,8 +11213,8 @@ button.st-li:hover,
 }
 
 .st-acts button > .icon {
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
 }
 
 .st-back {
@@ -11170,8 +11234,8 @@ button.st-li:hover,
 }
 
 .st-back .icon {
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
   transform: rotate(180deg);
 }
 
@@ -11234,8 +11298,8 @@ button.st-li:hover,
 
 .dialog.space-remove .gone .icon {
   flex: none;
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
   margin-top: 1px;
 }
 
@@ -11284,8 +11348,8 @@ button.st-li:hover,
 
 .fp.space-add .list .row .icon {
   flex: none;
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
   color: var(--sl-dim);
 }
 
@@ -11319,8 +11383,8 @@ button.st-li:hover,
 
 .fp.space-add .pick .path .icon {
   flex: none;
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
   color: var(--sl-dim);
 }
 .fp.space-add .pick .path small {
@@ -11393,8 +11457,8 @@ button.st-li:hover,
 }
 
 .sp-sp .icon {
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
   color: var(--sl-dim);
 }
 
@@ -11413,8 +11477,8 @@ button.st-li:hover,
 }
 
 .sp-sp .r .icon {
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
 }
 
 .sp-sp .r {
@@ -11604,8 +11668,8 @@ button.st-li:hover,
 }
 
 .sec.spc > .icon {
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
   color: var(--sl-dim);
 }
 
@@ -11630,8 +11694,8 @@ button.st-li:hover,
 
 .choices.folder-groups .group .icon {
   flex: none;
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
   color: var(--sl-dim);
 }
 
@@ -11678,8 +11742,8 @@ button.st-li:hover,
 }
 
 .side-search .icon {
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
 }
 
 .side-search:hover,
@@ -11775,8 +11839,8 @@ button.st-li:hover,
 }
 
 .sx-q .x .icon {
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
 }
 
 .sx-list {
@@ -11803,8 +11867,8 @@ button.st-li:hover,
 }
 
 .sx-r > .icon {
-  width: 15px;
-  height: 15px;
+  width: var(--icon-15);
+  height: var(--icon-15);
   color: var(--sl-dim);
 }
 
@@ -12049,8 +12113,8 @@ button.st-li:hover,
 }
 
 .sx-past .q .icon {
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
   color: var(--sl-faint);
 }
 
@@ -12072,8 +12136,8 @@ button.st-li:hover,
 }
 
 .sx-past .forget .icon {
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
 }
 
 .sx-past .forget:hover {
@@ -12124,8 +12188,8 @@ button.st-li:hover,
 }
 
 .sx-act .icon {
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
   color: var(--sl-dim);
 }
 
@@ -12213,8 +12277,8 @@ button.st-li:hover,
 
 .fp .srv-err .icon {
   flex: none;
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
   margin-top: 1px;
 }
 
@@ -12253,8 +12317,8 @@ button.st-li:hover,
 }
 
 .st-li .srv-sp .icon {
-  width: 15px;
-  height: 15px;
+  width: var(--icon-15);
+  height: var(--icon-15);
 }
 
 .st-li .srv-add {
@@ -12277,8 +12341,8 @@ button.st-li:hover,
 }
 
 .st-li .srv-count .icon {
-  width: 11px;
-  height: 11px;
+  width: var(--icon-11);
+  height: var(--icon-11);
   transition: transform 0.12s;
 }
 
@@ -12315,8 +12379,8 @@ button.st-li:hover,
 .st-body .srv-err .icon,
 .dialog .srv-err .icon {
   flex: none;
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
   margin-top: 1px;
 }
 
@@ -12719,8 +12783,8 @@ button.st-li:hover,
 }
 
 .fp .step-back .icon {
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
 }
 
 .fp.space-add .list .row .now {
@@ -12780,8 +12844,8 @@ button.st-li:hover,
 
 .st-sync .state.moved .icon {
   flex: none;
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
 }
 
 /* Settings › Logs: the choice, Copy and Save… on top, the lines in a box that scrolls, each day
@@ -13599,8 +13663,8 @@ button.st-li:hover,
 }
 
 .na-card .tick .icon {
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
   stroke-width: 3;
 }
 
@@ -13615,8 +13679,8 @@ button.st-li:hover,
 }
 
 .na-card .hd .icon {
-  width: 15px;
-  height: 15px;
+  width: var(--icon-15);
+  height: var(--icon-15);
   color: var(--sl-dim);
 }
 
@@ -13642,8 +13706,8 @@ button.st-li:hover,
 .na-card .sets .icon,
 .na-card .shared .icon {
   flex: none;
-  width: 11px;
-  height: 11px;
+  width: var(--icon-11);
+  height: var(--icon-11);
 }
 
 .na-card .shared {
@@ -13741,8 +13805,8 @@ button.st-li:hover,
 
 .na-cur .x .icon,
 .na-list .x .icon {
-  width: 11px;
-  height: 11px;
+  width: var(--icon-11);
+  height: var(--icon-11);
 }
 
 .dialog .na-curs input.na-add {
@@ -13774,8 +13838,8 @@ button.st-li:hover,
 }
 
 .na-addbtn .icon {
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
 }
 
 /* A template's questions, each with its answer ready. */
@@ -13820,8 +13884,8 @@ button.st-li:hover,
 }
 
 .na-why .icon {
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
 }
 
 .na-seg {
@@ -14031,8 +14095,8 @@ button.st-li:hover,
 }
 
 .na-list .na-add .icon {
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
 }
 
 /* The summary: where it goes, then a column for each template. */
@@ -14049,8 +14113,8 @@ button.st-li:hover,
 }
 
 .na-where .icon {
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
   color: var(--sl-dim);
 }
 
@@ -14089,8 +14153,8 @@ button.st-li:hover,
 }
 
 .na-sum h4 .icon {
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
   color: var(--sl-dim);
 }
 
@@ -14105,8 +14169,8 @@ button.st-li:hover,
 
 .na-sum .pc .icon {
   flex: none;
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
   color: var(--sl-dim);
 }
 
@@ -14210,8 +14274,8 @@ button.st-li:hover,
 
 .na-add2 .pc .icon {
   flex: none;
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
   color: var(--sl-dim);
 }
 
@@ -14253,8 +14317,8 @@ button.st-li:hover,
 
 .na-box .icon {
   flex: none;
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
   margin-top: 1px;
   color: var(--sl-accent);
 }
@@ -14351,8 +14415,8 @@ button.st-li:hover,
 
 .na-edit .pc .icon {
   flex: none;
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
   color: var(--sl-dim);
 }
 
@@ -14449,8 +14513,8 @@ button.st-li:hover,
 }
 
 .dtbox .dt-add .icon {
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
 }
 
 .durbox {
@@ -14814,8 +14878,8 @@ button.st-li:hover,
 }
 
 .cbar .views .icon {
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
 }
 
 .cbar .views .add-view {
@@ -15058,8 +15122,8 @@ button.st-li:hover,
 }
 
 .rec-row .meta .icon {
-  width: 11px;
-  height: 11px;
+  width: var(--icon-11);
+  height: var(--icon-11);
 }
 
 /* A program's day (design/gym.md 4.3): the day it was, red, when it went by; Start and its other button under it. */
@@ -15311,8 +15375,8 @@ button.st-li:hover,
 
 .th .fx-search .icon {
   flex: none;
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
 }
 
 .th .fx-search input {
@@ -15343,8 +15407,8 @@ button.st-li:hover,
 }
 
 .th .fbtn .icon {
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
 }
 
 .th .fbtn.on {
@@ -15434,8 +15498,8 @@ button.st-li:hover,
 }
 
 .fx-add .icon {
-  width: 11px;
-  height: 11px;
+  width: var(--icon-11);
+  height: var(--icon-11);
 }
 
 .fx-add:hover,
@@ -15456,8 +15520,8 @@ button.st-li:hover,
 }
 
 .fx-menu .lbl-rows button .icon {
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
   color: var(--sl-dim);
 }
 
@@ -15484,8 +15548,8 @@ button.st-li:hover,
 }
 
 .fx-menu .fx-back .icon {
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
   color: var(--sl-faint);
 }
 
@@ -15610,9 +15674,9 @@ button.st-li:hover,
 .fl-head .fl-act {
   display: grid;
   place-items: center;
-  min-width: 24px;
-  height: 22px;
-  margin-left: auto;
+  min-width: 28px;
+  height: 28px;
+  margin: -3px 0 -3px auto;
   padding: 0 4px;
   border-radius: 5px;
   color: var(--sl-faint);
@@ -15626,8 +15690,8 @@ button.st-li:hover,
 }
 
 .fl-head .fl-act .icon {
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
 }
 
 .fl-row {
@@ -15655,8 +15719,8 @@ button.st-li:hover,
 
 .fl-row .fl-main .icon {
   flex: none;
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
   color: var(--sl-dim);
 }
 
@@ -15683,8 +15747,8 @@ button.st-li:hover,
 .fl-row .more {
   position: absolute;
   right: 6px;
-  width: 26px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
   border-radius: 4px;
   color: var(--sl-faint);
   letter-spacing: 1px;
@@ -15711,16 +15775,16 @@ button.st-li:hover,
   right: 34px;
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
   border-radius: 4px;
   color: var(--sl-faint);
   opacity: 0;
 }
 
 .fl-row .star .icon {
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
 }
 
 .fl-row .star.on {
@@ -15867,8 +15931,8 @@ button.st-li:hover,
 
 .chat-row > .icon {
   flex: none;
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
   margin: 0 0.5px;
   color: var(--sl-faint);
 }
@@ -15906,8 +15970,8 @@ button.st-li:hover,
 }
 
 .chat-row.off > .icon:last-child {
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
   margin-left: auto;
 }
 
@@ -16037,8 +16101,8 @@ button.st-li:hover,
 }
 
 .ch-head > .icon {
-  width: 15px;
-  height: 15px;
+  width: var(--icon-15);
+  height: var(--icon-15);
   color: var(--sl-faint);
 }
 
@@ -16084,8 +16148,8 @@ button.st-li:hover,
 }
 
 .ch-head .ppl .icon {
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
 }
 
 .ch-back {
@@ -16198,8 +16262,8 @@ button.st-li:hover,
 }
 
 .ch-intro .ia .icon {
-  width: 15px;
-  height: 15px;
+  width: var(--icon-15);
+  height: var(--icon-15);
   color: var(--sl-dim);
 }
 
@@ -16220,8 +16284,8 @@ button.st-li:hover,
 }
 
 .chat-row .ic2 .icon {
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
 }
 
 .chat-row .sb {
@@ -16451,8 +16515,8 @@ button.ch-q {
 }
 
 .ch-fw .icon {
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
   transform: scaleX(-1);
 }
 
@@ -16511,8 +16575,8 @@ button.ch-q {
 
 .ch-going .icon,
 .ch-fail .icon {
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
 }
 
 .ch-fail {
@@ -16562,8 +16626,8 @@ button.ch-q {
 }
 
 .ch-acts .icon {
-  width: 15px;
-  height: 15px;
+  width: var(--icon-15);
+  height: var(--icon-15);
 }
 
 .ch-pick {
@@ -16742,8 +16806,8 @@ button.ch-q {
 
 .ch-cmp .rp > .icon {
   flex: none;
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
   color: var(--sl-accent);
 }
 
@@ -16762,8 +16826,8 @@ button.ch-q {
 }
 
 .ch-cmp .rp .x .icon {
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
 }
 
 .ch-cmp .fmt {
@@ -16789,8 +16853,8 @@ button.ch-q {
 }
 
 .ch-cmp .fmt .icon {
-  width: 15px;
-  height: 15px;
+  width: var(--icon-15);
+  height: var(--icon-15);
 }
 
 .ch-cmp .in {
@@ -16851,8 +16915,8 @@ button.ch-q {
 }
 
 .ch-cmp .send .icon {
-  width: 15px;
-  height: 15px;
+  width: var(--icon-15);
+  height: var(--icon-15);
 }
 
 /* @: who is in the conversation, then @room */
@@ -16910,8 +16974,8 @@ button.ch-q {
 }
 
 .ch-pop .atr .icon {
-  width: 15px;
-  height: 15px;
+  width: var(--icon-15);
+  height: var(--icon-15);
 }
 
 /* search: the box over the list, and the results in the conversation's place (design/chat.md, 7) */
@@ -16935,8 +16999,8 @@ button.ch-q {
 
 .ch-find > .icon {
   flex: none;
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
 }
 
 .ch-find input {
@@ -16971,8 +17035,8 @@ button.ch-q {
 }
 
 .ch-find .x .icon {
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
 }
 
 /* the box over the results only while the list is not on screen */
@@ -17076,8 +17140,8 @@ button.ch-q {
 
 .ch-r .wh .icon {
   flex: none;
-  width: 11px;
-  height: 11px;
+  width: var(--icon-11);
+  height: var(--icon-11);
 }
 
 .ch-r .tx {
@@ -17097,8 +17161,8 @@ button.ch-q {
 
 .ch-r .fl .icon {
   flex: none;
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
 }
 
 .ch-r mark,
@@ -17289,8 +17353,8 @@ button.ch-q {
 
 .ch-m .bd .msg-chip .icon {
   flex: none;
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
   color: var(--sl-dim);
 }
 
@@ -17585,8 +17649,8 @@ button.ch-video img {
 }
 
 .ch-voice .pl .icon {
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
 }
 
 .ch-voice .pl:not(.on) .icon {
@@ -17812,8 +17876,8 @@ button.ch-video img {
 }
 
 .ch-going-file .x .icon {
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
 }
 
 /* a voice message being recorded, in the place of the box */
@@ -17943,8 +18007,8 @@ button.ch-video img {
 
 .ch-ff .icon {
   flex: none;
-  width: 15px;
-  height: 15px;
+  width: var(--icon-15);
+  height: var(--icon-15);
   color: var(--sl-faint);
 }
 
@@ -18005,14 +18069,14 @@ button.ch-video img {
 }
 
 .ch-pick-row .bx .icon {
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
 }
 
 .ch-pick-row > .icon {
   flex: none;
-  width: 15px;
-  height: 15px;
+  width: var(--icon-15);
+  height: var(--icon-15);
   color: var(--sl-dim);
 }
 
@@ -18073,8 +18137,8 @@ button.ch-video img {
 }
 
 .ch-going-file .vd .icon {
-  width: 11px;
-  height: 11px;
+  width: var(--icon-11);
+  height: var(--icon-11);
   margin-left: 1px;
 }
 
@@ -18100,9 +18164,9 @@ button.ch-video img {
   display: grid;
   flex: none;
   place-items: center;
-  width: 20px;
-  height: 20px;
-  margin: -3px -6px -3px auto;
+  width: 28px;
+  height: 28px;
+  margin: -7px -10px -7px auto;
   border-radius: 4px;
   color: var(--sl-faint);
   opacity: 0;
@@ -18119,8 +18183,8 @@ button.ch-video img {
 }
 
 .chat-grp .gadd .icon {
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
 }
 
 /* a room read without being in it, or archived: in the list only while it is open */
@@ -18277,8 +18341,8 @@ button.ppl:hover {
 }
 
 .ch-ban .x .icon {
-  width: 14px;
-  height: 14px;
+  width: var(--icon-14);
+  height: var(--icon-14);
 }
 
 /* a public room read without being in it: Join in the box's place */
@@ -18438,8 +18502,8 @@ button.ppl:hover {
 }
 
 .ch-ppl .pc .x .icon {
-  width: 11px;
-  height: 11px;
+  width: var(--icon-11);
+  height: var(--icon-11);
 }
 
 .dialog .ch-ppl input {
@@ -18614,8 +18678,8 @@ button.ppl:hover {
 
 .ch-info .ih > .icon {
   flex: none;
-  width: 15px;
-  height: 15px;
+  width: var(--icon-15);
+  height: var(--icon-15);
   color: var(--sl-faint);
 }
 
@@ -18652,8 +18716,8 @@ button.ppl:hover {
 }
 
 .ch-info .ih .x .icon {
-  width: 15px;
-  height: 15px;
+  width: var(--icon-15);
+  height: var(--icon-15);
 }
 
 .ch-tabs {
@@ -18751,8 +18815,8 @@ button.ppl:hover {
 }
 
 .ch-th .vd .icon {
-  width: 11px;
-  height: 11px;
+  width: var(--icon-11);
+  height: var(--icon-11);
   margin-left: 2px;
 }
 
@@ -18811,8 +18875,8 @@ button.ppl:hover {
 
 .ch-link > .icon {
   flex: none;
-  width: 15px;
-  height: 15px;
+  width: var(--icon-15);
+  height: var(--icon-15);
   color: var(--sl-faint);
 }
 
@@ -18915,8 +18979,8 @@ button.ppl:hover {
 }
 
 .ch-add-people .icon {
-  width: 15px;
-  height: 15px;
+  width: var(--icon-15);
+  height: var(--icon-15);
   margin: 0 6px;
 }
 
@@ -18962,14 +19026,14 @@ button.ppl:hover {
 }
 
 .ch-nsel .icon {
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
   color: var(--sl-dim);
 }
 
 .ch-nsel .icon:last-child {
-  width: 11px;
-  height: 11px;
+  width: var(--icon-11);
+  height: var(--icon-11);
   color: var(--sl-faint);
   transform: rotate(90deg);
 }
@@ -19018,8 +19082,8 @@ button.ppl:hover {
 .qn-search .icon,
 .qn-sort .icon {
   flex: none;
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
 }
 
 .qn-search input {
@@ -20304,8 +20368,8 @@ button.ppl:hover {
 }
 
 .tick.cbx .icon {
-  width: 11px;
-  height: 11px;
+  width: var(--icon-11);
+  height: var(--icon-11);
   stroke-width: 2.6;
 }
 
@@ -20579,8 +20643,8 @@ button.ppl:hover {
 }
 
 .rtable .rlines .icon {
-  width: 12px;
-  height: 12px;
+  width: var(--icon-12);
+  height: var(--icon-12);
   transition: transform 0.12s;
 }
 
@@ -20712,8 +20776,8 @@ button.ppl:hover {
 
 .cal-t.done .icon {
   flex: none;
-  width: 11px;
-  height: 11px;
+  width: var(--icon-11);
+  height: var(--icon-11);
   color: var(--sl-accent);
   stroke-width: 2.6;
 }
@@ -20927,8 +20991,8 @@ button.ppl:hover {
 }
 
 .dstrip .days > [role=button].on .icon {
-  width: 13px;
-  height: 13px;
+  width: var(--icon-13);
+  height: var(--icon-13);
 }
 
 .dstrip .days > .now {

@@ -15,6 +15,15 @@ html:has(.phone-app) body {
   overscroll-behavior: none;
 }
 
+/* The phone's icons keep their sizes; the computer's are a step bigger (styles.css). */
+html:has(.phone-app) {
+  --icon-11: 11px;
+  --icon-12: 12px;
+  --icon-13: 13px;
+  --icon-14: 14px;
+  --icon-15: 15px;
+}
+
 /* A field under 16 px makes the phone zoom in on it. */
 .phone-app input,
 .phone-app textarea,
@@ -24,6 +33,42 @@ html:has(.phone-app) body {
 
 .phone-app button {
   touch-action: manipulation;
+}
+
+/* Apple's 44 pt: a control drawn smaller than a finger is touched from a 44 px square around it, as
+   Apple's own close buttons and segmented controls are; it is drawn as it was. */
+:where(
+  .mb-x, .mb-seg button, .mb-sortbar .sb, .mb .phases .ph, .mb .phases .ph-more, .mb-cal .g button,
+  .mb-searchbar, .mb-view, .mb-sx-tabs button, .chn-spaces button, .desc-field .attach,
+  .mb-cattach .attach, .mb-notes .rm-attach .attach, .mb-compose .go, .mb-settings .st-modes button, .mb .st-link,
+  .mb-trash-head button, .mb-files-head button, .mb-fbar .mb-rec button, .chp-mid, .chp-row .pl,
+  .chp-row .mic, .chp-row .bar .ib, .chp-row .bar .send, .chp-rxbar .more, .chp-info .cap .all,
+  .chat-conv.phone .ch-rx button, .chat-conv.phone .ch-voice .pl, .chat-conv.phone .ch-voice .spd,
+  .chat-conv.phone .ch-file .dl, .chat-conv.phone button.ch-q, .chat-conv.phone .msg-chip
+) {
+  position: relative;
+}
+
+:where(
+  .mb-x, .mb-seg button, .mb-sortbar .sb, .mb .phases .ph, .mb .phases .ph-more, .mb-cal .g button,
+  .mb-searchbar, .mb-view, .mb-sx-tabs button, .chn-spaces button, .desc-field .attach,
+  .mb-cattach .attach, .mb-notes .rm-attach .attach, .mb-compose .go, .mb-settings .st-modes button, .mb .st-link,
+  .mb-trash-head button, .mb-files-head button, .mb-fbar .mb-rec button, .chp-mid, .chp-row .pl,
+  .chp-row .mic, .chp-row .bar .ib, .chp-row .bar .send, .chp-rxbar .more, .chp-info .cap .all,
+  .chat-conv.phone .ch-rx button, .chat-conv.phone .ch-voice .pl, .chat-conv.phone .ch-voice .spd,
+  .chat-conv.phone .ch-file .dl, .chat-conv.phone button.ch-q, .chat-conv.phone .msg-chip
+)::after {
+  content: '';
+  position: absolute;
+  inset: min(0px, calc(50% - 22px));
+}
+
+/* the same for those that draw with ::after: a task's box, a view's options */
+.mb-tbig .cb::before,
+.mb-views .opt::before {
+  content: '';
+  position: absolute;
+  inset: min(0px, calc(50% - 22px));
 }
 
 /* The app's own words are not selected or called out by a long press; what is written is. */
@@ -341,14 +386,14 @@ html:has(.phone-app) body {
   display: grid;
   place-items: center;
   width: 44px;
-  height: 40px;
-  margin-left: auto;
+  height: 44px;
+  margin: -2px 0 -2px auto;
   color: var(--sl-accent);
 }
 
 /* A space's order button and its +, side by side at the right. */
 .mb-sec button.tune {
-  width: 36px;
+  width: 44px;
 }
 
 .mb-sec button.tune + button {
@@ -685,7 +730,7 @@ html:has(.phone-app) body {
 
 .mb-settings .st-row input,
 .mb-settings .st-row button {
-  min-height: 40px;
+  min-height: 44px;
 }
 
 /* ---------- sheets: a window comes up from the bottom, its buttons at its top ---------- */
@@ -1582,8 +1627,8 @@ body > .mb-lifted {
   display: flex;
   flex: none;
   align-items: center;
-  height: 40px;
-  padding: 0 6px;
+  height: 44px;
+  padding: 0 2px;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scrollbar-width: none;
@@ -1618,12 +1663,11 @@ body > .mb-lifted {
   display: flex;
   flex: none;
   align-items: center;
-  gap: 2px;
 }
 
 .mb-fbar .g + .g {
-  margin-left: 5px;
-  padding-left: 5px;
+  margin-left: 1px;
+  padding-left: 1px;
   border-left: 1px solid var(--sl-line);
 }
 
@@ -1640,13 +1684,23 @@ body > .mb-lifted {
   font-size: 15px;
 }
 
+/* 44 px to a finger, as the bar is tall; what shows lit is the 36 x 34 in it */
+.mb-fbar .g button {
+  min-width: 44px;
+  height: 44px;
+  border: solid transparent;
+  border-width: 5px 4px;
+  border-radius: 11px;
+  background-clip: padding-box;
+}
+
 .mb-fbar button.word {
   font-size: 14px;
   font-weight: 600;
 }
 
 .mb-fbar button.text {
-  padding: 0 9px;
+  padding: 0 5px;
   font-size: 14px;
   font-weight: 500;
   white-space: nowrap;
@@ -2535,7 +2589,8 @@ body > .mb-lifted {
   display: grid;
   place-items: center;
   width: 44px;
-  height: 40px;
+  height: 44px;
+  margin: -2px 0;
   color: var(--sl-accent);
 }
 
@@ -2864,8 +2919,8 @@ body > .mb-lifted {
 .mb-cal .mh button {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   color: var(--sl-accent);
 }
 
@@ -2875,10 +2930,11 @@ body > .mb-lifted {
   stroke-width: 2.2;
 }
 
+/* a day every 44 px down, so that each has its own */
 .mb-cal .g {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 2px;
+  gap: 4px 2px;
   text-align: center;
 }
 
@@ -2962,8 +3018,9 @@ body > .mb-lifted {
   stroke-width: 2.2;
 }
 
+/* far enough apart that each has its own 44 px */
 .mb-x.dots + .mb-x {
-  margin-left: 8px;
+  margin-left: 14px;
 }
 
 .mb-sheet .mb-x.dots .icon {
@@ -3624,9 +3681,11 @@ body > .mb-lifted {
 }
 
 /* the phases: chips on one line that scrolls, the current one lit with its ··· */
+/* room above and under the chips for their 44 px, which the line would cut */
 .mb .phases {
   gap: 6px;
-  padding: 4px 16px 0;
+  margin: -2px 0 -6px;
+  padding: 6px 16px;
   overflow-x: auto;
   scrollbar-width: none;
   font-size: 14px;
@@ -4392,7 +4451,7 @@ body > .mb-lifted {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 2px 16px 8px;
+  padding: 5px 16px 8px;
   color: var(--sl-dim);
   font-size: 14px;
 }
@@ -4595,6 +4654,8 @@ body > .mb-lifted {
   flex: 1;
   gap: 6px;
   min-width: 0;
+  margin: -6px 0;
+  padding: 6px 0;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -6395,7 +6456,10 @@ body > .mb-lifted {
 }
 
 /* Search's tabs, under the box, as Files' kinds are; and an action at the foot */
+/* room above the chips for their 44 px, which the line would cut */
 .mb-sx-tabs {
+  margin-top: -6px;
+  padding-top: 6px;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -7365,6 +7429,7 @@ body > .mb-lifted {
 }
 
 .mb-head.split .mb-seg:has(> :nth-child(3)) button {
+  min-width: 44px;
   padding: 0 9px;
   font-size: 13.5px;
   white-space: nowrap;
@@ -8696,7 +8761,8 @@ body > .mb-lifted {
   display: flex;
   flex: none;
   gap: 8px;
-  padding: 4px 16px 10px;
+  margin-top: -2px;
+  padding: 6px 16px 10px;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -8750,7 +8816,8 @@ body > .mb-lifted {
 
 /* one list, its chips over it and a room's space after its name (design/chat.md, 26) */
 .chn-spaces.chp-chips {
-  padding: 2px 16px 6px;
+  margin: -4px 0 0;
+  padding: 6px 16px;
 }
 
 .chp-c .tx b .at {
@@ -9083,7 +9150,6 @@ body > .mb-lifted {
   display: flex;
   align-items: center;
   align-self: flex-start;
-  gap: 2px;
   padding: 5px 8px;
   border-radius: 26px;
   background: var(--sl-side);
@@ -9094,8 +9160,8 @@ body > .mb-lifted {
 .chp-rxbar button {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
 }
 
@@ -9112,7 +9178,7 @@ body > .mb-lifted {
 .chp-rxbar .more {
   width: 34px;
   height: 34px;
-  margin-left: 2px;
+  margin-left: 5px;
   background: var(--sl-sel);
   color: var(--sl-dim);
 }
@@ -9305,8 +9371,8 @@ body > .mb-lifted {
 
 .mb .chp-box .chp-row .pl .icon,
 .mb .chp-box .chp-row .mic .icon {
-  width: 21px;
-  height: 21px;
+  width: 24px;
+  height: 24px;
 }
 
 .mb .chp-box .chp-row .in {
@@ -9349,7 +9415,7 @@ body > .mb-lifted {
 .chp-row .bar .ib {
   display: grid;
   place-items: center;
-  width: 38px;
+  width: 42px;
   height: 32px;
   border-radius: 8px;
   color: var(--sl-dim);
@@ -9687,7 +9753,7 @@ body > .mb-lifted {
 .chp-info .cap {
   display: flex;
   align-items: baseline;
-  margin: 0 2px -6px;
+  margin: 0 2px -3px;
   color: var(--sl-faint);
   font-size: 12.5px;
   font-weight: 500;
