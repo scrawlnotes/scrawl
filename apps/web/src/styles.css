@@ -15956,9 +15956,9 @@ button.st-li:hover,
 }
 
 .ch-m > .ch-face.md {
-  width: 32px;
-  height: 32px;
-  font-size: 12.5px;
+  width: 36px;
+  height: 36px;
+  font-size: 14px;
 }
 
 .ch-face.sm {
@@ -16265,16 +16265,19 @@ button.st-li:hover,
   border-top: 1px solid color-mix(in srgb, var(--sl-p1) 55%, transparent);
 }
 
+/* sizes and gaps as Slack's: 15 px words on 22 px lines, 8 px between one person's messages, 12 between people */
 .ch-m {
   position: relative;
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr);
+  grid-template-columns: 36px minmax(0, 1fr);
   column-gap: 10px;
-  padding: 6px 20px 3px;
+  padding: 8px 20px 4px;
+  font-size: 15px;
+  line-height: 22px;
 }
 
 .ch-m.cont {
-  padding-top: 1px;
+  padding-top: 4px;
 }
 
 .ch-m:hover,
@@ -16287,11 +16290,14 @@ button.st-li:hover,
   transition: background 0.4s;
 }
 
+/* one line, out to the left if it must: two would make the message's row taller */
 .ch-m .tm {
   align-self: start;
+  justify-self: end;
   padding-top: 3px;
   color: transparent;
   font-size: 10.5px;
+  white-space: nowrap;
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
@@ -16301,6 +16307,7 @@ button.st-li:hover,
 }
 
 .ch-m .bx {
+  grid-column: 2;
   min-width: 0;
 }
 
@@ -16316,7 +16323,7 @@ button.st-li:hover,
 
 .ch-m .hd .t {
   color: var(--sl-faint);
-  font-size: 11px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -16483,7 +16490,7 @@ button.ch-q {
 }
 
 .ch-seen {
-  padding: 0 20px 2px 62px;
+  padding: 0 20px 2px 66px;
   color: var(--sl-faint);
   font-size: 11px;
 }

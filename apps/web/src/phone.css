@@ -8932,10 +8932,12 @@ body > .mb-lifted {
   padding-bottom: 6px;
 }
 
+/* as Slack's on a phone: 17 px words, 14 px between one person's messages */
 .chat-conv.phone .ch-m {
   grid-template-columns: 36px minmax(0, 1fr);
-  padding: 7px 14px 3px;
-  font-size: 15.5px;
+  padding: 8px 14px 4px;
+  font-size: 17px;
+  line-height: 1.32;
   touch-action: pan-y;
   -webkit-user-select: none;
   user-select: none;
@@ -8951,7 +8953,16 @@ body > .mb-lifted {
 }
 
 .chat-conv.phone .ch-m.cont {
-  padding-top: 1px;
+  padding-top: 10px;
+}
+
+/* a time shown on hover: none on a phone, and no room kept for it */
+.chat-conv.phone .ch-m .tm {
+  display: none;
+}
+
+.chat-conv.phone .ch-m .hd {
+  margin-bottom: 2px;
 }
 
 .chat-conv.phone .ch-m > .ch-face.md {
@@ -8965,7 +8976,7 @@ body > .mb-lifted {
 }
 
 .chat-conv.phone .ch-m .hd .t {
-  font-size: 12.5px;
+  font-size: 13px;
 }
 
 .chat-conv.phone .ch-day,
@@ -9138,8 +9149,13 @@ body > .mb-lifted {
   grid-template-columns: 36px minmax(0, 1fr);
   column-gap: 10px;
   padding: 10px 14px 8px;
-  font-size: 15.5px;
+  font-size: 17px;
+  line-height: 1.32;
   transform: none !important;
+}
+
+.chp-lift .ch-m .tm {
+  display: none;
 }
 
 .chp-lift .chp-swipe {
