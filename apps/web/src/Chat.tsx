@@ -7,6 +7,7 @@ import {
   highlightCodeBlocks,
   MARKDOWN_TYPE,
   messageHtml,
+  pickFiles,
   type ScrawlEditor,
   toggleBold,
   toggleCode,
@@ -1495,17 +1496,8 @@ export function Composer({ server, chat, replyTo, nameOf, menu, links, dropping,
     setGoing((was) => was.filter((one) => one.key !== key));
   };
 
-  /** Photos and files…: the computer's own picker, many at once. */
   /** Photos and files…: the device's own picker, many at once; on a phone the photos, or the camera. */
-  const pickFiles = (accept = '', camera = false) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.multiple = !camera;
-    if (accept) input.accept = accept;
-    if (camera) input.setAttribute('capture', 'environment');
-    input.addEventListener('change', () => add([...(input.files ?? [])]));
-    input.click();
-  };
+  const pickHere = (accept = '', camera = false) => pickFiles({ accept, many: !camera, camera }, add);
 
   /** Puts a chip where the cursor is, apart from the words around it. */
   const putChip = (chip: string, at?: number) => {
@@ -1523,12 +1515,12 @@ export function Composer({ server, chat, replyTo, nameOf, menu, links, dropping,
       event,
       phone
         ? [
-            { label: t('chat.photoLibrary'), icon: 'image', run: () => pickFiles('image/*,video/*') },
-            { label: t('chat.camera'), icon: 'image', run: () => pickFiles('image/*', true) },
-            { label: t('chat.fileDots'), icon: 'file', run: () => pickFiles() },
+            { label: t('chat.photoLibrary'), icon: 'image', run: () => pickHere('image/*,video/*') },
+            { label: t('chat.camera'), icon: 'image', run: () => pickHere('image/*', true) },
+            { label: t('chat.fileDots'), icon: 'file', run: () => pickHere() },
           ]
         : [
-      { label: t('chat.photosFiles'), icon: 'image', run: () => pickFiles() },
+      { label: t('chat.photosFiles'), icon: 'image', run: () => pickHere() },
       {
         label: t('chat.codeBlock'),
         icon: 'codeBlock',

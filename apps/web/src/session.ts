@@ -320,6 +320,7 @@ import {
   copyPosition,
   copyProgress,
   createEditor,
+  pickFiles,
   createViewer,
   dropCopy,
   type EditorState,
@@ -5427,13 +5428,6 @@ export class Session {
     if (!typing?.format) return;
     const { view, note } = typing;
     const at = view.state.selection.main.head;
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.addEventListener('change', () => {
-      const file = input.files?.[0];
-      if (file) void this.copyFiles(this.quick?.path === note ? view : note, note, [file], at);
-    });
-    input.click();
+    pickFiles({ accept: 'image/*' }, ([file]) => void this.copyFiles(this.quick?.path === note ? view : note, note, [file!], at));
   }
 }

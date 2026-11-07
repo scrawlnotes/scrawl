@@ -163,6 +163,29 @@ function handKeyboard(view: EditorView) {
   });
 }
 
+/**
+ * The device's own picker for files; `picked` gets what was chosen. The field stays in the page,
+ * unseen, while the picker is open: an iPhone does not tell a field that is in no page what was picked.
+ */
+export function pickFiles({ accept = '', many = false, camera = false }: { accept?: string; many?: boolean; camera?: boolean }, picked: (files: File[]) => void) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.multiple = many;
+  if (accept) input.accept = accept;
+  if (camera) input.setAttribute('capture', 'environment');
+  input.setAttribute('aria-hidden', 'true');
+  input.tabIndex = -1;
+  Object.assign(input.style, { position: 'fixed', top: '0', left: '0', width: '1px', height: '1px', opacity: '0', pointerEvents: 'none' });
+  document.body.append(input);
+  input.addEventListener('change', () => {
+    const files = [...(input.files ?? [])];
+    input.remove();
+    if (files.length > 0) picked(files);
+  });
+  input.addEventListener('cancel', () => input.remove());
+  input.click();
+}
+
 /** Focuses an editor; a phone's empty one with the keyboard on a capital. */
 export function focusOnCapital(view: EditorView) {
   if (touchViews.has(view) && view.state.doc.length === 0) handKeyboard(view);
@@ -351,15 +374,10 @@ export function createEditor(options: ScrawlEditorOptions): ScrawlEditor {
       detail: t('slash.fromFile'),
       icon: SLASH_ICONS.image,
       run(view) {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/*';
-        input.addEventListener('change', () => {
-          const file = input.files?.[0];
-          if (file) addFiles([file], view.state.selection.main.head);
+        pickFiles({ accept: 'image/*' }, ([file]) => {
+          addFiles([file!], view.state.selection.main.head);
           view.focus();
         });
-        input.click();
       },
     });
   }
