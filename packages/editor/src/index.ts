@@ -192,7 +192,10 @@ export function focusOnCapital(view: EditorView) {
   else view.focus();
 }
 
-/** A phone's editor: an empty one tapped, or emptied by the app while in use, gets the keyboard on a capital. */
+/**
+ * A phone's editor gets the keyboard on a capital whenever it is empty and comes into use: tapped,
+ * focused from anywhere in the app (a photo added, a picker closed, Reply), or emptied by the app.
+ */
 const capitalsOnTouch = [
   EditorView.domEventHandlers({
     mousedown(event, view) {
@@ -200,6 +203,11 @@ const capitalsOnTouch = [
       event.preventDefault();
       handKeyboard(view);
       return true;
+    },
+    // Focused from code, whatever called it; the editor's own focus as the field hands it back is let be.
+    focus(_event, view) {
+      if (view.state.doc.length === 0) handKeyboard(view);
+      return false;
     },
   }),
   EditorView.updateListener.of((update) => {
