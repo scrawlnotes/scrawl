@@ -138,6 +138,53 @@ export function revealCursor(dom: Element): boolean {
   return true;
 }
 
+// On an iPhone the keyboard starts in lower case when an empty editor is focused by a tap or from
+// code, or emptied by the app while in use: it decides only as a field takes it, and a field does
+// start on a capital. So a hidden field takes the keyboard and hands it back to the editor.
+const touchViews = new WeakSet<EditorView>();
+const handing = new WeakSet<EditorView>();
+
+function handKeyboard(view: EditorView) {
+  // Once: a tap that the editor and what holds it both answer hands it over one time.
+  if (handing.has(view)) return;
+  handing.add(view);
+  const field = document.createElement('input');
+  field.setAttribute('aria-hidden', 'true');
+  field.tabIndex = -1;
+  // 16 px, so that the phone does not zoom in on it.
+  Object.assign(field.style, { position: 'fixed', top: '0', left: '0', width: '1px', height: '1px', padding: '0', border: '0', opacity: '0', fontSize: '16px' });
+  // Inside the editor, so that what holds it does not take the moment for the editor's focus going.
+  view.dom.append(field);
+  field.focus({ preventScroll: true });
+  window.setTimeout(() => {
+    view.focus();
+    field.remove();
+    handing.delete(view);
+  });
+}
+
+/** Focuses an editor; a phone's empty one with the keyboard on a capital. */
+export function focusOnCapital(view: EditorView) {
+  if (touchViews.has(view) && view.state.doc.length === 0) handKeyboard(view);
+  else view.focus();
+}
+
+/** A phone's editor: an empty one tapped, or emptied by the app while in use, gets the keyboard on a capital. */
+const capitalsOnTouch = [
+  EditorView.domEventHandlers({
+    mousedown(event, view) {
+      if (view.hasFocus || view.state.doc.length > 0) return false;
+      event.preventDefault();
+      handKeyboard(view);
+      return true;
+    },
+  }),
+  EditorView.updateListener.of((update) => {
+    const emptied = update.docChanged && update.state.doc.length === 0 && update.startState.doc.length > 0;
+    if (emptied && update.view.hasFocus && !update.transactions.some((tr) => tr.isUserEvent('input') || tr.isUserEvent('delete'))) handKeyboard(update.view);
+  }),
+];
+
 /** Where a note was scrolled to in the editor. */
 /** Where a note was scrolled to in the editor: the line at its top, and how far into it. */
 export type ScrollPlace = ReturnType<EditorView['scrollSnapshot']>;
@@ -339,7 +386,7 @@ export function createEditor(options: ScrawlEditorOptions): ScrawlEditor {
         options.placeholder ? placeholder(options.placeholder) : [],
         // On a phone the keyboard starts a sentence with a capital, after a full stop and on a new
         // line, as a notes app's does; the editor's own default turns it off.
-        options.touch ? EditorView.contentAttributes.of({ autocapitalize: 'sentences' }) : [],
+        options.touch ? [EditorView.contentAttributes.of({ autocapitalize: 'sentences' }), capitalsOnTouch] : [],
         options.slash === false ? [] : slashMenu(slashItems, options.touch),
         cursorBehavior,
         clipboard,
@@ -376,6 +423,7 @@ export function createEditor(options: ScrawlEditorOptions): ScrawlEditor {
       ],
     });
   const view = new EditorView({ parent: options.parent, state: createState(options.doc ?? '') });
+  if (options.touch) touchViews.add(view);
   options.onStats?.(stats(view.state));
 
   return {

@@ -3,6 +3,7 @@ import {
   createEditor,
   editorTakesEnter,
   type EditorView,
+  focusOnCapital,
   highlightCodeBlocks,
   MARKDOWN_TYPE,
   messageHtml,
@@ -1631,7 +1632,7 @@ export function Composer({ server, chat, replyTo, nameOf, menu, links, dropping,
     setLocked(null);
     onCancelReply();
     if (to && fresh) return fresh.onSent(to);
-    window.setTimeout(() => editor.current?.view.focus());
+    window.setTimeout(() => editor.current && focusOnCapital(editor.current.view));
   };
 
   const look = () => {
@@ -1676,7 +1677,7 @@ export function Composer({ server, chat, replyTo, nameOf, menu, links, dropping,
   }, []);
 
   useEffect(() => {
-    if (replyTo) editor.current?.view.focus();
+    if (replyTo && editor.current) focusOnCapital(editor.current.view);
   }, [replyTo?.id]);
 
   const query = mention?.query.toLowerCase() ?? '';
@@ -1960,25 +1961,6 @@ export function Composer({ server, chat, replyTo, nameOf, menu, links, dropping,
       )}
     </div>
   );
-}
-
-/**
- * Focuses the phone's box with the keyboard on a capital, as a note opens: an empty editor a tap
- * focuses comes up in lower case on an iPhone, a field does not, so a hidden field takes the
- * keyboard in the tap and hands it to the box, as Session.holdKeyboard does for a note.
- */
-function focusOnCapital(view: EditorView) {
-  const field = document.createElement('input');
-  field.setAttribute('aria-hidden', 'true');
-  field.tabIndex = -1;
-  // 16 px, so that the phone does not zoom in on it.
-  Object.assign(field.style, { position: 'fixed', top: '0', left: '0', width: '1px', height: '1px', padding: '0', border: '0', opacity: '0', fontSize: '16px' });
-  document.body.append(field);
-  field.focus({ preventScroll: true });
-  window.setTimeout(() => {
-    view.focus();
-    field.remove();
-  });
 }
 
 /** How many lines a message shows on a phone before it folds. */

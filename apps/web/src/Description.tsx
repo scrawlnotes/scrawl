@@ -1,4 +1,4 @@
-import { editorTakesEnter, enterInEditor, type ScrawlEditor } from '@scrawlnotes/editor';
+import { editorTakesEnter, enterInEditor, focusOnCapital, type ScrawlEditor } from '@scrawlnotes/editor';
 import { t } from '@scrawlnotes/i18n';
 import { type KeyboardEvent, useEffect, useRef } from 'react';
 import { Icon } from './Icon';
@@ -70,7 +70,7 @@ export function DescriptionField({ home, value, onChange, hint, host, autoFocus,
   useEffect(() => {
     const made = host.editor(home, box.current!, value, (doc) => changed.current(doc), hint);
     editor.current = made;
-    if (autoFocus) made.view.focus();
+    if (autoFocus) focusOnCapital(made.view);
     return () => {
       made.destroy();
       editor.current = null;
