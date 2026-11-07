@@ -1,6 +1,6 @@
 import { type ChatFile, type ChatInfo, type ChatNotify, type ChatPerson, type ChatShared, ServerError } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
-import { type KeyboardEvent, type MouseEvent, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { type KeyboardEvent, type MouseEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { AudioPlayer, FileRow, isAudio, isImage, isVideo, Lightbox, useFileUrl } from './ChatParts';
 import { Face, leadOf, shortDay, titleOf } from './ChatFaces';
 import { clock } from './chatMedia';
@@ -172,7 +172,7 @@ export function NewRoomDialog({ server, space, onDone, onClose }: { server: Chat
       </label>
       {failed && <p className="ch-fail-note">{failed}</p>}
       <p className="choices-label">{t('chat.topic')}</p>
-      <input value={topic} maxLength={250} placeholder={t('chat.optional')} onChange={(event) => setTopic(event.target.value)} />
+      <textarea className="ch-topic" rows={3} value={topic} maxLength={250} placeholder={t('chat.optional')} onChange={(event) => setTopic(event.target.value)} />
       <div className="ch-vis" role="radiogroup">
         {(['public', 'private'] as const).map((each) => (
           <button type="button" role="radio" aria-checked={kind === each} key={each} className={kind === each ? 'o on' : 'o'} onClick={() => setKind(each)}>
@@ -595,16 +595,8 @@ function About({ server, chat, nameOf, say }: { server: ChatServer; chat: ChatIn
   const [name, setName] = useState(chat.name);
   const [topic, setTopic] = useState(chat.topic);
   const [asking, setAsking] = useState<'public' | 'private' | null>(null);
-  const topicBox = useRef<HTMLTextAreaElement>(null);
   useEffect(() => setName(chat.name), [chat.name]);
   useEffect(() => setTopic(chat.topic), [chat.topic]);
-  // The topic's box is as tall as what is written in it.
-  useLayoutEffect(() => {
-    const box = topicBox.current;
-    if (!box) return;
-    box.style.height = 'auto';
-    box.style.height = `${box.scrollHeight + box.offsetHeight - box.clientHeight}px`;
-  }, [topic]);
   const can = chat.manage === true && chat.archived === null;
   const keep = async (change: { name?: string; topic?: string; kind?: 'public' | 'private' }) => {
     try {
@@ -616,10 +608,10 @@ function About({ server, chat, nameOf, say }: { server: ChatServer; chat: ChatIn
       setTopic(chat.topic);
     }
   };
-  // Enter and a click away keep what was written, the topic on one line as its room's head shows it;
+  // A click away keeps what was written, and Enter in the name; in the topic Enter goes to a new line.
   // Esc leaves it as it was.
   const keys = (was: string, set: (value: string) => void) => (event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+    if (event.key === 'Enter' && event.currentTarget instanceof HTMLInputElement && !event.nativeEvent.isComposing) {
       event.preventDefault();
       event.currentTarget.blur();
     } else if (event.key === 'Escape') {
@@ -629,7 +621,7 @@ function About({ server, chat, nameOf, say }: { server: ChatServer; chat: ChatIn
       window.setTimeout(() => (event.target as HTMLElement).blur());
     }
   };
-  const written = topic.replace(/\s+/g, ' ').trim();
+  const written = topic.trim();
   const room = `#${chat.name}`;
   return (
     <div className="ch-about">
@@ -652,12 +644,10 @@ function About({ server, chat, nameOf, say }: { server: ChatServer; chat: ChatIn
       <p className="choices-label">{t('chat.topic')}</p>
       {can ? (
         <textarea
-          ref={topicBox}
           className="ch-topic"
-          rows={1}
+          rows={3}
           value={topic}
           maxLength={250}
-          enterKeyHint="done"
           placeholder={t('chat.noTopic')}
           onChange={(event) => setTopic(event.target.value)}
           onKeyDown={keys(chat.topic, setTopic)}

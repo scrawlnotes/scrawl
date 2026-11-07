@@ -18927,23 +18927,24 @@ button.ppl:hover {
 
 .ch-about .val {
   margin: 0 2px;
+  white-space: pre-line;
 }
 
-/* a room's topic, as tall as what is written in it */
-.ch-about .ch-topic {
+/* a room's topic, in Settings and in New room: a box of a few lines, longer ones scroll in it */
+.ch-topic {
   box-sizing: border-box;
   width: 100%;
   padding: 5px 8px;
-  overflow: hidden;
   border: 1px solid var(--sl-line);
   border-radius: 5px;
   background: var(--sl-bg);
   color: var(--sl-fg);
   font: inherit;
-  resize: none;
+  resize: vertical;
+  outline: none;
 }
 
-.ch-about .ch-topic:focus {
+.ch-topic:focus {
   border-color: var(--sl-accent);
 }
 

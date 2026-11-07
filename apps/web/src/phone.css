@@ -9826,6 +9826,11 @@ body > .mb-lifted {
   color: var(--sl-fg);
 }
 
+/* no corner to pull on a phone */
+.phone-app .ch-topic {
+  resize: none;
+}
+
 .chp-part .ch-about .ch-name {
   min-height: 44px;
 }
