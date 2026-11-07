@@ -30,7 +30,7 @@ import { store as chatStore, useChat } from './chatStore';
 import { partName, PhoneChatConversation, PhoneChatInfo, PhoneChatList, PhoneChatPart } from './PhoneChat';
 import { PhoneAddPeople, PhoneBrowseRooms, PhoneNewMessage, PhoneNewRoom } from './PhoneChatNew';
 import { titleOf as chatTitle } from './ChatFaces';
-import { HELP, HELP_PAGES } from './help/index';
+import { HELP, HELP_PAGES, helpTopic, type HelpTopic } from './help/index';
 import { HelpPhoneNote } from './Help';
 
 // A phone has a layout of its own, after the Phone views of design/mockups.html: a tab bar with
@@ -1048,7 +1048,7 @@ export function Phone(props: PhoneProps) {
     if (page.kind === 'files') return t('side.files');
     if (page.kind === 'settings') return t('settings.title');
     if (page.kind === 'help') return t('help.title');
-    if (page.kind === 'helpTopic') return t(HELP.find((each) => each.id === page.id)?.label ?? 'help.title');
+    if (page.kind === 'helpTopic') return t(helpTopic(page.id)?.label ?? 'help.title');
     if (page.kind === 'helpNote') return t(HELP_PAGES.find((each) => each.id === page.id)?.label ?? 'help.title');
     if (page.kind === 'section') return t(settingsSections().find((each) => each.id === page.section)?.label ?? 'settings.title');
     if (page.kind === 'space') return page.id ? (props.spaces.find((space) => space.id === page.id)?.name ?? '') : (props.settings.values.spaceName ?? t('settings.personal'));
@@ -1517,34 +1517,38 @@ export function Phone(props: PhoneProps) {
         </PageFrame>
       );
     }
-    // Help: its topics, each with its pages under its name; a topic's pages under the app picker's groups.
+    // Help: its topics, each with what is under it beside its name; a topic's pages under the app
+    // picker's groups, then its own topics, each a page of its own.
+    const helpRow = (topic: HelpTopic) =>
+      topic.pages || topic.topics ? (
+        <Row
+          key={topic.id}
+          label={t(topic.label)}
+          sub={[...(topic.pages ?? []), ...(topic.topics ?? [])].map((each) => t(each.label)).join(', ')}
+          onClick={() => push({ kind: 'helpTopic', id: topic.id })}
+        />
+      ) : (
+        <Row key={topic.id} label={t(topic.label)} onClick={() => push({ kind: 'helpNote', id: topic.id })} />
+      );
     if (page.kind === 'help') {
       return (
         <PageFrame title={titleOf(page, of)} nav={nav}>
-          <div className="mb-list help-mlist">
-            {HELP.map((topic) => (
-              <Row
-                key={topic.id}
-                label={t(topic.label)}
-                sub={topic.pages?.map((each) => t(each.label)).join(', ')}
-                onClick={() => push(topic.pages ? { kind: 'helpTopic', id: topic.id } : { kind: 'helpNote', id: topic.id })}
-              />
-            ))}
-          </div>
+          <div className="mb-list help-mlist">{HELP.map(helpRow)}</div>
         </PageFrame>
       );
     }
     if (page.kind === 'helpTopic') {
-      const pages = HELP.find((each) => each.id === page.id)?.pages ?? [];
+      const topic = helpTopic(page.id);
       return (
         <PageFrame title={titleOf(page, of)} nav={nav}>
           <div className="mb-list help-mlist">
-            {pages.map((each) => (
+            {topic?.pages?.map((each) => (
               <Fragment key={each.id}>
                 {each.group && <div className="mb-sec">{t(each.group)}</div>}
                 <Row label={t(each.label)} onClick={() => push({ kind: 'helpNote', id: each.id })} />
               </Fragment>
             ))}
+            {topic?.topics?.map(helpRow)}
           </div>
         </PageFrame>
       );

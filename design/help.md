@@ -10,8 +10,8 @@ Uygulamanın içinde, uygulamayı anlatan bir yardım. Bugün yalnız Welcome to
 
 - Help ayrı bir penceredir, Settings gibi uygulamanın üstünde ortada açılır. Solda konular, ortada not, sağda On this page.
 - Her sayfa bir nottur; uygulamanın notu gösterdiği gibi görünür, okunur, içine yazılmaz.
-- Bölümlerle anlatılabilen her konu tek nottur; bölümlerine On this page'den gidilir. Altında birden çok not olan konular yalnız Apps, Business apps, Personal apps ve Scrawl server.
-- Her app ayrı bir nottur. Büyük app'in her ekranı notunda ayrı bir bölümdür; listeye üçüncü seviye gelmez.
+- Bölümlerle anlatılabilen her konu tek nottur; bölümlerine On this page'den gidilir. Altında birden çok not olan konular yalnız Apps ve Scrawl server. Business apps ve Personal apps, Apps'in kendi notlarından sonra, onun altında açılıp kapanan iki konudur (8 Kasım, kullanıcının isteğiyle).
+- Her app ayrı bir nottur. Büyük app'in her ekranı notunda ayrı bir bölümdür; app'in ekranları listeye girmez.
 - Getting started, Welcome to Scrawl notunun kendisidir. Welcome notu ilk açılışta bugünkü gibi sekme olarak açılmaya devam eder.
 - Search'ün Actions'ında Help: pencereyi açar. Help notlarının metni aramada çıkmaz.
 - Notlar arası link: bir nottaki başka bir Help notunun linki o notu Help'te açar.
@@ -31,17 +31,17 @@ Sıra yeni kullanan birinin ihtiyacına göredir: önce günlük işler, sonra k
 | 6 | Keys | `keys` | `.env` dosyası, gruplar, gizli değerler, Copy as .env, Text, güvenlik |
 | 7 | Collections | `collections` | kayıt ve tablo, Fields ile form, bağlantılar, formül, lookup ve rollup, kurallar ve düğmeler, takvim, CSV ve Excel |
 | 8 | Apps | `apps-how`, `apps-editing`, `apps-building` | How apps work; Editing an app (elle ve ajanla); Building an app with an agent |
-| 9 | Business apps | her app bir not | Customers: CRM, Customer support, Appointments and bookings, Content calendar, Field service, Consulting. Money: Sales and invoicing, Budget and spending, Stock and purchasing, E-commerce, Assets and maintenance, Subscriptions and memberships. Work: Project management, Product development, Recruiting, Contracts and renewals, Time off and team, Goals, Incidents and actions |
-| 10 | Personal apps | her app bir not | Money and home: Personal finance; Home, car and documents; Recipes and meal plan. Health: Health, Habits and goals, Gym, Sport and training. Life: Travel, Shared expenses, Job search, People and birthdays, Reading and watching |
-| 11 | Search | `search` | neleri bulduğu, eşleşme, Actions |
-| 12 | Spaces and folders | `spaces` | space'ler ve sırası, klasörler, taşıma ve Rename, linkler, Files, Trash |
-| 13 | Sync | `sync` | nasıl çalıştığı ve offline, OneDrive, Scrawl server, öbür cihazlar, OneDrive klasörü paylaşma, sorunlar |
-| 14 | Scrawl on your devices | `devices` | web, masaüstü (kurulum, güncelleme, tepside çalışma), telefon (ana ekrana ekleme) |
-| 15 | Working together | `working-together` | space paylaşma, görev ve kartı birine verme, Activity |
-| 16 | Chat | `chat` | room'lar, direct message'lar, bildirimler, arama, dışa aktarma; yalnız sunucuda |
-| 17 | Agents | `ai-agents` | ne yapar, bilgisayarda ve web'de bağlama, örnek istekler, kimliği, erişemediği yerler |
-| 18 | Scrawl server | `server-about`, `server-setup`, `server-running` | What a server is (ne ekler, kimin için); Setting it up; Running it (yedek, dışa aktarma, güncelleme, ajanlar) |
-| 19 | Settings | `settings` | Profile, Appearance, Spaces, Agents, Logs |
+| 8a | Apps › Business apps | her app bir not | Customers: CRM, Customer support, Appointments and bookings, Content calendar, Field service, Consulting. Money: Sales and invoicing, Budget and spending, Stock and purchasing, E-commerce, Assets and maintenance, Subscriptions and memberships. Work: Project management, Product development, Recruiting, Contracts and renewals, Time off and team, Goals, Incidents and actions |
+| 8b | Apps › Personal apps | her app bir not | Money and home: Personal finance; Home, car and documents; Recipes and meal plan. Health: Health, Habits and goals, Gym, Sport and training. Life: Travel, Shared expenses, Job search, People and birthdays, Reading and watching |
+| 9 | Search | `search` | neleri bulduğu, eşleşme, Actions |
+| 10 | Spaces and folders | `spaces` | space'ler ve sırası, klasörler, taşıma ve Rename, linkler, Files, Trash |
+| 11 | Sync | `sync` | nasıl çalıştığı ve offline, OneDrive, Scrawl server, öbür cihazlar, OneDrive klasörü paylaşma, sorunlar |
+| 12 | Scrawl on your devices | `devices` | web, masaüstü (kurulum, güncelleme, tepside çalışma), telefon (ana ekrana ekleme) |
+| 13 | Working together | `working-together` | space paylaşma, görev ve kartı birine verme, Activity |
+| 14 | Chat | `chat` | room'lar, direct message'lar, bildirimler, arama, dışa aktarma; yalnız sunucuda |
+| 15 | Agents | `ai-agents` | ne yapar, bilgisayarda ve web'de bağlama, örnek istekler, kimliği, erişemediği yerler |
+| 16 | Scrawl server | `server-about`, `server-setup`, `server-running` | What a server is (ne ekler, kimin için); Setting it up; Running it (yedek, dışa aktarma, güncelleme, ajanlar) |
+| 17 | Settings | `settings` | Profile, Appearance, Spaces, Agents, Logs |
 
 **App notunun iskeleti:** ne işe yaradığı; kurarken sorulanlar; ekranları; Today'e ne geldiği; hangi app'lerle birlikte çalıştığı; ajana neler sorulabileceği. Büyük app'te her ekran bir bölümdür (CRM: Companies and people, Deals, Activities, Home).
 
@@ -50,7 +50,7 @@ Sıra yeni kullanan birinin ihtiyacına göredir: önce günlük işler, sonra k
 ## 4. Ekranlar
 
 **Masaüstü ve web.** Kenar çubuğunun en altında, Settings'in altında Help. Pencere Settings'in kalıbındadır, ondan büyüktür (en fazla 1080 × 740). Esc ve × kapatır; açılınca Getting started'dadır.
-- Solda konular. Altında notları olan konuya tıklamak onu açar ya da kapatır; açık notun konusu açık durur. Business apps ve Personal apps app seçme penceresindeki gruplarla yazılır.
+- Solda konular. Altında notları olan konuya tıklamak onu açar ya da kapatır; açık notun altında olduğu konular açık durur, notun üstünde de yazar (Apps › Personal apps). Business apps ve Personal apps app seçme penceresindeki gruplarla yazılır.
 - Ortada not; üstünde, bir konunun altındaysa konunun adı. Notun sonunda Previous ve Next, listedeki sırayla.
 - Sağda On this page: notun `##` başlıkları; okunan işaretli, tıklayınca oraya kayar. İki başlıktan az olan notta ve 860 px'ten dar pencerede görünmez.
 - Dar pencerede (640 px'ten dar, Settings gibi) önce konular bir liste, not kendi sayfası, başta geri düğmesi.

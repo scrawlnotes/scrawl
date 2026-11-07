@@ -1,7 +1,7 @@
 import { createViewer, type Heading, headingsOf, type ScrawlViewer } from '@scrawlnotes/editor';
 import { t } from '@scrawlnotes/i18n';
-import { Fragment, type RefObject, useEffect, useRef, useState } from 'react';
-import { HELP, HELP_PAGES, HELP_START, helpText, helpTopicOf, isHelpPage } from './help/index';
+import { type CSSProperties, Fragment, type ReactNode, type RefObject, useEffect, useRef, useState } from 'react';
+import { HELP, HELP_PAGES, HELP_START, helpText, type HelpTopic, helpTrailOf, isHelpPage } from './help/index';
 import { Icon } from './Icon';
 import { useNarrow } from './narrow';
 
@@ -54,13 +54,16 @@ function useHelpNote(host: RefObject<HTMLDivElement | null>, id: string, phone: 
   return { viewer, headings };
 }
 
-/** The pages' list: a topic with pages folds; the one whose page is open stays open. */
+/** How far in a row of the list is: each topic it is under one step. */
+const depth = (d: number) => ({ '--d': d }) as CSSProperties;
+
+/** The pages' list: a topic with pages folds, and so does a topic in it; those the open page is under stay open. */
 function HelpNav({ page, onPage }: { page: string; onPage: (id: string) => void }) {
-  const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set([helpTopicOf(page)?.id ?? '']));
-  // A page opened from elsewhere, a link or Next, opens its topic.
+  const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set(helpTrailOf(page).map((topic) => topic.id)));
+  // A page opened from elsewhere, a link or Next, opens the topics it is under.
   useEffect(() => {
-    const topic = helpTopicOf(page);
-    if (topic) setOpen((now) => (now.has(topic.id) ? now : new Set([...now, topic.id])));
+    const trail = helpTrailOf(page).map((topic) => topic.id);
+    setOpen((now) => (trail.every((id) => now.has(id)) ? now : new Set([...now, ...trail])));
   }, [page]);
   const fold = (id: string) =>
     setOpen((now) => {
@@ -68,35 +71,43 @@ function HelpNav({ page, onPage }: { page: string; onPage: (id: string) => void 
       if (!next.delete(id)) next.add(id);
       return next;
     });
-  const item = (id: string, label: string, sub: boolean) => (
-    <button key={id} type="button" className={[sub && 'sub', id === page && 'on'].filter(Boolean).join(' ') || undefined} aria-current={id === page ? 'page' : undefined} onClick={() => onPage(id)}>
-      {!sub && <span className="pad" />}
+  const item = (id: string, label: string, d: number) => (
+    <button key={id} type="button" style={depth(d)} className={id === page ? 'on' : undefined} aria-current={id === page ? 'page' : undefined} onClick={() => onPage(id)}>
+      <span className="pad" />
       <span>{label}</span>
     </button>
   );
+  const topicRows = (topic: HelpTopic, d: number): ReactNode =>
+    topic.pages || topic.topics ? (
+      <Fragment key={topic.id}>
+        <button type="button" style={depth(d)} aria-expanded={open.has(topic.id)} onClick={() => fold(topic.id)}>
+          <span className={open.has(topic.id) ? 'chev open' : 'chev'}>
+            <Icon name="chevron" />
+          </span>
+          <span>{t(topic.label)}</span>
+        </button>
+        {open.has(topic.id) && (
+          <>
+            {topic.pages?.map((each) => (
+              <Fragment key={each.id}>
+                {each.group && (
+                  <div className="help-cap" style={depth(d + 1)}>
+                    {t(each.group)}
+                  </div>
+                )}
+                {item(each.id, t(each.label), d + 1)}
+              </Fragment>
+            ))}
+            {topic.topics?.map((inner) => topicRows(inner, d + 1))}
+          </>
+        )}
+      </Fragment>
+    ) : (
+      item(topic.id, t(topic.label), d)
+    );
   return (
     <nav className="help-nav" aria-label={t('help.title')}>
-      {HELP.map((topic) =>
-        topic.pages ? (
-          <Fragment key={topic.id}>
-            <button type="button" aria-expanded={open.has(topic.id)} onClick={() => fold(topic.id)}>
-              <span className={open.has(topic.id) ? 'chev open' : 'chev'}>
-                <Icon name="chevron" />
-              </span>
-              <span>{t(topic.label)}</span>
-            </button>
-            {open.has(topic.id) &&
-              topic.pages.map((each) => (
-                <Fragment key={each.id}>
-                  {each.group && <div className="help-cap">{t(each.group)}</div>}
-                  {item(each.id, t(each.label), true)}
-                </Fragment>
-              ))}
-          </Fragment>
-        ) : (
-          item(topic.id, t(topic.label), false)
-        ),
-      )}
+      {HELP.map((topic) => topicRows(topic, 0))}
     </nav>
   );
 }
@@ -110,7 +121,7 @@ function HelpPageView({ page, onPage }: { page: string; onPage: (id: string) => 
   const at = HELP_PAGES.findIndex((each) => each.id === page);
   const previous = HELP_PAGES[at - 1];
   const next = HELP_PAGES[at + 1];
-  const topic = helpTopicOf(page);
+  const trail = helpTrailOf(page);
 
   /** Where a heading is on screen. */
   const topOf = (heading: Heading) => {
@@ -141,7 +152,7 @@ function HelpPageView({ page, onPage }: { page: string; onPage: (id: string) => 
   return (
     <>
       <div ref={box} className="help-page" onScroll={spy}>
-        {topic && <div className="help-crumb">{t(topic.label)}</div>}
+        {trail.length > 0 && <div className="help-crumb">{trail.map((each) => t(each.label)).join(' › ')}</div>}
         <div ref={host} className="help-note" />
         {(previous || next) && (
           <div className="help-pn">

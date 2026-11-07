@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { HELP, HELP_PAGES, HELP_START, helpText, isHelpPage } from './index';
+import { HELP, HELP_PAGES, HELP_START, helpText, type HelpTopic, helpTrailOf, isHelpPage } from './index';
+
+/** Every topic, the ones in a topic too. */
+const allTopics = (topics: HelpTopic[]): HelpTopic[] => topics.flatMap((topic) => [topic, ...allTopics(topic.topics ?? [])]);
 
 const FILES = import.meta.glob<string>('./*.md', { query: '?raw', import: 'default', eager: true });
 const idOf = (file: string) => file.replace(/^\.\//, '').replace(/(\.phone)?\.md$/, '');
@@ -8,7 +11,18 @@ describe('Help', () => {
   it('names each page once, and a topic with pages has no note of its own', () => {
     const ids = HELP_PAGES.map((page) => page.id);
     expect(new Set(ids).size).toBe(ids.length);
-    for (const topic of HELP) if (topic.pages) expect(ids).not.toContain(topic.id);
+    for (const topic of allTopics(HELP)) if (topic.pages || topic.topics) expect(ids).not.toContain(topic.id);
+  });
+
+  it('keeps Business and Personal apps under Apps, after its own pages', () => {
+    const apps = HELP.find((topic) => topic.id === 'apps')!;
+    expect(apps.topics?.map((topic) => topic.id)).toEqual(['business', 'personal']);
+    expect(HELP.map((topic) => topic.id)).not.toContain('business');
+    expect(helpTrailOf('gym').map((topic) => topic.id)).toEqual(['apps', 'personal']);
+    expect(helpTrailOf('notes')).toEqual([]);
+    const at = (id: string) => HELP_PAGES.findIndex((page) => page.id === id);
+    expect(at('apps-building') + 1).toBe(at('crm'));
+    expect(at('reading') + 1).toBe(at('search'));
   });
 
   it('has a note for every page, and every note is a page', () => {
