@@ -28,6 +28,8 @@ export interface Member {
   /** Their role on the server: its owner and admins are taken out of a space only by the owner or an admin. */
   serverRole: Role;
   seen: number | null;
+  /** Their picture's version, read at /people/:id/picture; null without one. */
+  picture: string | null;
 }
 
 /** A shared space as its owner and admins see it in the server's page: who is in it, by account. */
@@ -110,7 +112,8 @@ export class Spaces {
   members(space: string): Member[] {
     return this.db
       .prepare(
-        `SELECT a.id, a.email, a.name, m.role, a.role AS serverRole, (SELECT MAX(d.seen_at) FROM devices d WHERE d.account_id = a.id) AS seen
+        `SELECT a.id, a.email, a.name, m.role, a.role AS serverRole, (SELECT MAX(d.seen_at) FROM devices d WHERE d.account_id = a.id) AS seen,
+           (SELECT p.hash FROM account_pictures p WHERE p.account_id = a.id) AS picture
          FROM members m JOIN accounts a ON a.id = m.account_id WHERE m.space_id = ? AND a.disabled_at IS NULL
          ORDER BY CASE m.role WHEN 'manager' THEN 0 ELSE 1 END, a.name COLLATE NOCASE, a.email COLLATE NOCASE`,
       )

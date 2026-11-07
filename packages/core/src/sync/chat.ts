@@ -11,6 +11,8 @@ export type ChatNotify = 'all' | 'mentions' | 'off';
 export interface ChatPerson {
   id: string;
   name: string;
+  /** Their picture's version, read with `picture`; none without one. */
+  picture?: string;
 }
 
 export interface ChatFile {

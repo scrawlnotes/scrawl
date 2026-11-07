@@ -7,10 +7,15 @@ import type { VaultFs } from './fs';
 
 const FILE = '.scrawl/me.json';
 
+/** The person's picture beside it, a small square JPEG, when they set one in Profile. */
+export const MY_PICTURE = '.scrawl/picture.jpg';
+
 export interface Me {
   id: string;
   name?: string;
   email?: string;
+  /** The picture's SHA-256, its version: the spaces and the servers have it when theirs is the same. */
+  picture?: string;
 }
 
 const clean = (value: unknown): string | undefined => (typeof value === 'string' && value.trim() ? value.trim() : undefined);
@@ -24,10 +29,10 @@ export function parseMe(text: string): Me | null {
     return null;
   }
   if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
-  const { id, name, email, version: _version, ...rest } = data as Record<string, unknown>;
+  const { id, name, email, picture, version: _version, ...rest } = data as Record<string, unknown>;
   if (typeof id !== 'string' || !id.trim()) return null;
   // Unknown fields are kept, so a newer version's settings survive an older one saving.
-  return { ...rest, id: id.trim(), ...(clean(name) && { name: clean(name) }), ...(clean(email) && { email: clean(email) }) };
+  return { ...rest, id: id.trim(), ...(clean(name) && { name: clean(name) }), ...(clean(email) && { email: clean(email) }), ...(clean(picture) && { picture: clean(picture) }) };
 }
 
 export const serializeMe = (me: Me) => `${JSON.stringify({ version: 1, ...me }, null, 2)}\n`;

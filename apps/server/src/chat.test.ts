@@ -202,6 +202,30 @@ describe('rooms', () => {
     expect((await s.call(s.mert, 'PATCH', `/chat/${design.id}`, { kind: 'private' })).body.error.code).toBe('archived');
   });
 
+  it('keeps a person’s picture, seen by whoever shares a space or a conversation with them', async () => {
+    const s = await start();
+    // A WebP's first bytes, and what is not a picture.
+    const webp = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0x10, 0, 0, 0, 0x57, 0x45, 0x42, 0x50, 0x56, 0x50, 0x38, 0x20, 1, 2, 3, 4]);
+    expect((await s.call(s.mert, 'PUT', '/me/picture', new Uint8Array([1, 2, 3]))).body.error.code).toBe('not-a-picture');
+    expect((await s.call(s.mert, 'PUT', '/me/picture', new Uint8Array(300 * 1024).fill(0xff))).body.error.code).toBe('too-large');
+    const set = await s.call(s.mert, 'PUT', '/me/picture', webp);
+    expect(set.body.picture).toMatch(/^[0-9a-f]{64}$/);
+    expect((await s.call(s.mert, 'GET', '/me')).body.picture).toBe(set.body.picture);
+    // In Acme's general room and among Acme's people, with its version.
+    const general = (await s.list(s.kaan)).find((chat) => chat.general && chat.space === ACME)!;
+    expect((general.members as { id: string; picture?: string }[]).find((person) => person.id === MERT)!.picture).toBe(set.body.picture);
+    expect(((await s.call(s.kaan, 'GET', `/spaces/${ACME}/members`)).body as { id: string; picture: string | null }[]).find((each) => each.id === MERT)!.picture).toBe(set.body.picture);
+    // Kaan reads it; Deniz, in no space or conversation with Mert, does not.
+    const read = await s.server.app.request(`${URL}/api/v1/people/${MERT}/picture`, { headers: { Authorization: `Bearer ${s.kaan}` } });
+    expect(read.headers.get('content-type')).toBe('image/webp');
+    expect(new Uint8Array(await read.arrayBuffer())).toEqual(webp);
+    expect((await s.call(s.deniz, 'GET', `/people/${MERT}/picture`)).status).toBe(404);
+    // Taken away, there is none.
+    expect((await s.call(s.mert, 'DELETE', '/me/picture')).status).toBe(204);
+    expect((await s.call(s.mert, 'GET', '/me')).body.picture).toBeNull();
+    expect((await s.call(s.kaan, 'GET', `/people/${MERT}/picture`)).status).toBe(404);
+  });
+
   it('takes someone taken out of a space out of its rooms, and does not bring them back when they come back', async () => {
     const s = await start();
     const founders = await s.room(s.kaan, 'founders', 'private', [MERT]);

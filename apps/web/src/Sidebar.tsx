@@ -93,6 +93,9 @@ interface Props {
   /** Opens the settings at Spaces, where each space's sync is; `syncOpen` while Spaces is on screen. */
   onSync: () => void;
   syncOpen: boolean;
+  /** Opens Help; `helpOpen` while it is open. */
+  onHelp: () => void;
+  helpOpen: boolean;
   /** The row whose menu is open, by its path or its tab: it stays marked while the menu is open. */
   menuTarget: string | null;
   /** The spaces beside the personal one, each a heading with its tree under it. */
@@ -162,6 +165,8 @@ export function Sidebar({
   settingsOpen,
   onSync,
   syncOpen,
+  onHelp,
+  helpOpen,
   menuTarget,
   spaces,
   personalName,
@@ -898,6 +903,7 @@ export function Sidebar({
         {windowRow(syncOpen, onSync, 'cloud', t('phone.sync'))}
         {!isDesktop && windowRow(false, () => window.open(LATEST_RELEASE, '_blank', 'noopener'), 'download', t('side.downloads'))}
         {windowRow(settingsOpen, onSettings, 'cog', t('side.settings'))}
+        {windowRow(helpOpen, onHelp, 'help', t('side.help'))}
       </div>
       {nameTip.tip}
     </aside>

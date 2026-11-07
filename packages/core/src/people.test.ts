@@ -39,6 +39,17 @@ describe('people', () => {
     expect(samePerson(people, { id: 'j', name: 'Jonas' }, at('13'))).toBe(false);
   });
 
+  it('carries the picture’s version, and drops it when it is taken away', () => {
+    let people = withPerson([], { id: 'j', name: 'Jonas', picture: 'abc' }, at('01'));
+    expect(people[0]?.picture).toBe('abc');
+    expect(parsePeople(serializePeople(people))[0]?.picture).toBe('abc');
+    expect(samePerson(people, { id: 'j', name: 'Jonas', picture: 'abc' }, at('01'))).toBe(true);
+    expect(samePerson(people, { id: 'j', name: 'Jonas', picture: 'def' }, at('01'))).toBe(false);
+    expect(samePerson(people, { id: 'j', name: 'Jonas' }, at('01'))).toBe(false);
+    people = withPerson(people, { id: 'j', name: 'Jonas' }, at('01'));
+    expect(people[0]?.picture).toBeUndefined();
+  });
+
   it('merges two devices by id, the later opening winning', () => {
     const base = serializePeople(withPerson([], { id: 'k', name: 'Kaan' }, at('01')));
     const local = serializePeople(withPerson(parsePeople(base), { id: 'k', name: 'Kaan A.' }, at('12')));

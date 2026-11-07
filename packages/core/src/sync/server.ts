@@ -228,6 +228,8 @@ export interface ServerAccountInfo {
   email: string;
   name: string;
   role: 'owner' | 'admin' | 'member';
+  /** Their picture's version, as /me tells it; null without one, none from a server older than pictures. */
+  picture?: string | null;
 }
 
 export interface ServerSpace {
@@ -269,6 +271,8 @@ export interface ServerMember {
   /** Their role on the server: its owner and admins are taken out of a space only by the owner or an admin. */
   serverRole: ServerAccountInfo['role'];
   seen: number | null;
+  /** Their picture's version; null without one, none from a server older than pictures. */
+  picture?: string | null;
 }
 
 /** A link a server made: an invite into a space, or one for a new password. */
@@ -323,6 +327,24 @@ export class ServerAccount {
 
   me(): Promise<ServerAccountInfo> {
     return this.client.json('/me');
+  }
+
+  /** Sets the person's picture, a small image; its version comes back. */
+  setPicture(picture: Blob): Promise<{ picture: string }> {
+    return this.client.json('/me/picture', { method: 'PUT', body: picture, headers: { 'Content-Type': picture.type || 'application/octet-stream' } });
+  }
+
+  /** Takes the person's picture away. */
+  async removePicture(): Promise<void> {
+    const response = await this.client.request('/me/picture', { method: 'DELETE' });
+    if (!response.ok) throw await errorOf(response);
+  }
+
+  /** Someone's picture, as whoever shares a space or a conversation with them sees it; asked for by its version, it is kept by the browser. */
+  async picture(person: string, version?: string): Promise<Blob> {
+    const response = await this.client.request(`/people/${encodeURIComponent(person)}/picture${version ? `?v=${encodeURIComponent(version)}` : ''}`);
+    if (!response.ok) throw await errorOf(response);
+    return response.blob();
   }
 
   /** Tells the server the person's time zone, as `Europe/Istanbul`: an agent's "today" there is theirs. */

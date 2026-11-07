@@ -1,6 +1,7 @@
 export { type AwayFile, type AwayOp, awayAt, mayStayAway, moveAway, readAway, removeAway } from './away';
 export { changedHere, conflictPath, fetchAway, type SyncDevice, type SyncJob, type SyncJobKind, type SyncJobResult, type SyncOptions, type SyncProgress, type SyncReport, syncOnce } from './engine';
 export { FakeGraph } from './fake-graph';
+export { sha256 } from './hash';
 export {
   applyChatChanges,
   type ChatChanges,

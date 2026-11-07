@@ -2,6 +2,7 @@ import { type Card, isAgent, isAgentId, ownerName, ownerOf, type Person, type Pe
 import { locale, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { PictureOr } from './ChatFaces';
 import { pageBox, pageWindow } from './device';
 
 // Giving a task or a card to someone, after the Assign and Card assign views of
@@ -42,10 +43,10 @@ export function assigneeLabel(ref: PersonRef, people: Person[] = []): string {
 export const initialOf = (ref: PersonRef, people: Person[] = []) => (rowOf(ref.id, people)?.agent?.client ?? refName(ref, people) ?? '?').slice(0, 1).toUpperCase();
 
 /** A round initial: of a person, or `?` for one without a name; an agent's is a square. */
-export function Who({ name, agent = false }: { name: string | undefined; agent?: boolean }) {
+export function Who({ id, name, agent = false }: { id?: string; name: string | undefined; agent?: boolean }) {
   return (
     <span className={agent ? 'who bot' : 'who'} aria-hidden="true">
-      {name ? name.slice(0, 1).toUpperCase() : '?'}
+      <PictureOr id={agent ? undefined : id}>{name ? name.slice(0, 1).toUpperCase() : '?'}</PictureOr>
     </span>
   );
 }
@@ -54,7 +55,7 @@ export function Who({ name, agent = false }: { name: string | undefined; agent?:
 export function WhoOf({ who, people = [], small = false }: { who: PersonRef; people?: Person[]; small?: boolean }) {
   return (
     <span className={`who${isAgentId(who.id) ? ' bot' : ''}${small ? ' sm' : ''}`} aria-hidden="true" title={small ? assigneeLabel(who, people) : undefined}>
-      {initialOf(who, people)}
+      <PictureOr id={isAgentId(who.id) ? undefined : who.id}>{initialOf(who, people)}</PictureOr>
     </span>
   );
 }
@@ -251,7 +252,7 @@ export function PersonPicker({ anchor, team, current, width = 310, onPick, onClo
               r,
               i,
               <>
-                <Who name={r.person.name} />
+                <Who id={r.person.id} name={r.person.name} />
                 <b>{r.person.name ?? t('settings.unnamed')}</b>
                 <small>{r.person.id === team.me ? t('settings.itsYou') : (r.person.email ?? '')}</small>
               </>,

@@ -3,6 +3,7 @@ import { locale, t } from '@scrawlnotes/i18n';
 import type { ReactNode } from 'react';
 import type { ChatServer } from './chatStore';
 import { Icon } from './Icon';
+import { usePicture } from './pictures';
 
 // What Chat's windows show of people and conversations alike: a face in its colour with its dot,
 // what a conversation is called and the mark before its name, someone's name by id, and times.
@@ -41,10 +42,16 @@ export function hueOf(id: string): number {
 export function Face({ id, name, size = 'md', online = false, agent = false }: { id: string; name: string; size?: 'sm' | 'xs' | 'md' | 'lg' | 'xl'; online?: boolean; agent?: boolean }) {
   return (
     <span className={`ch-face ${size} ${agent ? 'ag' : `h${hueOf(id)}`}`} aria-hidden="true">
-      {(name.trim()[0] ?? '?').toUpperCase()}
+      <PictureOr id={agent ? undefined : id}>{(name.trim()[0] ?? '?').toUpperCase()}</PictureOr>
       {online && <i />}
     </span>
   );
+}
+
+/** A person's picture, filling the round it is in, once it is read; what is given, their initial, until then and without one. */
+export function PictureOr({ id, children }: { id: string | undefined; children: ReactNode }) {
+  const shown = usePicture(id);
+  return shown ? <img className="face-pic" src={shown} alt="" /> : <>{children}</>;
 }
 
 export const timeOf = (at: number) => new Date(at).toLocaleTimeString(locale(), { hour: 'numeric', minute: '2-digit' });

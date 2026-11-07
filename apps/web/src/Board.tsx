@@ -49,6 +49,7 @@ import { StatusIcon } from './StatusIcon';
 import { MonthCalendar, type MonthChip } from './Calendar';
 import { CardPanel, type CardPanelActions } from './CardPanel';
 import { assigneeLabel, CardWho, hasCardWho, initialOf, type SpacePeople, WhoOf } from './People';
+import { PictureOr } from './ChatFaces';
 import { type FilterPlace, type FilterStep, PhoneFilterChips, SearchBox, useFilter } from './FilterBar';
 import { Cell, usedValues, type ValueContext } from './Collection';
 import { BoardFieldsDialog } from './Fields';
@@ -355,7 +356,7 @@ function CardItem({ board, path, card, today, actions, onGrab, onRelease, onHold
           <span className="top">
             <i className={`p${card.priority}`} />
             {keyOf(board, card)}
-            {card.assignee && <span className={`mb-who${isAgentId(card.assignee.id) ? ' bot' : ''}`}>{initialOf(card.assignee, people)}</span>}
+            {card.assignee && <span className={`mb-who${isAgentId(card.assignee.id) ? ' bot' : ''}`}><PictureOr id={isAgentId(card.assignee.id) ? undefined : card.assignee.id}>{initialOf(card.assignee, people)}</PictureOr></span>}
           </span>
           <b>{card.title}</b>
           {next}

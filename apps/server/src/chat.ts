@@ -19,6 +19,8 @@ export type Notify = 'all' | 'mentions' | 'off';
 export interface Person {
   id: string;
   name: string;
+  /** Their picture's version, read at /people/:id/picture; none without one. */
+  picture?: string;
 }
 
 /** A file in a message: its content by its digest, and what the app shows of it without opening it. */
@@ -1085,6 +1087,13 @@ export class Chats {
   }
 
   /** Something about a conversation changed: everyone in it hears so. */
+  /** Someone's picture or name changed: the conversations they are in are told, so that they show it. */
+  personChanged(account: string) {
+    const heard = new Set<string>();
+    for (const chat of this.list(account)) for (const each of this.listeners(this.row(chat.id))) heard.add(each);
+    if (heard.size) this.tell(heard, { type: 'chat', cursor: this.cursor() });
+  }
+
   private changed(chat: ChatRow) {
     this.tell(this.listeners(this.row(chat.id)), { type: 'chat', cursor: this.cursor() });
   }
@@ -1150,7 +1159,7 @@ export class Chats {
   private info(chat: ChatRow, account: string): ChatInfo {
     const ids = this.listeners(chat);
     const people = ids.length
-      ? (this.db.prepare(`SELECT id, name, email, disabled_at FROM accounts WHERE id IN (${marks(ids.length)})`).all(...ids) as { id: string; name: string; email: string; disabled_at: number | null }[])
+      ? (this.db.prepare(`SELECT a.id, a.name, a.email, a.disabled_at, p.hash AS picture FROM accounts a LEFT JOIN account_pictures p ON p.account_id = a.id WHERE a.id IN (${marks(ids.length)})`).all(...ids) as { id: string; name: string; email: string; disabled_at: number | null; picture: string | null }[])
       : [];
     people.sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email));
     const me = this.member(chat.id, account);
@@ -1183,7 +1192,7 @@ export class Chats {
       createdBy: chat.created_by,
       createdAt: chat.created_at,
       archived: chat.archived_at,
-      members: people.map((person) => ({ id: person.id, name: person.name || person.email })),
+      members: people.map((person) => ({ id: person.id, name: person.name || person.email, ...(person.picture && { picture: person.picture }) })),
       gone: people.filter((person) => person.disabled_at !== null).map((person) => person.id),
       lastSeq: chat.last_seq,
       last: lastRow ? this.messagesOf([lastRow])[0]! : null,

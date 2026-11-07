@@ -11,10 +11,15 @@ import { mergeFields, mergeRecords } from './sync/merge-records';
 
 const FILE = '.scrawl/people.json';
 
+/** A person's picture in a space, written beside its people when they set one. */
+export const pictureFile = (person: string) => `.scrawl/people/${person}.jpg`;
+
 export interface Person {
   id: string;
   name?: string;
   email?: string;
+  /** Their picture's version, the SHA-256 of `pictureFile`; none without one. */
+  picture?: string;
   /** When they last opened the space, as an ISO time; an agent, when it last changed something. */
   seen: string;
   active: boolean;
@@ -50,7 +55,7 @@ export function parsePeople(text: string): Person[] {
   const people: Person[] = [];
   for (const item of list) {
     if (!item || typeof item !== 'object') continue;
-    const { id, name, email, seen, active, agent, ...rest } = item as Record<string, unknown>;
+    const { id, name, email, picture, seen, active, agent, ...rest } = item as Record<string, unknown>;
     if (typeof id !== 'string' || !id.trim()) continue;
     const place = readAgentPlace(agent);
     people.push({
@@ -59,6 +64,7 @@ export function parsePeople(text: string): Person[] {
       id: id.trim(),
       ...(clean(name) && { name: clean(name) }),
       ...(clean(email) && { email: clean(email) }),
+      ...(clean(picture) && { picture: clean(picture) }),
       seen: typeof seen === 'string' ? seen : '',
       active: active !== false,
       ...(place && { agent: place }),
@@ -81,20 +87,20 @@ export const savePeople = (fs: VaultFs, people: Person[]) => fs.writeText(FILE, 
 
 /** The person as they are now, in the list: their row brought up to date, or added; opening makes one active again. */
 export function withPerson(people: Person[], me: Me, now = new Date()): Person[] {
-  const { name: _n, email: _e, ...keep } = people.find((p) => p.id === me.id) ?? { id: me.id, seen: '', active: true };
-  const next: Person = { ...keep, ...(me.name && { name: me.name }), ...(me.email && { email: me.email }), seen: now.toISOString(), active: true };
+  const { name: _n, email: _e, picture: _p, ...keep } = people.find((p) => p.id === me.id) ?? { id: me.id, seen: '', active: true };
+  const next: Person = { ...keep, ...(me.name && { name: me.name }), ...(me.email && { email: me.email }), ...(me.picture && { picture: me.picture }), seen: now.toISOString(), active: true };
   const rest = people.filter((p) => p.id !== me.id);
   return [...rest, next].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '') || a.id.localeCompare(b.id));
 }
 
 /**
  * Whether the list already says this about the person, so that opening a space again writes
- * nothing new: the same name and email, active, and seen today. Being seen is written once a day
+ * nothing new: the same name, email and picture, active, and seen today. Being seen is written once a day
  * at most, so that opening the app does not change the space every time.
  */
 export function samePerson(people: Person[], me: Me, now = new Date()): boolean {
   const found = people.find((p) => p.id === me.id);
-  return !!found && found.active && (found.name ?? '') === (me.name ?? '') && (found.email ?? '') === (me.email ?? '') && seenToday(found, now);
+  return !!found && found.active && (found.name ?? '') === (me.name ?? '') && (found.email ?? '') === (me.email ?? '') && (found.picture ?? '') === (me.picture ?? '') && seenToday(found, now);
 }
 
 /** Whether a row was seen on the day of `now`, in the local calendar. */

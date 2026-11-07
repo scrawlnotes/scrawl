@@ -64,6 +64,7 @@ export { addCopy, type Copy, copyFollows, copyPosition, copyProgress, dropCopy, 
 export { linkAddress, linkText, pastedLink, pastedUrl } from './links';
 export { cursorBehavior, restingPosition } from './cursor';
 export { wordCount } from './words';
+export { type Heading, headingsOf } from './headings';
 export { attachmentChanges, attachmentsIn, type ItemAbout, type ItemAction, sizeText } from './media';
 export { buildDecorations, type LinkTap, livePreview, type LivePreviewOptions, setSourceMode, sourceMode } from './livePreview';
 export { literalInput, positionsToEscape } from './literal';

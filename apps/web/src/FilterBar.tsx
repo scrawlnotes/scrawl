@@ -187,9 +187,9 @@ function valueRows(step: Question, place: FilterPlace, known: LabelUse[], first:
       const agents = others.filter(isAgent).sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
       const me = team.people.find((person) => person.id === team.me);
       return [
-        { value: GIVEN.me, text: t('filter.me'), lead: <Who name={me?.name ?? t('filter.me')} /> },
+        { value: GIVEN.me, text: t('filter.me'), lead: <Who id={me?.id} name={me?.name ?? t('filter.me')} /> },
         { value: GIVEN.others, text: t('filter.others'), lead: <span className="who none" aria-hidden="true" /> },
-        ...humans.map((person) => ({ value: person.id, text: nameOf(person), lead: <Who name={person.name} /> })),
+        ...humans.map((person) => ({ value: person.id, text: nameOf(person), lead: <Who id={person.id} name={person.name} /> })),
         ...agents.map((person) => ({ value: person.id, text: nameOf(person), lead: <Who name={person.agent?.client ?? person.name} agent /> })),
         { value: GIVEN.nobody, text: t('people.nobody'), lead: <span className="who none" aria-hidden="true" /> },
       ];

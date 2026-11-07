@@ -12,6 +12,16 @@ import { type Db, transaction } from './db';
 const scryptAsync = promisify(scrypt) as (password: string, salt: Buffer, length: number, options: { N: number; r: number; p: number; maxmem: number }) => Promise<Buffer>;
 const SCRYPT = { N: 2 ** 15, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
 const MIN_PASSWORD = 8;
+const MAX_PICTURE = 256 * 1024;
+
+/** An image's type by its first bytes: WebP, PNG or JPEG; null for anything else. */
+function pictureType(data: Uint8Array): string | null {
+  const at = (offset: number, ...bytes: number[]) => bytes.every((byte, i) => data[offset + i] === byte);
+  if (at(0, 0x52, 0x49, 0x46, 0x46) && at(8, 0x57, 0x45, 0x42, 0x50)) return 'image/webp';
+  if (at(0, 0x89, 0x50, 0x4e, 0x47)) return 'image/png';
+  if (at(0, 0xff, 0xd8, 0xff)) return 'image/jpeg';
+  return null;
+}
 
 export type Role = 'owner' | 'admin' | 'member';
 
@@ -177,6 +187,45 @@ export class Accounts {
     const account = this.get(id);
     this.db.prepare('UPDATE accounts SET time_zone = ? WHERE id = ?').run(zone, id);
     return { ...account, timeZone: zone };
+  }
+
+  /**
+   * The person's picture, as their Profile sets it: a WebP, PNG or JPEG of 256 KB at most, known
+   * by what it starts with; its SHA-256 is the version the apps compare.
+   */
+  setPicture(id: string, data: Uint8Array): { picture: string } {
+    this.get(id);
+    if (data.byteLength > MAX_PICTURE) throw new Refused(413, 'too-large', `A picture is ${MAX_PICTURE / 1024} KB at most`);
+    const type = pictureType(data);
+    if (!type) throw new Refused(400, 'not-a-picture', 'A picture is a WebP, PNG or JPEG image');
+    const hash = createHash('sha256').update(data).digest('hex');
+    this.db
+      .prepare('INSERT INTO account_pictures (account_id, hash, type, data, at) VALUES (?, ?, ?, ?, ?) ON CONFLICT (account_id) DO UPDATE SET hash = excluded.hash, type = excluded.type, data = excluded.data, at = excluded.at')
+      .run(id, hash, type, data, this.now());
+    return { picture: hash };
+  }
+
+  removePicture(id: string) {
+    this.db.prepare('DELETE FROM account_pictures WHERE account_id = ?').run(id);
+  }
+
+  /** The version of someone's picture; null without one. */
+  pictureOf(id: string): string | null {
+    return (this.db.prepare('SELECT hash FROM account_pictures WHERE account_id = ?').get(id) as { hash: string } | undefined)?.hash ?? null;
+  }
+
+  /**
+   * Someone's picture, for whoever shares a space or a conversation with them, and for
+   * themselves; anyone else, as for one without a picture, is told there is none.
+   */
+  picture(viewer: string, id: string): { hash: string; type: string; data: Uint8Array } {
+    const sees =
+      viewer === id ||
+      !!this.db.prepare('SELECT 1 FROM members a JOIN members b ON b.space_id = a.space_id WHERE a.account_id = ? AND b.account_id = ?').get(viewer, id) ||
+      !!this.db.prepare('SELECT 1 FROM chat_members a JOIN chat_members b ON b.chat_id = a.chat_id WHERE a.account_id = ? AND b.account_id = ?').get(viewer, id);
+    const row = sees ? (this.db.prepare('SELECT hash, type, data FROM account_pictures WHERE account_id = ?').get(id) as { hash: string; type: string; data: Uint8Array } | undefined) : undefined;
+    if (!row) throw new Refused(404, 'no-picture', 'No picture');
+    return row;
   }
 
   /** The person's time zone, when the app told it; null before. */

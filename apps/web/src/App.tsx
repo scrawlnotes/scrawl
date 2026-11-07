@@ -223,6 +223,7 @@ import { PhoneCreate } from './PhoneCreate';
 import { PeopleSheet } from './PhoneSpaces';
 import { type ButtonRun, type FileRow, type RuleEvent, Session, type SpaceView } from './session';
 import { RemoveSpaceDialog, type Section as SettingsSection, Settings, type SettingsValues } from './Settings';
+import { Help } from './Help';
 import { StartPage } from './StartPage';
 import { type SpaceSyncView, SyncService } from './sync';
 import { reloadIntoUpdate, subscribeUpdate, updateReady } from './pwa';
@@ -288,6 +289,7 @@ type OpenDialog =
   // What a new filter or a label's view picks, saved as a filter by a name; `from` is its tab.
   | { kind: 'saveFilter'; choices: FilterChoices; from: string }
   | { kind: 'settings'; section?: SettingsSection; space?: string | null }
+  | { kind: 'help' }
   | null;
 
 /**
@@ -1797,6 +1799,7 @@ export function App() {
     { id: 'files', label: t('side.files'), icon: 'clip', run: () => void session.open(FILES) },
     { id: 'trash', label: t('side.trash'), icon: 'trash', run: () => void session.open(TRASH) },
     { id: 'settings', label: t('side.settings'), icon: 'settings', run: () => setDialog({ kind: 'settings' }) },
+    { id: 'help', label: t('side.help'), icon: 'help', run: () => setDialog({ kind: 'help' }) },
     { id: 'sync', label: t('sync.syncNow'), icon: 'cloud', run: () => void syncService.syncNow() },
     // The onboarding note, once closed, is found again here.
     { id: 'welcome', label: t('welcome.title'), icon: 'note', run: () => void session.openWelcome() },
@@ -3522,6 +3525,11 @@ export function App() {
           }}
           settingsOpen={dialog?.kind === 'settings' && dialog.section !== 'spaces'}
           syncOpen={dialog?.kind === 'settings' && dialog.section === 'spaces'}
+          onHelp={() => {
+            setDrawer(false);
+            setDialog({ kind: 'help' });
+          }}
+          helpOpen={dialog?.kind === 'help'}
           onSearch={() => setSearching(true)}
           searchOpen={searching}
           reveal={revealFolder}
@@ -3858,6 +3866,8 @@ export function App() {
           onClose={closeDialog}
         />
       )}
+      {/* On a phone Help is pages in Browse. */}
+      {dialog?.kind === 'help' && !phone && <Help onClose={closeDialog} />}
       {searching && !phone && <SearchWindow things={searchThings} actions={searchActions} onPick={openFound} onPickMessage={openHit} onClose={() => setSearching(false)} still={still} />}
       {chipPick && !phone && (
         <SearchWindow

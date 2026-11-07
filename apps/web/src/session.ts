@@ -129,6 +129,9 @@ import {
   type ComputerAgent,
   loadAgents,
   loadPeople,
+  MY_PICTURE,
+  pictureFile,
+  sha256,
   renameAgent,
   saveAgents,
   loadSpace,
@@ -392,7 +395,8 @@ import {
   carriedSeen,
   setCarriedSeen,
 } from './storage';
-import { knownServers, onServersChanged, rememberServer, tellTimeZones } from './servers';
+import { pictureSession } from './pictures';
+import { knownServers, onServersChanged, rememberServer, serverAccount, serverKey, tellTimeZones } from './servers';
 import { keptConnection } from './sync';
 
 const SAVE_DELAY_MS = 400;
@@ -948,6 +952,8 @@ export class Session {
     // first tab, and the whole.
     const measure = openingMeasure(() => run === this.run);
     this.parent = parent;
+    // Faces read people's pictures from the session that runs: the person's own, and the spaces'.
+    pictureSession(this);
     this.personal = await openVault();
     await this.openSpaces();
     // The servers hear the person's time zone, for an agent's "today" there; nothing waits for them.
@@ -1070,6 +1076,8 @@ export class Session {
       onServersChanged(() => void this.carry());
     }
     this.meetSpaces();
+    // A picture set or taken away while a server was out of reach, or on another device, reaches it now.
+    this.tellPictures();
   }
 
   /**
@@ -1389,6 +1397,10 @@ export class Session {
           try {
             const people = await loadPeople(space.fs);
             if (samePerson(people, me)) continue;
+            // The picture goes with the row: written beside it when it changed, taken away with it.
+            const was = people.find((person) => person.id === me.id)?.picture;
+            if (me.picture && me.picture !== was) await space.fs.writeBlob(pictureFile(me.id), await this.personal.readBlob(MY_PICTURE));
+            else if (!me.picture && was) await space.fs.remove(pictureFile(me.id)).catch(() => undefined);
             const next = withPerson(people, me);
             await savePeople(space.fs, next);
             met.set(id, next);
@@ -2734,6 +2746,54 @@ export class Session {
       .then(() => this.markSaved());
     // The spaces have the person as they are now.
     this.meetSpaces();
+  }
+
+  /**
+   * The person's picture, made from an image they picked (`squarePicture`), or none: kept in the
+   * personal space beside them, so that every device of theirs has it; written into the spaces
+   * with their row (`meetSpaces`) and onto the servers they are on (`tellPictures`).
+   */
+  async setPicture(picture: Blob | null) {
+    const me = this.snapshot.me;
+    if (!me) return;
+    const { picture: _p, ...rest } = me;
+    if (picture) {
+      await this.personal.writeBlob(MY_PICTURE, picture);
+      this.keepMe({ ...rest, picture: await sha256(picture) });
+    } else {
+      await this.personal.remove(MY_PICTURE).catch(() => undefined);
+      this.keepMe(rest);
+    }
+    this.tellPictures();
+  }
+
+  /** A file of the personal space, as a picture is read. */
+  readPersonalFile = (path: string) => this.personal.readBlob(path);
+
+  /** A file of a space on this device, as a person's picture there is read. */
+  readSpaceFile = (space: string, path: string): Promise<Blob> => {
+    const opened = this.opened.get(space);
+    return opened ? opened.fs.readBlob(path) : Promise.reject(new Error('Not here'));
+  };
+
+  /**
+   * Tells every server this device is signed in to the person's picture, where its own is another:
+   * set again, or taken away. A server older than pictures, out of reach or signed out of, is left
+   * as it is, and told the next time the app opens.
+   */
+  private tellPictures() {
+    const me = this.snapshot.me;
+    if (!me) return;
+    for (const server of knownServers()) {
+      void (async () => {
+        if (!(await serverKey(server.url))) return;
+        const account = serverAccount(server.url);
+        const there = (await account.me()).picture;
+        if (there === undefined || there === (me.picture ?? null)) return;
+        if (me.picture) await account.setPicture(await this.personal.readBlob(MY_PICTURE));
+        else await account.removePicture();
+      })().catch(() => undefined);
+    }
   }
 
   /** Who what is done here on a card is written as: the name, none while it is empty, and the id of the person (design/activity.md 3.1). */

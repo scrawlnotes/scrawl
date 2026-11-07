@@ -1,6 +1,6 @@
 import { type ComputerAgent, dayOf, isAgent, type Me, type MovedMark, newSpaceId, ownerName, type Person, RemoteSignedOut, type ServerSpace, type SpaceSource } from '@scrawlnotes/core';
 import { languages, locale, type MessageKey, t } from '@scrawlnotes/i18n';
-import { type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { type ChangeEvent, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { ContextMenu, Dialog, type MenuItem } from './dialogs';
 import type { SpaceView } from './session';
 import { chooseLanguage, isPhone, languageTag, type Mode, NUMBER_CHOICES, type Numbers, shadeOfMode, SIZES, type SizeKind, thisSizeKind } from './device';
@@ -20,6 +20,9 @@ import { APP_VERSION, checkForWebUpdate, PUBLISHED, subscribeUpdate, webUpdatesO
 import { type AskOneDrive, isDesktop, type OneDriveAnswer, openUrlOnDesktop } from './storage';
 import { readAutostart, setAutostart, setBackground, useAutostart, useBackground } from './tray';
 import { store as chatStore } from './chatStore';
+import { setMyPicture, usePicture } from './pictures';
+import { ActionSheet } from './sheets';
+import { PictureOr } from './ChatFaces';
 import { notifySnapshot, sendTest, turnOff, turnOn, useNotify } from './notify';
 
 export type Section = 'profile' | 'appearance' | 'general' | 'notifications' | 'spaces' | 'agents' | 'language' | 'logs' | 'about';
@@ -631,44 +634,121 @@ function Appearance({ mode, onMode, theme, onTheme, system, sizes, onSize, numbe
 
 /** The personal space: its name, which has its Save, the folder it is, its sync; and this device's name. */
 /** Who the user is: a name and an email, saved together; either may stay empty. */
+/**
+ * The person: their picture, name and email. What is written is kept as it is left, or with
+ * Return; Esc puts back what was there.
+ */
 function Profile({ me, onSaveProfile }: Pick<SettingsValues, 'me' | 'onSaveProfile'>) {
   const name = me?.name ?? '';
   const email = me?.email ?? '';
   const [draft, setDraft] = useState({ name, email });
   useEffect(() => setDraft({ name, email }), [name, email]);
-  const changed = draft.name.trim() !== name || draft.email.trim() !== email;
-  const save = () => {
-    if (changed) onSaveProfile(draft.name, draft.email);
+  const keep = () => {
+    if (draft.name.trim() !== name || draft.email.trim() !== email) onSaveProfile(draft.name, draft.email);
   };
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'Enter') save();
-    else if (event.key === 'Escape' && changed) setDraft({ name, email });
-    else return;
+    if (event.key === 'Enter') event.currentTarget.blur();
+    else if (event.key === 'Escape') {
+      setDraft({ name, email });
+      const field = event.currentTarget;
+      window.setTimeout(() => field.blur());
+    } else return;
     event.preventDefault();
   };
   return (
     <>
-      <span className="st-label">{t('settings.you')}</span>
-      <p className="st-note">{t('settings.profileAbout')}</p>
-      <div className="st-space">
+      <ProfilePicture me={me} />
+      <div className="st-space st-me-fields">
         <div className="st-row">
           <label className="fl" htmlFor="me-name">
             {t('settings.name')}
           </label>
-          <input id="me-name" value={draft.name} autoComplete="name" onChange={(event) => setDraft({ ...draft, name: event.target.value })} onKeyDown={onKeyDown} />
-          <span />
+          <input id="me-name" value={draft.name} autoComplete="name" enterKeyHint="done" onChange={(event) => setDraft({ ...draft, name: event.target.value })} onKeyDown={onKeyDown} onBlur={keep} />
         </div>
         <div className="st-row">
           <label className="fl" htmlFor="me-email">
             {t('settings.email')}
           </label>
-          <input id="me-email" type="email" value={draft.email} autoComplete="email" placeholder={t('settings.emailHint')} onChange={(event) => setDraft({ ...draft, email: event.target.value })} onKeyDown={onKeyDown} />
-          <button type="button" className="primary" disabled={!changed} onClick={save}>
-            {t('settings.save')}
-          </button>
+          <input id="me-email" type="email" value={draft.email} autoComplete="email" enterKeyHint="done" placeholder={t('settings.emailHint')} onChange={(event) => setDraft({ ...draft, email: event.target.value })} onKeyDown={onKeyDown} onBlur={keep} />
         </div>
       </div>
+      <p className="st-note">{t('settings.profileAbout')}</p>
     </>
+  );
+}
+
+/**
+ * The person's picture, or their initial without one: Change picture… and Remove beside it on a
+ * computer; on a phone a tap offers the photo library, the camera and Remove picture. The image
+ * picked is made a square from its middle.
+ */
+function ProfilePicture({ me }: { me: Me | null }) {
+  const phone = isPhone();
+  const shown = usePicture(me?.id);
+  const library = useRef<HTMLInputElement>(null);
+  const camera = useRef<HTMLInputElement>(null);
+  const [asking, setAsking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const set = async (image: Blob | null) => {
+    setBusy(true);
+    setFailed(false);
+    try {
+      await setMyPicture(image);
+    } catch {
+      setFailed(true);
+    }
+    setBusy(false);
+  };
+  const picked = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (file) void set(file);
+  };
+  const has = !!me?.picture;
+  const face = (
+    <span className="st-pic" aria-hidden="true">
+      {shown ? <img src={shown} alt="" /> : (me?.name?.trim()[0] ?? '?').toUpperCase()}
+      {busy && <i className="ch-wait" />}
+    </span>
+  );
+  return (
+    <div className="st-me">
+      {phone ? (
+        <button type="button" className="st-me-pick" disabled={busy} onClick={() => setAsking(true)}>
+          {face}
+          <span className="lb">{has ? t('settings.changePicture') : t('settings.addPicture')}</span>
+        </button>
+      ) : (
+        <>
+          {face}
+          <div className="st-me-acts">
+            <button type="button" className="st-btn" disabled={busy} onClick={() => library.current?.click()}>
+              {has ? t('settings.changePicture') : t('settings.addPicture')}
+            </button>
+            {has && (
+              <button type="button" className="st-btn" disabled={busy} onClick={() => void set(null)}>
+                {t('settings.removePicture')}
+              </button>
+            )}
+          </div>
+        </>
+      )}
+      {failed && <p className="st-note error">{t('settings.pictureFailed')}</p>}
+      <input ref={library} type="file" accept="image/*" hidden onChange={picked} />
+      <input ref={camera} type="file" accept="image/*" capture="user" hidden onChange={picked} />
+      {asking && (
+        <ActionSheet
+          head={{ icon: 'person', title: me?.name || t('settings.you') }}
+          items={[
+            { label: t('chat.photoLibrary'), icon: 'image', run: () => library.current?.click() },
+            { label: t('chat.camera'), icon: 'image', run: () => camera.current?.click() },
+            ...(has ? [{ label: t('settings.removePicture'), danger: true, run: () => void set(null) }] : []),
+          ]}
+          onClose={() => setAsking(false)}
+        />
+      )}
+    </div>
   );
 }
 
@@ -902,7 +982,7 @@ function People({ people, me, onActive }: { people: Person[]; me: Me | null; onA
               {...(offered && { onContextMenu: (event: MouseEvent) => open(event, person.id) })}
             >
               <span className="who" aria-hidden="true">
-                {person.name ? person.name.slice(0, 1).toUpperCase() : '?'}
+                <PictureOr id={person.id}>{person.name ? person.name.slice(0, 1).toUpperCase() : '?'}</PictureOr>
               </span>
               <span className="nm">
                 <b>

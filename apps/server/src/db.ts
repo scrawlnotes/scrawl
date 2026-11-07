@@ -248,6 +248,17 @@ const MIGRATIONS: string[] = [
   CREATE VIRTUAL TABLE messages_fts USING fts5 (text, content = '', contentless_delete = 1, tokenize = 'unicode61 remove_diacritics 2');
   INSERT INTO meta (key, value) VALUES ('chat_fts', '0');
   `,
+  // A person's picture, as their Profile sets it: a small square image, its SHA-256 the version
+  // the apps compare; seen by whoever shares a space or a conversation with them.
+  `
+  CREATE TABLE account_pictures (
+    account_id TEXT PRIMARY KEY REFERENCES accounts (id),
+    hash TEXT NOT NULL,
+    type TEXT NOT NULL,
+    data BLOB NOT NULL,
+    at INTEGER NOT NULL
+  );
+  `,
 ];
 
 export function openDb(file: string): Db {

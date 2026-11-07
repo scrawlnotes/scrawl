@@ -173,7 +173,7 @@ function PersonRow({ person, you, onHold }: { person: Person; you: boolean; onHo
   };
   return (
     <div className={person.active ? 'mb-row person' : 'mb-row person off'} {...hold}>
-      <Who name={person.name} />
+      <Who id={person.id} name={person.name} />
       <span className="tx">
         <b>
           {person.name ?? t('settings.unnamed')}
@@ -940,7 +940,7 @@ export function PeopleSheet({ about, team, current, onPick, onClose }: {
       <div className="mb-list">
         {offered.map((person) => (
           <button key={person.id} type="button" className={person.name ? 'mb-row person' : 'mb-row person dim'} onClick={() => pick(refOf(person))}>
-            <Who name={person.name} />
+            <Who id={person.id} name={person.name} />
             <span className="tx">
               <b>
                 {person.name ?? t('settings.unnamed')}

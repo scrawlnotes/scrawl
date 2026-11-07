@@ -30,6 +30,8 @@ import { store as chatStore, useChat } from './chatStore';
 import { partName, PhoneChatConversation, PhoneChatInfo, PhoneChatList, PhoneChatPart } from './PhoneChat';
 import { PhoneAddPeople, PhoneBrowseRooms, PhoneNewMessage, PhoneNewRoom } from './PhoneChatNew';
 import { titleOf as chatTitle } from './ChatFaces';
+import { HELP, HELP_PAGES } from './help/index';
+import { HelpPhoneNote } from './Help';
 
 // A phone has a layout of its own, after the Phone views of design/mockups.html: a tab bar with
 // Recent, Browse, Today and Search at its foot, and in each of them a stack of pages. A page slides in from the
@@ -58,6 +60,10 @@ type PageKind =
   | { kind: 'files' }
   | { kind: 'settings' }
   | { kind: 'section'; section: Section }
+  // Help (design/help.md): its topics, a topic's pages, and a page, a note of its own.
+  | { kind: 'help' }
+  | { kind: 'helpTopic'; id: string }
+  | { kind: 'helpNote'; id: string }
   | { kind: 'space'; id: string | null }
   | { kind: 'server'; url: string }
   | { kind: 'sync'; space?: string | null; named?: boolean }
@@ -391,7 +397,8 @@ export function useHold(onHold?: (row: HTMLElement) => void) {
 
 /** A row of a list: an icon, a name and a line under it, a count or a time, and an arrow. Held, it opens its menu. */
 function Row({ icon, lead, label, sub, right, folder, onClick, onHold }: {
-  icon: IconName;
+  /** None for a row of words only, as Help's. */
+  icon?: IconName;
   /** In place of the icon: a label's dot. */
   lead?: ReactNode;
   label: string;
@@ -404,7 +411,7 @@ function Row({ icon, lead, label, sub, right, folder, onClick, onHold }: {
   const hold = useHold(onHold);
   return (
     <button type="button" className={folder ? 'mb-row fold' : 'mb-row'} onClick={onClick} {...hold}>
-      {lead ?? <Icon name={icon} />}
+      {lead ?? (icon && <Icon name={icon} />)}
       <span className="tx">
         <b>{label}</b>
         {sub && <small>{sub}</small>}
@@ -477,6 +484,19 @@ function NavBar({ back, onBack, title, scrolled, filter, onMenu, action, choose 
           </button>
         ))}
     </div>
+  );
+}
+
+/** A note of Help as a page: its bar names it once its own title has scrolled away. */
+function HelpNotePage({ nav, title, id, onPage }: { nav?: Omit<Parameters<typeof NavBar>[0], 'scrolled' | 'title'>; title: string; id: string; onPage: (id: string) => void }) {
+  const [scrolled, setScrolled] = useState(false);
+  return (
+    <>
+      <NavBar {...nav} title={title} scrolled={scrolled} />
+      <div className="mb-holder mb-version-page">
+        <HelpPhoneNote id={id} onPage={onPage} onScrolled={setScrolled} />
+      </div>
+    </>
   );
 }
 
@@ -652,7 +672,7 @@ export function Phone(props: PhoneProps) {
       const kind = action.id;
       return { ...action, run: () => (setDue(kind), setPlace('today')) };
     }
-    if (action.id === 'files' || action.id === 'trash') {
+    if (action.id === 'files' || action.id === 'trash' || action.id === 'help') {
       const kind = action.id;
       return { ...action, run: () => (setPlace('browse'), setStacks((current) => ({ ...current, browse: [current.browse[0]!, { kind, key: ++pageKeys }] }))) };
     }
@@ -1027,6 +1047,9 @@ export function Phone(props: PhoneProps) {
     if (page.kind === 'trash') return t('side.trash');
     if (page.kind === 'files') return t('side.files');
     if (page.kind === 'settings') return t('settings.title');
+    if (page.kind === 'help') return t('help.title');
+    if (page.kind === 'helpTopic') return t(HELP.find((each) => each.id === page.id)?.label ?? 'help.title');
+    if (page.kind === 'helpNote') return t(HELP_PAGES.find((each) => each.id === page.id)?.label ?? 'help.title');
     if (page.kind === 'section') return t(settingsSections().find((each) => each.id === page.section)?.label ?? 'settings.title');
     if (page.kind === 'space') return page.id ? (props.spaces.find((space) => space.id === page.id)?.name ?? '') : (props.settings.values.spaceName ?? t('settings.personal'));
     if (page.kind === 'server') return hostOf(page.url);
@@ -1231,6 +1254,7 @@ export function Phone(props: PhoneProps) {
           <Row icon="trash" label={t('side.trash')} right={counts[TRASH] || ''} onClick={() => push({ kind: 'trash' })} />
           <Row icon="cloud" label={t('phone.sync')} right={syncRight} onClick={() => push({ kind: 'sync' })} />
           <Row icon="settings" label={t('side.settings')} onClick={() => push({ kind: 'settings' })} />
+          <Row icon="help" label={t('side.help')} onClick={() => push({ kind: 'help' })} />
         </div>
       </>
     );
@@ -1492,6 +1516,41 @@ export function Phone(props: PhoneProps) {
           <div className="mb-legacy">{props.trashView}</div>
         </PageFrame>
       );
+    }
+    // Help: its topics, each with its pages under its name; a topic's pages under the app picker's groups.
+    if (page.kind === 'help') {
+      return (
+        <PageFrame title={titleOf(page, of)} nav={nav}>
+          <div className="mb-list help-mlist">
+            {HELP.map((topic) => (
+              <Row
+                key={topic.id}
+                label={t(topic.label)}
+                sub={topic.pages?.map((each) => t(each.label)).join(', ')}
+                onClick={() => push(topic.pages ? { kind: 'helpTopic', id: topic.id } : { kind: 'helpNote', id: topic.id })}
+              />
+            ))}
+          </div>
+        </PageFrame>
+      );
+    }
+    if (page.kind === 'helpTopic') {
+      const pages = HELP.find((each) => each.id === page.id)?.pages ?? [];
+      return (
+        <PageFrame title={titleOf(page, of)} nav={nav}>
+          <div className="mb-list help-mlist">
+            {pages.map((each) => (
+              <Fragment key={each.id}>
+                {each.group && <div className="mb-sec">{t(each.group)}</div>}
+                <Row label={t(each.label)} onClick={() => push({ kind: 'helpNote', id: each.id })} />
+              </Fragment>
+            ))}
+          </div>
+        </PageFrame>
+      );
+    }
+    if (page.kind === 'helpNote') {
+      return <HelpNotePage nav={nav} title={titleOf(page, of)} id={page.id} onPage={(id) => push({ kind: 'helpNote', id })} />;
     }
     if (page.kind === 'settings') {
       return (

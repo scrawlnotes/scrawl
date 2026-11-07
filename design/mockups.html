@@ -4736,6 +4736,54 @@ p { margin: 0; max-width: 68ch; }
 .mb-sstrip .tx small .ns { color: var(--m-p2); }
 .mock .mb-sstrip .chev { flex: none; width: 16px; height: 16px; color: var(--m-faint); }
 .mb-sstrip .mb-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; border-radius: 0; background: transparent; }
+
+/* Help (Nov 7): a large window over the app; its topics on the left, the page, a note shown as the
+   app shows notes, in the middle, and the page's headings on the right. */
+.mock.hp-tall { height: 820px; }
+.hp-dlg { display: flex; flex-direction: column; width: min(1080px, calc(100% - 64px)); height: 740px; background: var(--m-bg); border: 1px solid var(--m-line); border-radius: 9px; box-shadow: 0 16px 40px rgb(0 0 0 / .45); overflow: hidden; }
+.hp-dlg .st-head { gap: 8px; }
+.mock .hp-dlg .st-head svg { width: 16px; height: 16px; color: var(--m-dim); }
+.hp-main { flex: 1; min-height: 0; display: grid; grid-template-columns: 236px minmax(0, 1fr) 200px; }
+.hp-nav { display: flex; flex-direction: column; gap: 1px; padding: 10px 8px; background: var(--m-side); border-right: 1px solid var(--m-line); overflow: hidden; }
+.hp-nav .it { gap: 4px; min-height: 26px; padding: 2px 8px 2px 4px; }
+.hp-nav .it.d1 { padding-left: 38px; }
+.hp-nav .it.on { background: var(--m-sel); color: var(--m-fg); }
+.hp-nav .it:not(.on):hover, .hp-nav .it.hot { background: color-mix(in srgb, var(--m-fg) 8%, transparent); color: var(--m-fg); }
+.hp-page { position: relative; overflow: hidden; padding: 30px 44px; font: 13px/1.7 var(--m-ed); }
+.hp-page .crumb { margin-bottom: 4px; color: var(--m-dim); font: 12px/1.5 var(--m-ui); }
+.hp-page .crumb svg { width: 12px; height: 12px; vertical-align: -2px; }
+.hp-page h1 { margin: 0 0 16px; font-size: 1.5em; font-weight: 700; line-height: 1.35; }
+.hp-page h2 { margin: 26px 0 8px; font-size: 1.18em; font-weight: 700; line-height: 1.4; }
+.hp-page p { max-width: none; margin: 0 0 12px; }
+.hp-page b { font-weight: 700; }
+.hp-page hr { margin: 24px 0; border: 0; border-top: 1px solid var(--m-line); }
+.hp-page ol, .hp-page ul { margin: 0 0 12px; padding-left: 2.2em; }
+.hp-page li { margin: 2px 0; }
+.hp-page li::marker { color: var(--m-accent); }
+.hp-page table { width: 100%; margin: 4px 0 14px; border-collapse: collapse; font-size: .95em; }
+.hp-page th, .hp-page td { padding: 7px 12px; border: 1px solid var(--m-line); text-align: left; vertical-align: top; }
+.hp-page th { background: var(--m-side); font-weight: 700; }
+.hp-page .fade { position: absolute; left: 0; right: 0; bottom: 0; height: 60px; background: linear-gradient(transparent, var(--m-bg)); }
+.hp-pn { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 30px; font-family: var(--m-ui); }
+.hp-pn span { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border: 1px solid var(--m-line); border-radius: 7px; }
+.hp-pn span + span { text-align: right; }
+.hp-pn small { color: var(--m-faint); font-size: 11.5px; }
+.hp-pn b { color: var(--m-fg); font-weight: 500; }
+.hp-toc { display: flex; flex-direction: column; padding: 30px 16px 16px 0; font-size: 12px; }
+.hp-toc .cap { padding: 0 0 8px 12px; color: var(--m-faint); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; }
+.hp-toc span { padding: 3px 0 3px 12px; border-left: 2px solid var(--m-line); color: var(--m-dim); }
+.hp-toc span.on { border-left-color: var(--m-accent); color: var(--m-fg); }
+/* On a phone: Help is a page from Browse; a topic with pages of its own lists them; a page is a note. */
+.hp-mrow .tx b { font-weight: 400; }
+.mb-row.hp-mrow + .mb-row.hp-mrow::before { left: 16px; }
+.hp-mdoc { padding: 4px 18px 24px; font: 15px/1.6 var(--m-ed); }
+.hp-mdoc .crumb { margin-bottom: 2px; color: var(--m-dim); font: 13px/1.5 var(--m-ui); }
+.hp-mdoc h1 { margin: 0 0 12px; font-size: 21px; font-weight: 700; line-height: 1.35; }
+.hp-mdoc h2 { margin: 20px 0 6px; font-size: 17px; font-weight: 700; line-height: 1.4; }
+.hp-mdoc p { max-width: none; margin: 0 0 10px; }
+.hp-mdoc b { font-weight: 700; }
+.hp-mdoc ol { margin: 0 0 10px; padding-left: 1.6em; }
+.hp-mdoc li::marker { color: var(--m-accent); }
 </style>
 
 <main class="page">
@@ -6061,6 +6109,23 @@ p { margin: 0; max-width: 68ch; }
       </div>
       <span class="pick" role="group" aria-label="Sync şeridi görünümü">
         <button type="button" data-skview="skphone">Telefon</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="help">
+    <div class="brief">
+      <div>
+        <span class="letter">HELP · TASLAK</span>
+        <h2>Help penceresi</h2>
+        <p>Kenar çubuğunun en altında, Settings'in altında <b>Help</b>. Tıklayınca Settings gibi uygulamanın üstünde, ortada büyük bir pencere açılır. Solda konular: bir kısmı tek sayfa, bir kısmının altında sayfaları var; böyle bir konuya tıklamak onu açıp kapatır, açık sayfanın konusu açık durur. Ortada sayfa: her sayfa bir not, uygulamanın notu gösterdiği gibi; okunur, içine yazılmaz. <b>Getting started</b>, Welcome to Scrawl notudur. Sağda sayfanın başlıkları (On this page), okunan başlık işaretli; tıklayınca oraya gider. Sayfanın sonunda Previous ve Next. Telefonda Browse'un en altında Help: konular bir liste, altında sayfaları olan konu onları listeler, sayfa notun sayfası gibi açılır; metin telefona göre yazılır (Welcome'da olduğu gibi).</p>
+        <ul class="traits"><li>Settings'in altında</li><li>ortada pencere</li><li>solda konular ve alt sayfalar</li><li>her sayfa bir not</li><li>okunur, yazılmaz</li><li>Getting started = Welcome</li><li>On this page</li><li>telefonda Browse'ta</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Help görünümü">
+        <button type="button" data-hpview="hpstart">Getting started</button>
+        <button type="button" data-hpview="hpsub">Alt sayfa: Sync › OneDrive</button>
+        <button type="button" data-hpview="hpphone">Telefon</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -19537,6 +19602,127 @@ p { margin: 0; max-width: 68ch; }
   }
   var sectionSk = document.querySelector('.dir[data-dir="syncstrip"]');
   renderSk(sectionSk);
+
+  // Help (Nov 7): a window over the app. Its topics on the left, some one page, some with pages of
+  // their own; a page is a note, shown as the app shows notes, read only.
+  ICON.help = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.7 9.6a2.4 2.4 0 0 1 4.7.6c0 1.6-2.4 2-2.4 3.6"/><path d="M12 17.2v.01"/></svg>';
+  var HP_TOPICS = [
+    ['Getting started'],
+    ['Notes', ['Writing', 'Tables and images', 'Callouts', 'History and export']],
+    ['Task lists', ['Tasks', 'Today and Upcoming', 'Filters &amp; Labels']],
+    ['Quick notes'],
+    ['Boards', ['Cards and columns', 'Phases', 'Issue tracking', 'CRM']],
+    ['Collections', ['Fields', 'Rules and buttons', 'Import from CSV or Excel']],
+    ['Apps', ['For a business', 'For a person']],
+    ['Keys'],
+    ['Calendar'],
+    ['Search'],
+    ['Sync', ['How sync works', 'OneDrive', 'Scrawl server']],
+    ['Spaces'],
+    ['Chat'],
+    ['Agents', ['On a computer', 'On the web and phone']],
+    ['Versions'],
+    ['Running a server', ['Set it up with Docker', 'Accounts and invites']]
+  ];
+  // Rows that switch the views here, as the sidebars of the other parts do.
+  var HP_GO = { 'Getting started': 'hpstart', Sync: 'hpsub', OneDrive: 'hpsub' };
+  function hpGo(name) { return HP_GO[name] ? ' data-hpview="' + HP_GO[name] + '"' : ''; }
+  /** The topics: a topic with pages of its own folds; the one whose page is open stays open. */
+  function hpNav(open, on) {
+    return '<nav class="hp-nav">' + HP_TOPICS.map(function (t) {
+      var name = t[0], pages = t[1];
+      if (!pages) return '<div class="it' + (name === on ? ' on' : '') + '"' + hpGo(name) + '><span class="fpad"></span><span>' + name + '</span></div>';
+      var isOpen = name === open;
+      return '<div class="it"' + hpGo(name) + '><span class="fchev' + (isOpen ? ' open' : '') + '">' + ICON.chevr + '</span><span>' + name + '</span></div>' +
+        (isOpen ? pages.map(function (p) { return '<div class="it d1' + (p === on ? ' on' : '') + '"' + hpGo(p) + '><span>' + p + '</span></div>'; }).join('') : '');
+    }).join('') + '</nav>';
+  }
+  function hpWindow(open, on, page, toc) {
+    return '<div class="ovl center"><div class="hp-dlg"><div class="st-head">' + ICON.help + '<b>Help</b><span class="x">×</span></div><div class="hp-main">' +
+      hpNav(open, on) + '<div class="hp-page">' + page + '</div>' +
+      '<div class="hp-toc"><div class="cap">On this page</div>' + toc.map(function (h, i) { return '<span' + (i === 0 ? ' class="on"' : '') + '>' + h + '</span>'; }).join('') + '</div>' +
+      '</div></div></div>';
+  }
+  // Getting started is Welcome to Scrawl, word for word (apps/web/src/welcome.md); it goes on below.
+  var HP_START = '<h1>👋 Welcome to Scrawl</h1>' +
+    '<h2>✨ What is Scrawl</h2>' +
+    '<p>Scrawl keeps notes, tasks, boards, collections and keys in folders. Everything for a project sits together: its meeting notes, things to do, customer records and API keys.</p>' +
+    '<p>Each item is a plain file. Work on it in Scrawl, open it in another editor, or have an AI agent work on it with you.</p><hr>' +
+    '<h2>💾 Your notes are on this device</h2>' +
+    '<p>Scrawl has no sign-up and no cloud of its own. What you write is saved here, on this device, not online.</p>' +
+    '<p>So when you open Scrawl in another browser, on your phone or on another computer, it is empty. Nothing is lost: your notes are still here.</p>' +
+    '<p>To have the same notes everywhere, sync them to one of these:</p>' +
+    '<table><tr><th></th><th>What it is</th><th>Good for</th></tr>' +
+    '<tr><td>☁️ <b>OneDrive</b></td><td>Your own Microsoft storage</td><td>Your own devices; a folder shared with others</td></tr>' +
+    '<tr><td>🗄️ <b>Scrawl server</b></td><td>A server your team runs, with Docker</td><td>A team; changes reach others in seconds</td></tr></table>' +
+    '<ol><li>Here, press <b>Sync</b> at the bottom of the sidebar, then <b>Sync…</b>, and choose OneDrive or a server.</li>' +
+    '<li>On your phone or other computer, open Scrawl, press <b>Sync</b>, and choose the same OneDrive folder or the same server.</li></ol>' +
+    '<p>From then on, what you change on one shows up on the others.</p><div class="fade"></div>';
+  var HP_START_TOC = ['What is Scrawl', 'Your notes are on this device', 'Versions', 'What you can add', 'Apps and collections', 'Working with an agent', 'Scrawl server'];
+  // A page under a topic: the topic over its title; Previous and Next at its foot go page by page.
+  var HP_ONEDRIVE = '<div class="crumb">Sync</div><h1>☁️ OneDrive</h1>' +
+    '<p>Sync a space to a folder in your own OneDrive. Each device that syncs to the folder has the same notes, tasks and boards, and works offline too.</p>' +
+    '<h2>Set it up</h2><ol><li>Press <b>Sync</b> at the bottom of the sidebar, then <b>Sync…</b>.</li><li>Choose <b>OneDrive</b> and sign in with your Microsoft account.</li><li>Choose a folder for the space, or make a new one.</li></ol>' +
+    '<h2>On your other devices</h2><p>Open Scrawl, press <b>Sync</b>, choose OneDrive and the same folder. On a phone, Sync is in <b>Browse</b>.</p>' +
+    '<h2>Share a folder</h2><p>Share the folder with someone in OneDrive. They add it in <b>Settings › Spaces › Add space…</b>, and it is a space of its own on their devices.</p>' +
+    '<div class="hp-pn"><span><small>Previous</small><b>← How sync works</b></span><span><small>Next</small><b>Scrawl server →</b></span></div>';
+  var HP_ONEDRIVE_TOC = ['Set it up', 'On your other devices', 'Share a folder'];
+  /** The app under the window: a note open, Help lit at the foot of the sidebar. */
+  function hpApp(over) {
+    var tree = '<div class="tree fxt"><div class="it sx-side">' + ICON.find + '<span>Search</span></div>' +
+      row({ label: 'Today', ct: 4 }) + row({ label: 'Upcoming', ct: 9 }) + row({ label: 'Filters &amp; Labels' }) + row({ label: 'Quick notes', ct: 10 }) +
+      '<div class="fx-gap"></div>' +
+      spRowT({ sp: true, open: true, label: 'Personal' }) +
+      spRowT({ d: 1, icon: 'tasks', label: 'Inbox', ct: 5 }) +
+      spRowT({ d: 1, folder: true, label: 'Home', ct: 6 }) +
+      spRowT({ d: 1, folder: true, label: 'Work', ct: 11 }) +
+      spRowT({ d: 1, icon: 'notes', label: 'Reading list', on: true }) +
+      spRowT({ sp: true, label: 'Scrawl' }) + spRowT({ sp: true, label: 'Side projects' }) +
+      '</div><div class="side-foot">' + row({ icon: 'clip', label: 'Files', ct: 9 }) + row({ icon: 'trash', label: 'Trash', ct: 8 }) +
+      row({ icon: 'cloud', label: 'Sync' }) + row({ icon: 'cog', label: 'Settings' }) + row({ icon: 'help', label: 'Help', on: true }) + '</div>';
+    return '<aside class="side">' + tree + '</aside><section class="main"><div class="panes">' +
+      pane(tab('notes', 'Reading list', 'x', true) + '<div class="tab plus">+</div>', QN_READING) + '</div>' +
+      '<div class="status"><span>Ln 5, Col 38</span><span>21 words</span><span>Markdown</span>' + syncStatus(false, null) + '</div></section>' + over;
+  }
+  function hpmRow(label, sub) {
+    return '<div class="mb-row hp-mrow"><span class="tx"><b>' + label + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</span>' + MB_CHEV + '</div>';
+  }
+  function hpPhone() {
+    var browse = mbPage(mbHead('Browse', null, true),
+      mbRow({ icon: 'filter', label: 'Filters &amp; Labels' }) + mbRow({ icon: 'quick', label: 'Quick notes', ct: 10 }) +
+      '<div class="fx-mgap"></div>' + mbRow({ icon: 'space', label: 'Personal', ct: 14 }) + mbRow({ icon: 'space', label: 'Scrawl', ct: 9 }) + mbRow({ icon: 'space', label: 'Side projects', ct: 3 }) +
+      '<div class="fx-mgap"></div>' + mbRow({ icon: 'clip', label: 'Files', ct: 9 }) + mbRow({ icon: 'trash', label: 'Trash', ct: 8 }) + mbRow({ icon: 'cloud', label: 'Sync', ct: '12 s ago' }) +
+      mbRow({ icon: 'settings', label: 'Settings' }) + mbRow({ icon: 'help', label: 'Help' }));
+    var help = mbPage(mbNav('Browse') + mbHead('Help'), HP_TOPICS.map(function (t) { return hpmRow(t[0], t[1] ? t[1].join(', ') : ''); }).join(''));
+    var sync = mbPage(mbNav('Help') + mbHead('Sync'), hpmRow('How sync works') + hpmRow('OneDrive') + hpmRow('Scrawl server'));
+    var page = mbPage(mbNav('Sync'), '<div class="hp-mdoc"><h1>☁️ OneDrive</h1>' +
+      '<p>Sync a space to a folder in your own OneDrive. Each device that syncs to the folder has the same notes, tasks and boards, and works offline too.</p>' +
+      '<h2>Set it up</h2><ol><li>Open <b>Sync</b> in <b>Browse</b>, then <b>Sync…</b>.</li><li>Choose <b>OneDrive</b> and sign in with your Microsoft account.</li><li>Choose a folder for the space, or make a new one.</li></ol>' +
+      '<h2>On your other devices</h2><p>Open Scrawl, press <b>Sync</b>, choose OneDrive and the same folder.</p>' +
+      '<h2>Share a folder</h2><p>Share the folder with someone in OneDrive. They add it in <b>Settings › Spaces › Add space…</b>, and it is a space of its own on their devices.</p></div>');
+    return mbPhone('Browse: en altta Help', browse, mbTabsSx('browse')) + mbPhone('Help: konular', help, mbTabsSx('browse')) +
+      mbPhone('Altında sayfaları olan konu', sync, mbTabsSx('browse')) + mbPhone('Sayfa: bir not, okunur', page, mbTabsSx('browse'));
+  }
+  function renderHp(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (view === 'hpphone') {
+      mock.className = 'mock dir-a phones four mbs';
+      mock.innerHTML = hpPhone();
+    } else {
+      mock.className = 'mock dir-a hp-tall';
+      mock.innerHTML = view === 'hpstart'
+        ? hpApp(hpWindow(null, 'Getting started', HP_START, HP_START_TOC))
+        : hpApp(hpWindow('Sync', 'OneDrive', HP_ONEDRIVE, HP_ONEDRIVE_TOC));
+    }
+    section.querySelectorAll('.brief [data-hpview]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.hpview === view)); });
+  }
+  var sectionHp = document.querySelector('.dir[data-dir="help"]');
+  sectionHp.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-hpview]');
+    if (b) renderHp(sectionHp, b.dataset.hpview);
+  });
+  renderHp(sectionHp, 'hpstart');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });

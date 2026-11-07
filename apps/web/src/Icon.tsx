@@ -380,6 +380,12 @@ const shapes = {
       <path d="M12 11v5.5M12 7.8v.2" />
     </>
   ),
+  help: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M9.7 9.6a2.4 2.4 0 0 1 4.7.6c0 1.6-2.4 2-2.4 3.6M12 16.6v.2" />
+    </>
+  ),
   /** Lines, each with its mark: the device's log. */
   logs: (
     <>

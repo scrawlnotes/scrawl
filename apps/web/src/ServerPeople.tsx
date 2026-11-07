@@ -1,4 +1,5 @@
 import { dayOf, type Me, RemoteSignedOut, type ServerAccountInfo, type ServerAgent, type ServerLink, type ServerMember, type ServerPerson, type ServerSharedSpace, type ServerSpace } from '@scrawlnotes/core';
+import { PictureOr } from './ChatFaces';
 import { locale, t } from '@scrawlnotes/i18n';
 import { Fragment, type MouseEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { ConfirmDialog, ContextMenu, Dialog, type MenuItem } from './dialogs';
@@ -262,7 +263,7 @@ export function ServerMembers({ space, me }: { space: SpaceView; me: Me | null }
             return (
               <div key={member.id} className={`st-li one${menu?.member.id === member.id ? ' menu-on' : ''}`} {...(offered && { onContextMenu: (event: MouseEvent) => open(event, member) })}>
                 <span className="who" aria-hidden="true">
-                  {initial(member.name, member.email)}
+                  <PictureOr id={member.id}>{initial(member.name, member.email)}</PictureOr>
                 </span>
                 <span className="nm">
                   <b>
@@ -340,7 +341,7 @@ export function PhoneServerMembers({ space, me }: { space: SpaceView; me: Me | n
           const row = (
             <>
               <span className="who" aria-hidden="true">
-                {initial(member.name, member.email)}
+                <PictureOr id={member.id}>{initial(member.name, member.email)}</PictureOr>
               </span>
               <span className="tx">
                 <b>

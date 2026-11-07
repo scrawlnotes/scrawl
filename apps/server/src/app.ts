@@ -219,7 +219,27 @@ export function createApp(parts: Parts) {
   app.post('/api/v1/accounts/:id/reset', (c) => c.json(invites.reset(c.req.param('id'), c.get('account'))));
   // Every shared space and who is in it, for the owner and admins.
   app.get('/api/v1/shared-spaces', (c) => c.json(spaces.shared(c.get('account'))));
-  app.get('/api/v1/me', (c) => c.json(c.get('account')));
+  app.get('/api/v1/me', (c) => c.json({ ...c.get('account'), picture: accounts.pictureOf(c.get('account').id) }));
+  // The person's picture, as their Profile sets it; whoever shares a space or a conversation with
+  // them reads it, the conversations they are in hear that it changed.
+  app.put('/api/v1/me/picture', async (c) => {
+    const id = c.get('account').id;
+    if (Number(c.req.header('content-length') ?? 0) > 256 * 1024) throw new Refused(413, 'too-large', 'A picture is 256 KB at most');
+    const set = accounts.setPicture(id, new Uint8Array(await c.req.arrayBuffer()));
+    chats.personChanged(id);
+    return c.json(set);
+  });
+  app.delete('/api/v1/me/picture', (c) => {
+    const id = c.get('account').id;
+    accounts.removePicture(id);
+    chats.personChanged(id);
+    return c.body(null, 204);
+  });
+  app.get('/api/v1/people/:id/picture', (c) => {
+    const picture = accounts.picture(c.get('account').id, c.req.param('id'));
+    // Asked for by its version, it never changes under it.
+    return c.body(picture.data as Uint8Array<ArrayBuffer>, 200, { 'Content-Type': picture.type, 'Cache-Control': 'private, max-age=31536000, immutable', ETag: `"${picture.hash}"` });
+  });
   // The person's time zone, which the app tells as it signs in and as it opens.
   app.patch('/api/v1/me', async (c) => c.json(accounts.setTimeZone(c.get('account').id, (await json(c)).timeZone)));
   app.get('/api/v1/spaces', (c) => c.json(spaces.of(c.get('account').id)));
