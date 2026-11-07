@@ -9563,7 +9563,8 @@ body > .mb-lifted {
   height: 16px;
 }
 
-.chp-row .mic.big {
+/* over the phone box's own size for the microphone, or it stays small under the finger */
+.mb .chp-box .chp-row .mic.big {
   width: 64px;
   height: 64px;
   margin: -22px -6px -14px 0;
