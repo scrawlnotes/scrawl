@@ -94,6 +94,7 @@ export const en = {
   'help.appsHow': 'How apps work',
   'help.appsEditing': 'Editing an app',
   'help.appsBuilding': 'Building an app with an agent',
+  'help.business': 'Business apps',
   'help.search': 'Search',
   'help.spaces': 'Spaces and folders',
   'help.sync': 'Sync',

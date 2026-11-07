@@ -29,4 +29,4 @@ The search box in Chat looks through every conversation. The **Search** tab find
 
 ## Agents
 
-An agent connected through the server reads the conversations you can, and writes in them as itself. See [Agents](agents).
+An agent connected through the server reads the conversations you can, and writes in them as itself. See [Agents](ai-agents).

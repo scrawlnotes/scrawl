@@ -4,7 +4,7 @@ When no template fits how you work, an agent builds the app with you: the collec
 
 ## Before you start
 
-Connect an agent to Scrawl: see [Agents](agents). Then make, or choose, the folder the app goes in.
+Connect an agent to Scrawl: see [Agents](ai-agents). Then make, or choose, the folder the app goes in.
 
 ## Say what you need
 

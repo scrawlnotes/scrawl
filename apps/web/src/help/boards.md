@@ -44,4 +44,4 @@ A new board starts from one of these; after that, everything can change.
 
 Cards and their subtasks with a date come to Today and Upcoming, under their board's name.
 
-**Copy as brief**, in a card's or a phase's menu, copies it as one text with its linked notes, ready for an agent. An agent connected to Scrawl reads and moves cards itself: see [Agents](agents).
+**Copy as brief**, in a card's or a phase's menu, copies it as one text with its linked notes, ready for an agent. An agent connected to Scrawl reads and moves cards itself: see [Agents](ai-agents).

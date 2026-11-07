@@ -39,7 +39,7 @@ Sıra yeni kullanan birinin ihtiyacına göredir: önce günlük işler, sonra k
 | 14 | Scrawl on your devices | `devices` | web, masaüstü (kurulum, güncelleme, tepside çalışma), telefon (ana ekrana ekleme) |
 | 15 | Working together | `working-together` | space paylaşma, görev ve kartı birine verme, Activity |
 | 16 | Chat | `chat` | room'lar, direct message'lar, bildirimler, arama, dışa aktarma; yalnız sunucuda |
-| 17 | Agents | `agents` | ne yapar, bilgisayarda ve web'de bağlama, örnek istekler, kimliği, erişemediği yerler |
+| 17 | Agents | `ai-agents` | ne yapar, bilgisayarda ve web'de bağlama, örnek istekler, kimliği, erişemediği yerler |
 | 18 | Scrawl server | `server-about`, `server-setup`, `server-running` | What a server is (ne ekler, kimin için); Setting it up; Running it (yedek, dışa aktarma, güncelleme, ajanlar) |
 | 19 | Settings | `settings` | Profile, Appearance, Spaces, Agents, Logs |
 

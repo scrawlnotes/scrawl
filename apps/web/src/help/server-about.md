@@ -10,7 +10,7 @@ It is for a team that wants what only a server can do.
 - **Accounts:** each person signs in with an email and a password. People join a space with an invite link.
 - **Roles:** the server's **Owner** and **Admins** open spaces and look after the accounts; **Members** see only the spaces they are invited to. In a space, its **Managers** invite and remove people.
 - **Chat:** rooms and direct messages beside your work. See [Chat](chat).
-- **Agents on the web and your phone:** Claude, ChatGPT and Gemini work on the server's spaces. See [Agents](agents).
+- **Agents on the web and your phone:** Claude, ChatGPT and Gemini work on the server's spaces. See [Agents](ai-agents).
 - **A personal space on the server**, if you want yours there too: only you see it, not the Owner or the Admins.
 
 ## What stays the same

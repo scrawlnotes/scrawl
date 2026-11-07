@@ -14,7 +14,7 @@ On the web, press **Downloads** at the foot of the sidebar and install it. Your 
 
 - When a new version is out, the sidebar says so; it comes when you choose, and **Restart to update** puts it in place.
 - With **Keep running when the window is closed**, in **Settings › General**, Scrawl stays in the tray, or the menu bar on a Mac, and keeps syncing. **Open at login** starts it with your computer.
-- Agents on your computer, such as Claude Code or Claude Desktop, need the desktop app: in a browser your notes are out of their reach. See [Agents](agents).
+- Agents on your computer, such as Claude Code or Claude Desktop, need the desktop app: in a browser your notes are out of their reach. See [Agents](ai-agents).
 
 ## Phone, for iPhone and Android
 

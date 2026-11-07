@@ -27,9 +27,9 @@ An app's work comes to Today with what it takes to do it: a call to log, an invo
 ## The templates
 
 **For a business.**
-- Customers: CRM, Customer support, Appointments and bookings, Content calendar, Field service, Consulting.
-- Money: Sales and invoicing, Budget and spending, Stock and purchasing, E-commerce, Assets and maintenance, Subscriptions and memberships.
-- Work: Project management, Product development, Recruiting, Contracts and renewals, Time off and team, Goals, Incidents and actions.
+- Customers: [CRM](crm), [Customer support](support), [Appointments and bookings](appointments), [Content calendar](content), [Field service](field), [Consulting](consulting).
+- Money: [Sales and invoicing](sales), [Budget and spending](budget), [Stock and purchasing](stock), [E-commerce](ecommerce), [Assets and maintenance](assets), [Subscriptions and memberships](subscriptions).
+- Work: [Project management](projects), [Product development](product), [Recruiting](recruiting), [Contracts and renewals](contracts), [Time off and team](timeoff), [Goals](goals), [Incidents and actions](incidents).
 
 **For a person.**
 - Money and home: Personal finance; Home, car and documents; Recipes and meal plan.

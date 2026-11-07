@@ -28,7 +28,7 @@ Your personal space, the spaces you share with others, the servers you are conne
 
 ## Agents
 
-How to connect each agent, on this computer and through your servers, and the agents that have worked in your spaces. See [Agents](agents).
+How to connect each agent, on this computer and through your servers, and the agents that have worked in your spaces. See [Agents](ai-agents).
 
 ## Logs
 

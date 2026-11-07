@@ -28,4 +28,4 @@ An agent connected to Scrawl changes an app from what you tell it. For example:
 - "When a support request is closed, set its closing day."
 - "Add a button to projects that adds our standard first tasks."
 
-It answers with what it changed. What it rewrites keeps its earlier version in **History**, what it deletes goes to **Trash**, and its changes carry its name. See [Agents](agents).
+It answers with what it changed. What it rewrites keeps its earlier version in **History**, what it deletes goes to **Trash**, and its changes carry its name. See [Agents](ai-agents).
