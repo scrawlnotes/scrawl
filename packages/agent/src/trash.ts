@@ -34,13 +34,20 @@ const same = (a: string, b: string) => fold(a.trim()) === fold(b.trim());
 
 const restores = 'The person can restore it from Trash.';
 
-export async function trashTool(agent: Agent, args: { space?: string; path: string; id?: string; section?: string }) {
+/** How many tasks, cards or records one call takes, as save_card's and save_task's items. */
+export const TRASH_MANY = 50;
+
+export async function trashTool(agent: Agent, args: { space?: string; path: string; id?: string; ids?: string[]; section?: string }) {
   const typed = checkOpen(cleanPath(args.path));
   if (!typed) throw new Refusal('What to trash? Give a path or a name');
   // Without its schema a collection's records are loose notes; the collection goes to the trash whole.
   if (fileKind(typed) === 'schema') {
     const folder = typed.split('/').slice(0, -1).join('/');
     throw new Refusal(`${typed} is a collection’s schema; to remove the collection, trash its folder${folder ? ` (${folder})` : ''}`, { path: typed, ...(folder && { folder }) });
+  }
+  if (args.ids) {
+    if (args.id?.trim() || args.section?.trim()) throw new Refusal('Give ids alone, without id or section');
+    return trashMany(agent, { space: args.space, path: args.path, ids: args.ids });
   }
   if (args.id?.trim() || args.section?.trim()) return trashOne(agent, args);
   const { space, path } = await whereIs(agent, args.space, typed);
@@ -107,4 +114,59 @@ async function trashOne(agent: Agent, args: { space?: string; path: string; id?:
   const record = pickRecord(collection, args.id!);
   await trashWithFiles(space.fs, record.path, false, () => [], now);
   return done('record', recordTitle(record), record.path);
+}
+
+/**
+ * Many tasks, cards or records of one list, board or collection at once. Each is found first: one
+ * that is not there, or is more than one, refuses them all and nothing goes. Then each goes to the
+ * trash as one alone would, and the list or the board is written once. A task given with a task it
+ * is under goes with that one.
+ */
+async function trashMany(agent: Agent, args: { space?: string; path: string; ids: string[] }) {
+  const ids = [...new Set(args.ids.map((id) => id.trim()).filter(Boolean))];
+  if (ids.length === 0) throw new Refusal('Give the ids to trash');
+  if (ids.length > TRASH_MANY) throw new Refusal(`At most ${TRASH_MANY} at once; give the rest in another call`, { given: ids.length });
+  const { space, element } = await pickAcross(agent, args.space, args.path, ['tasks', 'board', 'collection'], 'task list, board or collection');
+  const now = nowOf(agent);
+  const done = (kind: string, items: { title: string; key?: string }[]) => ({
+    data: { space: space.id, spaceName: space.name, kind, from: element.path, trashed: items.length, items, message: items.length === 1 ? restores : 'The person can restore them from Trash.' },
+  });
+  if (element.kind === 'tasks') {
+    let list = await loadList(space.fs, element.path);
+    const found = ids.map((id) => {
+      const byId = list.tasks.find((t) => t.id === id);
+      const byTitle = byId ? [byId] : list.tasks.filter((t) => same(t.title, id));
+      if (byTitle.length > 1) throw new Refusal(`More than one task is called ${id}; say which by id. Nothing was trashed`, { candidates: byTitle.map((t) => ({ id: t.id, title: t.title })) });
+      if (!byTitle[0]) throw new Refusal(`No task ${id} in ${listName(element.path)}. Nothing was trashed`, { list: element.path });
+      return byTitle[0];
+    });
+    const chosen = new Set(found.map((t) => t.id));
+    const parentOf = new Map(list.tasks.map((t) => [t.id, t.parent ?? null]));
+    const underChosen = (id: string) => {
+      for (let up = parentOf.get(id); up; up = parentOf.get(up)) if (chosen.has(up)) return true;
+      return false;
+    };
+    const tasks = [...new Map(found.map((t) => [t.id, t])).values()].filter((t) => !underChosen(t.id));
+    for (const task of tasks) {
+      await trashPiece(space.fs, element.path, taskPiece(list, task.id)!, now);
+      list = { ...list, tasks: removeTask(list.tasks, task.id) };
+    }
+    await saveList(space.fs, element.path, list);
+    return done('tasks', tasks.map((t) => ({ title: t.title })));
+  }
+  if (element.kind === 'board') {
+    let board = await loadBoard(space.fs, element.path);
+    const cards = [...new Map(ids.map((id) => pickCard(board, id)).map((c) => [c.id, c])).values()];
+    const items = cards.map((c) => ({ key: keyOf(board, c), title: c.title }));
+    for (const card of cards) {
+      await trashPiece(space.fs, element.path, cardPiece(board, card.id)!, now);
+      board = removeCard(board, card.id);
+    }
+    await saveBoard(space.fs, element.path, board);
+    return done('cards', items);
+  }
+  const collection = await loadCollection(space.fs, element.path);
+  const records = [...new Map(ids.map((id) => pickRecord(collection, id)).map((r) => [r.path, r])).values()];
+  for (const record of records) await trashWithFiles(space.fs, record.path, false, () => [], now);
+  return done('records', records.map((r) => ({ title: recordTitle(r) })));
 }

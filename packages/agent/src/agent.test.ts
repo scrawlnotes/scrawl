@@ -1076,6 +1076,36 @@ describe('the trash, one thing at a time', () => {
     expect((await refusal(trashTool(agent, { path: 'Launch', id: 'Nothing' }))).message).toContain('No task Nothing');
     expect((await refusal(trashTool(agent, { path: 'Scrawl', section: 'x' }))).message).toContain('task list’s');
   });
+
+  it('trashes many tasks, cards or records at once, or none when one is not there', async () => {
+    const { agent, fs, board } = await sample();
+    const keys = [];
+    for (const title of ['One', 'Two', 'Three']) keys.push((await saveCardTool(agent, CLIENT, { board: 'Scrawl', title })).data.card.key);
+    // One that is not there refuses them all.
+    expect((await refusal(trashTool(agent, { path: 'Scrawl', ids: [keys[0]!, 'SCR-99'] }))).message).toContain('No card SCR-99');
+    expect((await loadBoard(fs, board)).cards).toHaveLength(3);
+    const gone = await trashTool(agent, { path: 'Scrawl', ids: [keys[0]!, keys[2]!, keys[0]!] });
+    expect(gone.data).toMatchObject({ kind: 'cards', trashed: 2, items: [{ key: 'SCR-1', title: 'One' }, { key: 'SCR-3', title: 'Three' }] });
+    expect((await loadBoard(fs, board)).cards.map((c) => c.title)).toEqual(['Two']);
+    expect((await readTrash(fs)).filter((t) => t.kind === 'card')).toHaveLength(2);
+
+    await createTool(agent, { folder: 'Plans', kind: 'tasks', name: 'Launch' });
+    const post = await saveTaskTool(agent, CLIENT, { list: 'Launch', title: 'Write the post' });
+    await saveTaskTool(agent, CLIENT, { list: 'Launch', title: 'Draft', parent: post.data.task.id });
+    await saveTaskTool(agent, CLIENT, { list: 'Launch', title: 'Ship' });
+    await saveTaskTool(agent, CLIENT, { list: 'Launch', title: 'Stay' });
+    // A subtask given with its task goes with it, once.
+    expect((await trashTool(agent, { path: 'Launch', ids: ['write the post', 'Draft', 'ship'] })).data).toMatchObject({ kind: 'tasks', trashed: 2 });
+    expect((await loadList(fs, 'Plans/Launch.tasks.json')).tasks.map((t) => t.title)).toEqual(['Stay']);
+
+    await saveRecordTool(agent, { collection: 'Companies', values: { name: 'Acme Corp' } });
+    await saveRecordTool(agent, { collection: 'Companies', values: { name: 'Lara Turizm' } });
+    expect((await trashTool(agent, { path: 'Companies', ids: ['acme corp', 'Lara Turizm'] })).data).toMatchObject({ kind: 'records', trashed: 2 });
+    expect((await loadCollection(fs, 'CRM/Companies')).records).toEqual([]);
+
+    expect((await refusal(trashTool(agent, { path: 'Scrawl', ids: Array.from({ length: 51 }, (_, i) => `SCR-${i + 1}`) }))).message).toContain('At most 50');
+    expect((await refusal(trashTool(agent, { path: 'Scrawl', id: 'SCR-2', ids: ['SCR-2'] }))).message).toContain('ids alone');
+  });
 });
 
 describe('over MCP', () => {

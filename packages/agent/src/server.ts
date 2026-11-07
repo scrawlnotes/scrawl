@@ -9,7 +9,7 @@ import { answer } from './results';
 import { moveTool } from './move';
 import { type Agent, type Client, meet } from './space';
 import { saveTaskTool, tasksTool } from './tasks';
-import { trashTool } from './trash';
+import { TRASH_MANY, trashTool } from './trash';
 import { createTool, writeTool } from './write';
 
 // The MCP server: the fifteen tools and the guide, over whatever spaces a door gives it, and on a
@@ -235,11 +235,12 @@ export function buildServer(agent: Agent): McpServer {
     'trash',
     {
       title: 'Trash',
-      description: 'Sends something to the trash, where the person can restore it; nothing is deleted for good. A note, a task list, a board, a folder or a collection by its path or its name (a collection by its folder, not its _collection.json); with `id`, one task of the list, one card of the board (its key like SCR-12) or one record of the collection given as path; with `section`, a section of the list with its tasks. Trash what should not be there at all, a mistake or a copy; work that is finished or given up is closed instead: a task with save_task done: true, a card with save_card column "done" or "dropped".',
+      description: 'Sends something to the trash, where the person can restore it; nothing is deleted for good. A note, a task list, a board, a folder or a collection by its path or its name (a collection by its folder, not its _collection.json); with `id`, one task of the list, one card of the board (its key like SCR-12) or one record of the collection given as path; with `ids`, many of them at once, up to 50: all go, or none when one is not there; with `section`, a section of the list with its tasks. Trash what should not be there at all, a mistake or a copy; work that is finished or given up is closed instead: a task with save_task done: true, a card with save_card column "done" or "dropped".',
       inputSchema: z.object({
         space,
         path: z.string().describe('What to trash, or the list, board or collection that holds it: its path or its name.'),
         id: z.string().optional().describe('One task (its id or title), one card (its key, number or id) or one record (its id, name or code) of what path names.'),
+        ids: z.array(z.string()).min(1).max(TRASH_MANY).optional().describe('Many tasks, cards or records of what path names, as id takes one; up to 50 in one call.'),
         section: z.string().optional().describe('A section of the list path names, by name: it goes with its tasks.'),
       }),
       annotations: { readOnlyHint: false, destructiveHint: true },

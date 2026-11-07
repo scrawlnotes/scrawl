@@ -66,7 +66,7 @@ Scrawl keeps notes, task lists, boards and collections as plain files in a folde
 | Rename a choice of a select field | \`write\` the field with the new name in its options, and \`renames\`; the records and cards holding the old name take the new one |
 | Move or rename a note, list, board, collection or folder | \`move\`; what points at it, and at what is in it, follows |
 | Remove a note, list, board, folder or collection | \`trash\` with its path or name |
-| Remove one task, card or record, or a section with its tasks | \`trash\` with the list, board or collection as \`path\` and \`id\`, or \`section\`; what is finished is closed instead, not trashed |
+| Remove one task, card or record, or a section with its tasks | \`trash\` with the list, board or collection as \`path\` and \`id\`, or \`section\`; many at once with \`ids\`, up to 50; what is finished is closed instead, not trashed |
 | Say what you did on a card | \`comment\` |
 | On a Scrawl server: see the conversations and what is unread, read a room or a direct message, find a message | \`messages\` |
 | On a Scrawl server: write in a room or to a person | \`send_message\` |
