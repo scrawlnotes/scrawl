@@ -1705,6 +1705,13 @@ export function Phone(props: PhoneProps) {
     if (!goToReady) return;
     followed.current = goTo.at;
     if (!chat.servers.find((each) => each.url === goToLink.server)?.chats.some((each) => each.id === goToLink.chat)) return props.chat.links.say(t('chat.linkGone'));
+    // What this page had open over it goes, as App's own do (openScrawl).
+    setMaking(null);
+    setNewFolderIn(null);
+    setAddingSpace(false);
+    setSpaceMenu(undefined);
+    setRemovingSpace(null);
+    setHeld(null);
     openChat(goToLink.server, goToLink.chat, goToLink.message);
     // Each link once, when its server's conversations are in: a notification opens the app before they are.
     // eslint-disable-next-line react-hooks/exhaustive-deps

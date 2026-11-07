@@ -1933,6 +1933,27 @@ export function App() {
   const openScrawl = useRef<(href: string) => void>(() => undefined);
   openScrawl.current = (href) => {
     if (!href.startsWith('scrawl:chat/')) return chatLinks.open(href);
+    // On a phone Chat comes in place of what was on screen, as a tab does: what was open over it goes,
+    // a box to add a task in, a sheet, a menu, a window (a notification is tapped from anywhere).
+    if (phone) {
+      setDialog(null);
+      setMenu(null);
+      setQuickAdd(null);
+      setNewRecord(null);
+      setRecordNew(null);
+      setTaskSheet(null);
+      setTaskPicker(null);
+      setDayPicker(null);
+      setSectionSheet(null);
+      setFilterSheet(null);
+      setLabelsOpen(null);
+      setLinkTap(null);
+      setLinkEdit(null);
+      setPhoneHistory(null);
+      setImportFor(null);
+      chipPick?.done(null);
+      setChipPick(null);
+    }
     setChatGoTo({ href, at: Date.now() });
     // On a phone Chat is a tab of its own, which opens at the message.
     if (!phone) void session.open(CHAT);
