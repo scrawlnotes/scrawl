@@ -9,7 +9,7 @@ import type { SpaceView } from './session';
 import type { Connection } from './sync';
 import { type PersonalPlace, type SettingsValues, spaceWords, useAddSpace, useSyncPersonal } from './Settings';
 import { OwnAppSheet, PhoneFolderSheet } from './PhoneSync';
-import { ActionSheet, Sheet, SheetClose, suppressClick } from './sheets';
+import { ActionSheet, Sheet, SheetClose, suppressClick, useActsPlace } from './sheets';
 import { CloudIcon, personalPlace, placeWords, providerName, ServerIcon, shortOf, sourcePlace } from './SyncViews';
 import { ConnectServerSheet, signInWords } from './ServerConnect';
 import { PhoneServerMembers, ROLE_WORD, useSpaceRename } from './ServerPeople';
@@ -558,6 +558,7 @@ export function PhoneSpacePage({ space, values, onSync }: { space: SpaceView; va
  */
 export function RemoveSpaceSheet({ space, onRemove, onClose }: { space: SpaceView; onRemove: (deleteFiles: boolean) => void; onClose: () => void }) {
   const [deleteFiles, setDeleteFiles] = useState(false);
+  const place = useActsPlace();
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => event.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
@@ -567,7 +568,7 @@ export function RemoveSpaceSheet({ space, onRemove, onClose }: { space: SpaceVie
   return (
     <>
       <div className="mb-acts-back" onClick={onClose} />
-      <div className="mb-acts" role="alertdialog" aria-label={title}>
+      <div className="mb-acts" role="alertdialog" aria-label={title} style={place}>
         <div className="mb-card">
           <div className="ask">
             <b>{title}</b>

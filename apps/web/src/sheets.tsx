@@ -230,8 +230,19 @@ export function suppressClick() {
   window.setTimeout(() => window.removeEventListener('click', take, { capture: true }), 250);
 }
 
+/**
+ * Where an action sheet sits: at the foot of the page, or, while the keyboard is up, right above it
+ * as a window does. An iPhone keeps what is fixed to the foot under the keyboard, and the keyboard
+ * may still be coming up as the menu opens: the part of the page shown is followed as it changes.
+ */
+export function useActsPlace() {
+  const view = useViewport();
+  return view.keyboard ? { bottom: `calc(100% - ${view.top + view.height}px + 8px)`, maxHeight: view.height - 60 } : undefined;
+}
+
 /** A menu on a phone. A Delete, or anything else that takes something away, comes last and red. */
 export function ActionSheet({ head, items: all, onClose }: { head?: MenuHead; items: MenuItem[]; onClose: () => void }) {
+  const place = useActsPlace();
   // An item with a menu of its own shows that menu in the sheet's place, under the item's name.
   const [sub, setSub] = useState<MenuItem | null>(null);
   const items = sub?.items ?? all;
@@ -251,7 +262,7 @@ export function ActionSheet({ head, items: all, onClose }: { head?: MenuHead; it
   return (
     <>
       <div className="mb-acts-back" onClick={onClose} />
-      <div className="mb-acts" role="menu" aria-label={head?.title}>
+      <div className="mb-acts" role="menu" aria-label={head?.title} style={place}>
         <div className="mb-card">
           {head && (
             <div className="hd">
@@ -310,6 +321,7 @@ export function AskSheet({ title, message, action, danger = true, onConfirm, onC
   onConfirm: () => void;
   onClose: () => void;
 }) {
+  const place = useActsPlace();
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => event.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
@@ -318,7 +330,7 @@ export function AskSheet({ title, message, action, danger = true, onConfirm, onC
   return (
     <>
       <div className="mb-acts-back" onClick={onClose} />
-      <div className="mb-acts" role="alertdialog" aria-label={title}>
+      <div className="mb-acts" role="alertdialog" aria-label={title} style={place}>
         <div className="mb-card">
           <div className="ask">
             <b>{title}</b>
