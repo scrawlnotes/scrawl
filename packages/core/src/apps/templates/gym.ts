@@ -5,7 +5,7 @@ import { EXERCISES, PROGRAM, PROGRAM_DAYS, PROGRAM_DURATION, PROGRAM_ITEMS, PROG
 // Gym (design/gym.md): programs written once, part by part; each workout picks one and its items
 // come ticked, the weight from the last time; the days a program is on come to Today and Upcoming,
 // one gone by unwritten stays in Overdue until it is started or not gone to; how regular each move
-// is and its best. Sport and training stays as it is beside it, Exercises shared.
+// is and its best. Sport and training keeps the other sports beside it; Exercises are Gym's alone.
 
 const PARTS = ['Warm-up', 'Workout', 'Cool-down', 'Cardio'];
 const PART_COLORS = { 'Warm-up': 'yellow', Workout: 'blue', 'Cool-down': 'teal', Cardio: 'orange' } as const;

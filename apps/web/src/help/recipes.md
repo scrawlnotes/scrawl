@@ -22,13 +22,13 @@ Nothing has to be filled in: a day you leave as it is stays **Followed**.
 
 ## Plans
 
-A plan to eat by: its **Days** of the week, all of them to start, **From**, today to start, and **Until**, four weeks on to start. Put the dietitian's list in its notes.
+A plan to eat by: its **Days** of the week, all of them to start, **From**, today to start, and **Until**, four weeks after **From** to start. Put the dietitian's list in its notes.
 
 Its window lists its items under each meal, the items of a meal its alternatives. An item is what to eat, as you would say it, in **What**, with its **Meal**, the days it is **On**, **Every day** or one weekday, and a **Recipe** if it has one. An item with a recipe and no **What** takes the recipe's name. A plan says how many **Items** it has, and on how many days you **Didn't follow** it.
 
 - Saving a plan writes each of its days from **From** to **Until**, on its **Days**, each with the items of its weekday.
 - Made longer, it gets the new days; made shorter, it loses the days no one touched.
-- A change to its items reaches its days no one touched: none ticked, none written in, not marked **Didn't follow**. The others stay as they were.
+- A change to its items reaches its days from today on that no one touched: none ticked, none written in, not marked **Didn't follow**. The others, and the days gone by, stay as they were.
 
 ## Recipes
 

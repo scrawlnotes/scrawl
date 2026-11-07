@@ -214,7 +214,7 @@ export const sport: AppTemplate = {
       how: [
         'Write your weekly plan once: the sport, its days, how long or how far, from when.',
         'On its day, press Done in Today: change what was different and save; press Skip if you did not go.',
-        'Add a workout that was not planned with Add workout.',
+        'Add a workout that was not planned with Add record.',
         ...(races ? ['Add a race with its day and your aim; after it, Today asks its result.'] : []),
         ...(body ? ['Write your measures now and then.'] : []),
       ],

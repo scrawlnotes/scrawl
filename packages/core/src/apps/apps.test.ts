@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { parseBoard } from '../board';
 import { addRecord, type Collection, createCollection, loadCollection, offeredOptions, optionName, parseSchema, type Record, serializeSchema, stepCounts, viewValues } from '../collection';
 import { dueRecords, repeatCalendar } from '../calendar';
-import { planSave, recordWith, type RuleSpaceNow } from '../run';
+import { planAction, planSave, recordWith, type RuleSpaceNow } from '../run';
 import { Computer } from '../compute';
 import { MemoryFs } from '../fs';
 import { settleSchema } from '../fields';
@@ -1236,10 +1236,50 @@ describe('Gym', () => {
     expect(computer.checks('Gym/Exercises', press).map((p) => p.message)).toEqual(['Done in 2 of 4 of its workouts in the last 4 weeks']);
   });
 
-  it('names its workouts Gym workouts beside Sport and training, sharing Exercises', () => {
+  it('names its workouts Gym workouts beside Sport and training, its Exercises made once', () => {
     const plan = planApp({ name: 'Me', templates: [{ id: 'sport' }, { id: 'gym' }] }, { ids });
     const made = plan.created.map((c) => c.path);
     expect(made).toEqual(expect.arrayContaining(['Me/Workouts', 'Me/Exercises', 'Me/Gym workouts', 'Me/Workout items', 'Me/Programs']));
     expect(made.filter((p) => p === 'Me/Exercises')).toHaveLength(1);
+  });
+});
+
+describe('Personal templates', () => {
+  it('ties what Paid writes to its recurring one, so its window and Today list it', async () => {
+    const fs = new MemoryFs();
+    await installApp(fs, planApp({ name: 'Money', currencies: ['TRY'], templates: [{ id: 'finance', answers: { recurring: [] } }] }, { ids }));
+    const load = (dir: string) => loadCollection(fs, `Money/${dir}`);
+    const bank = (await load('Accounts')).records.find((r) => r.name === 'Bank account')!;
+    const rent = await addRecord(fs, await load('Recurring'), { values: { name: 'Rent', amount: 20000, direction: 'Out', every: 'Monthly', next: '2026-11-08', account: { id: bank.id, name: bank.name }, auto: true } });
+    const space: RuleSpaceNow = { collections: await Promise.all(['Accounts', 'Transactions', 'Categories', 'Recurring'].map(load)), boards: {}, lists: {}, today: '2026-11-08' };
+    const paid = planAction((await load('Recurring')).rules!, 'Paid', 'Money/Recurring', rent.id, space);
+    expect(paid.changes.find((c) => c.kind === 'add')).toMatchObject({ dir: 'Money/Transactions', values: { name: 'Rent', amount: 20000, date: '2026-11-08', recurring: { id: rent.id } } });
+  });
+
+  it('rewrites a plan item only on its untouched days from today on, and ends a plan four weeks after its From', async () => {
+    const fs = new MemoryFs();
+    await installApp(fs, planApp({ name: 'Food', templates: [{ id: 'recipes', answers: { shopping: false } }] }, { ids }));
+    const load = (dir: string) => loadCollection(fs, `Food/${dir}`);
+    const today = '2026-11-08';
+    const plans = await load('Plans');
+    expect(new Computer([plans], {}, today).defaults('Food/Plans', { from: '2026-12-01' }).until).toBe('2026-12-28');
+    const plan = await addRecord(fs, plans, { values: { name: 'Diet', days: ['Sat', 'Sun', 'Mon'], from: '2026-11-07', until: '2026-11-09' } });
+    const to = (r: Record) => ({ id: r.id, name: r.name });
+    for (const day of ['2026-11-07', '2026-11-08', '2026-11-09']) {
+      const d = await addRecord(fs, await load('Days'), { values: { name: day, plan: to(plan), day, status: 'Followed' } });
+      await addRecord(fs, await load('Day items'), { values: { name: 'Oats', day_of: to(d), meal: 'Breakfast', day } });
+    }
+    const space: RuleSpaceNow = { collections: await Promise.all(['Plans', 'Plan items', 'Days', 'Day items', 'Recipes'].map(load)), boards: {}, lists: {}, today };
+    const ran = planSave('Food/Plan items', recordWith(await load('Plan items'), 'eggs', { name: 'Eggs', plan: to(plan), meal: 'Breakfast', on: 'Every day' }), null, space);
+    expect(ran.stops).toEqual([]);
+    const written = ran.after.changes.flatMap((c) => (c.kind === 'add' && c.dir === 'Food/Day items' ? [c.values.day] : []));
+    // Yesterday, gone by and untouched, keeps what it had; today and tomorrow take the new item.
+    expect([...new Set(written)].sort()).toEqual(['2026-11-08', '2026-11-09']);
+    // The plan saved with the item in it does the same.
+    await addRecord(fs, await load('Plan items'), { values: { name: 'Eggs', plan: to(plan), meal: 'Breakfast', on: 'Every day' } });
+    const again: RuleSpaceNow = { ...space, collections: await Promise.all(['Plans', 'Plan items', 'Days', 'Day items', 'Recipes'].map(load)) };
+    const resaved = planSave('Food/Plans', plan, plan, again);
+    expect(resaved.stops).toEqual([]);
+    expect([...new Set(resaved.after.changes.flatMap((c) => (c.kind === 'add' && c.dir === 'Food/Day items' ? [c.values.day] : [])))].sort()).toEqual(['2026-11-08', '2026-11-09']);
   });
 });

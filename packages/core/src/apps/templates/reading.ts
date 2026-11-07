@@ -357,7 +357,7 @@ export const reading: AppTemplate = {
         ...(types.includes('Book') ? ['Update writes the page you are at'] : []),
         ...(weekly.length > 0 ? ['A new episode in Today on its day'] : []),
         'What you finished this year, and the pace',
-        ...(releases ? ['What comes out, in Upcoming'] : []),
+        ...(releases ? ['What comes out, in Upcoming and on its day in Today'] : []),
         ...(lending ? ['What you lent, back by its day'] : []),
       ],
       how: [

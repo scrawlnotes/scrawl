@@ -33,7 +33,7 @@
 
 Parçalar (rol → ad): `recipes` Recipes, `ingredients` Ingredients, `meal-plans` Plans, `plan-items` Plan items, `meal-days` Days, `day-items` Day items, `shopping` Shopping list. Menü: Days, Plans, Recipes, Shopping list.
 
-- `meal-plans`: `name`, `days` (multi, hepsi), `from` (date, zorunlu, bugün), `until` (date, zorunlu, `=today() + 27`), `items`, `followed` (rollup: Days Followed ve işaretli), `notes`. Plan days takvimi kalkar (günler Days'te kayıt).
+- `meal-plans`: `name`, `days` (multi, hepsi), `from` (date, zorunlu, bugün), `until` (date, zorunlu, `=from + 27`), `items`, `followed` (rollup: Days Followed ve işaretli), `notes`. Plan days takvimi kalkar (günler Days'te kayıt).
 - `plan-items`: `name`, `plan`, `meal`, `on`, `order`, `recipe`. Tablo `choose: true`.
 - `meal-days`: `name`, `day`, `plan`, `status` (Followed, Didn't follow), öğün başına gizli rollup'lar: `has_N` (maddesi), `ate_N` (işaretli), `chg_N` (Instead yazılı), en çok 8 öğün; `meals`, `eaten` (bir öğün bir kez: işaretli ya da değişmiş), `changed` (rollup: Instead yazılı), `summary` ("2 of 4"), `ahead` (formula: `day >= today()`). Görünümler: From today (`ahead`, varsayılan, gün sırasıyla), All, Calendar. Takvim Today'e gelir, Upcoming'e gelmez.
 - `day-items`: `name`, `day_of`, `meal`, `order`, `done` (checkbox), `instead` (text), `recipe`, `day`. Tablo `choose: true`, `edit: ['done', 'instead']`.

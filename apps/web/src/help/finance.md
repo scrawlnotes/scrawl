@@ -42,12 +42,13 @@ What comes in and goes out again and again: its **Amount**, **Out** or **In**, h
 - Turn it off for what changes, as electricity. It comes to Today with **Paid**, which asks the **Amount**, the last one to start, and the **Account**.
 - One with no amount comes with **Paid** the first time. The amount you give is kept; with **Paid automatically** on, from then on it writes itself.
 
-**Paid** writes the transaction on its **Next** day, today if that is still to come, and moves **Next** on as **Every** says. A new **Amount** is used from the next time on; what was written stays.
+**Paid** writes the transaction on its **Next** day, today if that is still to come, and moves **Next** on as **Every** says. A new **Amount** is used from the next time on; what was written stays. Its window lists the transactions it wrote, the latest first.
 
 ## Today
 
 - A recurring one comes to Upcoming before its day and to Today on it, saying how much: "−₺900 · Bank account", "about −₺640 · Bank account" for one that changes, or **No amount yet**.
 - One paid automatically writes itself and has no button. The others have **Paid**, and stay in Overdue until they are paid.
+- What a recurring one wrote today is in Today too, with its amount.
 
 ## Home
 

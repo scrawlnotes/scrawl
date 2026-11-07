@@ -62,8 +62,8 @@ export const recipes: AppTemplate = {
     app.field('meal-plans', nameField());
     app.field('meal-plans', { ...multi('days', 'Days', WEEKDAYS), default: WEEKDAYS });
     app.field('meal-plans', { ...day('from', 'From', true), required: true });
-    // Four weeks from today unless said: its days are written as it is saved, so it has an end.
-    app.field('meal-plans', { ...day('until', 'Until'), required: true, default: '=today() + 27' });
+    // Four weeks from its From unless said: its days are written as it is saved, so it has an end.
+    app.field('meal-plans', { ...day('until', 'Until'), required: true, default: '=from + 27' });
     app.field('meal-plans', rollup('items', 'Items', planItems, 'count'));
     app.field('meal-plans', rollup('not_followed', DIDNT, days, 'count', undefined, [{ field: 'status', op: 'is', value: [DIDNT] }]));
     app.block('meal-plans', { block: 'linked', collection: planItems, style: 'table', fields: ['name', 'on', 'recipe'], sort: 'order', group: ['meal'], choose: true });
@@ -94,13 +94,13 @@ export const recipes: AppTemplate = {
     const day = add("${D}", { plan: this, day: d, name: name + " · " + weekday(d) + " " + text(d) })
 ${put('day', `items.filter(${on('d')})`, '    ')}
   }
-  // A day no one has touched: gone when it is no longer one of the plan's, else as the plan is now.
+  // A day no one has touched: gone when it is no longer one of the plan's, else from today on as the plan is now.
   for (const m of made.filter((m) => !(${touched('m')}))) {
     const have = find("${I}", { day_of: m })
     if (m.day < from || m.day > until || !days.includes(weekday(m.day))) {
       for (const h of have) remove(h)
       remove(m)
-    } else {
+    } else if (m.day >= today()) {
       const want = items.filter(${on('m.day')})
       if (have.length != want.length || !want.every((w) => have.some((h) => h.name == w.name && h.meal == w.meal))) {
         for (const h of have) remove(h)
@@ -110,13 +110,13 @@ ${put('m', 'want', '        ')}
   }
 })`,
     });
-    // An item changed or added: the plan's days no one has touched take it.
+    // An item changed or added: the plan's days from today on that no one has touched take it.
     app.rule('plan-items', {
       kind: 'onSave',
       name: "Its plan's days",
       src: `onSave("Its plan's days", () => {
   const others = find("${P}", { plan: plan }).filter((i) => i != this)
-  for (const m of find("${D}", { plan: plan }).filter((m) => !(${touched('m')}))) {
+  for (const m of find("${D}", { plan: plan }).filter((m) => m.day >= today() && !(${touched('m')}))) {
     const mine = on == "${EVERY_DAY}" || on == weekday(m.day)
     const want = others.filter(${on('m.day')})
     const have = find("${I}", { day_of: m })
@@ -201,7 +201,7 @@ ${put('m', 'want', '      ')}
       ],
       auto: [
         'Saving a plan writes each of its days from its first to its last, with the items of its weekday; a longer plan gets the days added, a shorter one loses those no one touched.',
-        'A change to a plan’s items reaches its days no one has ticked or written in; the others stay as they were.',
+        'A change to a plan’s items reaches its days from today on that no one has ticked or written in; the others, and the days gone by, stay as they were.',
         'A day says how many of its meals were eaten, one of a meal’s alternatives or what was had instead enough, and how many were changed.',
         `Today's day comes to Today, not to Upcoming before it. A day marked ${DIDNT} with meals ticked is marked.`,
         'A recipe with no ingredients is marked.',
