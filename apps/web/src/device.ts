@@ -148,12 +148,15 @@ const FIELDS = 'input, textarea, [contenteditable]';
 
 /**
  * What is typed stays as it is typed, in every field as in a note, whose editor sees to it
- * itself: the keyboard does not correct a word, does not finish one, and does not underline one.
- * Each field is set as it comes into the page.
+ * itself: the keyboard does not finish a word and does not underline one, and on a computer it
+ * does not correct one. On a phone correcting is the phone's own setting: its word suggestions
+ * come only with it, and whoever does not want words corrected turns that off there (a field
+ * that turns it off itself, as an address, stays off). Each field is set as it comes into the page.
  */
 export function keepTyping() {
+  const phone = isPhone();
   const set = (field: Element) => {
-    field.setAttribute('autocorrect', 'off');
+    if (!phone) field.setAttribute('autocorrect', 'off');
     field.setAttribute('spellcheck', 'false');
     field.setAttribute('writingsuggestions', 'false');
   };

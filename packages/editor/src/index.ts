@@ -385,8 +385,9 @@ export function createEditor(options: ScrawlEditorOptions): ScrawlEditor {
         calloutBlocks(options),
         options.placeholder ? placeholder(options.placeholder) : [],
         // On a phone the keyboard starts a sentence with a capital, after a full stop and on a new
-        // line, as a notes app's does; the editor's own default turns it off.
-        options.touch ? [EditorView.contentAttributes.of({ autocapitalize: 'sentences' }), capitalsOnTouch] : [],
+        // line, as a notes app's does, and suggests words, which come only with the phone's own
+        // autocorrect setting; the editor's own defaults turn both off.
+        options.touch ? [EditorView.contentAttributes.of({ autocapitalize: 'sentences', autocorrect: 'on' }), capitalsOnTouch] : [],
         options.slash === false ? [] : slashMenu(slashItems, options.touch),
         cursorBehavior,
         clipboard,
