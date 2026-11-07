@@ -7,7 +7,7 @@ Your projects, for customers or for yourselves: how each is going, its milestone
 - **Who are your projects for?** **Customers**, **Ourselves** or **Both**, the default. With **Ourselves**, a project has no customer.
 - **Will you track time?** No by default. Yes adds **Time**: the hours spent on each project.
 - **Each project's milestones:** **Kickoff**, **Planning**, **Delivery** and **Review** to start with. **Start project** adds each to a project, with a day spread from its start to its end.
-- **How often does a project lead post an update?** **Every week**, the default, **Every two weeks** or **No updates**. The update comes to Today on its day.
+- **How often does a project lead post an update?** **Every week**, the default, **Every two weeks** or **No updates**. The update comes to the lead's Today on its day.
 - **Will you keep the budget of your projects?** No by default, and asked only when [Budget and spending](budget) is not chosen too. Yes sets up budget lines and payments, linked to each project.
 - **The budget lines every project starts with:** asked with a budget. **Material 40%**, **Labour 40%** and **Transport 10%** to start with; **Start project** adds each, planned at its share of the project's **Contract**.
 
@@ -47,7 +47,7 @@ An entry has **What**, **Work** when left empty, its **Person**, **Day** and **H
 
 ## Today
 
-- When an active project's update is due, it comes to Today with **Post update**, saying how it stood last time: "last Nov 3 · On track · 64%". Three days on with none, the project is marked **Update missing**.
+- When an active project's update is due, it comes to its lead's Today with **Post update**, saying how it stood last time: "last Nov 3 · On track · 64%". Three days on with none, the project is marked **Update missing**.
 - A milestone comes on its day with **Done**, and to Upcoming before.
 - A timer running is there with **Stop**.
 

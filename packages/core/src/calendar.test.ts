@@ -145,6 +145,15 @@ describe('the calendar', () => {
     ]);
     const off = { ...visits, schema: { ...visits.schema, views: visits.schema.views!.map((v) => ({ ...v, calendar: { ...v.calendar!, upcoming: false } })) } };
     expect(dueRecords([off], today)).toEqual([]);
+    // A calendar that gives its records to a person: in a shared space each comes to its person alone, one given to no one to all; the personal space is all one's own.
+    const fields = [...schema.fields, { key: 'owner', label: 'Owner', type: 'person' as const }];
+    const given = parseSchema(JSON.stringify({ version: 2, fields, views: [{ id: 'c', name: 'Calendar', kind: 'calendar', calendar: { start: 'starts', upcoming: true, person: 'owner' }, conditions: [] }] }));
+    expect(given.views![0]!.calendar!.person).toBe('owner');
+    const owned = (dir: string): Collection => ({ dir, schema: given, records: [record('ayse', { starts: today, owner: 'Ayşe' }), record('mert', { starts: today, owner: 'Mert' }), record('anyone', { starts: today })] }) as Collection;
+    const names = (dir: string, me?: string) => dueRecords([owned(dir)], today, { ...(me && { me }) }).map((r) => r.record.id).sort();
+    expect(names('@sp-team0001/Visits', 'Ayşe')).toEqual(['anyone', 'ayse']);
+    expect(names('@sp-team0001/Visits')).toEqual(['anyone', 'ayse', 'mert']);
+    expect(names('Visits', 'Ayşe')).toEqual(['anyone', 'ayse', 'mert']);
     expect(['2026-10-22T09:00', '2026-10-22', '2026-10-21T23:00'].sort(compareOnDay)).toEqual(['2026-10-21T23:00', '2026-10-22', '2026-10-22T09:00']);
   });
 

@@ -407,6 +407,8 @@ export interface CalendarSettings {
    * automatically once it has an amount, design/more-apps.md 4.1).
    */
   auto?: string;
+  /** A person field: in a shared space its records come to that person's Today and Upcoming alone, to everyone's when it is empty (a project's update to its lead). */
+  person?: string;
   /**
    * The link field whose records are the rows of its Day, a technician's day each, with a row for
    * those given to no one, and those with no day beside it to drag onto a row (design/scrawl-apps.md 3.3).
@@ -1229,6 +1231,7 @@ function readCalendar(raw: unknown, fields: Field[]): CalendarSettings | null {
     ...(repeat && { repeat }),
     ...(typeof given.button === 'string' && given.button.trim() && { button: given.button.trim() }),
     ...(typeof given.auto === 'string' && fields.some((f) => f.key === cleanFieldKey(given.auto as string) && (f.type === 'checkbox' || f.type === 'formula')) && { auto: cleanFieldKey(given.auto) }),
+    ...(field(given.person, (f) => f.type === 'person') && { person: cleanFieldKey(given.person as string) }),
     ...(field(given.lanes, (f) => f.type === 'link' && !f.many) && { lanes: cleanFieldKey(given.lanes as string) }),
     ...(Array.isArray(given.words) && { words: given.words.filter((k): k is string => typeof k === 'string' && fields.some((f) => f.key === cleanFieldKey(k))).map(cleanFieldKey) }),
   };

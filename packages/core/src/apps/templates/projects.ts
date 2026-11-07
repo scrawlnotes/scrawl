@@ -174,7 +174,7 @@ export const projects: AppTemplate = {
     };
     app.view('projects', timeline);
     // The lead's update in Today on its day, with Post update; one missing stays.
-    if (every > 0) app.view('projects', { ...calendar({ start: 'update_on', upcoming: 'today', button: 'Post update', words: ['update_said'] }, [{ field: 'status', op: 'is', value: ['Active'] }]), id: 'updates', name: 'Updates due', hidden: true });
+    if (every > 0) app.view('projects', { ...calendar({ start: 'update_on', upcoming: 'today', button: 'Post update', person: 'owner', words: ['update_said'] }, [{ field: 'status', op: 'is', value: ['Active'] }]), id: 'updates', name: 'Updates due', hidden: true });
     app.view('projects', { ...calendar({ start: 'start', end: 'end', color: 'status', upcoming: false }, [open]), id: 'calendar', name: 'Calendar', hidden: true });
 
     app.field('project-updates', nameField('What happened'));

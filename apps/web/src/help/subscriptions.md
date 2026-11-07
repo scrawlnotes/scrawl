@@ -26,7 +26,7 @@ Its buttons:
 - **Convert** makes a trial a paying one.
 - **Change plan** asks the **New plan**, and **From**: **Now** or **At renewal**. It says the new price and how the MRR changes. At renewal, the plan is kept as **Plan at renewal** until **Renew** puts it in place.
 - **Pause** asks **Until** when; left empty, until you resume it. **Resume** makes it active again.
-- **Cancel subscription** asks **When**, **Now** or **At end of term**, and **Why**: **Too expensive**, **Not using it**, **Missing feature**, **Switched**, **Closed** or **Other**. At the end of its term, it stays **Non-renewing** until its renewal day, and **End** then makes it Cancelled. A trial or a paused one is cancelled at once.
+- **Cancel subscription** asks **When**, **Now** or **At end of term**, and **Why**: **Too expensive**, **Not using it**, **Missing feature**, **Switched**, **Closed** or **Other**. At the end of its term, it stays **Non-renewing** until its renewal day, and then ends by itself, Cancelled. A trial or a paused one is cancelled at once.
 - **Reactivate** brings back a cancelled or non-renewing one.
 
 With Memberships the button is **Cancel membership**, with Service agreements **Cancel service agreement**.
@@ -42,6 +42,7 @@ A customer's window shows their active subscriptions and their MRR, and lists th
 - A renewal comes to Today on its day, and to Upcoming before it, with **Renew**. One that renews by itself is renewed once its day has come, and **Undo** takes it back.
 - A trial ending comes with **Convert**.
 - A pause ending comes with **Resume**.
+- A non-renewing one ends by itself on its renewal day, and **Undo** takes it back.
 
 ## Home
 

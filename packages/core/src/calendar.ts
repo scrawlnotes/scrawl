@@ -186,16 +186,22 @@ export const lastDayOf = (item: Pick<CalendarRecord, 'start' | 'end'>) => (item.
  * (a check-up not done); a record two calendars show on one day comes once, by the first. By its day, those of a day with
  * no time first.
  */
-export function dueRecords(collections: readonly Collection[], today: string, { all = collections, until = addDays(today, 62) }: DueOptions = {}): DueRecord[] {
+export function dueRecords(collections: readonly Collection[], today: string, { all = collections, until = addDays(today, 62), me }: DueOptions = {}): DueRecord[] {
   const out: DueRecord[] = [];
   const seen = new Set<string>();
   for (const collection of collections) {
     for (const view of collection.schema.views ?? []) {
       if (view.kind !== 'calendar' || !view.calendar?.upcoming) continue;
+      // In a shared space, one its calendar gives to someone else is theirs alone.
+      const whose = view.calendar.person;
+      const others = (record: Record) => {
+        const who = whose && me && spaceOf(collection.dir) ? record.values[whose] : null;
+        return typeof who === 'string' && who.trim() !== '' && who.trim() !== me;
+      };
       if (view.calendar.repeat) {
         for (const item of repeatDays(collection, view, today, until, all)) {
           // One for Today only brings its days up to today, not those to come (a habit).
-          if (view.calendar.upcoming === 'today' && item.day! > today) continue;
+          if ((view.calendar.upcoming === 'today' && item.day! > today) || others(item.record)) continue;
           const key = `${collection.dir}/${item.record.id}/${item.day}`;
           if (seen.has(key)) continue;
           seen.add(key);
@@ -210,7 +216,7 @@ export function dueRecords(collections: readonly Collection[], today: string, { 
         // Once a day: two calendars of a record on one day bring it once, on two days each on its own (a reminder the day before).
         const key = `${collection.dir}/${item.record.id}/${item.start.slice(0, 10)}`;
         const gone = lastDayOf(item) < today;
-        if (seen.has(key) || (gone && !keeps) || (todayOnly && item.start.slice(0, 10) > today)) continue;
+        if (seen.has(key) || (gone && !keeps) || (todayOnly && item.start.slice(0, 10) > today) || others(item.record)) continue;
         seen.add(key);
         out.push({ ...item, collection: collection.dir, view, schema: collection.schema, ...(gone && { day: item.start.slice(0, 10), late: true }) });
       }
@@ -224,6 +230,8 @@ export interface DueOptions {
   all?: readonly Collection[];
   /** The last day a repeating record's days are worked out to. */
   until?: string;
+  /** The name of whoever looks, for a calendar that gives its records to a person (`person`); with none, everyone's come. */
+  me?: string;
 }
 
 /** The weekday a choice of a repeat's days stands for, 0 Sunday to 6 Saturday: by its name's first letters, else by its place among seven, Monday first. */

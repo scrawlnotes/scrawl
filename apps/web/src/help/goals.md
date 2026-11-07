@@ -35,7 +35,7 @@ A key result is **Measured by** a **Number**, a **Percent**, **Money** or **Done
 ## Today
 
 - A goal's check-in comes to its owner's Today with **Check in**, as often as you chose, counted from its start, then from its last check-in. With **Only when something changes**, none comes; press **Check in** when you need it.
-- On its last day, a goal comes with **Close goal**. It shows in Upcoming before.
+- On its last day, a goal comes to its owner's Today with **Close goal**. It shows in Upcoming before.
 
 ## Home
 

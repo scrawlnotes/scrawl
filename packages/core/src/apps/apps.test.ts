@@ -331,7 +331,7 @@ describe('setting up an app', () => {
       ['ended', 'table', null],
       ['notice', 'calendar', { start: 'cancel_by', color: 'type', upcoming: true, button: 'Give notice', words: ['notice_said'] }],
       ['renewals', 'calendar', { start: 'ends', color: 'type', upcoming: true, button: 'Renew', auto: 'renews_itself', words: ['amount_said'] }],
-      ['ends', 'calendar', { start: 'ends', color: 'type', upcoming: false, button: 'End', auto: 'ends_itself' }],
+      ['ends', 'calendar', { start: 'auto_end', color: 'type', upcoming: 'today', button: 'End', auto: 'ends_itself' }],
     ]);
     expect(plan.templates.map((s) => [s.id, s.buttons])).toEqual([
       ['subscriptions', ['Renew', 'Change plan', 'Pause', 'Resume', 'Cancel membership', 'End', 'Reactivate']],
@@ -372,8 +372,8 @@ describe('setting up an app', () => {
     // A new goal starts and ends with this quarter; its check-in and its end come to Today with their buttons.
     expect(goals.fields.find((f) => f.key === 'starts')!.default).toBe('=today() - (monthday(today()) - 1) - months(month(today()) - 3 * round((month(today()) + 1) / 3) + 2)');
     expect(goals.views!.filter((v) => v.kind === 'calendar').map((v) => [v.id, v.calendar])).toEqual([
-      ['checkins', { start: 'checkin_on', upcoming: 'today', button: 'Check in', words: ['checkin_words'] }],
-      ['ends', { start: 'ends', upcoming: true, button: 'Close goal', words: ['checkin_words'] }],
+      ['checkins', { start: 'checkin_on', upcoming: 'today', button: 'Check in', person: 'owner', words: ['checkin_words'] }],
+      ['ends', { start: 'ends', upcoming: true, button: 'Close goal', person: 'owner', words: ['checkin_words'] }],
     ]);
     const board = (path: string) => parseBoard(plan.files.find((f) => f.path === path)!.text);
     expect(board('Team/Roadmap.board.json').fields!.find((f) => f.key === 'goal')!.collection).toBe('Team/Goals');
@@ -382,7 +382,7 @@ describe('setting up an app', () => {
     // An open incident in Today every day with Post update; one resolved, its review a few days on.
     expect(schema('Team/Incidents').views!.filter((v) => v.kind === 'calendar').map((v) => [v.id, v.calendar])).toEqual([
       ['ongoing', { start: 'started', color: 'severity', upcoming: 'today', button: 'Post update', words: ['said'] }],
-      ['reviews', { start: 'review_on', color: 'severity', upcoming: true, button: 'Write review', words: ['when_said'] }],
+      ['reviews', { start: 'review_on', color: 'severity', upcoming: true, button: 'Write review', person: 'owner', words: ['when_said'] }],
       ['calendar', { start: 'started', end: 'ended', color: 'severity', upcoming: false }],
     ]);
     expect(plan.templates.filter((s) => ['timeoff', 'goals', 'incidents'].includes(s.id)).map((s) => [s.id, s.buttons])).toEqual([
@@ -1191,6 +1191,33 @@ describe('Gym', () => {
     // Without program days, nothing comes.
     const off = await gymApp({ days: false });
     expect(dueRecords((await off.space()).collections, '2026-10-21')).toEqual([]);
+  });
+
+  it('ends a contract by itself in Today, given notice on its end day, one that does not renew the day after; one added Active writes its payment', async () => {
+    const fs = new MemoryFs();
+    await installApp(fs, planApp({ name: 'Office', currencies: ['USD'], templates: [{ id: 'contracts', answers: {} }, { id: 'budget', answers: {} }] }, { ids }));
+    const today = '2026-11-08';
+    const load = (dir: string) => loadCollection(fs, `Office/${dir}`);
+    const add = async (values: Record['values']) => addRecord(fs, await load('Contracts'), { values });
+    await add({ name: 'Old office', status: 'Notice given', renews: 'By itself', ends: today });
+    await add({ name: 'Cleaning', status: 'Active', renews: 'No', ends: '2026-11-07' });
+    await add({ name: 'Parking', status: 'Active', renews: 'No', ends: today });
+    await add({ name: 'Insurance', status: 'Active', renews: 'By itself', ends: '2027-03-31' });
+    const collections = await Promise.all(['Contracts', 'Payments', 'Budget lines', 'Companies'].map(load));
+    const contracts = new Computer(collections, {}, today).withValues('Office/Contracts')!;
+    const due = dueRecords([contracts], today).map((d) => [d.record.name, d.view.id, d.record.values[d.view.calendar!.auto!] === true]);
+    // Pressed by itself: End on the two that end; Renew in Today on the last day of the one that does not renew; the rest end not.
+    expect(due.filter(([, view]) => view === 'ends').sort()).toEqual([
+      ['Cleaning', 'ends', true],
+      ['Old office', 'ends', true],
+    ]);
+    expect(due).toContainEqual(['Parking', 'renewals', false]);
+    // Added already signed, its payment is written as Signed would, coming again by its period.
+    const lease = recordWith(contracts, 'new', { name: 'Lease', type: 'Lease', status: 'Active', start: '2026-01-01', ends: '2026-12-31', amount: 3000, period: 'Monthly' });
+    const saved = planSave('Office/Contracts', lease, null, { collections, boards: {}, lists: {}, today });
+    expect(saved.after.changes.map((c) => ('values' in c ? c.values : {}))).toEqual([expect.objectContaining({ name: 'Lease', direction: 'Out', amount: 3000, repeats: 'Monthly', due: '2026-01-01' })]);
+    // A draft writes nothing until it is signed.
+    expect(planSave('Office/Contracts', recordWith(contracts, 'draft', { ...lease.values, status: 'Draft' }), null, { collections, boards: {}, lists: {}, today }).after.changes).toEqual([]);
   });
 
   it('says how regular each move is in the last 4 weeks, and marks one done in less than 7 of 10', async () => {

@@ -2013,13 +2013,13 @@ export function App() {
   const dueRecordsNow = useMemo(() => {
     const all = Object.values(collections);
     const shown = all.filter((c) => c.schema.views?.some((v) => v.kind === 'calendar' && v.calendar?.upcoming));
-    // A program's days two weeks on; what closes one is looked for among every collection.
+    // A program's days two weeks on; what closes one is looked for among every collection; of a shared space, one given to another is theirs.
     return dueRecords(
       shown.map((c) => withComputed(c, all, boards, today)),
       today,
-      { all, until: addDays(today, 13) },
+      { all, until: addDays(today, 13), me: me?.name || undefined },
     );
-  }, [collections, boards, today]);
+  }, [collections, boards, today, me]);
   // A calendar's button that presses itself (design/more-apps.md 4.1): a recurring one paid
   // automatically, its day come or gone by, pressed once as the app finds it so; what it wrote is
   // said with Undo. One that stops stays in Today with its button.

@@ -325,7 +325,7 @@ Teklif, sipariş ve tahsilatı izler. Faturayı kesmez; fatura muhasebe program�
 - **Close project:** Done ya da Cancelled; açık kartlar Move to Done ya da Drop them (Work'te Dropped sütunu); son söz son güncelleme olur.
 - **Zaman takibi:** Track time saat ya da sayaç, Stop; hafta tablosu Time menüde; Danışmanlık da seçiliyse onun zaman kayıtları kullanılır.
 - **Home:** Projects (aktif, riskte), Work, Hours this week.
-- **Altyapı:** `timeline` görünümü (`start`, `end`, `color`, `marks`, `late`), çubukta beklenen çizgisi ve renk (`mark`, `tone`), takvimde `upcoming: 'today'` ile yalnız Today'de güncelleme.
+- **Altyapı:** `timeline` görünümü (`start`, `end`, `color`, `marks`, `late`), çubukta beklenen çizgisi ve renk (`mark`, `tone`), takvimde `upcoming: 'today'` ile yalnız Today'de güncelleme. Takvim bir kişi alanı söyleyebilir (`person`): paylaşılan space'te kaydı yalnız o kişinin Today ve Upcoming'ine gelir, alan boşsa herkesinkine; kişisel space'te hepsi kişinin. Güncelleme Lead'e (`owner`), Goals'ta check-in ve Close goal sahibine, Incidents'ta review sahibine gelir.
 - **Mockup'tan kalan farklar:** güncellemeler "Latest update" kutusu değil, en yenisi üstte liste; güncelleme notu sağlık çipinin altında değil ayrı sütunda, müşteri adın altında değil ayrı sütunda; geciken gün ve milestone kırmızı değil; Home'da bu haftanın milestone'ları kutusu yok, yerinde Work.
 
 Önceki hali:
@@ -360,13 +360,13 @@ Teklif, sipariş ve tahsilatı izler. Faturayı kesmez; fatura muhasebe program�
 - **Expenses:** sekmeler Mine, To approve, To pay back, Paid back, Rejected; yeni harcama tutar, kategori çiplerle, gün ve fiş (notlara ek). **Approve** bütçe kalemini çiplerle sorar, kalemin bu ayki durumunu söyler, geri ödemeyi To pay'e yazar; **Reject** nedenini sorar; ödenince Reimbursed.
 - **Home:** This month (net, giren, çıkan, en çok harcanan), To pay, Over budget, To approve.
 - **Altyapı:** çubuğun uyarısı bir alana bağlı olabilir (`warn: 'expense'`); kuralların yazdığı bağlı blokta + Add yok (`fixed`).
-- **Mockup'tan kalan farklar:** onay bekleyen harcamalar Today'de tek satır değil, her biri kendi satırında Approve ile.
+- **Mockup'tan kalan farklar:** onay bekleyen harcamalar Today'de yok: Today kaydı herkese gösterir, masrafı giren de Approve görürdü; masrafın günü çoğu zaman geçmiştir, Overdue'ya düşerdi. Her biri To approve sekmesinde kendi satırında Approve ile, Home'da To approve kutusunda.
 
 Para tek yerde durur: satış tahsilatları, tedarikçi borçları, projenin ve şirketin giderleri, çalışana geri ödenen masraflar hep Payments'ta.
 
 | Parça | Tür | İçinde | Hesaplanan |
 |---|---|---|---|
-| Budget lines | koleksiyon | ad, tür (Income, Expense), kategori, dönem (soruya göre), planlanan, proje (Proje varsa) | gerçekleşen, kalan, kullanılan yüzde, durum |
+| Budget lines | koleksiyon | ad, tür (Income, Expense), kategori, planlanan, proje (Proje varsa) | gerçekleşen, kalan, kullanılan yüzde, durum |
 | Payments | koleksiyon, ortak | ad, yön (In, Out), tutar, para birimi, tarih, kategori, bütçe kalemi, durum (Planned, Invoiced, Paid), vade, ödeme günü, ödeme şekli, fatura no; varsa proje, şirket, sipariş, satın alma siparişi, masraf | gecikti mi |
 | Expenses | koleksiyon (soruya göre) | başlık, kişi (ben), tarih (bugün), tutar, para birimi, kategori, bütçe kalemi, proje, durum (Submitted, Approved, Rejected, Reimbursed), onaylayan, reddetme nedeni; fiş notlarda fotoğraf | — |
 | How we manage money | tanıtım notunda | kim neyi onaylar, ödemeler ve masraflar nasıl izlenir | — |
@@ -384,10 +384,9 @@ Para tek yerde durur: satış tahsilatları, tedarikçi borçları, projenin ve 
   - Stok varsa mal kabulünde tedarikçi borcu açılır: Out yönlü, Invoiced (3.6).
 - **Sorular:**
   1. **Giderlerinizi hangi kategorilere ayırıyorsunuz?** Liste; varsayılanı Rent, Salaries, Marketing, Software, Travel, Other.
-  2. **Bütçeyi dönemlere bölüyor musunuz?** Dönemsiz (varsayılan), yıllık ya da aylık. Ödeme hangi kaleme bağlandıysa o dönemden düşer.
-  3. **Ödemeleri vadesiyle izliyor musunuz?** Evet (varsayılan): durum, vade ve gecikme kurulur.
-  4. **Çalışanların masraflarını da izleyecek misiniz?** Hayır (varsayılan). Evetse masraf kategorileri bir listeyle sorulur.
-  5. **Fatura kesilince beklenen tahsilat otomatik açılsın mı?** Satış seçildiyse ve vadeli takip evetse; evet (varsayılan).
+  2. **Ödemeleri vadesiyle izliyor musunuz?** Evet (varsayılan): durum, vade ve gecikme kurulur.
+  3. **Çalışanların masraflarını da izleyecek misiniz?** Hayır (varsayılan). Evetse masraf kategorileri bir listeyle sorulur.
+  4. **Fatura kesilince beklenen tahsilat otomatik açılsın mı?** Satış seçildiyse ve vadeli takip evetse; evet (varsayılan).
 
 ### 3.6 Stok ve satın alma
 

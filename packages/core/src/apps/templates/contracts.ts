@@ -98,7 +98,9 @@ export const contracts: AppTemplate = {
     app.field('contracts', { ...day('ended_on', 'Ended on'), when: [{ field: 'status', op: 'is', value: ['Ended'] }] });
     app.field('contracts', { ...text('why', 'Why it ended'), when: [{ field: 'status', op: 'is', value: ['Ended'] }] });
     app.field('contracts', formula('renews_itself', 'Renews on its day', 'status == "Active" && renews == "By itself"'));
-    app.field('contracts', formula('ends_itself', 'Ends on its day', 'status == "Notice given"'));
+    app.field('contracts', formula('ends_itself', 'Ends on its day', 'status == "Notice given" || (status == "Active" && renews == "No")'));
+    // Given notice, it ends on its end day; one that does not renew, the day after, its last day in Today with Renew.
+    app.field('contracts', formula('auto_end', 'Ends by itself on', 'empty(ends) ? null : status == "Notice given" ? ends : status == "Active" && renews == "No" ? ends + 1 : null'));
     // Its notice day in Today until it has gone by: then it renews.
     app.field('contracts', formula('deciding', 'Notice still to give', 'renews_itself && !empty(cancel_by) && cancel_by >= today()'));
     app.field('contracts', formula('to_decide', 'To decide', 'deciding && cancel_by <= today() + 60'));
@@ -142,11 +144,15 @@ export const contracts: AppTemplate = {
     app.field('contract-events', text('note', 'Note'));
     const event = (kind: string, said: string, extra = '') => `add("${events}", { name: ${said}, contract: this, kind: ${kind}, day: today()${extra} })`;
 
-    // With Budget, what it costs or brings is a payment that comes again, by its period.
-    const payment = paid
-      ? `
-  if (!empty(amount)) add("${app.called('payments')}", { name: name, direction: ${kind} == "Customer" ? "In" : "Out", amount: amount, status: "Invoiced"${app.money.multi ? ', currency: currency' : ''}${byDueDay(app) ? ', due: start' : ''}, budget_line: input.line, repeats: period, party: empty(party) ? "" : party.name, contract: this })`
-      : '';
+    // With Budget, what it costs or brings is a payment that comes again, by its period, on the budget line given.
+    const lineOf = paid ? `find("${app.called('budget-lines')}", { name: ${kind} })[0]` : '';
+    const payment = (line: string) =>
+      paid
+        ? `
+  if (!empty(amount)) add("${app.called('payments')}", { name: name, direction: ${kind} == "Customer" ? "In" : "Out", amount: amount, status: "Invoiced"${app.money.multi ? ', currency: currency' : ''}${byDueDay(app) ? ', due: empty(start) ? today() : start' : ''}, budget_line: ${line}, repeats: period, party: empty(party) ? "" : party.name, contract: this })`
+        : '';
+    // One added already signed, Active, has its payment as Signed would write it, on the budget line of its type.
+    if (paid) app.rule('contracts', { kind: 'onSave', name: 'Its payment', src: `onSave("Its payment", () => {\n  if (empty(old.status) && status == "Active") {${payment(lineOf).replace(/\n/g, '\n  ')}\n  }\n})` });
     // Given notice or ended, its payment comes no more.
     const stop = paid ? `\n  for (const p of linked("${app.called('payments')}")) {\n    if (p.status != "Paid" && !empty(p.repeats)) update(p, { repeats: null })\n  }` : '';
     app.rule('contracts', {
@@ -168,7 +174,7 @@ export const contracts: AppTemplate = {
     on: { label: "Signed on", type: "date", default: () => today(), required: true },
     starts: { label: "Starts", type: "date", default: () => empty(start) ? today() : start, required: true },
     until: { label: "Ends", type: "date", default: () => empty(ends) ? (empty(start) ? today() : start) + ${termSpan('term')} - 1 : ends },${paid ? `
-    line: { label: "Budget line", type: "link", collection: "${app.called('budget-lines')}", chips: true, default: () => find("${app.called('budget-lines')}", { name: ${kind} })[0], note: () => empty(amount) ? "" : amount_said + (${kind} == "Customer" ? " to collect" : " to pay") + " from " + (empty(input.starts) ? "its start" : ${short('input.starts')}) + ", in Budget. Put the signed copy in its notes." },` : ''}
+    line: { label: "Budget line", type: "link", collection: "${app.called('budget-lines')}", chips: true, default: () => ${lineOf}, note: () => empty(amount) ? "" : amount_said + (${kind} == "Customer" ? " to collect" : " to pay") + " from " + (empty(input.starts) ? "its start" : ${short('input.starts')}) + ", in Budget. Put the signed copy in its notes." },` : ''}
   },
   done: () => name + " · signed",
 }, () => {
@@ -176,7 +182,7 @@ export const contracts: AppTemplate = {
   signed_on = input.on
   start = input.starts
   ends = input.until
-  ${event('"Signed"', `"Signed" + (empty(amount) ? "" : " · " + ${money('yearly')} + " a year")`)}${payment}
+  ${event('"Signed"', `"Signed" + (empty(amount) ? "" : " · " + ${money('yearly')} + " a year")`)}${payment('input.line')}
 })`,
     });
     // Renew: until when and for how much; pressed on its end day by itself for one that renews by itself, as it was.
@@ -233,7 +239,7 @@ export const contracts: AppTemplate = {
   ask: { why: { label: "Why", type: "text" } },
   done: () => name + " · ended",
 }, () => {
-  ended_on = status == "Notice given" && !empty(ends) && ends <= today() ? ends : today()
+  ended_on = (status == "Notice given" || renews == "No") && !empty(ends) && ends <= today() ? ends : today()
   status = "Ended"
   why = input.why
   ${event('"Ended"', '"Ended"', ', change: 0 - yearly, note: input.why')}${stop}
@@ -254,10 +260,11 @@ export const contracts: AppTemplate = {
     tab('ending', 'Ending', [{ field: 'ending', op: 'true' }]);
     tab('drafts', 'Drafts', [{ field: 'status', op: 'is', value: ['Draft', 'Out for signature'] }]);
     tab('ended', 'Ended', [{ field: 'status', op: 'is', value: ['Ended'] }]);
-    // In Today: its notice day with Give notice; its end day with Renew, by itself for one that renews by itself; one given notice ends by itself.
+    // In Today: its notice day with Give notice; its end day with Renew, by itself for one that renews by itself; one given notice ends by itself
+    // on its end day, one that does not renew the day after: in Today only, where End is pressed by itself.
     app.view('contracts', { ...calendar({ start: 'cancel_by', ...(kinds.length > 0 && { color: 'type' }), upcoming: true, button: 'Give notice', words: ['notice_said'] }, [{ field: 'deciding', op: 'true' }]), id: 'notice', name: 'Notice by', hidden: true });
     app.view('contracts', { ...calendar({ start: 'ends', ...(kinds.length > 0 && { color: 'type' }), upcoming: true, button: 'Renew', auto: 'renews_itself', words: ['amount_said'] }, [{ field: 'status', op: 'is', value: ['Active'] }]), id: 'renewals', name: 'Renewals', hidden: true });
-    app.view('contracts', { ...calendar({ start: 'ends', ...(kinds.length > 0 && { color: 'type' }), upcoming: false, button: 'End', auto: 'ends_itself' }, [{ field: 'status', op: 'is', value: ['Notice given'] }]), id: 'ends', name: 'Ending', hidden: true });
+    app.view('contracts', { ...calendar({ start: 'auto_end', ...(kinds.length > 0 && { color: 'type' }), upcoming: 'today', button: 'End', auto: 'ends_itself' }, [{ field: 'ends_itself', op: 'true' }]), id: 'ends', name: 'Ending', hidden: true });
 
     app.homeTile('contracts', { off: true });
     app.homeTile('contract-events', { off: true });
@@ -284,16 +291,17 @@ export const contracts: AppTemplate = {
       glance: ['Its notice day in Today with Give notice', 'One that renews by itself renewed on its day', 'Each renewal with what it did to the price', ...(paid ? ['What it costs a payment in Budget'] : [])],
       how: [
         `Add each contract with whom it is${contact ? ' and your contact there' : ''}, its start and its end, whether it renews by itself and its notice, and what it costs; put the signed copy in its notes.`,
-        'A new one to sign starts as a Draft: Send for signature, then Signed when it comes back.',
+        'A new one is Active; one still to sign, set it to Draft: Send for signature, then Signed when it comes back.',
         'On its notice day, Today asks: press Give notice to end it, or let it renew.',
         'Press Renew to renew it for longer or for another price; End to stop it now.',
       ],
       auto: [
         `Its notice day is its end less its notice${notice > 0 ? `, ${notice} days unless you write another` : ''}; it comes to Today and Upcoming until it has gone by.`,
         'One that renews by itself is renewed on its end day for another term at the same price; one given notice ends by itself that day.',
+        'One that does not renew comes to Today on its end day with Renew; not renewed, it ends by itself the day after.',
         'Each send, signature, renewal, notice and end is written in its history, a renewal with what it did to the price.',
         'Over the list, what is active, what it all costs a year, what is to decide and what is ending in 60 days.',
-        ...(paid ? ['Signed writes what it costs, or brings, as a payment in Budget that comes again by its period; given notice or ended, it comes no more.'] : []),
+        ...(paid ? ['Signed, or a new one added Active, writes what it costs, or brings, as a payment in Budget that comes again by its period; given notice or ended, it comes no more.'] : []),
       ],
       work: ['Who signs contracts, and who keeps them.', 'How long before its notice day we decide to renew one.', ...(seats ? ['Who asks for more seats, and who gives them.'] : [])],
     });

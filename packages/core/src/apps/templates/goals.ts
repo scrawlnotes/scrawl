@@ -246,8 +246,8 @@ export const goals: AppTemplate = {
     tab('behind', 'Behind', [open, { field: 'status', op: 'is', value: ['Behind', 'At risk'] }]);
     tab('closed', 'Closed', [{ field: 'result', op: 'not-empty' }]);
     // In the owner's Today: a check-in on its day with Check in; the goal's end with Close goal.
-    if (every > 0) app.view('goals', { ...calendar({ start: 'checkin_on', upcoming: 'today', button: 'Check in', words: ['checkin_words'] }, [open]), id: 'checkins', name: 'Check-ins', hidden: true });
-    app.view('goals', { ...calendar({ start: 'ends', upcoming: true, button: 'Close goal', words: ['checkin_words'] }, [open]), id: 'ends', name: 'Ending', hidden: true });
+    if (every > 0) app.view('goals', { ...calendar({ start: 'checkin_on', upcoming: 'today', button: 'Check in', person: 'owner', words: ['checkin_words'] }, [open]), id: 'checkins', name: 'Check-ins', hidden: true });
+    app.view('goals', { ...calendar({ start: 'ends', upcoming: true, button: 'Close goal', person: 'owner', words: ['checkin_words'] }, [open]), id: 'ends', name: 'Ending', hidden: true });
     if (every > 0) app.view('goals', { id: 'due', name: 'Check-ins due', conditions: [{ field: 'checkin_due', op: 'true' }], sort: { key: 'checkin_on', dir: 'asc' }, hidden: true });
 
     app.homeTile('goals', { off: true });

@@ -198,9 +198,9 @@ export const incidents: AppTemplate = {
     tab('to-review', 'To review', [{ field: 'to_review', op: 'true' }]);
     tab('closed', 'Closed', [{ field: 'status', op: 'is', value: ['Closed'] }]);
     tab('all', 'All', []);
-    // In Today: one open, every day with Post update; one resolved, its review a few days on with Write review.
+    // In Today: one open, every day with Post update; one resolved, its review a few days on in its owner's, with Write review.
     app.view('incidents', { ...calendar({ start: 'started', color: 'severity', upcoming: 'today', button: 'Post update', words: ['said'] }, [open]), id: 'ongoing', name: 'Ongoing', hidden: true });
-    app.view('incidents', { ...calendar({ start: 'review_on', color: 'severity', upcoming: true, button: 'Write review', words: ['when_said'] }, [{ field: 'to_review', op: 'true' }]), id: 'reviews', name: 'Reviews', hidden: true });
+    app.view('incidents', { ...calendar({ start: 'review_on', color: 'severity', upcoming: true, button: 'Write review', person: 'owner', words: ['when_said'] }, [{ field: 'to_review', op: 'true' }]), id: 'reviews', name: 'Reviews', hidden: true });
     app.view('incidents', { ...calendar({ start: 'started', end: 'ended', color: 'severity', upcoming: false }), id: 'calendar', name: 'Calendar', hidden: true });
     app.view('incidents', { id: 'month', name: 'This month', conditions: [{ field: 'this_month', op: 'true' }], sort: { key: 'started', dir: 'desc' }, columns, hidden: true });
 

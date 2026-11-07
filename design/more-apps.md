@@ -60,7 +60,8 @@ Spor salonu üyeliği, bakım anlaşması, yazılım aboneliği, aylık danışm
 - **Liste:** sekmeler Active, To decide (ihbar günü 60 gün içinde), Ending (60 gün içinde biten), Drafts, Ended; üstte "4 active · $80,400 a year · 3 to decide · 1 ending". Satırda karşı taraf, tür, durum, "$1,200 a month", "Renews Nov 29 · notice by today", "Ends Mar 31 · doesn't renew", "Sent 5 days ago".
 - **Pencere:** başlıkta "Active · $14,400 a year · renews by itself Nov 29 · notice by today"; Renews (By itself, No), For another (1 month … 3 years), ihbar, tutar ve dönem; sağda History (her olay, yenileme fiyat farkıyla) ve Bütçe varsa ödemeleri; imzalı kopya notlara ek.
 - **Düğmeler:** Send for signature; Signed (imza günü, başlangıç, bitiş, Bütçe varsa bütçe kalemi: ödemesi dönemine göre "Comes again" ödeme olarak yazılır); Renew (yeni bitiş ve tutar dolu; aynı şartlarla "Renewed by itself"); Give notice (gün, Email/Letter/Portal; bitiş günü kendiliğinden Ended, ödemenin tekrarı biter); End.
-- **Today:** ihbar günü Give notice ile, gün geçince kalkar (yenilenmeye bırakılmış); kendiliğinden yenilenen bitiş günü kendiliğinden Renew; yenilenmeyen bitiş günü Renew ile; ihbar verilen bitiş günü kendiliğinden End.
+- **Yeni sözleşme:** Active başlar; imzalanacak olan Draft'a alınır. Bütçe varsa doğrudan Active eklenen, tutarı olan sözleşme kaydedilince ödemesini Signed gibi yazar, türünün adındaki bütçe kalemiyle.
+- **Today:** ihbar günü Give notice ile, gün geçince kalkar (yenilenmeye bırakılmış); kendiliğinden yenilenen bitiş günü kendiliğinden Renew; yenilenmeyen bitiş günü Renew ile, yenilenmezse ertesi gün kendiliğinden End (Ended on bitiş günü); ihbar verilen bitiş günü kendiliğinden End. Kendiliğinden End'ler yalnız Today'e gelir (`upcoming: 'today'`), Upcoming'e değil.
 - **Home:** To decide, Ending, A year (türe göre).
 - **Mockup'tan kalan farklar:** pencerede alanlar iki kolon değil tek; Give notice notu ödeme olmasa da Bütçe'yi anar.
 

@@ -340,7 +340,8 @@ export const subscriptions: AppTemplate = {
     if (trial) app.view('subscriptions', { ...calendar({ start: 'renews', color: 'plan', upcoming: true, button: 'Convert', words: ['customer', 'amount_said'] }, [{ field: 'status', op: 'is', value: ['Trial'] }]), id: 'trials', name: 'Trials ending', hidden: true });
     app.view('subscriptions', { ...calendar({ start: 'paused_until', color: 'plan', upcoming: true, button: 'Resume', words: ['customer'] }, [{ field: 'status', op: 'is', value: ['Paused'] }]), id: 'pauses', name: 'Pauses ending', hidden: true });
     app.field('subscriptions', formula('ending', 'Ending', 'status == "Non-renewing"'));
-    app.view('subscriptions', { ...calendar({ start: 'renews', color: 'plan', upcoming: false, button: 'End', auto: 'ending' }, [{ field: 'status', op: 'is', value: ['Non-renewing'] }]), id: 'ends', name: 'Ending', hidden: true });
+    // In Today only, on its day, where End is pressed by itself: a calendar out of Today presses nothing.
+    app.view('subscriptions', { ...calendar({ start: 'renews', color: 'plan', upcoming: 'today', button: 'End', auto: 'ending' }, [{ field: 'status', op: 'is', value: ['Non-renewing'] }]), id: 'ends', name: 'Ending', hidden: true });
     app.view('subscriptions', { id: 'week', name: 'Renewing this week', conditions: [{ field: 'this_week', op: 'true' }], sort: { key: 'renews', dir: 'asc' }, hidden: true });
 
     app.view('subscription-events', { id: 'month', name: 'This month', conditions: [{ field: 'this_month', op: 'true' }], sort: { key: 'day', dir: 'desc' }, hidden: true });

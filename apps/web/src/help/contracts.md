@@ -40,8 +40,8 @@ The companies you have contracts with. A company's window lists its contracts, e
 ## Today
 
 - For a contract that renews by itself, its notice day comes to Today and Upcoming with **Give notice**. Once the day has gone by, it leaves Today: the contract is left to renew.
-- On its end day, an active contract comes with **Renew**. One that renews by itself is renewed by itself that day, for another term at the same price.
-- One given notice ends by itself on its end day.
+- On its end day, an active contract comes with **Renew**. One that renews by itself is renewed by itself that day, for another term at the same price. One that does not renew and is not renewed ends by itself the day after.
+- One given notice ends by itself on its end day. Either way, **Undo** takes it back.
 
 ## Home
 
@@ -51,7 +51,7 @@ The companies you have contracts with. A company's window lists its contracts, e
 
 - **Companies** are shared with the other apps that keep companies, such as [CRM](crm) and [Sales and invoicing](sales).
 - With People, from [CRM](crm) or [Customer support](support), a contract has a **Contact**, and a person's window lists their contracts.
-- With [Budget and spending](budget), **Signed** also asks the **Budget line**. What the contract costs, or brings for a customer's, becomes a payment that comes again by its period. Given notice or ended, it comes no more. The contract's window lists its payments.
+- With [Budget and spending](budget), **Signed** also asks the **Budget line**. What the contract costs, or brings for a customer's, becomes a payment that comes again by its period. A new one added Active, with an amount, has its payment written as it is saved, on the budget line named after its type. Given notice or ended, it comes no more. The contract's window lists its payments.
 
 ## Ask an agent
 
