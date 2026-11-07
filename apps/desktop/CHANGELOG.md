@@ -2,6 +2,14 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.26
+
+Chat's messages easier to read.
+
+- Messages are set as in Slack: 15 px words on 22 px lines, 36 px faces, and a little more room between one person's messages.
+- The time shown beside a message as you point at it stays on one line.
+- A conversation opened at a message, from a notification or a link, is there at once, with the message marked.
+
 ## 0.1.25
 
 No update window as Scrawl opens; Chat.
