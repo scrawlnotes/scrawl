@@ -445,8 +445,15 @@ class OneServer {
     return this.made(this.client.add(chat, accounts));
   }
 
-  leave(chat: string) {
-    return this.made(this.client.leave(chat, this.state.me));
+  async leave(chat: string) {
+    await this.made(this.client.leave(chat, this.state.me));
+    // One read while the list had not caught up, as a room just opened, goes with it.
+    if (this.state.visiting?.id === chat) this.set({ visiting: null });
+  }
+
+  /** Takes someone out of a private room: whoever opened it and its space's managers do. */
+  takeOut(chat: string, account: string) {
+    return this.made(this.client.leave(chat, account));
   }
 
   /** A direct message off the list until its next message, or back on it. */

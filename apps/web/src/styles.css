@@ -18968,6 +18968,42 @@ button.ppl:hover {
 .ch-person.gone .nm {
   color: var(--sl-faint);
 }
+/* a phone's person row, tapped for what can be done */
+button.ch-person {
+  width: 100%;
+  text-align: left;
+}
+
+/* Remove, on the row under the pointer; where nothing is pointed at, all the time */
+.ch-person .ch-rm {
+  margin-left: auto;
+  min-height: 28px;
+  padding: 0 8px;
+  border-radius: 5px;
+  color: var(--sl-faint);
+  font-size: 12px;
+  opacity: 0;
+}
+
+.ch-person small.act + .ch-rm {
+  margin-left: 8px;
+}
+
+.ch-person:hover .ch-rm,
+.ch-person .ch-rm:focus-visible {
+  opacity: 1;
+}
+
+.ch-person .ch-rm:hover {
+  background: var(--sl-sel);
+  color: var(--sl-p1);
+}
+
+@media (hover: none) {
+  .ch-person .ch-rm {
+    opacity: 1;
+  }
+}
 
 .ch-add-people {
   display: flex;

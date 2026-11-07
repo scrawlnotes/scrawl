@@ -7,6 +7,7 @@ import { clock } from './chatMedia';
 import { type ChatServer, store } from './chatStore';
 import { ConfirmDialog, Dialog, type MenuItem } from './dialogs';
 import { Icon } from './Icon';
+import { ActionSheet } from './sheets';
 import { saveFile } from './storage';
 
 // Rooms (design/chat.md, 2 and 8.1; design/mockups.html, Messaging): New room, Browse rooms and
@@ -442,7 +443,7 @@ export function useChatInfo({ server, chat, say, onLeft, onClose }: { server: Ch
 export type ChatInfoState = ReturnType<typeof useChatInfo>;
 
 /** One part of a conversation's Info: its About, its people, or what was shared in it. */
-export function InfoBody({ server, chat, tab, info, nameOf, say, onJump, addHere = true }: {
+export function InfoBody({ server, chat, tab, info, nameOf, say, onJump, phone = false }: {
   server: ChatServer;
   chat: ChatInfo;
   tab: InfoTab;
@@ -450,8 +451,8 @@ export function InfoBody({ server, chat, tab, info, nameOf, say, onJump, addHere
   nameOf: (id: string) => string;
   say: (text: string) => void;
   onJump: (message: string) => void;
-  /** Add people… in People itself; a phone has it in its page's bar instead. */
-  addHere?: boolean;
+  /** A phone's page: Add people… is in its bar, and a person is tapped for what can be done. */
+  phone?: boolean;
 }) {
   const { shared, media, files, voice, links } = info;
   /** Who shared it and when: it goes to the message. */
@@ -462,7 +463,7 @@ export function InfoBody({ server, chat, tab, info, nameOf, say, onJump, addHere
   );
   const loading = <p className="ch-none">{t('chat.loading')}</p>;
   if (tab === 'about') return <About server={server} chat={chat} nameOf={nameOf} say={say} />;
-  if (tab === 'people') return <People server={server} chat={chat} say={say} addHere={addHere} />;
+  if (tab === 'people') return <People server={server} chat={chat} say={say} phone={phone} />;
   if (!shared) return loading;
   if (tab === 'media') return <Media url={server.url} items={media} onJump={onJump} />;
   if (tab === 'files') {
@@ -656,13 +657,29 @@ function About({ server, chat, nameOf, say }: { server: ChatServer; chat: ChatIn
 export const canAddPeople = (server: ChatServer, chat: ChatInfo) =>
   chat.kind === 'private' && chat.joined && chat.archived === null && spacesOf(server).some((each) => each.id === chat.space);
 
-/** Who is in it, with who uses Scrawl now; in a private room, Add people… from its space (a phone's is in its page's bar). */
-function People({ server, chat, say, addHere }: { server: ChatServer; chat: ChatInfo; say: (text: string) => void; addHere: boolean }) {
+/**
+ * Who is in it, with who uses Scrawl now; in a private room, Add people… from its space (a phone's is
+ * in its page's bar), and Remove by whoever opened it and its space's managers: on a computer on the
+ * row under the pointer, on a phone from the person tapped. It asks first.
+ */
+function People({ server, chat, say, phone }: { server: ChatServer; chat: ChatInfo; say: (text: string) => void; phone: boolean }) {
   const [adding, setAdding] = useState(false);
   const [picked, setPicked] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [held, setHeld] = useState<ChatPerson | null>(null);
+  const [removing, setRemoving] = useState<ChatPerson | null>(null);
   const space = spacesOf(server).find((each) => each.id === chat.space);
-  const canAdd = addHere && canAddPeople(server, chat);
+  const canAdd = !phone && canAddPeople(server, chat);
+  const canRemove = (person: ChatPerson) => chat.kind === 'private' && chat.manage === true && chat.archived === null && person.id !== server.me;
+  const room = `#${chat.name}`;
+  const remove = async (person: ChatPerson) => {
+    setRemoving(null);
+    try {
+      await store.server(server.url)!.takeOut(chat.id, person.id);
+    } catch {
+      say(t('chat.notChanged'));
+    }
+  };
   const add = async () => {
     if (!picked.length || busy) return;
     setBusy(true);
@@ -701,15 +718,52 @@ function People({ server, chat, say, addHere }: { server: ChatServer; chat: Chat
             {t('chat.addPeopleDots')}
           </button>
         ))}
-      {chat.members.map((person) => (
-        <div key={person.id} className={`ch-person${chat.gone.includes(person.id) ? ' gone' : ''}`}>
-          <Face id={person.id} name={person.name} size="sm" online={server.active.includes(person.id)} />
-          <span className="nm">{person.name}</span>
-          {person.id === server.me && <small>{t('chat.you')}</small>}
-          {chat.gone.includes(person.id) && <small>{t('chat.offServer')}</small>}
-          {person.id !== server.me && server.active.includes(person.id) && <small className="act">{t('chat.active')}</small>}
-        </div>
-      ))}
+      {chat.members.map((person) => {
+        const row = (
+          <>
+            <Face id={person.id} name={person.name} size="sm" online={server.active.includes(person.id)} />
+            <span className="nm">{person.name}</span>
+            {person.id === server.me && <small>{t('chat.you')}</small>}
+            {chat.gone.includes(person.id) && <small>{t('chat.offServer')}</small>}
+            {person.id !== server.me && server.active.includes(person.id) && <small className="act">{t('chat.active')}</small>}
+          </>
+        );
+        const className = `ch-person${chat.gone.includes(person.id) ? ' gone' : ''}`;
+        if (phone && canRemove(person)) {
+          return (
+            <button key={person.id} type="button" className={className} onClick={() => setHeld(person)}>
+              {row}
+            </button>
+          );
+        }
+        return (
+          <div key={person.id} className={className}>
+            {row}
+            {canRemove(person) && (
+              <button type="button" className="ch-rm" onClick={() => setRemoving(person)}>
+                {t('chat.remove')}
+              </button>
+            )}
+          </div>
+        );
+      })}
+      {held && (
+        <ActionSheet
+          head={{ icon: 'person', title: held.name, sub: room }}
+          items={[{ label: t('chat.removeFrom', { name: room }), danger: true, run: () => setRemoving(held) }]}
+          onClose={() => setHeld(null)}
+        />
+      )}
+      {removing && (
+        <ConfirmDialog
+          title={t('chat.removeTitle', { person: removing.name, name: room })}
+          message={t('chat.removeText')}
+          action={t('chat.remove')}
+          danger
+          onConfirm={() => void remove(removing)}
+          onClose={() => setRemoving(null)}
+        />
+      )}
     </div>
   );
 }

@@ -400,15 +400,23 @@ export class Chats {
     return this.info(chat, by.id);
   }
 
-  /** Leaves a room; no one leaves the general room, nor a direct message, which is hidden instead. */
+  /**
+   * Leaves a room, or takes someone out of a private one: whoever opened it and its space's managers
+   * do. No one leaves the general room, nor a direct message, which is hidden instead; a public room
+   * anyone in its space joins again, so no one is taken out of it.
+   */
   leave(by: Account, id: string, account: string) {
-    if (account !== by.id) throw new Refused(403, 'not-allowed', 'You leave a room yourself');
     const chat = this.see(id, by.id);
     if (chat.kind === 'direct') throw new Refused(400, 'direct', 'A direct message is hidden, not left');
     if (chat.general) throw new Refused(409, 'general', 'Everyone in a space is in its general room');
-    if (!this.isIn(chat, by.id)) return;
+    if (account !== by.id) {
+      if (chat.kind !== 'private') throw new Refused(400, 'not-private', 'People are taken out of a private room; a public one they leave');
+      if (chat.created_by !== by.id && !this.spaces.manages(chat.space_id!, by)) throw new Refused(403, 'not-allowed', 'Only whoever opened the room and the managers of its space take people out');
+      if (chat.archived_at !== null) throw new Refused(410, 'archived', 'This room is archived');
+    }
+    if (!this.isIn(chat, account)) return;
     const before = this.listeners(chat);
-    transaction(this.db, () => this.db.prepare('UPDATE chat_members SET left_at = ?, rev = ? WHERE chat_id = ? AND account_id = ?').run(this.now(), this.nextRev(), chat.id, by.id));
+    transaction(this.db, () => this.db.prepare('UPDATE chat_members SET left_at = ?, rev = ? WHERE chat_id = ? AND account_id = ?').run(this.now(), this.nextRev(), chat.id, account));
     this.tell(before, { type: 'chat', cursor: this.cursor() });
   }
 

@@ -9804,6 +9804,10 @@ body > .mb-lifted {
   font-size: 16px;
 }
 
+.chp-part button.ch-person:active {
+  background: color-mix(in srgb, var(--sl-fg) 6%, transparent);
+}
+
 .chp-part .ch-about input,
 .chp-part .ch-about .ch-name {
   font-size: 16px;

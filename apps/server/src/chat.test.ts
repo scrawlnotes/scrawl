@@ -142,6 +142,33 @@ describe('rooms', () => {
     expect((await s.call(s.elif, 'GET', `/chat/${founders.id}`)).status).toBe(404);
   });
 
+  it('has someone taken out of a private room by whoever opened it and the space’s managers', async () => {
+    const s = await start();
+    // Mert opens it with Elif; Kaan, who manages Acme, is brought in by Elif.
+    const founders = await s.room(s.mert, 'founders', 'private', [ELIF]);
+    await s.call(s.elif, 'POST', `/chat/${founders.id}/members`, { accounts: [KAAN] });
+    const people = async () => ((await s.call(s.mert, 'GET', `/chat/${founders.id}`)).body.members as { id: string }[]).map((person) => person.id).sort();
+    // Someone else in it does not take people out.
+    expect((await s.call(s.elif, 'DELETE', `/chat/${founders.id}/members/${KAAN}`)).body.error.code).toBe('not-allowed');
+    // Whoever opened it does: Elif is out, and it is gone from her list.
+    expect((await s.call(s.mert, 'DELETE', `/chat/${founders.id}/members/${ELIF}`)).status).toBe(204);
+    expect(await people()).toEqual([KAAN, MERT].sort());
+    expect((await s.list(s.elif)).some((chat) => chat.id === founders.id)).toBe(false);
+    expect((await s.call(s.elif, 'GET', `/chat/${founders.id}`)).status).toBe(404);
+    // A manager of the space does too, and anyone in it brings her back.
+    await s.call(s.mert, 'POST', `/chat/${founders.id}/members`, { accounts: [ELIF] });
+    expect((await s.call(s.kaan, 'DELETE', `/chat/${founders.id}/members/${ELIF}`)).status).toBe(204);
+    expect(await people()).toEqual([KAAN, MERT].sort());
+    // Not out of a public room, which anyone joins again, nor out of the general room or an archived one.
+    const design = await s.room(s.mert, 'design', 'public');
+    await s.call(s.elif, 'POST', `/chat/${design.id}/join`);
+    expect((await s.call(s.mert, 'DELETE', `/chat/${design.id}/members/${ELIF}`)).body.error.code).toBe('not-private');
+    const general = (await s.list(s.kaan)).find((chat) => chat.general)!;
+    expect((await s.call(s.kaan, 'DELETE', `/chat/${general.id}/members/${MERT}`)).body.error.code).toBe('general');
+    await s.call(s.mert, 'PATCH', `/chat/${founders.id}`, { archived: true });
+    expect((await s.call(s.mert, 'DELETE', `/chat/${founders.id}/members/${KAAN}`)).body.error.code).toBe('archived');
+  });
+
   it('is changed and archived by whoever opened it and the space’s managers; an archived room is read, not written', async () => {
     const s = await start();
     const design = await s.room(s.mert, 'design', 'public');

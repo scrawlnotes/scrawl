@@ -66,7 +66,7 @@ Notlar, görevler, panolar ve koleksiyonlar bugünkü gibi dosya kalır; sohbet 
 
 - Bir space'e aittir. Yalnız sunucudaki paylaşılan space'lerde vardır; kişisel space'te yoktur.
 - **Public:** space'in herkesi görür. Browse rooms'ta bulur, katılmadan okur, Join ile katılır.
-- **Private:** yalnız üyeleri görür. Üyelerden biri başkasını ekler.
+- **Private:** yalnız üyeleri görür. Üyelerden biri başkasını ekler. Room'u açan ve space'in Manager'ları birini çıkarır; çıkarılanı içindeki biri yeniden ekler.
 - Her space'in bir `general` room'u vardır: sunucu space'i açınca oluşur, space'e katılan herkes içindedir, ondan çıkılmaz. Adı değişir, arşivlenmez.
 - Room'u space'in her üyesi açar. Adını ve konusunu, room'u açan kişi ve space'in Manager'ları değiştirir. Room'u da onlar arşivler.
 - Arşivlenen room okunur, yazılmaz. Listeden kalkar, Browse rooms'ta Archived altında durur. Room silinmez.
@@ -245,7 +245,7 @@ Mockup: `design/mockups.html`, Mesajlaşma.
   - Aynı kişinin beş dakika içindeki mesajları başlıksız, alt alta durur.
   - Mesajın üstüne gelince sağda düğmeler: React, Reply, Forward, ···. ··· menüsünde Edit, Copy text, Copy link, To task, To card ve Delete.
   - Altta yazma kutusu: "Message #dev", +, Aa, @, emoji, mikrofon ve Send.
-- **Info penceresi** ortada açılır. Bölümleri: About (ad, konu, açan ve ne zaman), People (private'ta Add people…), Media, Files, Voice, Links. Altta bildirim seçimi, Export…, Leave room ve Archive room.
+- **Info penceresi** ortada açılır. Bölümleri: About (ad, konu, açan ve ne zaman), People (private'ta Add people… ve Remove), Media, Files, Voice, Links. Altta bildirim seçimi, Export…, Leave room ve Archive room.
 - New room, Browse rooms, New message ve Forward ortada açılan pencerelerdir.
 - 640 pikselden dar pencerede liste ve konuşma ayrı ayrı görünür, telefondaki gibi; konuşmanın başında geri oku vardır.
 
@@ -342,7 +342,7 @@ messages_fts  FTS5, içeriksiz (content=''), rowid = messages.rowid,
 | `POST /chat/direct` `{ people }` | o kişilerle DM: varsa o, yoksa yenisi |
 | `PATCH /chat/:id` `{ name, topic, archived }` | açan ya da space'in Manager'ı |
 | `POST /chat/:id/join` | public room'a katılmak |
-| `POST /chat/:id/members` `{ accounts }`, `DELETE /chat/:id/members/:account` | private'a eklemek; Leave (kendin) |
+| `POST /chat/:id/members` `{ accounts }`, `DELETE /chat/:id/members/:account` | private'a eklemek; Leave (kendin) ya da private'tan çıkarmak (açan ya da space'in Manager'ı) |
 | `PATCH /chat/:id/me` `{ notify, hidden }` | bildirim seçimi, Hide |
 | `POST /chat/:id/read` `{ seq }` | okundu; geri gitmez |
 | `POST /chat/:id/messages` `{ id, body, replyTo, files, forwardOf }` | gönder; `{ seq, rev, at }` |
@@ -553,7 +553,7 @@ Kodda netleşenler:
 Kodda netleşenler:
 
 - **Listenin başlıkları:** space başlığının + düğmesi New room… ve Browse rooms… menüsünü açar; Direct başlığınınki doğrudan New message'ı açar. Direct başlığı DM yokken de durur, yoksa ilk DM açılamazdı.
-- **Kim yönetir:** konuşmada `manage` gelir: room'u açan ve space'in Manager'ları (sunucunun sahibi ve adminleri dahil). About'ta ad ve konu yalnız onlarda yazılabilir, öbürlerinde düz yazıdır; Archive room da yalnız onlarda görünür.
+- **Kim yönetir:** konuşmada `manage` gelir: room'u açan ve space'in Manager'ları (sunucunun sahibi ve adminleri dahil). About'ta ad ve konu yalnız onlarda yazılabilir, öbürlerinde düz yazıdır; Archive room ve private room'un People'ındaki Remove da yalnız onlarda görünür.
 - **New room:** space (birden çoksa), ad (# ile, en çok 40 karakter), konu, Public ya da Private ve People. People ikisinde de vardır; public room'a eklenenler de içinde başlar. Ad alınmışsa alanın altında "Acme already has a room by this name." Açılan room hemen açılır.
 - **Kişi seçici:** ada göre bulur, seçilen çip olur; Backspace sonuncuyu çıkarır. New message'da en çok 8 kişi (sen dahil 9).
 - **Browse rooms:** space seçimi, arama, room'lar adıyla, kişi sayısı ve konusuyla; katılınanlarda "Joined", öbür public'lerde Join. Arşivliler altta Archived başlığında. Satıra tıklamak room'u açar.
@@ -563,6 +563,7 @@ Kodda netleşenler:
 - **Bildirim seçimi:** Info'nun altında All, Mentions, Off (taslaktaki gibi). Zil düğmesi ve bildirimlerin kendisi 6. dilimde.
 - **Export…:** zip, her ay bir `2026-10.md`: başta `# #general · October 2026` ve konu, gün başlıkları (`## Saturday, October 24, 2026`), her mesaj `**Mert** 13:05` satırı ve gövdesi; cevap alıntıyla, forward "Forwarded from" satırıyla, silinen "*This message was deleted.*" ile, düzenlenen "(edited)" ile. Mention `@Ad` olur; çip ve mesaj linki yalnız yazısıyla kalır. Ekler `_attachments/`'te, özetin ilk 8 harfi ve adıyla, linkli; resim `![]` ile. Günler ve saatler kişinin cihazının saat diliminde (`?tz=`). Zip, sunucuda dosyalar okundukça gönderilir, belleğe toplanmaz.
 - **Leave room:** private room'da önce sorar ("Leave #founders?"), public'te sormaz; general'da ve DM'de yoktur. DM'de yerinde Hide vardır.
+- **Remove:** (7 Kasım 2026'da eklendi) private room'un People'ında, room'u açanda ve space'in Manager'larında: bilgisayarda satırın üstüne gelince sağda Remove, telefonda kişiye dokununca alttan "Remove from #founders". Önce sorar: "Remove Mert Kaya from #founders?", "They will no longer see it. Anyone in it can add them back." Kişinin kendisinde yoktur, onun için Leave room var. Public room'da yoktur, çünkü herkes yeniden katılır; general'da, DM'de ve arşivli room'da da yoktur. Çıkarılanın listesinden room düşer, bildirimleri kesilir; bilgisayarda açıksa başka konuşma gösterilir, telefonda açıksa listeye döner.
 - **Archive room:** önce sorar. Arşivlenen room listeden kalkar ama arşivleyende açık kalır, okunur, yazılmaz. Arşivli room'un Info'sunda Unarchive room vardır (tasarımda yoktu; yanlışlıkla arşivleneni geri almak için eklendi), About'ta ne zaman arşivlendiği yazar.
 - **Grup DM** yerelde üç kişi olmadığı için tarayıcıda denenmedi; sunucusu 1. dilimin testlerinde.
 

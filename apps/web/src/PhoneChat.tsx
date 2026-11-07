@@ -221,6 +221,12 @@ export function PhoneChatConversation({ url, chat: id, target, links, menu, back
     store.setViewing({ url, chat: id });
     return () => store.setViewing(null);
   }, [url, id]);
+  // Taken out of it, or it gone, while it is open: back to the list, as a computer shows another.
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    if (chat) setSeen(true);
+    else if (seen) onBack();
+  }, [chat !== undefined]);
   if (!server || !chat) {
     return (
       <>
@@ -374,7 +380,7 @@ function PartPage({ server, chat, tab, say, onJump }: { server: ChatServer; chat
   const info = useChatInfo({ server, chat, say, onLeft: () => undefined, onClose: () => undefined });
   return (
     <div className="chp-part">
-      <InfoBody server={server} chat={chat} tab={tab} info={info} nameOf={namesOf(server)} say={say} onJump={onJump} addHere={false} />
+      <InfoBody server={server} chat={chat} tab={tab} info={info} nameOf={namesOf(server)} say={say} onJump={onJump} phone />
     </div>
   );
 }
