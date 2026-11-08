@@ -226,19 +226,40 @@ Google Drive yalnız kişisel space'in yeridir (10.1); bu, kişinin onu arayaca�
 
 Adaptör çekirdektedir, web sürümü de onu kullanır. `drive.file` erişimi kayda bağlı olduğundan web'in kaydı masaüstününkiyle aynı Google Cloud projesinde olmalıdır; masaüstünde açılan dosyaları web'in gördüğü o aşamada denenir. Geliştirirken tarayıcı, OneDrive'daki gibi, Drive'ın bellekteki bir taklidine (`FakeDrive`) bağlanır.
 
+**Web'de ve telefonda Google oturumu Worker'la alınır (8 Kasım 2026, kullanıcının kararı).** Microsoft tarayıcıya yenilenen bir oturum verir; Google vermez: kodu anahtara çevirmek ve anahtarı yenilemek web istemcisinin gizli anahtarını ister. Tarayıcı tek başına yalnız bir saatlik anahtar alabilir, sonra Google'ın penceresi ancak kişi bir yere dokununca açılır; telefonda saatte bir dokunmak gerekirdi. Gizli anahtarı web koduna gömmek Google'ın kurallarına aykırıdır. Çözüm, app.scrawlnotes.com'u sunan Cloudflare Worker'da küçük bir uçtur. Google Calendar da aynısını kullanır.
+
+- **Akış:** Google girişi (PKCE, `access_type=offline`, `prompt=consent`) `https://app.scrawlnotes.com/`'a kodla döner. Tarayıcı kodu `POST /google/token`'a gönderir; Worker gizli anahtarı ekler, `https://oauth2.googleapis.com/token`'a iletir, cevabı olduğu gibi döner. Yenileme anahtarı cihazda kalır (`localStorage`, Microsoft'unki gibi); bir saat dolmadan `POST /google/refresh` ile yenilenir. Drive ve takvim istekleri tarayıcıdan doğrudan Google'a gider, Worker'dan geçmez.
+- **Güvenlik:** gizli anahtar yalnız Worker'ın şifreli ayarındadır (`wrangler secret put`), repoya ve web koduna girmez. Worker hiçbir şey saklamaz, günlük tutmaz; yenileme anahtarı içinden geçer, yazılmaz. Yalnız `authorization_code` ve `refresh_token` isteklerini, yalnız app.scrawlnotes.com'dan kabul eder ve yalnız Google'ın anahtar adresine iletir. Kod ve yenileme anahtarı yalnız Scrawl'ın kaydına verildiği için uç başkasının işine yaramaz. Disconnect anahtarı tarayıcıdan doğrudan Google'a iptal ettirir (`/revoke`, gizli anahtar istemez).
+- **Kodda:** `wrangler.jsonc`'ye `main` ve `run_worker_first: ["/google/*"]`; öbür adresler bugünkü gibi yalnız dosyadır. Web'deki giriş anahtar adresini parametre alır. Masaüstü Worker'ı kullanmaz: Google'ın masaüstü kaydı `localhost` dönüşüyle ve gizli olmayan anahtarla çalışır.
+- **Maliyet:** Cloudflare'in ücretsiz planı günde 100.000 Worker isteği verir, dosya istekleri buna girmez. Açık her cihaz saatte en fazla bir istek yapar; günde aktif 3.000–10.000 Google kullanıcısında dolar. Dolarsa o günün istekleri hata verir, fatura çıkmaz; ücretli plan ayda 5 dolardır, gelince ayrıca sorulur. Aynı hesapta Drive ve takvim tek girişle alınırsa (Google sonradan izin eklemeye izin verir) istek ikiye katlanmaz.
+- **Kesilirse:** yalnız web'de ve telefonda Google'ın yenilemesi durur; Microsoft, sunucu ve masaüstü etkilenmez. Web uygulaması zaten aynı yerden sunulduğu için yeni bir bağımlılık eklenmez.
+
 ### 10.7 Hazırlık (Scrawl'ın Google kaydı)
 
-Google Calendar (sonraya kaldı, `design/outlook-calendar.md` 9) aynı projede olur; ikisi tek başvuruyla geçer (8 Kasım 2026). Başvuru console.cloud.google.com'da, Google Auth Platform'dan yapılır; ücretsizdir.
+Google Calendar (23. aşamanın 4. dilimi, `design/outlook-calendar.md` 11) aynı projededir; ikisi tek başvuruyla geçer. Başvuru console.cloud.google.com'da, Google Auth Platform'dan yapılır; ücretsizdir.
 
-1. **Proje:** Drive API ve Calendar API açık.
-2. **Branding:** ad, logo, destek e-postası, ana sayfa `https://scrawlnotes.com`, gizlilik sayfası, yetkili alan `scrawlnotes.com` (`app.scrawlnotes.com` onun altında). Alan adı Google Search Console'da, Cloudflare'e eklenen bir TXT kaydıyla doğrulanır; doğrulayan hesap projede Owner ya da Editor'dür.
-3. **Audience:** External. Yayına alınana kadar (Testing) en çok 100 test kullanıcısı girer, giriş 7 günde bir yenilenir; kod bu hâldeyken yazılır ve denenir.
-4. **Data Access:** `drive.file` ve takvim izinleri. `drive.file` hassas sayılmaz. Takvimi okuma izni hassastır: her birine neden daha dar bir iznin yetmediğini anlatan bir cümle yazılır.
-5. **Clients:** "Desktop app" (masaüstü, `127.0.0.1` dönüşü) ve "Web application" (`app.scrawlnotes.com`). Kimlikler (ve gizli olmayan gizli anahtar) OneDrive'ınki gibi koda girer.
-6. **Başvuru:** kod çalışınca Publish app, sonra Verification Center'da Prepare for verification, video ve Submit. Video YouTube'da liste dışıdır: Google Drive'a ve takvime bağlanma, Google'ın İngilizce onay ekranının tamamı, adres çubuğunda client ID, her iznin nerede kullanıldığı.
-7. **Güvenlik denetimi (CASA) gerekmez;** o yalnız kısıtlı izinler içindir. Google kesin süre vermiyor; birkaç gün ile birkaç hafta. Yazışma proje sahibinin e-postasına gelir.
+**8 Kasım 2026'da kuruldu (Testing):**
 
-Bizde eksik olan: scrawlnotes.com'da gizlilik sayfası yok, ana sayfa da ona link vermiyor. Sayfa, Google'dan gelen dosya ve etkinliklerin cihazla kişinin hesabı arasında kaldığını, bize gelmediğini, kimseyle paylaşılmadığını söyler ve Google'ın Limited Use cümlesini içerir. Google ile bağlanma düğmeleri Google'ın marka kurallarına uyar.
+1. **Hesap:** kullanıcının kendi Gmail'i projenin sahibidir. Onay ekranında görünen destek adresi o hesabın açtığı bir Google Group'tur (gelenler Gmail'e düşer, kişisel adres görünmez). Sonradan başka bir sahip eklenip bu hesap çıkarılabilir.
+2. **Proje:** `Scrawl`, Calendar API açık. Drive API Drive'a gelince açılır.
+3. **Branding:** ad Scrawl, ana sayfa `https://scrawlnotes.com`, yetkili alan `scrawlnotes.com` (`app.scrawlnotes.com` onun altında). Kullanım şartları boş, zorunlu değil. Logo ve gizlilik sayfası başvurudan önce eklenir; logo marka doğrulaması ister. Alan adı Search Console'da TXT kaydıyla doğrulandı.
+4. **Audience:** External, Testing; test kullanıcısı kullanıcının Gmail'i. Testing'de en çok 100 test kullanıcısı girer, giriş 7 günde bir yenilenir.
+5. **Data Access:** konsolun sınıfladığı gibi:
+   - `calendar.calendarlist.readonly`: hassas değil. Show events altındaki takvim listesi.
+   - `calendar.app.created`: hassas değil. "Scrawl" takvimini açmak, ona yazmak, oradaki değişiklikleri okumak.
+   - `calendar.events.readonly`: hassas. Seçili takvimlerin etkinliklerini göstermek. `calendar.events.owned.readonly` da hassas çıktı ve paylaşılan takvimleri (ör. ekip takvimi) göstermez, bu yüzden seçilmedi.
+   - `drive.file` Drive'la eklenir; hassas değildir.
+6. **Clients:** "Web application" (origin'ler `https://app.scrawlnotes.com` ve `http://localhost:5173`; dönüşler aynılarının sonunda `/`) ve "Desktop app". "Use this client for an AI-powered agent" işaretsiz: Google'dan gelen veri hiçbir ajana gitmez. İki istemcinin JSON'ı kullanıcıda, repoda değil. Masaüstününkinin kimliği ve gizli olmayan anahtarı OneDrive'ınki gibi koda girer; web'inki yalnız Worker'a.
+
+**Başvuruya kadar kalanlar:**
+
+1. **Gizlilik sayfası** `https://scrawlnotes.com/privacy`, ana sayfadan link. Google'dan okunan (takvim listesi, seçili takvimlerin etkinlikleri, Scrawl takvimi; Drive'la Scrawl klasöründeki dosyalar), bunların yalnız cihazda gösterilip saklanmadığı ve sunucumuza gitmediği, anahtarların cihazda durduğu, web'de anahtar alınırken ve yenilenirken isteğin scrawlnotes.com'dan geçip kaydedilmediği, hiçbir verinin paylaşılmadığı, satılmadığı, reklamda ve yapay zekâ eğitiminde kullanılmadığı, Disconnect'in izni geri aldığı. Sonunda Google'ın istediği cümle: "Scrawl's use and transfer to any other app of information received from Google APIs will adhere to the Google API Services User Data Policy, including the Limited Use requirements."
+2. **Kod** Testing hâlinde çalışır: Worker (10.6) ve Google Calendar.
+3. **Başvuru:** logo, Publish app, Verification Center'da Prepare for verification, video, Submit. Hassas izin yalnız `calendar.events.readonly`; gerekçesi: "Scrawl shows the events of the calendars the user chose in its Today and Upcoming views and its calendar, read-only, next to the user's tasks. Events are read on the user's device when shown, and are never stored or sent to our servers. calendar.events.owned.readonly is not enough: users also show calendars shared with them, such as a team calendar. Free/busy scopes give no titles."
+4. **Video** YouTube'da liste dışı, 2–3 dakika, arayüz İngilizce: app.scrawlnotes.com'da Settings › Calendars › Connect Google Calendar; Google'ın onay ekranının tamamı ve adres çubuğunda `client_id`; takvim listesi; Today ve Upcoming'de Google toplantıları, tıklanınca Google Calendar'da açılması; Sync to Google Calendar ve Google Calendar'da "Scrawl" takvimindeki iş; orada günü değişen işin Scrawl'da da değişmesi; Disconnect. Drive hazırsa Connect Google Drive da.
+5. **Güvenlik denetimi (CASA) gerekmez;** o yalnız kısıtlı izinler içindir. Google kesin süre vermiyor; birkaç gün ile birkaç hafta. Yazışma proje sahibinin e-postasına gelir.
+
+Google ile bağlanma düğmeleri Google'ın marka kurallarına uyar.
 
 Adaptör ve ekranlar bu kayıt olmadan, taklit Drive'la yazılıp sınanır.
 

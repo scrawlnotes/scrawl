@@ -163,6 +163,7 @@ Gerçek bir outlook.com hesabıyla masaüstünde bağlanılır. Seçilen işler 
 1. **Bağlantı ve Outlook etkinliklerinin Scrawl'da görünmesi:** Settings › Calendars'ın üst yarısı; Today, Upcoming ve Calendar'daki katman. Önce mockup.
 2. **Scrawl'dan Outlook'a:** Sync to Outlook, What goes listesi, Scrawl takvimi, seçim dosyası. Önce mockup.
 3. **Outlook'tan geri gelenler:** ad, gün ya da saat, silme.
+4. **Google Calendar:** 11. bölüm. Önce taslak ve mockup.
 
 ## 8. PLAN'da değişenler (8 Kasım 2026)
 
@@ -173,7 +174,7 @@ Gerçek bir outlook.com hesabıyla masaüstünde bağlanılır. Seçilen işler 
 
 ## 9. Dışarıda bırakılanlar (8 Kasım 2026'da onaylandı)
 
-- **Google Calendar:** sonra (8 Kasım, kullanıcı: "outlookla başlayabiliriz"). Yapısı aynı olur, ama takvim izni için Google'ın uygulama incelemesi gerekiyor.
+- **Google Calendar:** Outlook'tan sonra (8 Kasım, kullanıcı: "outlookla başlayabiliriz"). Aynı gün 4. dilim oldu (11. bölüm).
 - **Apple / iCloud:** yok (kullanıcı: "apple önemli değil"). Açık API'si yok. Todoist'te de doğrudan yok; iCloud takvimi Outlook'a abone edilirse Scrawl'da görünür.
 - **Sunucunun Microsoft'a bağlanıp cihazlar kapalıyken yazması:** yok, gerekçesi 3. bölümde.
 - **Ajanın Outlook etkinliklerini görmesi:** yok. Anahtar cihazda duruyor, sunucudaki `/mcp` ona ulaşamıyor. Todoist'te de etkinlikler yalnız gösteriliyor.
@@ -189,3 +190,12 @@ Gerçek bir outlook.com hesabıyla masaüstünde bağlanılır. Seçilen işler 
 6. **Nerede:** Scrawl'ın açık olduğu cihazlarda çalışır, masaüstü tepsiden de çalışır. Sunucu Microsoft'a bağlanmaz.
 7. **Bağlantı:** her cihazda ayrı yapılır ve OneDrive girişinden ayrıdır. Seçim kişisel space'te durur.
 8. **Çakışma:** iki tarafta birden değişirse Scrawl kazanır. Görev ve kartta Outlook'tan yalnız gün alınır.
+
+## 11. Google Calendar (4. dilim, 8 Kasım 2026)
+
+Outlook'un yaptığının aynısı Google Calendar'la: Google'daki etkinlikler Scrawl'da görünür, işler Google'da ayrı bir "Scrawl" takvimine gider, oradaki değişiklikler geri gelir. `wantedEvents` ve `planCalendar` ortaktır; değişen giriş, API çağrıları ve Settings › Calendars'taki satırdır. Dilimin taslağı ve mockup'ı ayrıca onaya gelir.
+
+- **İzinler** (konsolun sınıflaması, `design/cloud.md` 10.7): `calendar.calendarlist.readonly` (hassas değil, takvim listesi), `calendar.events.readonly` (hassas, seçili takvimlerin etkinlikleri), `calendar.app.created` (hassas değil, "Scrawl" takvimini açmak, ona yazmak, oradaki değişiklikleri okumak; başka takvime dokunmaz). Bütün takvime erişen `calendar` istenmez. Kısıtlı izin yok, güvenlik denetimi (CASA) gerekmez; `calendar.events.readonly` için Google'ın incelemesi gerekir.
+- **Giriş:** Drive'ınkinden ayrı, Outlook'un OneDrive'dan ayrı olması gibi. Masaüstünde Google'ın masaüstü kaydıyla `localhost` dönüşü; web'de ve telefonda kod ve yenileme app.scrawlnotes.com'daki Worker'dan (`design/cloud.md` 10.6).
+- **Graph'ın karşılıkları:** `calendarList.list` (ad, renk, `accessRole`), `events.list` (`timeMin`, `timeMax`, `singleEvents=true`, `timeZone` cihazın IANA adıyla; Google IANA adlarını doğrudan alır), `calendars.insert { summary: "Scrawl" }`, `events.insert` / `patch` / `delete`. Taban, Outlook'taki extended property yerine `extendedProperties.private`'tadır. Etkinliğin kimliği işin kimliğinden türetilir (Google kimliği istemcinin vermesine izin verir, base32hex, 5–1024 karakter); yeniden denemede aynı etkinlik iki kez açılmaz, `transactionId`'nin işini görür. Tıklanınca `htmlLink` Google Calendar'da açar. `429` ve `403 rateLimitExceeded`'da beklenip yeniden denenir.
+- **Taslakta karar verilecek:** Outlook ve Google ikisi birden bağlıyken "Scrawl" takvimi hangisine gider (Todoist işleri tek hesaba gönderir); `.scrawl/calendars.json`'da iki sağlayıcının yeri.
