@@ -2115,6 +2115,8 @@ export function App() {
   const changeSubtasksOf = (ref: SubtaskRef, change: (list: Subtask[]) => Subtask[]) =>
     'board' in ref ? session.changeCardSubtasks(ref.board, ref.id, change) : void session.changeRecordSubtasks(ref.collection, ref.id, change);
   // A task's description, a card's or a record's notes: the editor notes have, and Attach.
+  /** Whether what is at a path is in a space on a server: where a card or a task tells people (design/notifications.md 1.2). */
+  const onServer = (path: string) => spaces.find((each) => each.id === spaceOf(path))?.source?.provider === 'server';
   const descriptionHost: DescriptionHost = {
     editor: (home, parent, doc, onChange, hint) => session.openEditor(home, parent, doc, onChange, hint),
     attach: (editor, home, files) => session.attachTo(editor, home, files),
@@ -2253,6 +2255,8 @@ export function App() {
     },
     openRecord: (collection, id) => (collection.endsWith(BOARD_EXT) ? showCard(collection, id) : phone ? setRecordAsked({ dir: collection, id }) : setRecordOver({ dir: collection, id })),
     people: peopleOf,
+    remind: (list, id) => session.remindTask(list, id),
+    onServer,
     dueSubtasks: () => dueSubtasksNow,
     completeSubtask: (ref) =>
       undoable(
@@ -2366,6 +2370,8 @@ export function App() {
     completeSubtask: (board, id, subtask) => undoable(t('tasks.completedNotice'), session.completeCardSubtask(board, id, subtask)),
     removedSubtask: (undo) => undoable(t('subtasks.deletedNotice'), undo),
     addComment: (board, id, text) => session.addComment(board, id, text),
+    remindCard: (board, id) => session.remindCard(board, id),
+    onServer,
     editComment: (board, id, comment, text) => session.editComment(board, id, comment, text),
     removeComment: (board, id, comment) => undoable(t('board.commentDeletedNotice'), session.removeComment(board, id, comment)),
     copyBrief: (board, id) => void copyBrief(board, id),

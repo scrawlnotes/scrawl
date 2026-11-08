@@ -17,6 +17,7 @@ import {
 import { locale, t } from '@scrawlnotes/i18n';
 import { type FormEvent, type MouseEvent, type ReactNode, useRef, useState } from 'react';
 import { type DescriptionHost, DescriptionField } from './Description';
+import { remindLabel, remindOf } from './Remind';
 import { listCrumb, type MenuHead, type MenuItem, placesShown, type TaskPlaceChoice } from './dialogs';
 import { LabelChip, LabelSheet, useAtLabels } from './labels';
 import { Icon, type IconName } from './Icon';
@@ -425,6 +426,8 @@ export function TaskSheet({ list, task, tasks, sections, today, actions, subtask
   const priorityMenu = () => actions.menu(NO_POINTER, priorityItems(task.priority, (priority) => actions.update(list, task.id, { priority })), head);
   // In a space with people a task is given to one of them; the personal space has only the user.
   const team = actions.people?.(list) ?? null;
+  // Remind under Given to (design/notifications.md 4).
+  const remind = remindOf(task, team, task.done, actions.onServer?.(list) ?? false);
   const more = () =>
     actions.menu(
       NO_POINTER,
@@ -557,6 +560,12 @@ export function TaskSheet({ list, task, tasks, sections, today, actions, subtask
               ),
               () => actions.pickAssignee?.(list, task.id),
             )}
+          {remind && (
+            <button type="button" className="mb-fr mb-remind" disabled={remind.ago !== null} onClick={() => actions.remind?.(list, task.id)}>
+              <Icon name="bell" />
+              <span className="fl">{remindLabel(remind)}</span>
+            </button>
+          )}
           {field(
             'collection',
             t('tasks.record'),

@@ -3,6 +3,7 @@ import { t } from '@scrawlnotes/i18n';
 import type { ReactNode } from 'react';
 import { Dialog } from './dialogs';
 import { assigneeLabel, firstName, NameOf, type SpacePeople, WhoOf } from './People';
+import { Reminded } from './Remind';
 import { clockTime, pastDayLabel } from './text';
 
 // Who did what on a card or a task (design/activity.md 4): a line for each thing that mattered,
@@ -73,7 +74,7 @@ export function TaskEntries({ task, team, today }: { task: Task; team: SpacePeop
       )}
       {taskEntries(task).map((entry) => (
         <ActivityLine key={entry.id} who={writerOf(entry)} team={team} at={entry.at} today={today}>
-          {entry.kind === 'assign' ? <GaveTo given={entry.given} team={team} /> : entry.kind === 'done' ? t('tasks.finishedIt') : t('tasks.reopenedIt')}
+          {entry.kind === 'assign' ? <GaveTo given={entry.given} team={team} /> : entry.kind === 'remind' ? <Reminded to={entry.to} team={team} /> : entry.kind === 'done' ? t('tasks.finishedIt') : t('tasks.reopenedIt')}
         </ActivityLine>
       ))}
     </>

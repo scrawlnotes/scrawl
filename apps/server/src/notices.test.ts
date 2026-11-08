@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { addCard, addComment, addTask, newBoard, personLink, serializeBoard, serializeList, ServerAccount, SYNC_LEVEL, updateCard, updateTask } from '@scrawlnotes/core';
+import { addCard, addComment, addTask, newBoard, personLink, remindCard, serializeBoard, serializeList, ServerAccount, SYNC_LEVEL, updateCard, updateTask } from '@scrawlnotes/core';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { Config } from './config';
 import type { LiveSocket } from './live';
@@ -137,5 +137,13 @@ describe('notices', () => {
     expect((await s.call(s.mert, 'POST', '/opened', JSON.stringify({ space: ACME, item: 'card1' }), { 'Content-Type': 'application/json' })).status).toBe(204);
     await s.minutePasses();
     expect(s.sent).toEqual([]);
+  });
+  it('tells Mert of a reminder of his card, with when it is due', async () => {
+    const s2 = await start();
+    const was = addCard(roadmap(), { title: 'Export a board as CSV', assignee: { id: MERT, name: 'Mert Kaya' }, due: '2026-11-10' }, at(0), kaan, 'card1');
+    await s2.write(s2.owner, BOARD, serializeBoard(was));
+    await s2.write(s2.owner, BOARD, serializeBoard(remindCard(was, 'card1', at(5), kaan)));
+    await s2.settle();
+    expect(s2.sent.map((each) => [each.payload.title, each.payload.body])).toEqual([[`Kaan reminded you about ${was.prefix}-1`, 'Export a board as CSV · Due Nov 10']]);
   });
 });

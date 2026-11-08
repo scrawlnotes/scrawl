@@ -1,4 +1,4 @@
-import { type Actor, actorIn, type By, isObject, readStamp, readWorkedOn, refKey, type Stamp, stampOf, workedBy, type WorkedOn, writtenBy } from './activity';
+import { type Actor, actorIn, type By, canRemind, isObject, readRemind, readStamp, readWorkedOn, refKey, type RemindEntry, type Stamp, stampOf, workedBy, type WorkedOn, writtenBy } from './activity';
 import { type Collection, evaluateFormula, type Field, type FieldValue, isEmpty, isLink, type LinkedBlock, linkedRecords, pointsAt, readFields, readLinkedBlock, readValue, type Record as CollectionRecord, valueText } from './collection';
 import { type ChoiceRenames, renameChoices } from './fields';
 import type { VaultFs } from './fs';
@@ -56,6 +56,7 @@ export type TimelineEntry =
   | (Stamp & { kind: 'comment'; text: string; edited?: string })
   | (Stamp & { kind: 'assign'; given?: PersonRef })
   | (Stamp & { kind: 'tick'; subtasks: string[] })
+  | RemindEntry
   | (Stamp & { kind: 'unknown'; raw: { [key: string]: unknown } });
 
 /** Ticks of one actor this close after its last are written as the same entry. */
@@ -470,6 +471,8 @@ function parseTimeline(list: unknown): TimelineEntry[] {
       out.push({ ...others, ...stamp, kind: 'assign', ...(ref && { given: ref }) });
     } else if (kind === 'tick' && Array.isArray(rest.subtasks)) {
       out.push({ ...rest, ...stamp, kind: 'tick', subtasks: rest.subtasks.filter((s): s is string => typeof s === 'string') });
+    } else if (kind === 'remind' && readRemind(stamp, rest)) {
+      out.push(readRemind(stamp, rest)!);
     } else {
       // A kind this version does not know, kept to be written back as it came.
       out.push({ ...stamp, kind: 'unknown', raw: kind === 'unknown' && isObject(rest.raw) ? rest.raw : (raw as { [key: string]: unknown }) });
@@ -982,6 +985,21 @@ export function relinkBoardNote(board: Board, from: string, to: string): Board {
     cards: board.cards.map((c) => (c.note === from ? { ...c, note: to } : c)),
     phases: board.phases.map((p) => (p.note === from ? { ...p, note: to } : p)),
   };
+}
+
+// ---------- reminding ----------
+
+/**
+ * The one a card is given to reminded of it (design/notifications.md 4): an entry on its timeline,
+ * which tells them. Not for a card given to no one, to the one reminding, to an agent, nor a
+ * finished one; not twice by the same person within an hour. Nobody worked on it for that.
+ */
+export function remindCard(board: Board, cardId: string, now: Clock = () => new Date(), by?: By, id: string = newId()): Board {
+  const actor = actorIn(by);
+  const card = board.cards.find((c) => c.id === cardId);
+  if (!card || isFinished(board, card) || !canRemind(card, actor, now())) return board;
+  const stamp = iso(now);
+  return mapCard(board, cardId, (c) => ({ ...c, updated: stamp, timeline: [...c.timeline, { id, at: stamp, ...stampOf(actor), kind: 'remind', to: c.assignee! }] }));
 }
 
 // ---------- comments ----------

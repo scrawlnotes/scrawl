@@ -78,6 +78,7 @@ import type { MenuHead, MenuItem, TaskPlaceChoice } from './dialogs';
 import { priorityItems } from './PhoneTasks';
 import { DatePop, TaskComposer } from './TaskComposer';
 import { AttachButton, type DescriptionHost, DescriptionField } from './Description';
+import { remindLabel, remindOf } from './Remind';
 import { ContextMenu } from './dialogs';
 import { type Choices, type FilterPlace, type FilterStep, PhoneFilterChips, SearchBox, useFilter } from './FilterBar';
 import { LabelChip, LabelDot, LabelPop, useAtLabels } from './labels';
@@ -141,6 +142,9 @@ export interface TaskActions {
   /** Completes or reopens a task; a completion says so with Undo, unless it is `quiet`. */
   setDone: (list: string, id: string, done: boolean, quiet?: boolean) => void;
   remove: (list: string, id: string) => void;
+  /** The one a task is given to reminded of it; and whether its list is in a space on a server, where Remind is. */
+  remind?: (list: string, id: string) => void;
+  onServer?: (path: string) => boolean;
   /** Opens a menu at the pointer; on a phone an action sheet, `head` saying what it is about. */
   menu: (event: MouseEvent, items: MenuItem[], head?: MenuHead) => void;
   /** Adds a section: at the end, or after the section `after` names, at the top for null. */
@@ -860,6 +864,9 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
 
   // In a space with people a task is given to one of them, from the button that opened the list.
   const team = actions.people?.(list) ?? null;
+  // Remind, before Activity… in its menus (design/notifications.md 4); greyed while it was pressed in the last hour.
+  const remind = remindOf(task, team, task.done, actions.onServer?.(list) ?? false);
+  const remindItem = remind ? [{ label: remindLabel(remind), run: () => actions.remind?.(list, task.id), ...(remind.ago !== null && { disabled: t('remind.wait') }) }] : [];
   const [assigning, setAssigning] = useState<HTMLElement | null>(null);
   // Its activity, in a window: who worked on it and what mattered on it.
   const [activity, setActivity] = useState(false);
@@ -950,6 +957,7 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
       ...(team ? [{ label: t('tasks.assignMenu'), run: () => setAssigning(button) }] : []),
       { label: t('tasks.recordMenu'), run: () => setPicking(button) },
       { label: t('tasks.moveTo'), run: () => actions.moveTo(list, task.id) },
+      ...remindItem,
       { label: t('tasks.activityMenu'), run: () => setActivity(true) },
       { label: t('tasks.delete'), run: () => actions.remove(list, task.id) },
     ]);
@@ -1139,6 +1147,7 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
             : (event) =>
                 actions.menu(event, [
                   { label: t('tasks.moveTo'), run: () => actions.moveTo(list, task.id) },
+                  ...remindItem,
                   { label: t('tasks.activityMenu'), run: () => setActivity(true) },
                   { label: t('tasks.delete'), run: () => actions.remove(list, task.id) },
                 ])

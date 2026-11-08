@@ -1,12 +1,12 @@
-import { BOARD_EXT, type Board, parseBoard } from './board';
-import type { WorkedOn } from './activity';
+import { BOARD_EXT, type Board, parseBoard, type TimelineEntry } from './board';
+import { lastReminded, REMIND_EVERY_MS, type WorkedOn } from './activity';
 import { isAgentId, ownerOf, type PersonRef } from './people';
 import { itemLink, mentionsOf, plainText } from './sync/chat';
-import { parseList, TASK_LIST_EXT, type Task } from './tasks';
+import { parseList, TASK_LIST_EXT, type Task, type TaskEntry } from './tasks';
 
 // What a change to a board or a task list tells people (design/notifications.md): someone was
 // mentioned in a card's comment or description, or a task's description; a card or a task was
-// given to someone. The server sees the file before and after a write and tells those it names;
+// given to someone; someone was reminded of one given to them. The server sees the file before and after a write and tells those it names;
 // the change is read from the files alone, so the app, an agent and an older device all count.
 // Who did it comes from what the file says of it: a comment's or a giving's stamp, else the last
 // one who worked on it, else whoever wrote the file. No one is told of what they did themselves.
@@ -19,11 +19,11 @@ export interface NoticeBy {
 
 /** One thing that tells one person. */
 export interface Notice {
-  kind: 'mention' | 'assign';
+  kind: 'mention' | 'assign' | 'remind';
   /** The person told, by the id of their `me.json`; on a server, their account. */
   to: string;
   by: NoticeBy;
-  item: { kind: 'card' | 'task'; id: string; title: string; key?: string };
+  item: { kind: 'card' | 'task'; id: string; title: string; key?: string; due?: string | null };
   /** Where a mention was: in a comment, by its id, or in the description. */
   in?: { comment: string } | 'description';
   /** A comment's words, plain: what a notification of a mention in it says under its title. */
@@ -46,6 +46,22 @@ const stampBy = (stamp: { by?: string; byId?: string }): NoticeBy | null => (sta
 /** Who a card or a task was given to now and not before; null when that did not change or is no one. */
 function newlyGiven(before: PersonRef | null | undefined, after: PersonRef | null | undefined): string | null {
   return after?.id && after.id !== before?.id ? after.id : null;
+}
+
+/**
+ * The reminders new on a timeline, each telling the one reminded; one within an hour of the same
+ * person's last to the same, written by hand, tells no one.
+ */
+function newReminders(before: readonly (TimelineEntry | TaskEntry)[] | undefined, after: readonly (TimelineEntry | TaskEntry)[] | undefined) {
+  const had = new Set((before ?? []).map((entry) => entry.id));
+  return (after ?? []).flatMap((entry) => {
+    if (entry.kind !== 'remind' || had.has(entry.id)) return [];
+    const remind = entry;
+    if (!remind.to.id) return [];
+    const last = lastReminded(before, remind.byId, remind.to.id);
+    if (last && Date.parse(remind.at) - Date.parse(last) < REMIND_EVERY_MS) return [];
+    return [{ to: remind.to.id, by: stampBy(remind) }];
+  });
 }
 
 /** Those mentioned in `after` and not in `before`. */
@@ -101,7 +117,7 @@ function boardNotices(input: { space: string; path: string; before: string | nul
   const before = new Map(was.cards.map((card) => [card.id, card]));
   for (const card of now.cards) {
     const old = before.get(card.id);
-    const item = { kind: 'card' as const, id: card.id, title: card.title, key: `${now.prefix}-${card.key}` };
+    const item = { kind: 'card' as const, id: card.id, title: card.title, key: `${now.prefix}-${card.key}`, due: card.due };
     const href = (comment?: string) => itemLink({ kind: 'card', space: input.space, path: input.path, id: card.id, ...(comment && { comment }) });
     const worker = lastWorker(card.workedOn) ?? input.writer;
     const given = newlyGiven(old?.assignee, card.assignee);
@@ -117,6 +133,7 @@ function boardNotices(input: { space: string; path: string; before: string | nul
       }
     }
     for (const to of newMentions(old?.description, card.description)) out.push({ kind: 'mention', to, by: worker, item, in: 'description', href: href() });
+    for (const { to, by } of newReminders(old?.timeline, card.timeline)) out.push({ kind: 'remind', to, by: by ?? worker, item, href: href() });
   }
   return out;
 }
@@ -126,7 +143,7 @@ function taskNotices(input: { space: string; path: string; before: string | null
   const out: Notice[] = [];
   for (const task of parseList(input.after).tasks) {
     const old = before.get(task.id);
-    const item = { kind: 'task' as const, id: task.id, title: task.title };
+    const item = { kind: 'task' as const, id: task.id, title: task.title, due: task.due };
     const href = itemLink({ kind: 'task', space: input.space, path: input.path, id: task.id });
     const worker = lastWorker(task.workedOn) ?? input.writer;
     const given = newlyGiven(old?.assignee, task.assignee);
@@ -135,6 +152,7 @@ function taskNotices(input: { space: string; path: string; before: string | null
       out.push({ kind: 'assign', to: given, by: (entry && stampBy(entry)) ?? worker, item, href });
     }
     for (const to of newMentions(old?.description, task.description)) out.push({ kind: 'mention', to, by: worker, item, in: 'description', href });
+    for (const { to, by } of newReminders(old?.timeline, task.timeline)) out.push({ kind: 'remind', to, by: by ?? worker, item, href });
   }
   return out;
 }
@@ -152,7 +170,9 @@ export function noticeWords(notice: Notice, where: string, nameOf: (id: string) 
     ? [notice.by.name || 'An agent', first(nameOf(ownerOf(by)))].filter(Boolean).join(' · ')
     : first((by && nameOf(by)) || notice.by.name) || 'Someone';
   const which = notice.item.key ?? notice.item.title;
-  const title = notice.kind === 'assign' ? `${who} assigned you ${which}` : `${who} mentioned you on ${which}`;
+  const title = notice.kind === 'assign' ? `${who} assigned you ${which}` : notice.kind === 'remind' ? `${who} reminded you about ${which}` : `${who} mentioned you on ${which}`;
   const body = notice.text || (notice.item.key ? notice.item.title : where);
+  // A reminder says when it is due as well.
+  if (notice.kind === 'remind' && notice.item.due) return { title, body: `${body} · Due ${new Date(`${notice.item.due}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })}` };
   return { title, body };
 }

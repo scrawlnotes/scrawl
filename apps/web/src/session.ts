@@ -38,6 +38,8 @@ import {
   addCard,
   addColumn,
   addComment,
+  remindCard,
+  remindTask,
   addPhase,
   addSection,
   addTask,
@@ -4058,6 +4060,11 @@ export class Session {
     this.changeTasks(list, (tasks) => updateTask(tasks, id, patch, undefined, this.by));
   }
 
+  /** The one a task is given to reminded of it (design/notifications.md 4). */
+  remindTask(list: string, id: string) {
+    this.changeTasks(list, (tasks) => remindTask(tasks, id, undefined, this.by));
+  }
+
   setTaskDone(list: string, id: string, done: boolean) {
     this.changeTasks(list, (tasks) => setDone(tasks, id, done, undefined, this.by));
   }
@@ -4302,6 +4309,11 @@ export class Session {
 
   addComment(board: string, id: string, text: string) {
     this.changeBoard(board, (current) => addComment(current, id, text, undefined, this.by));
+  }
+
+  /** The one a card is given to reminded of it (design/notifications.md 4). */
+  remindCard(board: string, id: string) {
+    this.changeBoard(board, (current) => remindCard(current, id, undefined, this.by));
   }
 
   editComment(board: string, id: string, comment: string, text: string) {

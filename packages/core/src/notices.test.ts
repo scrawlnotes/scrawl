@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { addCard, addComment, editComment, newBoard, serializeBoard, updateCard } from './board';
+import { addCard, addComment, editComment, moveCardToKind, newBoard, remindCard, serializeBoard, updateCard } from './board';
 import { noticesFrom, noticeWords, tellsPeople } from './notices';
-import { addTask, serializeList, updateTask } from './tasks';
+import { addTask, remindTask, serializeList, updateTask } from './tasks';
 import { parseItemLink, personLink } from './sync/chat';
 
 const KAAN = { id: 'kaan', name: 'Kaan Arslan' };
@@ -30,7 +30,7 @@ describe('noticesFrom', () => {
         kind: 'mention',
         to: 'mert',
         by: KAAN,
-        item: { kind: 'card', id: 'card1', title: 'Export a board as CSV', key: `${was.prefix}-1` },
+        item: { kind: 'card', id: 'card1', title: 'Export a board as CSV', key: `${was.prefix}-1`, due: null },
         in: { comment: 'cm1' },
         text: '@Mert Kaya can you check the headers?',
         href: 'scrawl:item/card/sp-1/Roadmap.board.json?id=card1&comment=cm1',
@@ -99,4 +99,41 @@ describe('noticeWords', () => {
 
 it('knows which files can tell someone', () => {
   expect([PATH, LIST, 'Notes/a.md', 'People/_collection.json'].map(tellsPeople)).toEqual([true, true, false, false]);
+});
+
+describe('reminders', () => {
+  const given = () => updateCard(board(), 'card1', { due: '2026-11-10' }, at(1), KAAN);
+
+  it('writes a reminder of a card given to someone else, once an hour, not to oneself nor of a finished card', () => {
+    const was = given();
+    const once = remindCard(was, 'card1', at(10), KAAN, 'r1');
+    expect(once.cards[0]!.timeline.at(-1)).toMatchObject({ id: 'r1', kind: 'remind', to: { id: 'mert' }, byId: 'kaan' });
+    // Within the hour, nothing; an hour on, again.
+    expect(remindCard(once, 'card1', at(40), KAAN, 'r2')).toBe(once);
+    expect(remindCard(once, 'card1', () => new Date(Date.UTC(2026, 10, 9, 10, 10)), KAAN, 'r3').cards[0]!.timeline.at(-1)!.id).toBe('r3');
+    // Mert reminding himself, or anyone of a card given to no one or to an agent.
+    expect(remindCard(was, 'card1', at(10), MERT)).toBe(was);
+    const agents = updateCard(was, 'card1', { assignee: { id: 'kaan:laptop', name: 'Claude Code (Laptop)' } }, at(2), KAAN);
+    expect(remindCard(agents, 'card1', at(10), MERT)).toBe(agents);
+    const done = moveCardToKind(was, 'card1', 'done', at(3), KAAN);
+    expect(remindCard(done, 'card1', at(10), KAAN)).toBe(done);
+  });
+
+  it('tells whoever was reminded, saying when it is due, and not of one written within the hour by hand', () => {
+    const was = given();
+    const once = remindCard(was, 'card1', at(10), KAAN, 'r1');
+    const [notice] = notices(serializeBoard(was), serializeBoard(once));
+    expect(notice).toMatchObject({ kind: 'remind', to: 'mert', by: KAAN, href: 'scrawl:item/card/sp-1/Roadmap.board.json?id=card1' });
+    expect(noticeWords(notice!, 'Roadmap · Scrawl')).toEqual({ title: `Kaan reminded you about ${was.prefix}-1`, body: 'Export a board as CSV · Due Nov 10' });
+    const byHand = { ...once, cards: once.cards.map((card) => ({ ...card, timeline: [...card.timeline, { id: 'r2', at: at(20)().toISOString(), by: 'Kaan Arslan', byId: 'kaan', kind: 'remind' as const, to: { id: 'mert', name: 'Mert Kaya' } }] })) };
+    expect(notices(serializeBoard(once), serializeBoard(byHand))).toEqual([]);
+  });
+
+  it('reminds of a task given to someone else, not of a done one', () => {
+    const was = updateTask(addTask([], { title: 'Collect the feedback' }, at(0), 't1', KAAN), 't1', { assignee: { id: 'mert', name: 'Mert Kaya' } }, at(1), KAAN);
+    const now = remindTask(was, 't1', at(5), KAAN, 'r1');
+    expect(notices(serializeList({ sections: [], tasks: was }), serializeList({ sections: [], tasks: now })).map((n) => [n.kind, n.to])).toEqual([['remind', 'mert']]);
+    const done = updateTask(was, 't1', { done: true }, at(2), KAAN);
+    expect(remindTask(done, 't1', at(5), KAAN)).toBe(done);
+  });
 });

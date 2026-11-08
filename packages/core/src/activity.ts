@@ -1,4 +1,4 @@
-import type { PersonRef } from './people';
+import { type PersonRef, readPersonRef } from './people';
 
 // Who did what on a card or a task (design/activity.md): who changes it, a person or an agent,
 // by name and id; the entries its timeline keeps, each with who wrote it; and everyone who worked
@@ -86,3 +86,41 @@ export const writtenBy = (entry: Stamp, actor: Actor) => (actor.id ? entry.byId 
 
 /** A person something is given to, to tell whether it changed: their id, else their name. */
 export const refKey = (ref: PersonRef | null | undefined) => (ref ? (ref.id ?? `name:${ref.name ?? ''}`) : '');
+
+// ---------- reminding ----------
+
+/** How often one person may remind another of the same card or task (design/notifications.md 4). */
+export const REMIND_EVERY_MS = 60 * 60 * 1000;
+
+/** A reminder on a card's or a task's timeline: who was reminded. */
+export type RemindEntry = Stamp & { kind: 'remind'; to: PersonRef };
+
+/** When the one with id `by` last reminded `to` of it, from its timeline; null when never. */
+export function lastReminded(timeline: readonly { kind: string }[] | undefined, by: string | undefined, to: string | undefined): string | null {
+  if (!by || !to) return null;
+  let last: string | null = null;
+  for (const entry of timeline ?? []) {
+    if (entry.kind !== 'remind') continue;
+    const remind = entry as RemindEntry;
+    if (remind.byId === by && remind.to.id === to && (!last || remind.at > last)) last = remind.at;
+  }
+  return last;
+}
+
+/**
+ * Whether `actor` can remind whoever a card or a task is given to, at `now`: it is given to a
+ * person other than them, not to an agent, and they have not reminded them in the last hour.
+ */
+export function canRemind(item: { assignee?: PersonRef | null; timeline?: readonly { kind: string }[] }, actor: Actor, now: Date): boolean {
+  const to = item.assignee?.id;
+  if (!to || !actor.id || to === actor.id || to.includes(':')) return false;
+  const last = lastReminded(item.timeline, actor.id, to);
+  return !last || now.getTime() - Date.parse(last) >= REMIND_EVERY_MS;
+}
+
+/** A reminder as a file has it; null when it names no one. */
+export function readRemind(stamp: Stamp, rest: { [key: string]: unknown }): RemindEntry | null {
+  const { to, ...others } = rest;
+  const ref = readPersonRef(to);
+  return ref ? { ...others, ...stamp, kind: 'remind', to: ref } : null;
+}

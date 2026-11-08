@@ -1,4 +1,4 @@
-import { actorIn, type By, isObject, readStamp, readWorkedOn, refKey, type Stamp, stampOf, workedBy, type WorkedOn, writtenBy } from './activity';
+import { actorIn, type By, canRemind, isObject, readRemind, readStamp, readWorkedOn, refKey, type RemindEntry, type Stamp, stampOf, workedBy, type WorkedOn, writtenBy } from './activity';
 import type { VaultFs } from './fs';
 import { cleanLabels } from './labels';
 import { type PersonRef, readPersonRef } from './people';
@@ -55,6 +55,7 @@ export type TaskEntry =
   | (Stamp & { kind: 'assign'; given?: PersonRef })
   | (Stamp & { kind: 'done' })
   | (Stamp & { kind: 'reopen' })
+  | RemindEntry
   | (Stamp & { kind: 'unknown'; raw: { [key: string]: unknown } });
 
 /** A task's timeline as the file has it. */
@@ -72,6 +73,8 @@ function readTaskTimeline(list: unknown): TaskEntry[] {
       out.push({ ...others, ...stamp, kind: 'assign', ...(ref && { given: ref }) });
     } else if (kind === 'done' || kind === 'reopen') {
       out.push({ ...rest, ...stamp, kind });
+    } else if (kind === 'remind' && readRemind(stamp, rest)) {
+      out.push(readRemind(stamp, rest)!);
     } else {
       out.push({ ...stamp, kind: 'unknown', raw: kind === 'unknown' && isObject(rest.raw) ? rest.raw : (raw as { [key: string]: unknown }) });
     }
@@ -475,6 +478,19 @@ export type TaskPatch = Partial<Pick<Task, 'title' | 'description' | 'due' | 'pr
  * are kept once each, whatever their case. Who changes it worked
  * on it; its timeline says who it is given to now.
  */
+/**
+ * The one a task is given to reminded of it (design/notifications.md 4): an entry on its timeline,
+ * which tells them. Not for a task given to no one, to the one reminding, to an agent, nor a done
+ * one; not twice by the same person within an hour. Nobody worked on it for that.
+ */
+export function remindTask(tasks: Task[], id: string, now: Clock = () => new Date(), by?: By, entry: string = newId()): Task[] {
+  const actor = actorIn(by);
+  const task = tasks.find((t) => t.id === id);
+  if (!task || task.done || !canRemind(task, actor, now())) return tasks;
+  const stamp = iso(now);
+  return tasks.map((t) => (t.id === id ? { ...t, updated: stamp, timeline: [...(t.timeline ?? []), { id: entry, at: stamp, ...stampOf(actor), kind: 'remind' as const, to: t.assignee! }] } : t));
+}
+
 export function updateTask(tasks: Task[], id: string, patch: TaskPatch, now: Clock = () => new Date(), by?: By): Task[] {
   if (patch.title !== undefined && !patch.title.trim()) return tasks;
   const clean = { ...patch };

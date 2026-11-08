@@ -54,6 +54,7 @@ import { tookComment, useAskedComment } from './commentFocus';
 import { LabelChip, LabelSheet, LabelsField } from './labels';
 import { AttachButton, type DescriptionHost, DescriptionField } from './Description';
 import { SpaceMentionList, useSpaceMentions } from './Mentions';
+import { Reminded, remindLabel, remindOf } from './Remind';
 import { Icon, type IconName } from './Icon';
 import { boardLabel } from './items';
 import { ActivityLine, GaveTo, when, Writer, writerOf, writerText } from './Activity';
@@ -82,6 +83,9 @@ export interface CardPanelActions {
   /** Asks first, then deletes the card. */
   removeCard: (board: string, card: Card) => void;
   addComment: (board: string, id: string, text: string) => void;
+  /** The one a card is given to reminded of it; and whether its board is in a space on a server, where Remind is. */
+  remindCard?: (board: string, id: string) => void;
+  onServer?: (path: string) => boolean;
   editComment: (board: string, id: string, comment: string, text: string) => void;
   removeComment: (board: string, id: string, comment: string) => void;
   /** Puts the card as a Markdown brief on the clipboard. */
@@ -447,6 +451,7 @@ function Timeline({ board, path, card, team, today, actions }: { board: Board; p
         const who = writerOf(entry);
         if (entry.kind === 'move') return line(entry.id, who, entry.from === null ? t('card.movedIn', { to: columnName(entry.to) }) : t('card.moved', { from: columnName(entry.from), to: columnName(entry.to) }), entry.at);
         if (entry.kind === 'assign') return line(entry.id, who, <GaveTo given={entry.given} team={team} />, entry.at);
+        if (entry.kind === 'remind') return line(entry.id, who, <Reminded to={entry.to} team={team} />, entry.at);
         if (entry.kind === 'tick') {
           const one = entry.subtasks.length === 1 ? subtaskTitle(entry.subtasks[0]) : undefined;
           return line(entry.id, who, one ? t('card.tickedOne', { title: one }) : t('card.ticked', { count: entry.subtasks.length }), entry.at);
@@ -593,6 +598,8 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
   const computer = computerFor(null, records.collections(), { ...records.boards(), [path]: board }, today);
   const shownAs = computer.shown(path);
   const team = actions.people?.(path) ?? null;
+  // Remind under Assignee (design/notifications.md 4).
+  const remind = remindOf(card, team, isFinished(board, card), actions.onServer?.(path) ?? false);
   // @ in the description and in a comment: the space's people (design/notifications.md 2).
   const mentions = useSpaceMentions(editor, team, path);
   const look = useRef(mentions.look);
@@ -751,6 +758,15 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
               onSave={(text) => update({ assignee: text.trim() ? { name: text.trim() } : null })}
             />
           )}
+          {remind && (
+            <>
+              <span />
+              <button type="button" className="cp-remind" disabled={remind.ago !== null} onClick={() => actions.remindCard?.(path, card.id)}>
+                <Icon name="bell" />
+                {remindLabel(remind)}
+              </button>
+            </>
+          )}
         </div>
         {/* The board's own fields, under the card's. */}
         {(board.fields ?? []).length > 0 && (
@@ -899,6 +915,7 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
   const computer = computerFor(null, records.collections(), { ...records.boards(), [path]: board }, today);
   // In a space with people a card is given to one of them; in the personal space a name is typed.
   const team = actions.people?.(path) ?? null;
+  const remind = remindOf(card, team, isFinished(board, card), actions.onServer?.(path) ?? false);
   // @ in the description and in a comment: the space's people (design/notifications.md 2).
   const mentions = useSpaceMentions(editor, team, path);
   const look = useRef(mentions.look);
@@ -1105,6 +1122,12 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
                 <span className="none">{t('card.unassigned')}</span>
               ),
               () => setPicking('assignee'),
+            )}
+            {remind && (
+              <button type="button" className="mb-fr mb-remind" disabled={remind.ago !== null} onClick={() => actions.remindCard?.(path, card.id)}>
+                <Icon name="bell" />
+                <span className="fl">{remindLabel(remind)}</span>
+              </button>
             )}
             {card.note &&
               row('note', t('phone.from'), <span className="lnk">{noteTitle ?? '?'}</span>, () => {

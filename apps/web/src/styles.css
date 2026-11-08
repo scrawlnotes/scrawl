@@ -6434,6 +6434,36 @@ textarea.tt-edit {
   font-size: 13px;
 }
 
+/* Remind, under Assignee (design/notifications.md 4); pressed, how long ago, greyed for the hour */
+.cp-remind {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-self: start;
+  padding: 3px 9px;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  color: var(--sl-fg);
+  font-size: 12px;
+}
+
+.cp-remind .icon {
+  width: 13px;
+  height: 13px;
+  color: var(--sl-dim);
+}
+
+.cp-remind:hover:not(:disabled) {
+  background: var(--sl-sel);
+}
+
+.cp-remind:disabled {
+  padding-left: 0;
+  border-color: transparent;
+  color: var(--sl-faint);
+  cursor: default;
+}
+
 .cp-new textarea::placeholder {
   color: var(--sl-faint);
 }

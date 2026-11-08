@@ -4512,6 +4512,22 @@ body > .mb-lifted {
 }
 
 /* a card's comment written in the editor descriptions have, in the pill the box was */
+/* Remind on a phone, a row under Assignee or Given to, in the colour of what it does; greyed for the hour */
+.mb-fr.mb-remind,
+.mb-fr.mb-remind .icon {
+  color: var(--sl-accent);
+}
+
+.mb-fr.mb-remind .fl {
+  width: auto;
+  color: inherit;
+}
+
+.mb-fr.mb-remind:disabled,
+.mb-fr.mb-remind:disabled .icon {
+  color: var(--sl-faint);
+}
+
 .mb-compose .desc-field {
   flex: 1;
   min-width: 0;

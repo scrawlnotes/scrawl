@@ -223,3 +223,14 @@ Yayın: web ve sunucu; masaüstü kullanıcı söyleyince.
 - **Testler:** web `mentionChoices.test.ts` (2).
 - **Tarayıcıda denendi:** kart yorumunda @Me → Mert Kaya, Enter ile seçildi, çip oldu, gönderilince kutu boşaldı ve yorum çiple göründü; görevin açıklamasında Enter görevi kaydetmeden adı koydu, Escape listeyi kapattı; telefon görünümünde liste kutunun üstünde açıldı; Chat'te liste eskisi gibi ("In #general", @room).
 - **Görülen ama dokunulmayan:** kişi seçicide (Assignee) de aynı eski kayıt duruyor; eskisi seçilirse atama bildirimi gitmez.
+
+## 15. Yazılırken: 3. dilim (Remind)
+
+8 Kasım 2026. ROA-367.
+
+- **Dosyada:** kartın ve görevin zaman çizgisinde `{ kind: 'remind', to }` (`remindCard`, `remindTask`). Hatırlatma işin içeriğini değiştirmediği için Worked on'a yazılmaz; `updated` ilerler ki sync'te kaybolmasın.
+- **Kimde görünür:** başkasına (ajana değil) verilmiş, bitmemiş işte ve yalnız sunucudaki space'te. OneDrive'da ve yalnız cihazdaki space'te görünmez: kimseye bir şey gitmezdi.
+- **Saatte bir:** aynı kişi aynı işi aynı kişiye saatte bir hatırlatır; arada düğme "Reminded just now" / "Reminded 12 min ago" der ve basılmaz, görevin menüsünde soluk durur ("Once an hour for the same task."). Sunucu da elle yazılmış bir kaydı bu sınıra göre süzer.
+- **Bildirim:** "Kaan reminded you about ROA-3", altında başlık (görevde listesi) ve günü varsa "· Due Nov 10".
+- **Testler:** core `notices.test.ts`'e 3 (kayıt ve sınır, bildirim ve metin, görev), sunucu `notices.test.ts`'e 1.
+- **Tarayıcıda denendi:** ROA-3 Mert'e verilince Mert'e "Kaan assigned you ROA-3" gitti; Remind Mert'e basınca "Kaan reminded you about ROA-3" gitti, düğme "Reminded just now" olup soldu, zaman çizgisine "Kaan reminded Mert" yazıldı; telefonda Assignee'nin altında soluk satır; Launch'taki görev Mert'e verilince menüde Remind Mert çıktı, basınca bildirim gitti ve öğe soldu.
