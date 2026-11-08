@@ -574,9 +574,12 @@ input:focus {
   white-space: nowrap;
 }
 
-.fmt button:hover:enabled {
-  background: var(--sl-code);
-  color: var(--sl-fg);
+/* Only where a pointer hovers: a phone keeps a tapped button hovered, which looked pressed. */
+@media (hover: hover) {
+  .fmt button:hover:enabled {
+    background: var(--sl-code);
+    color: var(--sl-fg);
+  }
 }
 
 .fmt button[aria-pressed='true'] {
@@ -16995,9 +16998,11 @@ button.ch-q {
   font-size: 12.5px;
 }
 
-.ch-cmp .fmt button:hover {
-  background: var(--sl-sel);
-  color: var(--sl-fg);
+@media (hover: hover) {
+  .ch-cmp .fmt button:hover {
+    background: var(--sl-sel);
+    color: var(--sl-fg);
+  }
 }
 
 /* what applies where the cursor is, Bold pressed before writing too */
