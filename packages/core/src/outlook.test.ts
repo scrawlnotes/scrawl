@@ -8,7 +8,7 @@ import {
   isShown,
   loadCalendarChoice,
   mergeCalendarChoice,
-  type OutlookEvent,
+  type CalendarEvent,
   OutlookReader,
   parseCalendarChoice,
   saveCalendarChoice,
@@ -42,7 +42,7 @@ describe('Outlook events', () => {
   });
 
   it('gives a day its events: all day and going on first, then by their start', () => {
-    const event = (id: string, day: string, lastDay: string, start?: string): OutlookEvent => ({ id, calendar: 'cal', title: id, day, lastDay, link: '', ...(start && { start, end: start }) });
+    const event = (id: string, day: string, lastDay: string, start?: string): CalendarEvent => ({ id, calendar: 'cal', title: id, day, lastDay, link: '', ...(start && { start, end: start }) });
     const events = [
       event('lunch', '2026-11-09', '2026-11-09', '2026-11-09T13:00'),
       event('standup', '2026-11-09', '2026-11-09', '2026-11-09T09:30'),

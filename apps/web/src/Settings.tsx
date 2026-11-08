@@ -1,6 +1,6 @@
 import { type CalendarChoice, type ComputerAgent, dayOf, isAgent, isShown, type Me, type MovedMark, newSpaceId, NOTIFY_CHOICES, type NotifyChoices, ownerName, type Person, RemoteSignedOut, type ServerSpace, type SpaceSource } from '@scrawlnotes/core';
 import { languages, locale, type MessageKey, t } from '@scrawlnotes/i18n';
-import { type ChangeEvent, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { type ChangeEvent, type CSSProperties, Fragment, type KeyboardEvent, type MouseEvent, type ReactNode, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { ContextMenu, Dialog, type MenuItem } from './dialogs';
 import type { SpaceView } from './session';
 import { chooseLanguage, isPhone, languageTag, type Mode, NUMBER_CHOICES, type Numbers, shadeOfMode, SIZES, type SizeKind, thisSizeKind } from './device';
@@ -25,7 +25,8 @@ import { PictureCrop } from './PictureCrop';
 import { ActionSheet } from './sheets';
 import { PictureOr } from './ChatFaces';
 import { notifySnapshot, sendTest, turnOff, turnOn, useNotify } from './notify';
-import { connectOutlook, disconnectOutlook, outlookSnapshot, useOutlook } from './outlook';
+import type { CalendarState } from './calendarAccount';
+import { CALENDAR_ACCOUNTS, useCalendarAccounts } from './calendars';
 
 export type Section = 'profile' | 'appearance' | 'general' | 'notifications' | 'calendars' | 'spaces' | 'agents' | 'language' | 'logs' | 'about';
 
@@ -141,7 +142,11 @@ export function sectionValue(id: Section, { mode, theme, spaceName, me, spaces }
   if (id === 'spaces') return spaces.length > 0 ? String(spaces.length + 1) : (spaceName ?? t('settings.personal'));
   if (id === 'agents') return knownServers().length > 0 ? t('agents.viaServers', { count: knownServers().length }) : '';
   if (id === 'notifications') return notifySnapshot().state === 'on' ? t('phone.on') : t('phone.off');
-  if (id === 'calendars') return outlookSnapshot().status === 'off' ? '' : t('outlook.title');
+  if (id === 'calendars') {
+    return CALENDAR_ACCOUNTS.filter((account) => account.snapshot().status !== 'off')
+      .map((account) => t(`${account.id}.title`))
+      .join(', ');
+  }
   if (id === 'about' || id === 'logs' || id === 'general') return '';
   return languages.find((language) => language.tag === languageTag())?.name ?? '';
 }
@@ -458,91 +463,108 @@ function NotifyAbout({ url }: { url: string }) {
 }
 
 /**
- * Calendars (design/outlook-calendar.md 2.1): Connect Outlook Calendar; once connected on this
- * device, the account, Show events in Scrawl and the account's calendars under it, one's own on
- * till turned off, one someone shared off till turned on. The choice is the personal space's.
+ * Calendars (design/outlook-calendar.md 2.1 and 11.1): Connect Google Calendar and Connect Outlook
+ * Calendar. Once one is connected on this device, Show events in Scrawl for both at the top, then
+ * each account with its calendars under it, those shown at first on till turned off; the button of
+ * the one not connected stays under them. The choice is the personal space's.
  */
 function Calendars({ calendarChoice: choice, onChooseCalendars: onChoose }: Pick<SettingsValues, 'calendarChoice' | 'onChooseCalendars'>) {
-  const outlook = useOutlook();
-  if (outlook.status === 'off' || !outlook.account) {
+  const accounts = useCalendarAccounts();
+  const store = (account: CalendarState) => CALENDAR_ACCOUNTS.find((each) => each.id === account.id)!;
+  const connected = accounts.filter((account) => account.status !== 'off' && account.account);
+  const show = (id: string, on: boolean) => onChoose({ ...choice, show: { ...choice.show, [id]: on } });
+  const connect = (account: CalendarState) => (
+    <Fragment key={account.id}>
+      <div className="st-acts ol-connect">
+        <button type="button" className="primary" disabled={account.connecting} onClick={() => void store(account).connect()}>
+          <Icon name="calendar" />
+          {t(account.connecting ? 'outlook.connecting' : `${account.id}.connect`)}
+        </button>
+        <small>{t(`${account.id}.accountKind`)}</small>
+      </div>
+      {account.error && <p className="st-note st-bad">{account.error}</p>}
+    </Fragment>
+  );
+  const unconnected = accounts.filter((account) => !connected.includes(account)).map(connect);
+  if (connected.length === 0) {
     return (
       <>
-        <span className="st-label">{t('outlook.title')}</span>
-        <p className="st-lead">{t(isPhone() ? 'outlook.leadPhone' : 'outlook.lead')}</p>
-        <div className="st-acts ol-connect">
-          <button type="button" className="primary" disabled={outlook.connecting} onClick={() => void connectOutlook()}>
-            <Icon name="calendar" />
-            {t(outlook.connecting ? 'outlook.connecting' : 'outlook.connect')}
-          </button>
-          <small>{t('outlook.accountKind')}</small>
-        </div>
-        {outlook.error && <p className="st-note st-bad">{outlook.error}</p>}
+        <p className="st-lead">{t(isPhone() ? 'calendars.leadPhone' : 'calendars.lead')}</p>
+        {unconnected}
       </>
     );
   }
-  const { email } = outlook.account;
-  const signIn = outlook.status === 'signin';
-  const show = (id: string, on: boolean) => onChoose({ ...choice, show: { ...choice.show, [id]: on } });
   return (
     <>
-      <span className="st-label">{t('outlook.title')}</span>
-      <div className="st-list ol-account">
-        <div className="st-li">
-          <Icon name="calendar" />
-          <span className="nm">
-            <b>{outlook.account.name}</b>
-            <small className={signIn ? 'st-bad' : undefined}>{signIn ? t('outlook.signedOut', { email }) : isPhone() ? email : t(isDesktop ? 'outlook.onComputer' : 'outlook.inBrowser', { email })}</small>
-          </span>
-          {signIn && (
-            <button type="button" className="st-btn go" disabled={outlook.connecting} onClick={() => void connectOutlook()}>
-              {t('outlook.signIn')}
-            </button>
-          )}
-          {!isPhone() && (
-            <button type="button" className="st-btn" onClick={() => void disconnectOutlook()}>
-              {t('outlook.disconnect')}
-            </button>
-          )}
-        </div>
-      </div>
       <div className="st-space">
         <label className="st-check">
           <input type="checkbox" checked={choice.events} onChange={(event) => onChoose({ ...choice, events: event.target.checked })} />
           <PhoneSwitch on={choice.events} />
           <span>
             {t('outlook.showEvents')}
-            <small>{t(isPhone() ? 'outlook.showEventsWhatPhone' : 'outlook.showEventsWhat')}</small>
+            <small>{t(isPhone() ? 'calendars.showEventsWhatPhone' : 'calendars.showEventsWhat')}</small>
           </span>
         </label>
       </div>
-      {isPhone() && <span className="st-label">{t('outlook.calendarsTitle')}</span>}
-      {outlook.calendars === null ? (
-        <p className="st-note ol-cals-wait">{t('outlook.reading')}</p>
-      ) : (
-        <div className={`st-list ol-cals${choice.events ? '' : ' off'}`}>
-          {outlook.calendars.map((calendar) => {
-            const on = isShown(choice, calendar);
-            return (
-              <label key={calendar.id} className="st-li ol-cal">
-                <i className="ol-dot" style={{ background: calendar.color }} />
+      {connected.map((account) => {
+        const { name, email } = account.account!;
+        const signIn = account.status === 'signin';
+        // An account named by its address, as Google's often is, does not say it twice.
+        const where = name === email ? t(isDesktop ? 'calendars.onThisComputer' : 'calendars.inThisBrowser') : t(isDesktop ? 'outlook.onComputer' : 'outlook.inBrowser', { email });
+        const sub = signIn ? t('outlook.signedOut', { email }) : isPhone() ? (name === email ? null : email) : where;
+        return (
+          <Fragment key={account.id}>
+            <span className="st-label">{t(`${account.id}.title`)}</span>
+            <div className="st-list ol-account">
+              <div className="st-li">
+                <Icon name="calendar" />
                 <span className="nm">
-                  <b>{calendar.name}</b>
-                  {!calendar.own && <small>{t('outlook.sharedWithYou')}</small>}
+                  <b>{name}</b>
+                  {sub && <small className={signIn ? 'st-bad' : undefined}>{sub}</small>}
                 </span>
-                <input type="checkbox" checked={on} disabled={!choice.events} onChange={(event) => show(calendar.id, event.target.checked)} />
-                {isPhone() && on && <Icon name="check" />}
-              </label>
-            );
-          })}
-        </div>
-      )}
-      {isPhone() && (
-        <div className="st-list ol-disconnect">
-          <button type="button" className="st-li" onClick={() => void disconnectOutlook()}>
-            {t('outlook.disconnect')}
-          </button>
-        </div>
-      )}
+                {signIn && (
+                  <button type="button" className="st-btn go" disabled={account.connecting} onClick={() => void store(account).connect()}>
+                    {t('outlook.signIn')}
+                  </button>
+                )}
+                {!isPhone() && (
+                  <button type="button" className="st-btn" onClick={() => void store(account).disconnect()}>
+                    {t('outlook.disconnect')}
+                  </button>
+                )}
+              </div>
+            </div>
+            {account.calendars === null ? (
+              <p className="st-note ol-cals-wait">{t('outlook.reading')}</p>
+            ) : (
+              <div className={`st-list ol-cals${choice.events ? '' : ' off'}`}>
+                {account.calendars.map((calendar) => {
+                  const on = isShown(choice, calendar);
+                  return (
+                    <label key={calendar.id} className="st-li ol-cal">
+                      <i className="ol-dot" style={{ background: calendar.color }} />
+                      <span className="nm">
+                        <b>{calendar.name}</b>
+                        {!calendar.own && <small>{t('outlook.sharedWithYou')}</small>}
+                      </span>
+                      <input type="checkbox" checked={on} disabled={!choice.events} onChange={(event) => show(calendar.id, event.target.checked)} />
+                      {isPhone() && on && <Icon name="check" />}
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+            {isPhone() && (
+              <div className="st-list ol-disconnect">
+                <button type="button" className="st-li" onClick={() => void store(account).disconnect()}>
+                  {t('outlook.disconnect')}
+                </button>
+              </div>
+            )}
+          </Fragment>
+        );
+      })}
+      {unconnected}
       <p className="st-note">{t('outlook.eachDevice')}</p>
     </>
   );

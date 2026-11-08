@@ -30,7 +30,7 @@ import type { TaskPlaceChoice } from './dialogs';
 import { StillOpening } from './Loading';
 import { Icon } from './Icon';
 import { dateWords, DatePop, TaskComposer } from './TaskComposer';
-import { useOutlookEvents } from './outlook';
+import { useCalendarEvents } from './calendars';
 import { AllDayEvents, EventBox, eventBoxes, EventChip, openEventBox } from './OutlookEvents';
 import {
   CardRow,
@@ -253,7 +253,7 @@ function UpcomingList({ lists, boards, today, actions, places, onAdd, onStatus, 
   // A program's days that went by with nothing written for them stay in Overdue (design/gym.md 4.3).
   const lateRecords = actions.dueRecords().filter((d) => d.late);
   // Outlook's events, as far ahead as the records go: a day with only events is not a free one.
-  const events = useOutlookEvents(today, addDays(today, 62));
+  const events = useCalendarEvents(today, addDays(today, 62));
   const eventDays = new Set(events.flatMap((event) => (event.lastDay < today ? [] : [event.day < today ? today : event.day])));
   const busy = [...[...tasksOn, ...cards.later, ...subtasks.later, ...recordsOn].filter(([, on]) => on.length > 0).map(([day]) => day), ...eventDays];
   const runs = dayRuns([...new Set(busy)], today);
@@ -411,7 +411,7 @@ function UpcomingCalendar({ lists, boards, today, actions, places, onAdd, onStat
 
   const { tasks, cards, subtasks, records, byDay } = datedByDay(lists, boards, today, actions.dueSubtasks(), actions.dueRecords());
   // Outlook's events of the days shown, after each day's own (design/outlook-calendar.md 2.4).
-  const events = useOutlookEvents(days[0]!, days[days.length - 1]!);
+  const events = useCalendarEvents(days[0]!, days[days.length - 1]!);
 
   // As many lines as a day has room for, however tall the window is.
   useLayoutEffect(() => {
@@ -653,7 +653,7 @@ function UpcomingWeek({ lists, boards, today, actions, places, onAdd, onStatus, 
   const [dropOn, setDropOn] = useState<string | null>(null);
   const { tasks, cards, subtasks, records, byDay } = datedByDay(lists, boards, today, actions.dueSubtasks(), actions.dueRecords());
   // Outlook's events: those with a time hollow on the hours, the rest in the all-day row.
-  const events = useOutlookEvents(days[0]!, days.at(-1)!);
+  const events = useCalendarEvents(days[0]!, days.at(-1)!);
   const one = days.length === 1;
   // A day shows all it has; a week three a day, and +N more.
   const fit = one ? Number.MAX_SAFE_INTEGER : 3;

@@ -163,6 +163,7 @@ const TOKEN_ADDRESSES: &[&str] = &[
     "https://login.microsoftonline.com/common/oauth2/v2.0/token",
     "https://login.microsoftonline.com/consumers/oauth2/v2.0/token",
     "https://login.microsoftonline.com/organizations/oauth2/v2.0/token",
+    "https://oauth2.googleapis.com/token",
 ];
 
 #[derive(Serialize)]

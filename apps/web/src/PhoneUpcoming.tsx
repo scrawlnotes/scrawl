@@ -8,7 +8,7 @@ import { Empty } from './sheets';
 import { dateWords } from './TaskComposer';
 import { CardRow, type Dated, type DueSubtask, placeOf, RecordRow, recordKey, recordsByDay, splitDueCards, splitDueSubtasks, SubtaskRow, subtaskRefOf, type TaskActions, TaskItem, TaskPage } from './Tasks';
 import { datedByDay, dayHeading, type Entry, entryKey, EntryRow, freeWords, monthWords } from './Upcoming';
-import { openOutlookEvent, outlookColor, useOutlookEvents } from './outlook';
+import { calendarColor, openCalendarEvent, useCalendarEvents } from './calendars';
 import { EventBox, eventBoxes, openEventBox } from './OutlookEvents';
 
 // Upcoming on a phone, after the Phone views of the Upcoming and Calendar mockups, in three views
@@ -44,7 +44,7 @@ function PhoneDay({ lists, boards, today, actions, day, onDay, still = null }: P
   const [target, setTarget] = useState<string | null>(null);
   // Outlook's events of the week shown: hollow on the hours, all day above them, a dot under their day.
   const week = weekDays(day);
-  const events = useOutlookEvents(week[0]!, week.at(-1)!);
+  const events = useCalendarEvents(week[0]!, week.at(-1)!);
   // What has a time is on the hours; the rest above them.
   const timed = records.filter((due) => minutesOfDay(due.start) !== null && due.start.slice(0, 10) === day);
   const entries = (byDay.get(day) ?? []).filter((entry) => !('calendar' in entry && timed.includes(entry.calendar)));
@@ -113,7 +113,7 @@ function PhoneDay({ lists, boards, today, actions, day, onDay, still = null }: P
         <div className="mb-allday">
           {entries.map(chip)}
           {allDay.map((event) => (
-            <button key={`${event.calendar}|${event.id}`} type="button" className="mb-chip ol" style={{ '--cc': outlookColor(event) } as CSSProperties} onClick={() => openOutlookEvent(event)}>
+            <button key={`${event.calendar}|${event.id}`} type="button" className="mb-chip ol" style={{ '--cc': calendarColor(event) } as CSSProperties} onClick={() => openCalendarEvent(event)}>
               <i />
               <span>{event.title || t('outlook.noTitle')}</span>
             </button>
@@ -135,7 +135,7 @@ function PhoneDays({ lists, boards, today, actions, still = null }: Props) {
   subtasks.later.set(today, subtasks.today);
   const recordsOn = recordsByDay(actions.dueRecords(), today);
   // Outlook's events, as far ahead as the records go: a day with only events is not a free one.
-  const events = useOutlookEvents(today, addDays(today, 62));
+  const events = useCalendarEvents(today, addDays(today, 62));
   const eventDays = events.flatMap((event) => (event.lastDay < today ? [] : [event.day < today ? today : event.day]));
   const busy = [...[...tasksOn, ...cards.later, ...subtasks.later, ...recordsOn].filter(([, on]) => on.length > 0).map(([day]) => day), ...eventDays];
   const runs = dayRuns([...new Set(busy)], today);
@@ -208,7 +208,7 @@ function PhoneMonth({ lists, boards, today, actions, day, onDay, still = null }:
   const entries = byDay.get(day) ?? [];
   // Outlook's events: a dot under their days, and the chosen day's at the head of its list.
   const shown = monthDays(month);
-  const events = useOutlookEvents(shown[0]! < day ? shown[0]! : day, shown.at(-1)! > day ? shown.at(-1)! : day);
+  const events = useCalendarEvents(shown[0]! < day ? shown[0]! : day, shown.at(-1)! > day ? shown.at(-1)! : day);
   const dayEvents = eventsOn(events, day);
   const shift = (by: number) => {
     const [y, m] = month.split('-').map(Number) as [number, number];

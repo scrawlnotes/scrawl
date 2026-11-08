@@ -224,7 +224,7 @@ import { PhoneCreate } from './PhoneCreate';
 import { PeopleSheet } from './PhoneSpaces';
 import { type ButtonRun, type FileRow, type RuleEvent, Session, type SpaceView } from './session';
 import { RemoveSpaceDialog, type Section as SettingsSection, Settings, type SettingsValues } from './Settings';
-import { setOutlookChoice } from './outlook';
+import { setCalendarChoice } from './calendars';
 import { Help } from './Help';
 import { placeOf, StartPage } from './StartPage';
 import { type SpaceSyncView, SyncService } from './sync';
@@ -500,7 +500,7 @@ export function App() {
     session.getSnapshot,
   );
   // Which of Outlook's calendars show follows the personal space's choice, on every device.
-  useEffect(() => setOutlookChoice(calendarChoice), [calendarChoice]);
+  useEffect(() => setCalendarChoice(calendarChoice), [calendarChoice]);
   // A record open as a note is named in its tab by what the record is called; its file is named by its id.
   // The onboarding note is not in the tree, which names the notes.
   const tabTitles = useMemo(() => {

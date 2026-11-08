@@ -12,6 +12,7 @@ export * from './csv';
 export * from './day';
 export * from './favorites';
 export * from './outlook';
+export * from './google-calendar';
 export * from './fields';
 export * from './filters';
 export * from './files';

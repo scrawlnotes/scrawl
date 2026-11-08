@@ -23,9 +23,9 @@ The **Today** tab gathers what is due today or late from every list, board and c
 
 - Late ones are under **Overdue**. **Reschedule** gives them all a new day at once.
 - What you finished today is at the end, and opens again with a tap on its circle.
-- With Outlook connected in Settings › Calendars, the day's meetings are at its head; a tap opens one in Outlook.
+- With Google Calendar or Outlook connected in Settings › Calendars, the day's meetings are at its head; a tap opens one where it is.
 
-**Upcoming**, beside Today, shows what is coming, day by day, as a list or a calendar, Outlook's meetings with it.
+**Upcoming**, beside Today, shows what is coming, day by day, as a list or a calendar, your Google and Outlook meetings with it.
 
 ## Labels
 

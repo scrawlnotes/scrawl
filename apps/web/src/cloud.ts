@@ -141,7 +141,11 @@ export const postFromPage: TokenPost = async (form) => {
 
 /** Asks for tokens; a key that is refused means signing in again. */
 export async function tokenRequest(post: TokenPost, form: Record<string, string>): Promise<TokenAnswer & { access_token: string }> {
-  const answer = await post({ client_id: clientId(), scope: scopesFor(), ...form });
+  return readTokenAnswer(await post({ client_id: clientId(), scope: scopesFor(), ...form }));
+}
+
+/** The tokens in an answer of a token address, Microsoft's or Google's; a key that is refused means signing in again. */
+export function readTokenAnswer(answer: { status: number; body: string }): TokenAnswer & { access_token: string } {
   let body: TokenAnswer = {};
   try {
     body = JSON.parse(answer.body) as TokenAnswer;

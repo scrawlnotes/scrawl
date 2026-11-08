@@ -7,17 +7,19 @@ import { addDays } from './tasks';
 // for some days as Outlook has them, and which calendars the person shows. Nothing of Outlook is
 // kept; what is kept is the person's choice, in the personal space, for every device.
 
-/** One of the account's calendars; `own` is false for one someone else shared. */
-export interface OutlookCalendar {
+/** One of an account's calendars, Outlook's or Google's; `own` is false for one someone else shared. */
+export interface AccountCalendar {
   id: string;
   name: string;
-  /** `#rrggbb`, as Outlook draws it. */
+  /** `#rrggbb`, as the account draws it. */
   color: string;
   own: boolean;
+  /** Whether it shows till chosen otherwise, where the account says (Google's ticked ones); else when it is `own`. */
+  shown?: boolean;
 }
 
 /** An event in this device's clock. */
-export interface OutlookEvent {
+export interface CalendarEvent {
   id: string;
   calendar: string;
   /** Its subject; empty when it has none. */
@@ -33,7 +35,7 @@ export interface OutlookEvent {
   link: string;
 }
 
-export interface OutlookAccount {
+export interface CalendarAccount {
   name: string;
   email: string;
 }
@@ -87,7 +89,7 @@ export function clockFromUtc(utc: string, timeZone?: string): string {
 }
 
 /** An event as Graph gives it, in UTC, as Scrawl shows it; null for one cancelled or without its times. */
-export function eventFrom(raw: GraphEvent, calendar: string, timeZone?: string): OutlookEvent | null {
+export function eventFrom(raw: GraphEvent, calendar: string, timeZone?: string): CalendarEvent | null {
   const from = raw.start?.dateTime;
   const to = raw.end?.dateTime;
   if (raw.isCancelled || !from || !to) return null;
@@ -109,14 +111,14 @@ export function eventFrom(raw: GraphEvent, calendar: string, timeZone?: string):
  * The events on `day`: those all day, or going on from another day, first, then by when they
  * start. On a day after its first, one with a time is shown as all day.
  */
-export function eventsOn(events: readonly OutlookEvent[], day: string): OutlookEvent[] {
+export function eventsOn(events: readonly CalendarEvent[], day: string): CalendarEvent[] {
   const on = events.filter((event) => event.day <= day && event.lastDay >= day);
-  const timed = (event: OutlookEvent) => (event.start && event.day === day ? event.start : '');
+  const timed = (event: CalendarEvent) => (event.start && event.day === day ? event.start : '');
   return on.sort((a, b) => timed(a).localeCompare(timed(b)) || a.title.localeCompare(b.title));
 }
 
 /** Whether an event shows with its time on `day`, rather than as all day. */
-export const timedOn = (event: OutlookEvent, day: string): boolean => !!event.start && event.day === day;
+export const timedOn = (event: CalendarEvent, day: string): boolean => !!event.start && event.day === day;
 
 /** Graph's address of a day's start in this device's clock, as UTC. */
 const startOf = (day: string) => new Date(`${day}T00:00:00`).toISOString();
@@ -129,15 +131,15 @@ export class OutlookReader {
     this.graph = new Graph(options);
   }
 
-  async me(): Promise<OutlookAccount> {
+  async me(): Promise<CalendarAccount> {
     const me = await this.graph.json<{ displayName?: string; mail?: string | null; userPrincipalName?: string }>(`${GRAPH}/me?$select=displayName,mail,userPrincipalName`);
     const email = me.mail || me.userPrincipalName || '';
     return { name: me.displayName || email, email };
   }
 
   /** The account's calendars; one is its own when its owner is the account. */
-  async calendars(account: OutlookAccount): Promise<OutlookCalendar[]> {
-    const out: OutlookCalendar[] = [];
+  async calendars(account: CalendarAccount): Promise<AccountCalendar[]> {
+    const out: AccountCalendar[] = [];
     let url: string | undefined = `${GRAPH}/me/calendars?$select=id,name,hexColor,color,owner&$top=100`;
     while (url) {
       const page: { value?: GraphCalendar[]; '@odata.nextLink'?: string } = await this.graph.json(url);
@@ -152,8 +154,8 @@ export class OutlookReader {
   }
 
   /** The events of `calendar` from `from` to `to`, both days included. */
-  async events(calendar: string, from: string, to: string): Promise<OutlookEvent[]> {
-    const out: OutlookEvent[] = [];
+  async events(calendar: string, from: string, to: string): Promise<CalendarEvent[]> {
+    const out: CalendarEvent[] = [];
     const query = new URLSearchParams({
       startDateTime: startOf(from),
       endDateTime: startOf(addDays(to, 1)),
@@ -215,8 +217,8 @@ export async function loadCalendarChoice(fs: VaultFs): Promise<CalendarChoice> {
 
 export const saveCalendarChoice = (fs: VaultFs, choice: CalendarChoice) => fs.writeText(CALENDARS_FILE, serializeCalendarChoice(choice));
 
-/** Whether a calendar's events show: as chosen, else when it is the account's own. */
-export const isShown = (choice: CalendarChoice, calendar: Pick<OutlookCalendar, 'id' | 'own'>) => choice.show[calendar.id] ?? calendar.own;
+/** Whether a calendar's events show: as chosen, else as the account shows it, else when it is the account's own. */
+export const isShown = (choice: CalendarChoice, calendar: Pick<AccountCalendar, 'id' | 'own' | 'shown'>) => choice.show[calendar.id] ?? calendar.shown ?? calendar.own;
 
 /** The choice from both sides of a sync, calendar by calendar. */
 export function mergeCalendarChoice(base: string, local: string, remote: string): string {

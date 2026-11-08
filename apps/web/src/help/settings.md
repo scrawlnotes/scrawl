@@ -24,7 +24,7 @@ With a Scrawl server: whether messages, mentions and the rest show as notificati
 
 ## Calendars
 
-**Connect Outlook Calendar** signs in with a work or a personal Microsoft account, apart from OneDrive. Your Outlook meetings then show in Today, Upcoming and the calendar; a click opens one in Outlook, where it is changed. **Show events in Scrawl** turns them all off, and the box beside each calendar picks which show: yours start on, one shared with you off. What you pick is the same on every device; each device connects on its own.
+**Connect Google Calendar** signs in with a Google account, and **Connect Outlook Calendar** with a work or a personal Microsoft account, apart from OneDrive; you can connect one of each. Their meetings then show together in Today, Upcoming and the calendar; a click opens one in Google Calendar or Outlook, where it is changed. **Show events in Scrawl** turns them all off, and the box beside each calendar picks which show: Google's start as you ticked them in Google Calendar; in Outlook yours start on, one shared with you off. What you pick is the same on every device; each device connects on its own.
 
 ## Spaces
 

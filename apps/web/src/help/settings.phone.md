@@ -20,7 +20,7 @@ With a Scrawl server: whether messages, mentions and the rest show on this phone
 
 ## Calendars
 
-**Connect Outlook Calendar** signs in with a work or a personal Microsoft account, apart from OneDrive. Your Outlook meetings then show in Today and Upcoming; a tap opens one in Outlook, where it is changed. **Show events in Scrawl** turns them all off, and each calendar is ticked to show: yours start ticked, one shared with you not. What you pick is the same on every device; each device connects on its own.
+**Connect Google Calendar** signs in with a Google account, and **Connect Outlook Calendar** with a work or a personal Microsoft account, apart from OneDrive; you can connect one of each. Their meetings then show together in Today and Upcoming; a tap opens one in Google Calendar or Outlook, where it is changed. **Show events in Scrawl** turns them all off, and each calendar is ticked to show: Google's as you ticked them in Google Calendar; in Outlook yours ticked, one shared with you not. What you pick is the same on every device; each device connects on its own.
 
 ## Spaces
 

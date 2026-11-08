@@ -89,7 +89,7 @@ import { TaskActivity } from './Activity';
 import { AssigneeChip, NameOf, PersonPicker, type SpacePeople, WhoOf } from './People';
 import { Empty, liftUntilTouch, suppressClick } from './sheets';
 import { holdToDrag, pressOnField } from './touchDrag';
-import { useOutlook, useOutlookDay } from './outlook';
+import { useCalendarAccounts, useCalendarDay } from './calendars';
 import { EventBox } from './OutlookEvents';
 
 /** A task in its list, or a card on its board: something with a day to move. */
@@ -2411,10 +2411,11 @@ export function TodayView({ lists, boards, today, actions, bare, adding, still =
     );
   // The records of today, those with no time first, then by the hour.
   const records = recordsByDay(actions.dueRecords(), today).get(today) ?? [];
-  // Outlook's events of today, at the head of Today's own (design/outlook-calendar.md 2.4).
-  const outlook = useOutlook();
-  const todayEvents = useOutlookDay(today);
-  const outlookToday = todayEvents.length > 0 || (outlook.status === 'signin' && outlook.choice.events) ? <EventBox day={today} today={today} warn /> : undefined;
+  // Outlook's and Google's events of today, at the head of Today's own (design/outlook-calendar.md 2.4).
+  const calendarAccounts = useCalendarAccounts();
+  const todayEvents = useCalendarDay(today);
+  const signInAgain = calendarAccounts.some((account) => account.status === 'signin' && account.choice.events);
+  const outlookToday = todayEvents.length > 0 || signInAgain ? <EventBox day={today} today={today} warn /> : undefined;
   // The days a program came on that went by with nothing written for them (design/gym.md 4.3).
   const lateRecords = actions.dueRecords().filter((d) => d.late);
   const cards = splitDueCards(boards, today);
