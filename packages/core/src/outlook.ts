@@ -179,6 +179,18 @@ export class OutlookReader {
 /** Where an Outlook event keeps what Scrawl wrote into it (design/outlook-calendar.md 4.3). */
 const BASE_PROPERTY = 'String {5b1f6c3e-8a2d-4e7b-9f40-3c6d1a8e2b57} Name ScrawlBase';
 
+const SYNCED_SELECT = 'id,subject,start,end,isAllDay,isCancelled';
+const SYNCED_EXPAND = `singleValueExtendedProperties($filter=id eq '${BASE_PROPERTY}')`;
+type OutlookSyncedEvent = GraphEvent & { singleValueExtendedProperties?: { value?: string }[] };
+
+/** An event of the Scrawl calendar as Outlook has it, its times asked in UTC, in the device's clock. */
+function syncedOf(raw: OutlookSyncedEvent): SyncedEvent {
+  const base = readBase(raw.singleValueExtendedProperties?.[0]?.value);
+  const event = eventFrom(raw, '');
+  if (!event) return { eventId: raw.id, base, title: raw.subject ?? '', day: (raw.start?.dateTime ?? '').slice(0, 10) };
+  return { eventId: raw.id, base, title: event.title, day: event.day, ...(event.start && { start: event.start }), ...(event.end && { end: event.end }) };
+}
+
 /** Writing Scrawl's work to its "Scrawl" calendar in Outlook, in `timeZone`, the device's. */
 export class OutlookWriter implements CalendarWriter {
   private readonly graph: Graph;
@@ -221,22 +233,22 @@ export class OutlookWriter implements CalendarWriter {
     const query = new URLSearchParams({
       startDateTime: new Date(`${from}T00:00:00`).toISOString(),
       endDateTime: new Date(`${addDays(to, 1)}T00:00:00`).toISOString(),
-      $select: 'id,start,isAllDay',
-      $expand: `singleValueExtendedProperties($filter=id eq '${BASE_PROPERTY}')`,
+      $select: SYNCED_SELECT,
+      $expand: SYNCED_EXPAND,
       $top: '200',
     });
     let url: string | undefined = `${GRAPH}/me/calendars/${encodeURIComponent(calendar)}/calendarView?${query}`;
     while (url) {
-      const page: { value?: (GraphEvent & { singleValueExtendedProperties?: { value?: string }[] })[]; '@odata.nextLink'?: string } = await this.graph.json(url, {
-        headers: { Prefer: 'outlook.timezone="UTC"' },
-      });
-      for (const raw of page.value ?? []) {
-        const at = raw.start?.dateTime ?? '';
-        out.push({ eventId: raw.id, base: readBase(raw.singleValueExtendedProperties?.[0]?.value), day: raw.isAllDay ? at.slice(0, 10) : clockFromUtc(at).slice(0, 10) });
-      }
+      const page: { value?: OutlookSyncedEvent[]; '@odata.nextLink'?: string } = await this.graph.json(url, { headers: { Prefer: 'outlook.timezone="UTC"' } });
+      for (const raw of page.value ?? []) out.push(syncedOf(raw));
       url = page['@odata.nextLink'];
     }
     return out;
+  }
+
+  async find(_calendar: string, eventId: string): Promise<SyncedEvent | null> {
+    const response = await this.send('GET', `${GRAPH}/me/events/${encodeURIComponent(eventId)}?${new URLSearchParams({ $select: SYNCED_SELECT, $expand: SYNCED_EXPAND })}`, undefined, [404]);
+    return response.ok ? syncedOf((await response.json()) as OutlookSyncedEvent) : null;
   }
 
   private body(wanted: WantedEvent) {

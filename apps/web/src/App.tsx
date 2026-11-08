@@ -225,7 +225,8 @@ import { PeopleSheet } from './PhoneSpaces';
 import { type ButtonRun, type FileRow, type RuleEvent, Session, type SpaceView } from './session';
 import { RemoveSpaceDialog, type Section as SettingsSection, Settings, type SettingsValues } from './Settings';
 import { setCalendarChoice } from './calendars';
-import { calendarTargetName, setCalendarWork, setSyncChoice } from './calendarSync';
+import { writeBack } from './calendarBack';
+import { calendarTargetName, forceScrawl, setCalendarBack, setCalendarWork, setSyncChoice } from './calendarSync';
 import { calendarWork } from './calendarWork';
 import { Help } from './Help';
 import { placeOf, StartPage } from './StartPage';
@@ -2140,6 +2141,21 @@ export function App() {
     const outside = shown.some((c) => !appFolders.some((app) => c.dir === app || c.dir.startsWith(`${app}/`)));
     setCalendarWork(wanted, { apps: appFolders.map((path) => ({ path, name: appFiles[path]?.name ?? path.split('/').pop()! })), collections: outside });
   }, [ready, collections, boards, today, me, myTasks, myBoards, appFolders, appFiles, spaces, calendarChoice, session]);
+  // What the calendar changed comes back (design/outlook-calendar.md 2.3): written as the person, said
+  // once with Undo; undone, Scrawl's goes over the calendar's at the next turn.
+  const backNow = useRef({ tasks, boards, collections, calendarChoice });
+  backNow.current = { tasks, boards, collections, calendarChoice };
+  useEffect(() => {
+    setCalendarBack(async (changes, gone) => {
+      const result = await writeBack(session, backNow.current, changes, gone);
+      if (result.count > 0) {
+        const ids = [...changes.map((change) => change.id), ...gone];
+        const where = calendarTargetName(backNow.current.calendarChoice) ?? '';
+        setShown({ text: t('calendars.cameBack', { count: result.count, where }), undo: () => void result.undo().then(() => forceScrawl(ids)), toast: true });
+      }
+      return { skipped: result.skipped };
+    });
+  }, [session]);
   const appIcons = Object.fromEntries(
     appFolders.flatMap((path) => {
       const file = appFiles[path];

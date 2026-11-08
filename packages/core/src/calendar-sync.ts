@@ -30,19 +30,35 @@ export interface EventBase {
   done: boolean;
 }
 
-/** An event of the "Scrawl" calendar, with its base; none for one someone made there by hand. */
+/** An event of the "Scrawl" calendar as the calendar has it now, with its base; none for one someone made there by hand. */
 export interface SyncedEvent {
   /** The calendar's own id of the event. */
   eventId: string;
   base: EventBase | null;
-  /** The day it is on now, as the calendar has it. */
+  title: string;
   day: string;
+  /** With a time, its start and end in the device's clock. */
+  start?: string;
+  end?: string;
+}
+
+/** A change made in the calendar to a piece of work, to be written in Scrawl; `start: null` takes its time off. */
+export interface BackChange {
+  id: string;
+  title?: string;
+  day?: string;
+  start?: string | null;
+  end?: string | null;
 }
 
 export interface CalendarPlan {
   create: WantedEvent[];
   update: { eventId: string; wanted: WantedEvent }[];
   remove: SyncedEvent[];
+  /** Changes made in the calendar to work that did not change in Scrawl. */
+  back: BackChange[];
+  /** Work whose event this device saw and is not in the range now: removed, or moved out of it; asked of the calendar. */
+  missing: { id: string; eventId: string }[];
 }
 
 /** The days the calendar is kept to: from yesterday, as far as Upcoming looks. */
@@ -64,16 +80,41 @@ export const baseOf = (wanted: WantedEvent): EventBase => ({
 const same = (base: EventBase, wanted: WantedEvent) =>
   base.title === wanted.title && base.day === wanted.day && (base.start ?? '') === (wanted.start ?? '') && (base.end ?? '') === (wanted.end ?? '') && base.done === wanted.done;
 
+/** A repeating record's day (its id ends in `@day`): one changed in the calendar does not come back (2.3). */
+const oneDayOf = (id: string) => /#[^#]*@\d{4}-\d{2}-\d{2}$/.test(id);
+
+/** The title as written, without the ✓ Scrawl puts before a finished one. */
+const titleIn = (event: Pick<SyncedEvent, 'title'>) => event.title.replace(/^✓\s*/, '').trim();
+
+/**
+ * What the calendar changed of `base` (2.3): its title, its day, its time. A task or a card
+ * (no time in Scrawl) takes only the day; null when nothing that comes back changed.
+ */
+export function changeOf(base: EventBase, event: Omit<SyncedEvent, 'eventId' | 'base'>): BackChange | null {
+  const out: BackChange = { id: base.id };
+  const title = titleIn(event);
+  if (title && title !== base.title) out.title = title;
+  if (event.day !== base.day) out.day = event.day;
+  const timed = !!base.start;
+  if (timed && !event.start) out.start = null;
+  else if (timed && event.start && (event.start !== base.start || (event.end ?? '') !== (base.end ?? ''))) {
+    out.start = event.start;
+    out.end = event.end ?? null;
+  }
+  return Object.keys(out).length > 1 ? out : null;
+}
+
 /**
  * What to do so the calendar has `wanted`, given its `events` in the range and the work this
- * device saw there before (`seen`). Scrawl's change goes over the calendar's. Work whose event
- * is gone though this device saw it was removed in the calendar: it is not made again (bringing
- * that back is slice 3's). Events Scrawl did not write, and those before the range, are left.
+ * device saw there before (`seen`, the work's id to its event's). Scrawl's change goes over the
+ * calendar's; one made only in the calendar comes back (`back`), but for a repeating record's
+ * day, whose event is written over again. Seen work whose event is not in the range is asked
+ * after (`missing`). Events Scrawl did not write, and those before the range, are left.
  */
-export function planCalendar(wanted: readonly WantedEvent[], events: readonly SyncedEvent[], seen: ReadonlySet<string>, today: string): CalendarPlan {
+export function planCalendar(wanted: readonly WantedEvent[], events: readonly SyncedEvent[], seen: ReadonlyMap<string, string>, today: string): CalendarPlan {
   const { from } = syncRange(today);
   const byWork = new Map<string, SyncedEvent>();
-  const plan: CalendarPlan = { create: [], update: [], remove: [] };
+  const plan: CalendarPlan = { create: [], update: [], remove: [], back: [], missing: [] };
   for (const event of events) {
     if (!event.base) continue;
     // Two events of one piece of work (a retry made twice): the second goes.
@@ -84,8 +125,15 @@ export function planCalendar(wanted: readonly WantedEvent[], events: readonly Sy
   for (const each of wanted) {
     const event = byWork.get(each.id);
     if (!event) {
-      if (!seen.has(each.id)) plan.create.push(each);
+      const was = seen.get(each.id);
+      if (was) plan.missing.push({ id: each.id, eventId: was });
+      else plan.create.push(each);
     } else if (!same(event.base!, each)) plan.update.push({ eventId: event.eventId, wanted: each });
+    else {
+      const change = changeOf(event.base!, event);
+      if (change && oneDayOf(each.id)) plan.update.push({ eventId: event.eventId, wanted: each });
+      else if (change) plan.back.push(change);
+    }
   }
   for (const [id, event] of byWork) if (!want.has(id) && event.day >= from) plan.remove.push(event);
   return plan;
@@ -100,6 +148,8 @@ export interface CalendarWriter {
   removeCalendar(calendar: string): Promise<void>;
   /** The calendar's events from `from` to `to`, both days included, with their bases. */
   synced(calendar: string, from: string, to: string): Promise<SyncedEvent[]>;
+  /** One event wherever it is now; null for one removed. */
+  find(calendar: string, eventId: string): Promise<SyncedEvent | null>;
   create(calendar: string, wanted: WantedEvent): Promise<void>;
   update(calendar: string, eventId: string, wanted: WantedEvent): Promise<void>;
   remove(calendar: string, eventId: string): Promise<void>;
@@ -125,12 +175,15 @@ export function endOf(wanted: Pick<WantedEvent, 'start' | 'end'>): string {
   return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}T${pad(at.getHours())}:${pad(at.getMinutes())}`;
 }
 
-/** The ids this device has seen in the calendar after a turn: those there, and those just made. */
-export function seenAfter(plan: CalendarPlan, events: readonly SyncedEvent[], seen: ReadonlySet<string>): Set<string> {
-  const out = new Set(seen);
-  for (const event of events) if (event.base) out.add(event.base.id);
-  for (const each of plan.create) out.add(each.id);
+/**
+ * The work this device has seen in the calendar after a turn, by its id to its event's: what is
+ * there, less what was removed, either side. An event just made is learned at the next turn.
+ */
+export function seenAfter(plan: CalendarPlan, events: readonly SyncedEvent[], seen: ReadonlyMap<string, string>, gone: readonly string[] = []): Map<string, string> {
+  const out = new Map(seen);
+  for (const event of events) if (event.base) out.set(event.base.id, event.eventId);
   for (const event of plan.remove) if (event.base) out.delete(event.base.id);
+  for (const id of gone) out.delete(id);
   return out;
 }
 

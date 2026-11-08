@@ -3339,6 +3339,7 @@ export const en = {
   'calendars.moveTitle': 'Sync tasks to {where} instead?',
   'calendars.moveWhat': { one: 'The Scrawl calendar and its event will be removed from {from}, and made again in {where}.', other: 'The Scrawl calendar and its {count} events will be removed from {from}, and made again in {where}.' },
   'calendars.move': 'Move',
+  'calendars.cameBack': { one: 'A change came from {where}.', other: '{count} changes came from {where}.' },
   'calendars.newAppSync': 'Sync to connected calendar',
   'calendars.newAppSyncWhat': 'Its appointments and days go to the Scrawl calendar in {where}, beside your tasks.',
   'calendars.onThisComputer': 'On this computer',
@@ -3350,5 +3351,4 @@ export const en = {
   'google.open': 'Open in Google Calendar',
   'google.browserDone': 'Signed in to Google. You can go back to Scrawl.',
   'google.noKey': 'Google gave no lasting sign-in. Connect again.',
-  'google.notOnDesktop': 'Google Calendar is not set up in this desktop app yet. Connect it in the web app.',
 } as const;

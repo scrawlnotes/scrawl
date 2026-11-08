@@ -1,5 +1,4 @@
 import { addDays, type CalendarEvent, dayIn, GoogleReader, GoogleWriter, RemoteOffline } from '@scrawlnotes/core';
-import { t } from '@scrawlnotes/i18n';
 import { invoke, readTokenAnswer, type TokenPost } from './cloud';
 import { calendarAccount, type CalendarSource } from './calendarAccount';
 import { isDesktop } from './storage';
@@ -20,8 +19,7 @@ const WORKER = 'https://app.scrawlnotes.com/google';
 const WEB_CLIENT = '498960667148-tbn2glc3lolfqq8rcbf986bp8qqi0f4m.apps.googleusercontent.com';
 /** The desktop registration; Google gives an installed app's secret to everyone who has the app, and does not count it as secret. */
 const DESKTOP_CLIENT = '498960667148-mr6e8qpi7uarn0efrl90oklbcgkr0rij.apps.googleusercontent.com';
-// shortcut: the desktop registration's secret is not in yet; till it is, connecting on the desktop says so.
-const DESKTOP_SECRET = '';
+const DESKTOP_SECRET = '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';
 
 /** On the desktop the shell posts to Google's token address, with the desktop registration. */
 const fromShell: TokenPost = async (form) => {
@@ -48,7 +46,6 @@ const store = calendarAccount({
   id: 'google',
   secret: 'google-calendar',
   authorizeUrl: (redirect, state, challenge, extra) => {
-    if (isDesktop && !DESKTOP_SECRET) throw new Error(t('google.notOnDesktop'));
     return `${AUTHORIZE}?${new URLSearchParams({
       client_id: isDesktop ? DESKTOP_CLIENT : WEB_CLIENT,
       response_type: 'code',

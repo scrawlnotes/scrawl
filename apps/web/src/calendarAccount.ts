@@ -2,6 +2,9 @@ import {
   type AccountCalendar,
   addDays,
   baseOf,
+  eventTitle,
+  type SyncedEvent,
+  type WantedEvent,
   type CalendarAccount,
   type CalendarChoice,
   type CalendarEvent,
@@ -453,7 +456,15 @@ export function calendarAccount(p: CalendarProvider) {
 
 /** A "Scrawl" calendar in memory, while developing in the browser. */
 function fakeWriter(): CalendarWriter {
-  const events = new Map<string, { eventId: string; base: ReturnType<typeof baseOf>; day: string }>();
+  const events = new Map<string, SyncedEvent>();
+  const kept = (eventId: string, wanted: WantedEvent): SyncedEvent => ({
+    eventId,
+    base: baseOf(wanted),
+    title: eventTitle(wanted),
+    day: wanted.day,
+    ...(wanted.start && { start: wanted.start }),
+    ...(wanted.end && { end: wanted.end }),
+  });
   let made = 0;
   return {
     async makeCalendar() {
@@ -468,11 +479,14 @@ function fakeWriter(): CalendarWriter {
     async synced(_calendar, from, to) {
       return [...events.values()].filter((each) => each.day >= from && each.day <= to);
     },
+    async find(_calendar, eventId) {
+      return events.get(eventId) ?? null;
+    },
     async create(_calendar, wanted) {
-      events.set(wanted.id, { eventId: wanted.id, base: baseOf(wanted), day: wanted.day });
+      events.set(wanted.id, kept(wanted.id, wanted));
     },
     async update(_calendar, eventId, wanted) {
-      events.set(eventId, { eventId, base: baseOf(wanted), day: wanted.day });
+      events.set(eventId, kept(eventId, wanted));
     },
     async remove(_calendar, eventId) {
       events.delete(eventId);

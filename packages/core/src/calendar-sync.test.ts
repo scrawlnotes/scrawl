@@ -1,46 +1,82 @@
 import { describe, expect, it } from 'vitest';
-import { baseOf, eventKey, eventTitle, planCalendar, seenAfter, type SyncedEvent, type WantedEvent } from './calendar-sync';
+import { baseOf, changeOf, eventKey, eventTitle, planCalendar, seenAfter, type SyncedEvent, type WantedEvent } from './calendar-sync';
 import { mergeCalendarChoice, NO_CHOICE, parseCalendarChoice, rowGoes, serializeCalendarChoice } from './outlook';
 
 const TODAY = '2026-11-09';
 const task = (id: string, o: Partial<WantedEvent> = {}): WantedEvent => ({ id, title: `Task ${id}`, day: TODAY, done: false, where: 'Scrawl · Personal › Tasks', ...o });
-const event = (wanted: WantedEvent, o: Partial<SyncedEvent> = {}): SyncedEvent => ({ eventId: `e-${wanted.id}`, base: baseOf(wanted), day: wanted.day, ...o });
+const event = (wanted: WantedEvent, o: Partial<SyncedEvent> = {}): SyncedEvent => ({
+  eventId: `e-${wanted.id}`,
+  base: baseOf(wanted),
+  title: eventTitle(wanted),
+  day: wanted.day,
+  ...(wanted.start && { start: wanted.start }),
+  ...(wanted.end && { end: wanted.end }),
+  ...o,
+});
+const none = new Map<string, string>();
+const empty = { create: [], update: [], remove: [], back: [], missing: [] };
 
 describe('Scrawl in a calendar', () => {
   it('makes what is not there, changes what Scrawl changed, and removes what no longer goes', () => {
     const kept = task('a');
     const renamed = task('b');
     const gone = task('c');
-    const plan = planCalendar([kept, { ...renamed, title: 'New name' }, task('d')], [event(kept), event(renamed), event(gone)], new Set(), TODAY);
+    const plan = planCalendar([kept, { ...renamed, title: 'New name' }, task('d')], [event(kept), event(renamed), event(gone)], none, TODAY);
     expect(plan.create.map((w) => w.id)).toEqual(['d']);
     expect(plan.update).toEqual([{ eventId: 'e-b', wanted: { ...renamed, title: 'New name' } }]);
     expect(plan.remove.map((e) => e.eventId)).toEqual(['e-c']);
+    expect(plan.back).toEqual([]);
   });
 
-  it('leaves a change made in the calendar to Scrawl’s work that did not change, for slice 3', () => {
+  it('brings back what the calendar changed of work that did not change in Scrawl', () => {
     const work = task('a');
-    const moved = event(work, { day: '2026-11-12' });
-    expect(planCalendar([work], [moved], new Set(), TODAY)).toEqual({ create: [], update: [], remove: [] });
+    expect(planCalendar([work], [event(work, { day: '2026-11-12', title: 'Pay the bill today' })], none, TODAY)).toEqual({ ...empty, back: [{ id: 'a', title: 'Pay the bill today', day: '2026-11-12' }] });
   });
 
-  it('does not make again what was removed in the calendar, nor touch what Scrawl did not write', () => {
-    const plan = planCalendar([task('a')], [{ eventId: 'by-hand', base: null, day: TODAY }], new Set(['a']), TODAY);
-    expect(plan).toEqual({ create: [], update: [], remove: [] });
+  it('lets Scrawl’s change go over the calendar’s', () => {
+    const work = task('a');
+    const plan = planCalendar([{ ...work, title: 'Mine' }], [event(work, { title: 'Theirs' })], none, TODAY);
+    expect(plan.update.map((u) => u.wanted.title)).toEqual(['Mine']);
+    expect(plan.back).toEqual([]);
+  });
+
+  it('writes a repeating record’s day over again, rather than bringing it back', () => {
+    const day = task('record:Gym/Workouts#r1@2026-11-09');
+    const plan = planCalendar([day], [event(day, { day: '2026-11-10' })], none, TODAY);
+    expect(plan.update.map((u) => u.eventId)).toEqual(['e-record:Gym/Workouts#r1@2026-11-09']);
+    expect(plan.back).toEqual([]);
+  });
+
+  it('asks after seen work that is not in the range, and leaves what Scrawl did not write', () => {
+    const plan = planCalendar([task('a')], [{ eventId: 'by-hand', base: null, title: 'Lunch', day: TODAY }], new Map([['a', 'e-a']]), TODAY);
+    expect(plan).toEqual({ ...empty, missing: [{ id: 'a', eventId: 'e-a' }] });
   });
 
   it('leaves events before yesterday, and removes a second event of the same work', () => {
     const old = task('old', { day: '2026-10-01' });
     const twice = task('twice');
-    const plan = planCalendar([twice], [event(old), event(twice), event(twice, { eventId: 'again' })], new Set(), TODAY);
+    const plan = planCalendar([twice], [event(old), event(twice), event(twice, { eventId: 'again' })], none, TODAY);
     expect(plan.remove.map((e) => e.eventId)).toEqual(['again']);
   });
 
-  it('marks a finished one with ✓ and keeps it, and remembers what it saw', () => {
+  it('marks a finished one with ✓ and reads it without it, and remembers what it saw', () => {
     expect(eventTitle({ title: 'Call the dentist', done: true })).toBe('✓ Call the dentist');
-    const done = task('a');
-    const plan = planCalendar([{ ...done, done: true }, task('b')], [event(done), event(task('c'))], new Set(['z']), TODAY);
-    expect(plan.update.map((u) => u.wanted.done)).toEqual([true]);
-    expect([...seenAfter(plan, [event(done), event(task('c'))], new Set(['z']))].sort()).toEqual(['a', 'b', 'z']);
+    const done = task('a', { done: true });
+    expect(planCalendar([done], [event(done)], none, TODAY)).toEqual(empty);
+    const plan = planCalendar([done, task('b')], [event(done), event(task('c'))], new Map([['z', 'e-z']]), TODAY);
+    expect([...seenAfter(plan, [event(done), event(task('c'))], new Map([['z', 'e-z'], ['y', 'e-y']]), ['y'])].sort()).toEqual([
+      ['a', 'e-a'],
+      ['z', 'e-z'],
+    ]);
+  });
+
+  it('takes a task or a card’s day only, and a record’s time, or its time taken off', () => {
+    const card = task('card');
+    expect(changeOf(baseOf(card), { title: card.title, day: '2026-11-11', start: '2026-11-11T09:00', end: '2026-11-11T10:00' })).toEqual({ id: 'card', day: '2026-11-11' });
+    const visit = task('visit', { start: '2026-11-09T14:00', end: '2026-11-09T15:00' });
+    expect(changeOf(baseOf(visit), { title: visit.title, day: TODAY, start: '2026-11-09T16:00', end: '2026-11-09T17:00' })).toEqual({ id: 'visit', start: '2026-11-09T16:00', end: '2026-11-09T17:00' });
+    expect(changeOf(baseOf(visit), { title: visit.title, day: TODAY })).toEqual({ id: 'visit', start: null });
+    expect(changeOf(baseOf(visit), { title: visit.title, day: TODAY, start: visit.start, end: visit.end })).toBeNull();
   });
 
   it('gives the same work the same key, made of what Google takes', () => {

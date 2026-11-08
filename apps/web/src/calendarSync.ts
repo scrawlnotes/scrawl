@@ -1,5 +1,7 @@
 import {
+  type BackChange,
   type CalendarChoice,
+  changeOf,
   type CalendarProviderId,
   dayIn,
   GraphError,
@@ -69,19 +71,39 @@ export function calendarTargetName(of: CalendarChoice): string | undefined {
 }
 
 const seenKey = (to: string, calendar: string) => `scrawl.calendarSeen.${to}.${calendar}`;
-function readSeen(to: string, calendar: string): Set<string> {
+/** The work this device saw in the calendar, by its id to its event's. */
+function readSeen(to: string, calendar: string): Map<string, string> {
   try {
-    return new Set(JSON.parse(localStorage.getItem(seenKey(to, calendar)) ?? '[]') as string[]);
+    const kept = JSON.parse(localStorage.getItem(seenKey(to, calendar)) ?? '{}') as unknown;
+    // Slice 2 kept the ids alone: their events are learned again at this turn.
+    return new Map(Array.isArray(kept) ? [] : Object.entries(kept as Record<string, string>));
   } catch {
-    return new Set();
+    return new Map();
   }
 }
-function writeSeen(to: string, calendar: string, seen: Set<string>) {
+function writeSeen(to: string, calendar: string, seen: Map<string, string>) {
   try {
-    localStorage.setItem(seenKey(to, calendar), JSON.stringify([...seen]));
+    localStorage.setItem(seenKey(to, calendar), JSON.stringify(Object.fromEntries(seen)));
   } catch {
     // Not kept: work removed in the calendar may be made again once.
   }
+}
+
+/** Writes in Scrawl what the calendar changed, and trashes the work whose event was removed; the ids it could not write. */
+type WriteBack = (changes: BackChange[], gone: string[]) => Promise<{ skipped: string[] }>;
+let writeBack: WriteBack = async (changes) => ({ skipped: changes.map((change) => change.id) });
+/** Work whose Scrawl state goes over the calendar's at the next turns: what was undone after it came back. */
+const forced = new Set<string>();
+
+/** How the app writes what comes back (App, with the session and its Undo). */
+export function setCalendarBack(write: WriteBack) {
+  writeBack = write;
+}
+
+/** Undone in Scrawl: the calendar is written over with Scrawl's at the next turn. */
+export function forceScrawl(ids: readonly string[]) {
+  for (const id of ids) forced.add(id);
+  soon(500);
 }
 
 let running: Promise<void> | null = null;
@@ -118,11 +140,35 @@ async function turn(): Promise<void> {
     const events = await writer.synced(calendar, from, until);
     const seen = readSeen(to, calendar);
     const plan = planCalendar(wanted, events, seen, today);
+    const eventOf = new Map(events.filter((event) => event.base).map((event) => [event.base!.id, event.eventId]));
+    const wantedOf = new Map(wanted.map((each) => [each.id, each]));
+    // Seen work not in the range: moved out of it in the calendar, or removed there.
+    const gone: string[] = [];
+    for (const { id, eventId } of plan.missing) {
+      const found = await writer.find(calendar, eventId);
+      const change = found?.base ? changeOf(found.base, found) : null;
+      if (found) {
+        eventOf.set(id, eventId);
+        if (change) plan.back.push(change);
+      } else gone.push(id);
+    }
+    // What was undone in Scrawl after it came back is written over with Scrawl's.
+    const back = plan.back.filter((change) => !forced.has(change.id));
+    const over = plan.back.filter((change) => forced.has(change.id)).map((change) => change.id);
+    const { skipped } = back.length > 0 || gone.length > 0 ? await writeBack(back, gone) : { skipped: [] };
+    for (const id of [...over, ...skipped]) {
+      const eventId = eventOf.get(id);
+      const each = wantedOf.get(id);
+      if (eventId && each) plan.update.push({ eventId, wanted: each });
+    }
     // shortcut: one request at a time; batch them (Graph's $batch, Google's batch) if hundreds come at once.
     for (const each of plan.create) await writer.create(calendar, each);
-    for (const { eventId, wanted: each } of plan.update) await writer.update(calendar, eventId, each);
+    for (const { eventId, wanted: each } of plan.update) {
+      await writer.update(calendar, eventId, each);
+      forced.delete(each.id);
+    }
     for (const event of plan.remove) await writer.remove(calendar, event.eventId);
-    writeSeen(to, calendar, seenAfter(plan, events, seen));
+    writeSeen(to, calendar, seenAfter(plan, events, seen, gone));
     set({ status: 'done', count: events.filter((event) => event.base).length + plan.create.length - plan.remove.length });
   } catch (error) {
     if (error instanceof RemoteSignedOut) set({ status: 'signin' });

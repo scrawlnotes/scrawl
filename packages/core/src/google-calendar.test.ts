@@ -136,10 +136,10 @@ describe('Writing to Google', () => {
 
   it('reads the Scrawl calendar’s events with their bases', async () => {
     const base = JSON.stringify({ v: 1, id: work.id, title: work.title, day: work.day, done: false });
-    const { writer } = google(200, { items: [{ id: 'e1', start: { date: '2026-11-09' }, extendedProperties: { private: { scrawl: base } } }, { id: 'e2', start: { dateTime: '2026-11-10T09:00:00+03:00' } }] });
+    const { writer } = google(200, { items: [{ id: 'e1', start: { date: '2026-11-09' }, extendedProperties: { private: { scrawl: base } } }, { id: 'e2', summary: 'Visit', start: { dateTime: '2026-11-10T09:00:00+03:00' }, end: { dateTime: '2026-11-10T10:00:00+03:00' } }] });
     expect(await writer.synced('cal', '2026-11-08', '2026-11-20')).toEqual([
-      { eventId: 'e1', base: { v: 1, id: work.id, title: work.title, day: work.day, done: false }, day: '2026-11-09' },
-      { eventId: 'e2', base: null, day: '2026-11-10' },
+      { eventId: 'e1', base: { v: 1, id: work.id, title: work.title, day: work.day, done: false }, title: '', day: '2026-11-09' },
+      { eventId: 'e2', base: null, title: 'Visit', day: '2026-11-10', start: '2026-11-10T09:00', end: '2026-11-10T10:00' },
     ]);
   });
 });
