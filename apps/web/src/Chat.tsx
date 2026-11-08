@@ -1877,6 +1877,8 @@ export function Composer({ server, chat, replyTo, nameOf, menu, links, dropping,
               className={format.className ?? ''}
               title={t(format.title)}
               aria-label={t(format.title)}
+              // The words keep the focus, as with the box's other buttons: the cursor stays inside the marks put in.
+              onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
                 const view = editor.current?.view;
                 if (view) format.run(view);
