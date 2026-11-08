@@ -1,6 +1,6 @@
 import { type ChatFile, type ChatInfo, type ChatMessage, type ChatNotify, plainText } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
-import { type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode, useEffect, useRef, useState } from 'react';
+import { type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { clock, kindText, MAX_RECORDING_S, Recording, sizeText } from './chatMedia';
 import { type ChatServer, store } from './chatStore';
 import { Dialog } from './dialogs';
@@ -69,9 +69,9 @@ export function Attachments({ url, files }: { url: string; files: ChatFile[] }) 
 
 function ImageThumb({ url, file, one, more, onOpen }: { url: string; file: ChatFile; one: boolean; more: number; onOpen: () => void }) {
   const shown = useFileUrl(url, file.thumb ?? file.hash, file.thumb ? 'image/webp' : file.type);
-  // One photo keeps its shape, at most 360 by 260; in a grid each is a square.
+  // One photo keeps its shape, its size from the CSS by `--r`; in a grid each is a square.
   const ratio = file.width && file.height ? file.width / file.height : 4 / 3;
-  const style = one ? { width: Math.round(Math.min(360, 260 * ratio)), height: 'auto', aspectRatio: String(ratio) } : undefined;
+  const style = one ? ({ '--r': ratio, aspectRatio: String(ratio) } as CSSProperties) : undefined;
   return (
     <button type="button" className="ch-img" style={style} title={file.name} aria-label={file.name || t('chat.photo')} onClick={onOpen}>
       {shown ? <img src={shown} alt="" draggable={false} /> : <span className="ch-wait" />}

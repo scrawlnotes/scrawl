@@ -7,11 +7,12 @@ export interface Measured {
   width?: number;
   height?: number;
   duration?: number;
-  /** A small picture of a photo or a video, at most 640 pixels on its long side. */
+  /** A small picture of a photo or a video, at most 1280 pixels on its long side. */
   thumb?: Blob;
 }
 
-const THUMB = 640;
+// Sharp on a phone's screen, where one photo is the message's whole width.
+const THUMB = 1280;
 
 /** A picture drawn small, as WebP, or JPEG where the browser does not write WebP (Safari). */
 async function small(source: CanvasImageSource, width: number, height: number): Promise<Blob | undefined> {

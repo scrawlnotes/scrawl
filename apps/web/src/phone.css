@@ -9255,7 +9255,7 @@ body > .mb-lifted {
 }
 
 .chat-conv.phone .ch-seen {
-  padding: 0 14px 2px 64px;
+  padding: 0 14px 2px 60px;
   font-size: 13px;
 }
 
@@ -9274,6 +9274,17 @@ body > .mb-lifted {
 
 .chat-conv.phone .ch-imgs {
   grid-template-columns: repeat(2, minmax(0, 140px));
+}
+
+/* one photo, as Slack shows it: the message's whole width, at most 400 high */
+.chat-conv.phone .ch-imgs.n1 {
+  align-self: stretch;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.chat-conv.phone .ch-imgs.n1 .ch-img {
+  width: min(100%, calc(400px * var(--r)));
+  max-width: 100%;
 }
 
 .chat-conv.phone .ch-closed,

@@ -17644,6 +17644,11 @@ button.ch-q {
   object-fit: cover;
 }
 
+/* one photo: its own shape, at most 360 by 260 */
+.ch-imgs.n1 .ch-img {
+  width: min(360px, calc(260px * var(--r)));
+}
+
 .ch-imgs.n1 .ch-img img {
   object-fit: contain;
 }

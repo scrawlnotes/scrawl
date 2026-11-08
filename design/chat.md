@@ -155,7 +155,7 @@ Chat sekmesi bütün sunucuları birlikte gösterir: önce her sunucunun space'l
 
 - **Çevrimiçi:** kişinin bir cihazında Scrawl açıksa ve kullanılıyorsa yüzünün köşesinde yeşil nokta durur. Kullanılıyor demek: pencere önde ya da son 5 dakikada dokunulmuş. Nokta DM listesinde, DM'nin başlığında ("Active") ve room'un kişilerinde görünür. "Last seen" yoktur; nokta yoksa bir şey yazmaz. Tepside gizli duran masaüstü uygulaması çevrimiçi saymaz. Ajanlarda nokta yoktur.
 - **Yazıyor:** yazma kutusunun üstünde "Mert Kaya is typing…" yazar. İki kişi yazıyorsa "Mert and Elif are typing…", daha çoksa "Several people are typing…". DM'de ve room'da vardır. Hiçbir yere kaydedilmez; 5 saniye yazılmazsa kalkar.
-- **Okundu:** yalnız iki kişilik DM'de vardır. Karşı tarafın okuduğu son mesajının altında soluk "Seen" yazar. WhatsApp'taki gibi her mesajda tik yoktur; tek satır vardır. Grup DM'de ve room'da yoktur. Kapatma ayarı yoktur. Okundu, sunucunun zaten tuttuğu "son okunan"dan gelir; ayrıca bir şey tutulmaz.
+- **Okundu:** yalnız iki kişilik DM'de vardır. Karşı tarafın okuduğu son mesajının altında soluk "Seen" yazar, yalnız konuşmanın sonundaki mesajlarında: karşı taraf yazınca kalkar, cevabı zaten okunduğunu söyler. WhatsApp'taki gibi her mesajda tik yoktur; tek satır vardır. Grup DM'de ve room'da yoktur. Kapatma ayarı yoktur. Okundu, sunucunun zaten tuttuğu "son okunan"dan gelir; ayrıca bir şey tutulmaz.
 
 ## 6. Bildirimler
 
@@ -393,7 +393,7 @@ Olaylar yalnız o konuşmanın üyelerine gider. Bağlantı koparsa istemci yeni
 - Ekler: Cache Storage'da hash ile. Küçük resimler hep, büyük dosyalar açılınca iner. Resim `fetch` ile anahtar başlığıyla alınır, blob URL'le gösterilir; `<img src>` başlık taşıyamaz.
 - Kuyruk: mesaj gönderilmeden önce istemcinin ürettiği kimlikle yazılır. Bağlanınca sırayla gider; sunucu aynı kimliği ikinci kez yazmaz.
 - Taslaklar: konuşma başına, bu cihazda (`localStorage`).
-- Gönderilmeden önce küçük resim istemcide üretilir (en çok 640 piksel, WebP, Safari'de JPEG); videonun ilk karesi ve sesin süresi de istemcide ölçülür. Sunucu medya işlemez, yerel bağımlılık gelmez.
+- Gönderilmeden önce küçük resim istemcide üretilir (en çok 1280 piksel, WebP, Safari'de JPEG); videonun ilk karesi ve sesin süresi de istemcide ölçülür. Sunucu medya işlemez, yerel bağımlılık gelmez.
 
 ### 11.6 Arama
 
@@ -531,8 +531,8 @@ Kodda netleşenler:
 
 Kodda netleşenler:
 
-- **Resimler:** tek resim kendi oranında, en çok 360 × 260; iki ve dört resim 150 piksellik kareler; üçte ilki iki sütun boyunca; dörtten fazlasında dördüncünün üstünde "+3". Dar konuşmada ızgara küçülür. Işık kutusu mesajın bütün resimlerini dolaşır: oklar, ok tuşları, Download, Esc.
-- **Küçük resim:** 640 pikselden büyük resmin ve videonun ilk karesinin küçüğü ayrı bir dosya olarak yüklenir, mesajda onunla görünür; büyüğü tıklayınca iner. Video yarım saniyedeki karesiyle durur, tıklayınca yerinde oynar.
+- **Resimler:** tek resim kendi oranında, en çok 360 × 260; telefonda Slack'teki gibi mesajın bütün genişliğinde, en çok 400 yüksekliğinde (daha uzun dikey resim kırpılmaz, daralır); iki ve dört resim 150 piksellik kareler; üçte ilki iki sütun boyunca; dörtten fazlasında dördüncünün üstünde "+3". Dar konuşmada ızgara küçülür. Işık kutusu mesajın bütün resimlerini dolaşır: oklar, ok tuşları, Download, Esc.
+- **Küçük resim:** 1280 pikselden büyük resmin (8 Kasım'a kadar 640; telefonda tek resim bütün genişliğe çıkınca bulanıktı) ve videonun ilk karesinin küçüğü ayrı bir dosya olarak yüklenir, mesajda onunla görünür; büyüğü tıklayınca iner. Video yarım saniyedeki karesiyle durur, tıklayınca yerinde oynar.
 - **Ses oynatıcısı:** dalga çubukları kaydın sesinden değil, dosyanın özetinden çıkar: aynı kayıt her yerde aynı görünür, ama sesin gerçek dalgası değildir. Çubuklarda sürüklemek ve ok tuşları ileri geri götürür. Hız 1x, 1.5x, 2x.
 - **Ses kaydı:** mikrofon düğmesi kaydı başlatır, kayıt çubuğu yazma kutusunun yerine geçer; Send klavyeyi alır, Esc vazgeçer. 15 dakikada durur, Send'i bekler. Dosyanın adı "Voice message 2026-10-24 16.26.webm". Mikrofon kullanılamazsa çubuk bunu söyler, Cancel ile kapanır.
 - **Dosya satırı:** satıra tıklamak tarayıcıda PDF'i ve metni yeni sekmede açar; masaüstünde ve öbür türlerde kaydeder. Sağdaki düğme her zaman kaydeder.

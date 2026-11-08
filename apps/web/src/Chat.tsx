@@ -630,9 +630,16 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
 
   const hasFiles = (event: DragEvent) => event.dataTransfer.types.includes('Files');
 
-  // Seen, in a direct message of two: under the last of this person's messages the other has read.
+  // Seen, in a direct message of two: under the last of this person's messages the other has read,
+  // only among those at the end; once the other writes, their answer says it.
   const otherRead = chat.kind === 'direct' && chat.members.length === 2 && chat.reads ? Math.max(0, ...Object.values(chat.reads)) : 0;
-  const seenAt = otherRead ? [...messages].reverse().find((message) => mine(message) && message.seq <= otherRead && !message.deleted)?.id : undefined;
+  const lastOfMine: ChatMessage[] = [];
+  for (const message of [...messages].reverse()) {
+    if (message.deleted) continue;
+    if (!mine(message)) break;
+    lastOfMine.push(message);
+  }
+  const seenAt = otherRead ? lastOfMine.find((message) => message.seq <= otherRead)?.id : undefined;
 
   const typing = Object.entries(server.typing[chat.id] ?? {})
     .filter(([account, until]) => account !== server.me && until > Date.now())
