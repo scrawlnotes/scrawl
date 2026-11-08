@@ -17590,8 +17590,11 @@ button.ch-q {
   grid-template: minmax(0, 1fr) / minmax(0, 1fr);
   place-items: center;
   padding: 56px 72px 32px;
+  overflow: hidden;
   background: rgb(8 10 14 / 0.92);
   outline: none;
+  /* two fingers and a double tap make the photo larger, not the page */
+  touch-action: none;
 }
 
 /* the photo, and what turns while it comes, in the same place */
@@ -17618,6 +17621,21 @@ button.ch-q {
   border-radius: 4px;
   object-fit: contain;
   box-shadow: 0 12px 40px rgb(0 0 0 / 0.5);
+  cursor: zoom-in;
+  transition: transform 0.2s ease;
+}
+
+.ch-view.zoomed > img {
+  cursor: grab;
+}
+
+/* under fingers or the mouse the photo follows at once */
+.ch-view.held > img {
+  transition: none;
+}
+
+.ch-view.held.zoomed > img {
+  cursor: grabbing;
 }
 
 .ch-view .bar {
@@ -17625,6 +17643,7 @@ button.ch-q {
   top: 0;
   right: 0;
   left: 0;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -17632,6 +17651,11 @@ button.ch-q {
   padding: 0 10px 0 20px;
   color: #d6dbe4;
   font-size: 13px;
+}
+
+/* over a larger photo its words stay readable */
+.ch-view.zoomed .bar {
+  background: rgb(8 10 14 / 0.75);
 }
 
 .ch-view .bar .nm {

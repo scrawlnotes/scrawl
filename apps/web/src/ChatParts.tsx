@@ -1,10 +1,11 @@
 import { type ChatFile, type ChatInfo, type ChatMessage, type ChatNotify, plainText } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
-import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from 'react';
+import { type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { clock, kindText, MAX_RECORDING_S, Recording, sizeText } from './chatMedia';
 import { type ChatServer, store } from './chatStore';
 import { Dialog } from './dialogs';
 import { Icon } from './Icon';
+import { FIT, kept, placeOf, TAP_ZOOM, type Zoom, zoomedAt } from './photoZoom';
 import { closeBanner, turnOn, useNotify } from './notify';
 import { isDesktop, saveFile } from './storage';
 
@@ -92,6 +93,81 @@ export function Lightbox({ url, images, at, onClose, onShow }: { url: string; im
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => box.current?.focus(), []);
   const step = (by: number) => setIndex((index + by + images.length) % images.length);
+
+  // Made larger as a photo is elsewhere: two fingers, a double tap or click, the wheel; moved by
+  // dragging while it is larger. Another photo comes as it fits.
+  const [zoom, setZoom] = useState<Zoom>(FIT);
+  useEffect(() => setZoom(FIT), [index]);
+  // Under fingers or a pressed mouse: it follows at once rather than easing.
+  const [held, setHeld] = useState(false);
+  const photo = useRef<HTMLImageElement>(null);
+  const pointers = useRef(new Map<number, { x: number; y: number; moved: boolean; onPhoto: boolean }>());
+  const pinch = useRef<{ distance: number; scale: number } | null>(null);
+  const lastTap = useRef<{ at: number; x: number; y: number } | null>(null);
+  const lastKind = useRef('mouse');
+  const keep = (next: Zoom): Zoom => (photo.current && box.current ? kept(next, placeOf(photo.current, box.current)) : FIT);
+  const around = (now: Zoom, scale: number, px: number, py: number): Zoom =>
+    photo.current && box.current ? zoomedAt(now, scale, px, py, placeOf(photo.current, box.current)) : now;
+  const zoomAt = (scale: number, px: number, py: number) => setZoom((now) => around(now, scale, px, py));
+  /** A double tap or click: larger at that point, or back to fitting. */
+  const toggleAt = (px: number, py: number) => (zoom.scale > 1 ? setZoom(FIT) : zoomAt(TAP_ZOOM, px, py));
+  // The wheel, and a trackpad's pinch, which comes as the wheel with Ctrl: React's wheel cannot keep
+  // the page from scrolling or being made larger itself.
+  useEffect(() => {
+    const area = box.current;
+    if (!area) return;
+    const wheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const delta = event.deltaY * (event.deltaMode === 1 ? 16 : 1);
+      const factor = Math.exp(-delta * (event.ctrlKey ? 0.01 : 0.002));
+      setZoom((now) => around(now, now.scale * factor, event.clientX, event.clientY));
+    };
+    area.addEventListener('wheel', wheel, { passive: false });
+    return () => area.removeEventListener('wheel', wheel);
+  }, []);
+  // The viewer is inside its message: a finger moving over the photo does not pull the message to
+  // reply, which would move the viewer with it.
+  const down = (event: ReactPointerEvent<HTMLDivElement>) => {
+    event.stopPropagation();
+    lastKind.current = event.pointerType;
+    if ((event.target as Element).closest('button')) return;
+    pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY, moved: false, onPhoto: event.target === photo.current });
+    setHeld(true);
+    if (pointers.current.size === 2) {
+      const [a, b] = [...pointers.current.values()];
+      pinch.current = { distance: Math.hypot(a!.x - b!.x, a!.y - b!.y), scale: zoom.scale };
+    }
+  };
+  const move = (event: ReactPointerEvent<HTMLDivElement>) => {
+    event.stopPropagation();
+    const was = pointers.current.get(event.pointerId);
+    if (!was) return;
+    // let go outside the window, where its release did not come
+    if (event.pointerType === 'mouse' && event.buttons === 0) return up(event);
+    const dx = event.clientX - was.x;
+    const dy = event.clientY - was.y;
+    pointers.current.set(event.pointerId, { ...was, x: event.clientX, y: event.clientY, moved: was.moved || Math.hypot(dx, dy) > 4 });
+    if (pointers.current.size === 2 && pinch.current) {
+      const [a, b] = [...pointers.current.values()];
+      zoomAt((pinch.current.scale * Math.hypot(a!.x - b!.x, a!.y - b!.y)) / pinch.current.distance, (a!.x + b!.x) / 2, (a!.y + b!.y) / 2);
+    } else if (pointers.current.size === 1 && zoom.scale > 1) {
+      setZoom((now) => keep({ ...now, x: now.x + dx, y: now.y + dy }));
+    }
+  };
+  const up = (event: ReactPointerEvent<HTMLDivElement>) => {
+    event.stopPropagation();
+    const was = pointers.current.get(event.pointerId);
+    pointers.current.delete(event.pointerId);
+    if (pointers.current.size < 2) pinch.current = null;
+    if (pointers.current.size === 0) setHeld(false);
+    // A finger's double tap on the photo; a mouse has its double click.
+    if (!was || was.moved || !was.onPhoto || event.pointerType === 'mouse' || pointers.current.size > 0) return;
+    const tap = lastTap.current;
+    if (tap && event.timeStamp - tap.at < 320 && Math.hypot(event.clientX - tap.x, event.clientY - tap.y) < 30) {
+      lastTap.current = null;
+      toggleAt(event.clientX, event.clientY);
+    } else lastTap.current = { at: event.timeStamp, x: event.clientX, y: event.clientY };
+  };
   const onKey = (event: KeyboardEvent) => {
     if (event.key === 'Escape') onClose();
     else if (event.key === 'ArrowRight' && images.length > 1) step(1);
@@ -101,7 +177,20 @@ export function Lightbox({ url, images, at, onClose, onShow }: { url: string; im
     event.stopPropagation();
   };
   return (
-    <div className="ch-view" ref={box} tabIndex={-1} role="dialog" aria-label={file.name || t('chat.photo')} onKeyDown={onKey} onContextMenu={(event) => event.stopPropagation()} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <div
+      className={['ch-view', zoom.scale > 1 && 'zoomed', held && 'held'].filter(Boolean).join(' ')}
+      ref={box}
+      tabIndex={-1}
+      role="dialog"
+      aria-label={file.name || t('chat.photo')}
+      onKeyDown={onKey}
+      onContextMenu={(event) => event.stopPropagation()}
+      onMouseDown={(event) => event.target === event.currentTarget && onClose()}
+      onPointerDown={down}
+      onPointerMove={move}
+      onPointerUp={up}
+      onPointerCancel={up}
+    >
       <div className="bar">
         <span className="nm">{file.name}</span>
         {images.length > 1 && <span className="ct">{t('chat.photoOf', { at: index + 1, count: images.length })}</span>}
@@ -121,12 +210,17 @@ export function Lightbox({ url, images, at, onClose, onShow }: { url: string; im
       </div>
       {shown && (
         <img
+          ref={photo}
           key={file.hash}
           src={shown}
           alt={file.name}
+          draggable={false}
           className={drawn === file.hash ? undefined : 'coming'}
+          style={zoom.scale > 1 ? { transform: `translate(${zoom.x}px, ${zoom.y}px) scale(${zoom.scale})` } : undefined}
           onLoad={() => setDrawn(file.hash)}
           onMouseDown={(event) => event.stopPropagation()}
+          // a finger's double tap is counted in `up`; some browsers send it as a double click too
+          onDoubleClick={(event) => lastKind.current === 'mouse' && toggleAt(event.clientX, event.clientY)}
         />
       )}
       {drawn !== file.hash && <span className="ch-wait big" role="status" aria-label={t('opening.loading')} />}
