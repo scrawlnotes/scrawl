@@ -440,8 +440,18 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
   const messages = server.messages[chat.id] ?? [];
   const pending = server.pending.filter((each) => each.chat === chat.id);
   const scroller = useRef<HTMLDivElement>(null);
-  // Where what is new starts, as it was when the conversation opened: the line stays while it is open.
-  const [newFrom] = useState(() => (chat.readSeq < chat.lastSeq ? chat.readSeq + 1 : null));
+  // Where what is new starts, as it was when the conversation opened: the line stays while it is
+  // read. Come back to, as a phone's app is opened again or from a notification while it stayed
+  // open, it goes where what came meanwhile starts, or away: read before what is on screen is read.
+  const newAt = (now: ChatInfo) => (now.readSeq < now.lastSeq ? now.readSeq + 1 : null);
+  const [newFrom, setNewFrom] = useState(() => newAt(chat));
+  const chatNow = useRef(chat);
+  chatNow.current = chat;
+  useEffect(() => {
+    const back = () => document.visibilityState === 'visible' && setNewFrom(newAt(chatNow.current));
+    document.addEventListener('visibilitychange', back);
+    return () => document.removeEventListener('visibilitychange', back);
+  }, []);
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<ChatMessage | null>(null);
@@ -1880,7 +1890,7 @@ export function Composer({ server, chat, replyTo, nameOf, menu, links, dropping,
       )}
       <Tray going={going} onRemove={remove} />
       {phone ? (
-        // A pill with + and the microphone; in use, the words over +, Aa, emoji, @ and Send.
+        // A pill with + and the microphone; in use, the words over +, Aa, @ and Send; emoji are on the keyboard.
         <div
           className={`chp-row${open && !hold ? ' open' : ''}`}
           // The pill tapped: the box is focused here, on a capital, not by the tap.
@@ -1922,9 +1932,6 @@ export function Composer({ server, chat, replyTo, nameOf, menu, links, dropping,
               <button type="button" className={`ib${formatting ? ' on' : ''}`} aria-label={t('chat.format')} aria-pressed={formatting} onMouseDown={(event) => event.preventDefault()} onClick={() => setFormatting(!formatting)}>
                 <span className="aa">Aa</span>
               </button>
-              <button type="button" className={`ib${emoji ? ' on' : ''}`} aria-label={t('chat.emoji')} onMouseDown={(event) => event.preventDefault()} onClick={() => setEmoji(!emoji)}>
-                <Icon name="smile" />
-              </button>
               <button type="button" className="ib" aria-label={t('chat.mention')} onMouseDown={(event) => event.preventDefault()} onClick={startMention}>
                 <Icon name="at" />
               </button>
@@ -1932,7 +1939,6 @@ export function Composer({ server, chat, replyTo, nameOf, menu, links, dropping,
               <button type="button" className={`send${canSend ? ' go' : ''}`} aria-label={t('chat.send')} disabled={!canSend} onMouseDown={(event) => event.preventDefault()} onClick={send}>
                 <Icon name="send" />
               </button>
-              {emoji && <ReactionPicker onPick={putEmoji} onClose={() => setEmoji(false)} startWide />}
             </div>
           )}
         </div>

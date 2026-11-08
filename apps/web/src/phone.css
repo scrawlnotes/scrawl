@@ -9436,7 +9436,7 @@ body > .mb-lifted {
 }
 
 /* The box to write in, as Slack's (design/chat.md 25): a pill with + and the microphone; in use, a
-   card with the words over +, Aa, emoji, @ and Send. Six lines at most, then its words scroll. */
+   card with the words over +, Aa, @ and Send. Six lines at most, then its words scroll. */
 .ch-cmp.chp-box {
   border-top: 0;
   background: transparent;
@@ -9552,15 +9552,6 @@ body > .mb-lifted {
 .mb .chp-box .chp-row .bar .send.go {
   background: var(--sl-accent);
   color: var(--sl-bg);
-}
-
-/* the emoji over the box, the width of the screen */
-.mb .chp-row .bar .ch-pick {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% + 10px);
-  left: 0;
-  width: auto;
 }
 
 /* Aa's row over the box */
