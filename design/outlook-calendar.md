@@ -1,6 +1,6 @@
 # Outlook takvimi
 
-Durum: 8 Kasım 2026'da onaylandı. 10. bölümdeki kararlar ve 9. bölümde dışarıda bırakılanlar onaylı; PLAN'da 4.13 ve 23. aşama.
+Durum: 8 Kasım 2026'da onaylandı. 10. bölümdeki kararlar ve 9. bölümde dışarıda bırakılanlar onaylı; PLAN'da 4.13 ve 23. aşama. 1. dilimin mockup'ı onaylı: `design/mockups.html` › Outlook takvimi (data-dir="outlook").
 
 Neden: Scrawl'daki işler telefonda, günün toplantılarının yanında, Scrawl'ı açmadan görülebilsin. Ölçüt Todoist'in takvim entegrasyonu ([Use the Calendar integration](https://todoist.com/help/articles/use-the-calendar-integration-rCqwLCt3G)). Bir farkla: Today'deki her şey takvime dökülmez, neyin gideceği tür tür seçilir (Tasks, Boards, her app, Collections). Today'e bir şey getiren bir app kurulurken de sorulur. Outlook'la başlanır, Google sonra gelir.
 

@@ -4832,6 +4832,54 @@ p { margin: 0; max-width: 68ch; }
 .nf-ln .ap .ch-lg { width: 18px; height: 18px; font-size: 10px; }
 .nf-ln b { display: block; font-size: 15px; font-weight: 600; line-height: 1.3; }
 .nf-ln p { margin: 1px 0 0; font-size: 14.5px; line-height: 1.3; opacity: .9; }
+/* Outlook calendar (stage 23, slice 1): the connection in Settings › Calendars, Outlook's events in Today and Upcoming. */
+.dir[data-dir="outlook"] .brief .pick { flex-wrap: wrap; gap: 4px; overflow: visible; border: 0; background: none; }
+.dir[data-dir="outlook"] .brief .pick button { border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); padding: 4px 12px; }
+.dir[data-dir="outlook"] .brief .pick button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); }
+.dir[data-dir="outlook"] .mock.dir-a:not(.phones) { height: 760px; min-width: 1320px; }
+.dir[data-dir="outlook"] .mock .side.fit, .dir[data-dir="outlook"] .mock .main.fit { max-height: 758px; }
+.ol-lead { margin: 0; color: var(--m-dim); font-size: 13px; line-height: 1.5; }
+.ol-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--cc); }
+.ol-box { display: grid; place-items: center; flex: none; width: 15px; height: 15px; box-sizing: border-box; border: 1px solid var(--m-faint); border-radius: 4px; color: var(--m-on-accent); font-size: 10px; }
+.ol-box.on { border-color: var(--m-accent); background: var(--m-accent); }
+.ol-cals { margin-left: 25px; }
+.ol-cals .st-li { padding: 7px 12px; }
+.ol-evs { display: grid; grid-auto-flow: column; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px 16px; margin: 4px 0 8px; padding: 6px 8px; border: 1px solid var(--m-line); border-radius: 8px; background: color-mix(in srgb, var(--m-side) 70%, transparent); }
+.ol-ev { display: flex; align-items: center; gap: 8px; min-width: 0; height: 26px; padding: 0 6px; border-radius: 5px; font-size: 12.5px; }
+.ol-ev::before { content: ''; flex: none; width: 3px; height: 14px; border-radius: 2px; background: var(--cc); }
+.ol-ev em { flex: none; min-width: 70px; color: var(--m-dim); font-style: normal; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.ol-ev span { min-width: 0; overflow: hidden; color: var(--m-fg); text-overflow: ellipsis; white-space: nowrap; }
+.mock .ol-ev svg { display: none; flex: none; width: 12px; height: 12px; margin-left: auto; color: var(--m-dim); }
+.ol-ev.hot { background: var(--m-sel); }
+.mock .ol-ev.hot svg { display: block; }
+.ol-ev.past { opacity: .5; }
+.ol-ev.more { color: var(--m-faint); }
+.ol-ev.more::before { background: none; }
+.ol-warn { display: flex; align-items: center; gap: 9px; margin: 4px 0 8px; padding: 7px 8px 7px 12px; border: 1px dashed var(--m-line); border-radius: 8px; color: var(--m-dim); font-size: 12.5px; }
+.mock .ol-warn > svg { flex: none; width: 14px; height: 14px; color: var(--m-p2); }
+.ol-warn .st-btn { margin-left: auto; }
+.cv-box.ol { border: 1px solid color-mix(in srgb, var(--cc) 55%, transparent); border-left: 3px solid var(--cc); background: color-mix(in srgb, var(--cc) 7%, var(--m-bg)); }
+.cv-box.past { opacity: .5; }
+.cv-chip.ol { background: none; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc) 55%, transparent); }
+.cv-chip.ol i { background: var(--cc); }
+.cal-t.ol::before { box-sizing: border-box; background: none; border: 1.5px solid var(--cc); }
+.cal-t.ol.all { background: none; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc) 55%, transparent); }
+.cal-t.ol.all i { background: var(--cc); }
+.cal-t.past { opacity: .5; }
+.ol-mevs { margin: 2px 16px 10px; overflow: hidden; border-radius: 12px; background: var(--m-side); }
+.ol-mev { position: relative; display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 0 14px; }
+.ol-mev + .ol-mev::before { content: ''; position: absolute; top: 0; left: 14px; right: 0; border-top: 1px solid var(--m-line); }
+.ol-mev em { flex: none; width: 46px; color: var(--m-dim); font-style: normal; font-size: 14px; font-variant-numeric: tabular-nums; }
+.ol-mev b { flex: 1; min-width: 0; overflow: hidden; padding-left: 10px; border-left: 3px solid var(--cc); font-size: 15px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
+.mock .ol-mev svg { flex: none; width: 15px; height: 15px; color: var(--m-faint); }
+.ol-mev.past { opacity: .5; }
+.ol-mcal .tx { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.ol-mcal .tx b { font-weight: 400; }
+.ol-mcal .tx small { color: var(--m-faint); font-size: 13px; }
+.mock .ol-mcal .ol-mck svg { width: 18px; height: 18px; color: var(--m-accent); }
+.ol-mlead { margin: 0; padding: 0 2px 14px; color: var(--m-dim); font-size: 15px; line-height: 1.45; }
+.ol-mnote { margin: 0; padding: 10px 2px 0; color: var(--m-faint); font-size: 13.5px; line-height: 1.4; }
+.cv-box.ol.m b { font-size: 14px; }
 </style>
 
 <main class="page">
@@ -6196,6 +6244,29 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-nfview="nfset">Settings</button>
         <button type="button" data-nfview="nfphone">Telefon</button>
         <button type="button" data-nfview="nfphone2">Telefon 2</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="outlook">
+    <div class="brief">
+      <div>
+        <span class="letter">OUTLOOK TAKVİMİ · 1. DİLİM · TASLAK</span>
+        <h2>Bağlantı ve Outlook etkinlikleri Scrawl'da</h2>
+        <p>Settings'te Notifications'ın altında <b>Calendars</b>. <b>Connect Outlook Calendar</b> Microsoft girişini açar. Dönünce hesap ve <b>Show events in Scrawl</b> görünür, altında hesabın takvimleri: kendi takvimlerin işaretli gelir, başkasının paylaştığı işaretsiz. Etkinlikler Today'de ve Upcoming'in List görünümünde günün başında, iki sütunlu bir kutuda durur. Takvimde Outlook takviminin renginde, içi boş kutulardır; Scrawl'ın kayıtları dolu kalır. Scrawl'da değiştirilemezler; üstüne gelince ↗ çıkar, tıklanınca Outlook'ta açılırlar. Geçmiş etkinlik soluk görünür. Giriş düşerse kutunun yerinde tek satır ve <b>Sign in…</b> görünür. Sync to Outlook, 2. dilimde aynı sayfaya gelir.</p>
+        <ul class="traits"><li>Settings › Calendars</li><li>ayrı Microsoft girişi</li><li>takvim seçimi</li><li>Today'de kutu</li><li>List'te günün başında</li><li>takvimde içi boş</li><li>tıklayınca Outlook</li><li>telefonda da</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Outlook görünümü">
+        <button type="button" data-olview="oloff">Settings: bağlı değil</button>
+        <button type="button" data-olview="olset">Settings: bağlı</button>
+        <button type="button" data-olview="oltoday">Today</button>
+        <button type="button" data-olview="olone">Today: tek etkinlik</button>
+        <button type="button" data-olview="olsignin">Giriş düşünce</button>
+        <button type="button" data-olview="ollist">Upcoming: List</button>
+        <button type="button" data-olview="olweek">Upcoming: Week</button>
+        <button type="button" data-olview="olmonth">Upcoming: Month</button>
+        <button type="button" data-olview="olphone">Telefon</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -20060,6 +20131,240 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderNf(sectionNf, b.dataset.nfview);
   });
   renderNf(sectionNf, 'nfmention');
+
+  // Outlook calendar (stage 23, design/outlook-calendar.md), slice 1: the connection in Settings ›
+  // Calendars, and Outlook's events in Today and Upcoming, read only, opening in Outlook. Kaan's
+  // Outlook, kaanarslan@outlook.com: his Calendar, Birthdays, Holidays in Turkey, and Mert's
+  // calendar shared with him, off till ticked. Monday, Nov 9, 2026; it is 10:20.
+  var OL_CC = { cal: '#4f8ff7', bday: '#c77dd8', hol: '#3fb27f', mert: '#e0a35a' };
+  var OL_NOW = 10 + 20 / 60;
+  var OL_EXT = '<svg viewBox="0 0 24 24"><path d="M14 5h5v5M19 5l-8 8"/><path d="M18 14v5H5V6h5"/></svg>';
+  var OL_STANDUP = { from: 9.5, to: 10, t: 'Standup', c: 'cal' };
+  // A day's events as Outlook gives them: all-day first, then by their start.
+  var OL_EV = {
+    9: [OL_STANDUP, { from: 11, to: 12, t: 'Acme demo', c: 'cal' }, { from: 13, to: 14, t: 'Lunch with Elif', c: 'cal' }, { from: 16, to: 16.5, t: 'Accountant', c: 'cal' }],
+    10: [OL_STANDUP, { from: 10, to: 11, t: 'Design review', c: 'cal' }],
+    11: [{ all: true, t: 'Elif Demir’s birthday', c: 'bday' }, OL_STANDUP, { from: 15, to: 15.5, t: '1:1 with Mert', c: 'cal' }],
+    12: [OL_STANDUP, { from: 10, to: 11.5, t: 'Quarterly planning', c: 'cal' }, { from: 12, to: 13, t: 'Lunch with the Acme team', c: 'cal' }, { from: 15.5, to: 16, t: 'Call with Atlas Lifts', c: 'cal' },
+      { from: 16.5, to: 17, t: 'Release sync', c: 'cal' }, { from: 17.5, to: 18.5, t: 'Gym with Can', c: 'cal' }, { from: 18.5, to: 19, t: 'Dinner with Selin', c: 'cal' }],
+    13: [OL_STANDUP],
+    16: [OL_STANDUP, { from: 14, to: 15, t: 'Board review', c: 'cal' }]
+  };
+  var OL_TASKS = {
+    9: [{ t: 'Write the release notes for 0.1.27', w: 'Tasks · Scrawl', p: 'p2' }, { key: 'SCR-30', t: 'Calendar: drag to reschedule', w: 'Roadmap · Scrawl', col: 'Doing', p: 'p1' }, { t: 'Call the dentist', w: 'Tasks · Personal' }],
+    10: [{ t: 'Pay the electricity bill', w: 'Tasks · Personal', p: 'p3' }],
+    11: [{ t: 'Book the flights to Berlin', w: 'Tasks · Personal' }],
+    12: [{ key: 'SCR-34', t: 'Import cards from a CSV', w: 'Roadmap · Scrawl', col: 'Todo', p: 'p2' }],
+    13: [{ t: 'Send the invoice for October', w: 'Tasks · Scrawl', p: 'p3' }],
+    16: [{ t: 'Quarterly taxes', w: 'Tasks · Personal', p: 'p1' }]
+  };
+  // A record of a calendar shown in Today and Upcoming: filled, where Outlook's events are not.
+  var OL_REC = { 12: [{ t: 'Technical with Ayşe Yılmaz', from: 14, to: 15, who: 'Kaan', from_: 'Interviews', color: '#b18cf0' }] };
+  var OL_WD = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  function olPast(d, o) { return d < 9 || (d === 9 && !o.all && o.to <= OL_NOW); }
+  function olWhen(o) { return o.all ? 'all day' : clClock(o.from) + '–' + clClock(o.to); }
+  /** One event in a day's box: its calendar's color, its time, its name; `hot` under the pointer, ↗ saying it opens in Outlook. */
+  function olEv(d, o, hot) {
+    return '<span class="ol-ev' + (olPast(d, o) ? ' past' : '') + (hot ? ' hot' : '') + '" style="--cc:' + OL_CC[o.c] + '"><em>' + olWhen(o) + '</em><span>' + o.t + '</span>' + OL_EXT + '</span>';
+  }
+  /** A day's events in one box, down the first column then the second, by their time; more than six, five and the rest as +N more. */
+  function olBoxOf(d, evs, hot) {
+    var shown = evs.length > 6 ? evs.slice(0, 5) : evs;
+    var rows = Math.ceil(Math.min(evs.length, 6) / 2);
+    return '<div class="ol-evs" style="grid-template-rows: repeat(' + rows + ', auto)">' + shown.map(function (o) { return olEv(d, o, o.t === hot); }).join('') +
+      (evs.length > 6 ? '<span class="ol-ev more"><em></em><span>+' + (evs.length - 5) + ' more</span></span>' : '') + '</div>';
+  }
+  function olTree(on) {
+    return '<div class="tree fxt">' + row({ label: 'Today', ct: 4, on: on === 'today' }) + row({ label: 'Upcoming', ct: 9, on: on === 'upcoming' }) + row({ label: 'Chat', ct: 2 }) +
+      spRowT({ sp: true, label: 'Personal' }) +
+      spRowT({ sp: true, open: true, label: 'Scrawl' }) +
+      spRowT({ d: 1, icon: 'board', label: 'Roadmap', ct: 14 }) +
+      spRowT({ d: 1, icon: 'tasks', label: 'Tasks', ct: 5 }) +
+      spRowT({ d: 1, icon: 'notes', label: 'Release checklist' }) +
+      spRowT({ d: 1, folder: true, label: 'design', ct: 12 }) +
+      '</div>' + spFoot(on === 'settings' ? 'settings' : null);
+  }
+  function olApp(on, body, status, over) {
+    var tabs = on === 'upcoming' ? tab('tasks', 'Upcoming', 'x', true) : tab('tasks', 'Today', 'x', true);
+    return '<aside class="side fit">' + olTree(on) + '</aside><section class="main fit"><div class="panes">' + pane(tabs + '<div class="tab plus">+</div>', body) + '</div>' +
+      '<div class="status"><span>' + status + '</span>' + syncStatus(false, null) + '</div></section>' + (over || '');
+  }
+  /**
+   * Today: what is late, then today's, Outlook's events in a box at its head. `one`: a day with a
+   * single event; `hot`: the event under the pointer; `signin`: Outlook's sign-in ran out, one line
+   * where the box was.
+   */
+  function olToday(o) {
+    o = o || {};
+    var box = o.signin
+      ? '<div class="ol-warn">' + ICON.warn + '<span>Outlook asks you to sign in again. Your events are not showing.</span><span class="st-btn">Sign in…</span></div>'
+      : olBoxOf(9, o.one ? [OL_EV[9][1]] : OL_EV[9], o.hot);
+    return '<div class="tasksv"><div class="th"><b>Today</b><span class="c3-date">Mon, Nov 9</span><button type="button" class="add">Add task</button></div><div class="tl">' +
+      '<div class="sec">Overdue <small>1</small><span class="resch">Reschedule</span></div>' +
+      upTask({ t: 'Renew the domain', w: 'Tasks · Personal', late: true }, 'Fri, Nov 6') +
+      '<div class="sec">Today <small>3</small></div>' + box +
+      OL_TASKS[9].map(function (t) { return upTask(t); }).join('') +
+      '<div class="qa">+ Add task</div></div></div>';
+  }
+  /** Settings › Calendars: Connect Outlook Calendar; once connected, the account, Show events in Scrawl and its calendars. */
+  function olSettings(connected) {
+    function cal(c, name, on, sub) {
+      return '<div class="st-li"><span class="ol-dot" style="--cc:' + OL_CC[c] + '"></span><span class="nm"><b>' + name + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</span>' +
+        '<span class="ol-box' + (on ? ' on' : '') + '">' + (on ? '✓' : '') + '</span></div>';
+    }
+    var body = '<div class="st-label">Outlook</div>' + (connected
+      ? '<div class="st-list">' + spLi({ icon: 'cal', name: 'Kaan Arslan', sub: 'kaanarslan@outlook.com · on this computer', r: '<span class="st-btn">Disconnect</span>' }) + '</div>' +
+        '<div class="ch-opt" style="margin-top: 6px"><span class="box">✓</span><span><b>Show events in Scrawl</b><small>In Today, Upcoming and the calendar, as they are in Outlook; a click opens one there.</small></span></div>' +
+        '<div class="st-list ol-cals">' + cal('cal', 'Calendar', true) + cal('bday', 'Birthdays', true) + cal('hol', 'Holidays in Turkey', true) + cal('mert', 'Mert Kaya', false, 'Shared with you') + '</div>' +
+        '<p class="st-note" style="margin: 0">Each of your devices connects on its own.</p>'
+      : '<p class="ol-lead">Your Outlook meetings in Today, Upcoming and the calendar, beside your tasks.</p>' +
+        '<div class="st-acts"><span class="st-btn go">' + ICON.cal + 'Connect Outlook Calendar</span><small>A work or a personal Microsoft account.</small></div>');
+    return '<div class="ovl"><div class="st-dlg tall"><div class="st-head"><b>Settings</b><span class="x">×</span></div><div class="st-main"><nav class="st-nav">' +
+      row({ icon: 'person', label: 'Profile' }) + row({ icon: 'half', label: 'Appearance' }) + '<div class="it">' + CI.bell + '<span>Notifications</span></div>' +
+      '<div class="it on">' + ICON.cal + '<span>Calendars</span></div>' + row({ icon: 'space', label: 'Spaces' }) + row({ icon: 'agent', label: 'Agents' }) + row({ icon: 'logs', label: 'Logs' }) + row({ icon: 'info', label: 'About' }) +
+      '</nav><div class="st-body">' + body + '</div></div></div></div>';
+  }
+  /** A day of Upcoming's List: its events' box, then its tasks and cards, then its records. */
+  function olDay(d, title, when) {
+    var tasks = OL_TASKS[d] || [], recs = OL_REC[d] || [], evs = OL_EV[d] || [];
+    return '<div class="sec">' + title + (when ? ' <span class="when">· ' + when + '</span>' : '') + ' <small>' + (tasks.length + recs.length) + '</small></div>' +
+      (evs.length ? olBoxOf(d, evs) : '') + tasks.map(function (t) { return upTask(t); }).join('') + recs.map(function (r) { return c3Rec(r); }).join('') + '<div class="qa">+ Add task</div>';
+  }
+  function olList() {
+    var body = '<div class="tasksv"><div class="th"><b>Upcoming</b><span class="up-seg"><span class="on">List</span><span>Calendar</span></span><button type="button" class="add">Add task</button></div><div class="tl">' +
+      '<div class="sec">Overdue <small>1</small><span class="resch">Reschedule</span></div>' + upTask({ t: 'Renew the domain', w: 'Tasks · Personal', late: true }, 'Fri, Nov 6') +
+      olDay(9, 'Today', 'Mon, Nov 9') + olDay(10, 'Tomorrow', 'Tue, Nov 10') + olDay(11, 'Wed, Nov 11') + olDay(12, 'Thu, Nov 12') + olDay(13, 'Fri, Nov 13') +
+      '<div class="up-gap">2 free days · Sat 14 – Sun 15</div>' + olDay(16, 'Mon, Nov 16') + '</div></div>';
+    return olApp('upcoming', body, '7 tasks · 2 cards · 1 record · 19 events');
+  }
+  /** An event or a record with its time on the hours: an event hollow in its calendar's color, a record filled. */
+  function olCvBox(d, o, ev, phone) {
+    var hour = phone ? 52 : CL_HOUR, from = phone ? 8 : CL_FROM;
+    var top = (o.from - from) * hour, h = (o.to - o.from) * hour, short = h < (phone ? 40 : 36);
+    return '<div class="cv-box' + (ev ? ' ol' : '') + (phone ? ' m' : '') + (short ? ' short' : '') + (ev && olPast(d, o) ? ' past' : '') + '" style="top:' + top + 'px;height:' + (h - (phone ? 3 : 2)) + 'px;left:2px;width:calc(100% - 4px);--cc:' + (ev ? OL_CC[o.c] : o.color) + '">' +
+      '<b>' + o.t + '</b><small>' + clClock(o.from) + (short ? '' : ' – ' + clClock(o.to)) + '</small></div>';
+  }
+  function olAllDay(d) {
+    return (OL_TASKS[d] || []).map(function (t) { return clChip({ p: t.p, key: t.key, t: t.t }); })
+      .concat((OL_EV[d] || []).filter(function (o) { return o.all; }).map(function (o) { return '<span class="cv-chip ol" style="--cc:' + OL_CC[o.c] + '"><i></i>' + o.t + '</span>'; }));
+  }
+  function olWeek() {
+    var days = [9, 10, 11, 12, 13, 14, 15];
+    var heads = days.map(function (d, i) { return '<div class="cv-dh' + (d === 9 ? ' today' : '') + '"><small>' + OL_WD[i] + '</small><b>' + d + '</b></div>'; }).join('');
+    var alls = days.map(function (d) {
+      var items = olAllDay(d);
+      return '<div class="cv-ad' + (d === 9 ? ' today' : '') + '">' + items.slice(0, 2).join('') + (items.length > 2 ? '<span class="cv-more">+' + (items.length - 2) + ' more</span>' : '') + '</div>';
+    }).join('');
+    var cols = days.map(function (d) {
+      var boxes = (OL_EV[d] || []).filter(function (o) { return !o.all; }).map(function (o) { return olCvBox(d, o, true); }).join('') +
+        (OL_REC[d] || []).map(function (r) { return olCvBox(d, r, false); }).join('');
+      var now = d === 9 ? '<div class="cv-now" style="top:' + (OL_NOW - CL_FROM) * CL_HOUR + 'px"><i></i></div>' : '';
+      return '<div class="cv-col' + (d === 9 ? ' today' : '') + (d > 13 ? ' weekend' : '') + '">' + boxes + now + '</div>';
+    }).join('');
+    var body = '<div class="tasksv cv">' + clHead('Week', 'Nov 9 – 15, 2026') +
+      '<div class="cv-week"><div class="cv-row heads"><span class="g"></span>' + heads + '</div>' +
+      '<div class="cv-row alld"><span class="g">all day</span>' + alls + '</div>' +
+      '<div class="cv-scroll"><div class="cv-grid" style="height:' + (CL_TO - CL_FROM) * CL_HOUR + 'px">' + clHours() + '<div class="cv-cols">' + cols + '</div></div></div></div></div>';
+    return olApp('upcoming', body, '5 tasks · 2 cards · 1 record · 17 events this week');
+  }
+  /** The month: a weekday's standup and the rest of Outlook's events with their time, hollow; the past faint. */
+  function olMonth() {
+    var cells = '';
+    for (var i = 0; i < 42; i++) {
+      var date = new Date(2026, 9, 26 + i);
+      var d = date.getDate(), inNov = date.getMonth() === 10, weekday = (date.getDay() + 6) % 7 < 5;
+      var evs = !inNov ? [] : OL_EV[d] || (weekday && d >= 2 && d <= 27 ? [OL_STANDUP] : []);
+      var tasks = inNov ? OL_TASKS[d] || [] : [];
+      var timed = evs.filter(function (o) { return !o.all; }).map(function (o) { return { ev: o }; }).concat((inNov ? OL_REC[d] || [] : []).map(function (r) { return { rec: r }; }))
+        .sort(function (a, b) { return (a.ev || a.rec).from - (b.ev || b.rec).from; });
+      var items = tasks.map(function (o) {
+        return '<span class="cal-t"' + (o.p ? ' style="--pc: var(--m-' + o.p + ')"' : '') + '><i' + (o.key ? ' class="sq"' : '') + '></i>' + (o.key ? '<span class="key">' + o.key + '</span>' : '') + '<span>' + o.t + '</span></span>';
+      }).concat(evs.filter(function (o) { return o.all; }).map(function (o) {
+        return '<span class="cal-t ol all" style="--cc:' + OL_CC[o.c] + '"><i></i><span>' + o.t + '</span></span>';
+      })).concat(timed.map(function (it) {
+        var o = it.ev || it.rec;
+        return '<span class="cal-t timed' + (it.ev ? ' ol' : '') + (it.ev && olPast(d, o) ? ' past' : '') + '" style="--cc:' + (it.ev ? OL_CC[o.c] : o.color) + '"><em>' + clClock(o.from) + '</em><span>' + o.t + '</span></span>';
+      }));
+      var cls = ['cd', !inNov && 'out', items.length && 'busy', inNov && d === 9 && 'today'].filter(Boolean).join(' ');
+      cells += '<div class="' + cls + '"><span class="n">' + d + '</span>' + items.slice(0, 3).join('') + (items.length > 3 ? '<span class="cal-more">+' + (items.length - 3) + ' more</span>' : '') + '</div>';
+    }
+    var body = '<div class="tasksv cv">' + clHead('Month', 'November 2026') + '<div class="up-cal"><div class="wd"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>' +
+      '<div class="grid">' + cells + '</div></div></div>';
+    return olApp('upcoming', body, '7 tasks · 2 cards · 1 record · 33 events in November');
+  }
+  /** On a phone: Settings › Calendars before and after connecting; Today with its events; Upcoming's Day. */
+  function olPhone() {
+    var off = mbPage(mbNav('Settings') + mbHead('Calendars'),
+      '<div class="mb-form"><div class="mb-cap">Outlook</div><p class="ol-mlead">Your Outlook meetings in Today and Upcoming, beside your tasks.</p>' +
+      '<span class="mb-btn">Connect Outlook Calendar</span><p class="ol-mnote">A work or a personal Microsoft account.</p></div>');
+    function cal(c, name, on, sub) {
+      return '<div class="mb-fr ol-mcal"><span class="ol-dot" style="--cc:' + OL_CC[c] + '"></span><span class="tx"><b>' + name + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</span>' +
+        (on ? '<span class="ol-mck">' + ICON.check + '</span>' : '') + '</div>';
+    }
+    var on = mbPage(mbNav('Settings') + mbHead('Calendars'),
+      '<div class="mb-form"><div class="mb-cap">Outlook</div><div class="mb-group">' +
+        '<div class="mb-fr nf-sw">' + ICON.cal + '<span class="tx"><b>Kaan Arslan</b><small>kaanarslan@outlook.com</small></span></div>' +
+        '<div class="mb-fr nf-sw"><span class="tx"><b>Show events in Scrawl</b><small>In Today and Upcoming. A tap opens one in Outlook.</small></span><span class="mb-switch on"></span></div></div>' +
+      '<div class="mb-cap">Calendars</div><div class="mb-group">' +
+        cal('cal', 'Calendar', true) + cal('bday', 'Birthdays', true) + cal('hol', 'Holidays in Turkey', true) + cal('mert', 'Mert Kaya', false, 'Shared with you') + '</div>' +
+      '<div class="mb-group" style="margin-top: 22px"><div class="mb-fr red">Disconnect</div></div>' +
+      '<p class="ol-mnote">Each of your devices connects on its own.</p></div>');
+    var seg = function (today) { return '<div class="mb-seg"><span' + (today ? ' class="on"' : '') + '>Today</span><span' + (today ? '' : ' class="on"') + '>Upcoming</span></div>'; };
+    var evs = '<div class="ol-mevs">' + OL_EV[9].map(function (o) {
+      return '<div class="ol-mev' + (olPast(9, o) ? ' past' : '') + '" style="--cc:' + OL_CC[o.c] + '"><em>' + clClock(o.from) + '</em><b>' + o.t + '</b>' + OL_EXT + '</div>';
+    }).join('') + '</div>';
+    var today = mbPage('<div class="mb-head root"><h2>Today</h2><small>Monday, Nov 9</small></div>' + seg(true),
+      '<div class="mb-sec">Overdue <small>1</small><span class="resch">Reschedule</span></div>' +
+      mbT({ title: 'Renew the domain', meta: mi('cal', 'Nov 6', 'late') + mi('tasks', 'Tasks · Personal') }) +
+      '<div class="mb-sec">Today <small>3</small></div>' + evs +
+      mbT({ p: 'p2', title: 'Write the release notes for 0.1.27', meta: mi('tasks', 'Tasks · Scrawl') }) +
+      mbT({ p: 'p1', key: 'SCR-30', title: 'Calendar: drag to reschedule', meta: mi('board', 'Doing') }) +
+      mbT({ title: 'Call the dentist', meta: mi('tasks', 'Tasks · Personal') }));
+    var strip = '<div class="cv-mstrip">' + [9, 10, 11, 12, 13, 14, 15].map(function (d, i) {
+      var busy = OL_EV[d] || OL_TASKS[d];
+      return '<span' + (d === 9 ? ' class="on"' : '') + '><small>' + OL_WD[i][0] + '</small><b>' + d + '</b><i' + (busy ? '' : ' class="no"') + '></i></span>';
+    }).join('') + '</div>';
+    var hours = '';
+    for (var h = 8; h < 18; h++) hours += '<span style="top:' + (h - 8) * 52 + 'px">' + clClock(h) + '</span>';
+    var boxes = OL_EV[9].map(function (o) { return olCvBox(9, o, true, true); }).join('');
+    var day = mbPage('<div class="mb-head root split"><div><h2>Upcoming</h2><small>Monday, Nov 9</small></div><div class="mb-seg"><span>List</span><span class="on">Day</span><span>Month</span></div></div>' + seg(false) + strip,
+      '<div class="cv-mall">' + olAllDay(9).join('') + '</div><div class="cv-mgrid"><div class="cv-mhours">' + hours + '</div><div class="cv-mcol">' + boxes +
+      '<div class="cv-now" style="top:' + (OL_NOW - 8) * 52 + 'px"><i></i></div></div></div>');
+    return [
+      mbPhone('Settings › Calendars: bağlı değil', off, ''),
+      mbPhone('Bağlandıktan sonra: hesap, Show events, takvimler', on, ''),
+      mbPhone('Today: günün etkinlikleri işlerin üstünde; dokununca Outlook', today, nfTabs('today') + MB_FAB),
+      mbPhone('Upcoming › Day: etkinlikler içi boş kutular', day, nfTabs('today') + MB_FAB)
+    ].join('');
+  }
+  var OL_VIEWS = {
+    oloff: function () { return olApp('today', olToday(), '3 tasks · 1 card · 4 events', olSettings(false)); },
+    olset: function () { return olApp('today', olToday(), '3 tasks · 1 card · 4 events', olSettings(true)); },
+    oltoday: function () { return olApp('today', olToday({ hot: 'Acme demo' }), 'Acme demo · opens in Outlook'); },
+    olone: function () { return olApp('today', olToday({ one: true }), '3 tasks · 1 card · 1 event'); },
+    olsignin: function () { return olApp('today', olToday({ signin: true }), '3 tasks · 1 card'); },
+    ollist: olList,
+    olweek: olWeek,
+    olmonth: olMonth
+  };
+  function renderOl(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (view === 'olphone') {
+      mock.className = 'mock dir-a phones four mbs';
+      mock.innerHTML = olPhone();
+    } else {
+      mock.className = 'mock dir-a wider';
+      mock.innerHTML = OL_VIEWS[view]();
+    }
+    section.querySelectorAll('.brief [data-olview]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.olview === view)); });
+  }
+  var sectionOl = document.querySelector('.dir[data-dir="outlook"]');
+  sectionOl.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-olview]');
+    if (b) renderOl(sectionOl, b.dataset.olview);
+  });
+  renderOl(sectionOl, 'olset');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });
