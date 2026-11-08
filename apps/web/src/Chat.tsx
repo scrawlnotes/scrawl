@@ -503,14 +503,18 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
     // Any message changed, not only one more: a reaction or an edit on the last makes it longer.
   }, [messages, pending.length, lastSeq]);
 
-  // Made smaller (a phone's keyboard, the box written in growing) or longer (a picture come in): still at the end if it was.
+  // Made smaller (a phone's keyboard, the box written in growing) or longer (a picture come in): still at the end if it was,
+  // else what was right over the box to write in stays there, as a keyboard coming up pushes the conversation up.
   const height = useRef(0);
   useEffect(() => {
     const box = scroller.current;
     if (!box) return;
     const keep = () => {
+      const was = height.current;
       height.current = box.clientHeight;
-      if (atEnd.current && placed.current && !aiming.current) box.scrollTop = box.scrollHeight;
+      if (!placed.current || aiming.current) return;
+      if (atEnd.current) box.scrollTop = box.scrollHeight;
+      else if (was) box.scrollTop += was - box.clientHeight;
     };
     const watch = new ResizeObserver(keep);
     watch.observe(box);
@@ -571,12 +575,12 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
       row = scroller.current?.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`);
     }
     if (!row) return;
-    // Away from the end: new messages do not take the reader there.
-    atEnd.current = false;
     // The conversation alone is scrolled, not what holds it: a phone's page coming in would be moved too.
     const box = scroller.current!;
     const rowAt = row.getBoundingClientRect();
     const top = box.scrollTop + rowAt.top - box.getBoundingClientRect().top - (box.clientHeight - rowAt.height) / 2;
+    // Away from the end, new messages do not take the reader there; a message at the end, as a notification's, leaves it there.
+    atEnd.current = box.scrollHeight - top - box.clientHeight < 40;
     box.scrollTo({ top, behavior: smooth ? 'smooth' : 'auto' });
     setFlash(id);
     window.setTimeout(() => setFlash(null), 1600);
