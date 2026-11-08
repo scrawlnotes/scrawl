@@ -4,6 +4,8 @@ import {
   editorTakesEnter,
   type EditorView,
   focusOnCapital,
+  type FormatState,
+  formatState,
   highlightCodeBlocks,
   MARKDOWN_TYPE,
   messageHtml,
@@ -1373,14 +1375,14 @@ function inFence(text: string, at: number): boolean {
 }
 
 /** What the formatting row does, after the note's format bar: marks, then blocks. */
-const FORMATS: { title: MessageKey; mark?: string; icon?: IconName; className?: string; run: (view: EditorView) => void }[] = [
-  { title: 'format.bold', mark: 'B', className: 'fmt-bold', run: (view) => toggleBold(view) },
-  { title: 'format.italic', mark: 'I', className: 'fmt-italic', run: (view) => toggleItalic(view) },
-  { title: 'format.strike', mark: 'S', className: 'fmt-strike', run: (view) => toggleStrike(view) },
-  { title: 'format.code', mark: '</>', run: (view) => toggleCode(view) },
-  { title: 'format.listTitle', icon: 'list', run: (view) => toggleList('bullet')(view) },
-  { title: 'format.quote', icon: 'quote', run: (view) => toggleLinePrefix('quote')(view) },
-  { title: 'format.codeBlock', icon: 'codeBlock', run: (view) => toggleCodeBlock(view) },
+const FORMATS: { title: MessageKey; mark?: string; icon?: IconName; className?: string; on: keyof FormatState; run: (view: EditorView) => void }[] = [
+  { title: 'format.bold', mark: 'B', className: 'fmt-bold', on: 'bold', run: (view) => toggleBold(view) },
+  { title: 'format.italic', mark: 'I', className: 'fmt-italic', on: 'italic', run: (view) => toggleItalic(view) },
+  { title: 'format.strike', mark: 'S', className: 'fmt-strike', on: 'strike', run: (view) => toggleStrike(view) },
+  { title: 'format.code', mark: '</>', on: 'code', run: (view) => toggleCode(view) },
+  { title: 'format.listTitle', icon: 'list', on: 'list', run: (view) => toggleList('bullet')(view) },
+  { title: 'format.quote', icon: 'quote', on: 'quote', run: (view) => toggleLinePrefix('quote')(view) },
+  { title: 'format.codeBlock', icon: 'codeBlock', on: 'codeBlock', run: (view) => toggleCodeBlock(view) },
 ];
 
 interface Choice {
@@ -1429,6 +1431,8 @@ export function Composer({ server, chat, replyTo, nameOf, menu, links, dropping,
   const [mention, setMention] = useState<{ from: number; to: number; query: string; at: number } | null>(null);
   // The formatting row, which Aa opens over the box; and the emoji, over it too.
   const [formatting, setFormatting] = useState(false);
+  // What applies where the cursor is, Bold pressed before writing too: its button is pressed.
+  const [format, setFormat] = useState<FormatState | null>(null);
   const [emoji, setEmoji] = useState(false);
   // The files on their way into the message, over the box; and a voice message being recorded in its place.
   const [going, setGoing] = useState<Going[]>([]);
@@ -1675,6 +1679,7 @@ export function Composer({ server, chat, replyTo, nameOf, menu, links, dropping,
       addFiles: (files) => adding.current(files),
       pastedFiles: isDesktop ? clipboardFilesOnDesktop : undefined,
       onEmptyPaste: () => links.say(t('editor.pasteNothing')),
+      onStats: () => editor.current && setFormat(formatState(editor.current.view.state)),
       placeholder: () => {
         const shown = document.createElement('span');
         shown.textContent = placeholder;
@@ -1870,22 +1875,21 @@ export function Composer({ server, chat, replyTo, nameOf, menu, links, dropping,
       )}
       {formatting && (
         <div className="fmt" onMouseDown={(event) => event.preventDefault()}>
-          {FORMATS.map((format) => (
+          {FORMATS.map((item) => (
             <button
               type="button"
-              key={format.title}
-              className={format.className ?? ''}
-              title={t(format.title)}
-              aria-label={t(format.title)}
-              // The words keep the focus, as with the box's other buttons: the cursor stays inside the marks put in.
-              onMouseDown={(event) => event.preventDefault()}
+              key={item.title}
+              className={item.className ?? ''}
+              title={t(item.title)}
+              aria-label={t(item.title)}
+              aria-pressed={Boolean(format?.[item.on])}
               onClick={() => {
                 const view = editor.current?.view;
-                if (view) format.run(view);
+                if (view) item.run(view);
                 view?.focus();
               }}
             >
-              {format.icon ? <Icon name={format.icon} /> : format.mark}
+              {item.icon ? <Icon name={item.icon} /> : item.mark}
             </button>
           ))}
         </div>

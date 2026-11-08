@@ -6,7 +6,9 @@ import { history, undo } from '@codemirror/commands';
 import {
   insertDivider,
   insertTable,
+  isMarkActive,
   linkAt,
+  pendingFormat,
   setLink,
   splitSelectionIntoLines,
   toggleBold,
@@ -15,6 +17,7 @@ import {
   toggleItalic,
   toggleLinePrefix,
   toggleList,
+  typedFormatted,
   indentLines,
 } from './commands';
 import { literalPattern } from './find';
@@ -239,6 +242,62 @@ describe('formatting commands', () => {
       tree.iterate({ enter: (node) => void (node.name === 'StrongEmphasis' && strong++) });
       expect(marked.split('**').length - 1, marked).toBe(strong * 2);
     }
+  });
+
+  describe('pressed before writing', () => {
+    const start = (text: string) => EditorState.create({ doc: text.replace('|', ''), selection: EditorSelection.cursor(text.indexOf('|')), extensions: [...extensions, pendingFormat] });
+    const press = (state: EditorState, command: StateCommand) => {
+      command({ state, dispatch: (tr) => (state = tr.state) });
+      return state;
+    };
+    // One key at a time, as the editor's input handler gets them.
+    const type = (state: EditorState, text: string) => {
+      for (const key of text) {
+        const head = state.selection.main.head;
+        state = state.update(typedFormatted(state, head, head, key) ?? { changes: { from: head, insert: key }, selection: { anchor: head + 1 } }).state;
+      }
+      return state;
+    };
+    const shown = (state: EditorState) => {
+      const doc = state.doc.toString();
+      const head = state.selection.main.head;
+      return `${doc.slice(0, head)}|${doc.slice(head)}`;
+    };
+
+    it('formats what is typed next, where an empty pair would be a divider', () => {
+      const pressed = press(start('|'), toggleBold);
+      expect(shown(pressed)).toBe('|');
+      expect(isMarkActive(pressed, '**')).toBe(true);
+      expect(shown(type(pressed, 'Bold'))).toBe('**Bold|**');
+      expect(shown(type(press(start('~~~\n|'), toggleBold), 'x'))).toBe('~~~\n**x|**');
+    });
+
+    it('formats only what is typed after a word, and keeps a first space outside', () => {
+      expect(shown(type(press(start('hello|'), toggleBold), ' bold'))).toBe('hello **bold|**');
+      expect(shown(type(press(start('hello |'), toggleBold), 'bold'))).toBe('hello **bold|**');
+    });
+
+    it('stops at the end of the words when pressed again', () => {
+      const stopped = press(start('a **bold|**'), toggleBold);
+      expect(isMarkActive(stopped, '**')).toBe(false);
+      expect(shown(type(stopped, ' rest'))).toBe('a **bold** rest|');
+      expect(shown(type(stopped, 'x'))).toBe('a **bold**x|');
+    });
+
+    it('is taken back by pressing again, and by moving the cursor', () => {
+      expect(shown(type(press(press(start('|'), toggleBold), toggleBold), 'x'))).toBe('x|');
+      const moved = press(start('ab|'), toggleBold).update({ selection: { anchor: 0 } }).state;
+      expect(shown(type(moved, 'x'))).toBe('x|ab');
+    });
+
+    it('puts several formats pressed together around what is typed', () => {
+      expect(shown(type(press(press(start('|'), toggleBold), toggleItalic), 'x'))).toBe('***x|***');
+    });
+
+    it('still formats the word the cursor is inside', () => {
+      const state = press(start('a wo|rd b'), toggleBold);
+      expect(shown(state)).toBe('a **wo|rd** b');
+    });
   });
 
   it('adds italic to bold instead of removing a star', () => {

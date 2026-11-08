@@ -30,6 +30,8 @@ import { copiesField } from './copies';
 import {
   formatKeymap,
   insertDivider,
+  pendingFormat,
+  pendingFormatting,
   insertTable,
   toggleCodeBlock,
   toggleHeading,
@@ -426,6 +428,7 @@ export function createEditor(options: ScrawlEditorOptions): ScrawlEditor {
         options.touch ? [EditorView.contentAttributes.of({ autocapitalize: 'sentences', autocorrect: 'on' }), capitalsOnTouch] : [],
         options.slash === false ? [] : slashMenu(slashItems, options.touch),
         cursorBehavior,
+        pendingFormatting,
         clipboard,
         linkPaste(),
         keepDividers,
@@ -452,7 +455,9 @@ export function createEditor(options: ScrawlEditorOptions): ScrawlEditor {
             if (removed.size || added.size) options.onAttachments([...removed], [...added]);
           }
           const modeChanged = update.startState.field(sourceMode) !== update.state.field(sourceMode);
-          if (update.docChanged || update.selectionSet || modeChanged) options.onStats?.(stats(update.view.state));
+          // Bold pressed before writing lights its button with nothing typed yet.
+          const pendingChanged = update.startState.field(pendingFormat) !== update.state.field(pendingFormat);
+          if (update.docChanged || update.selectionSet || modeChanged || pendingChanged) options.onStats?.(stats(update.view.state));
         }),
         // Last on purpose: it changes the note again from inside an update. Any listener after it
         // would then be called with the older text after the newer one, and save the older.

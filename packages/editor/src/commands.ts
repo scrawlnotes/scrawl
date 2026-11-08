@@ -4,13 +4,17 @@ import {
   type ChangeSpec,
   EditorSelection,
   type EditorState,
+  type Extension,
   type Line,
   type SelectionRange,
   type StateCommand,
+  StateEffect,
+  StateField,
   type Text,
   type Transaction,
+  type TransactionSpec,
 } from '@codemirror/state';
-import type { KeyBinding } from '@codemirror/view';
+import { EditorView, type KeyBinding } from '@codemirror/view';
 import type { SyntaxNode } from '@lezer/common';
 import { t } from '@scrawlnotes/i18n';
 import { calloutAt, type CalloutType } from './callout';
@@ -71,8 +75,90 @@ function enclosing(state: EditorState, span: Span, name: string): SyntaxNode | n
   return null;
 }
 
+/**
+ * Formatting pressed where there is nothing to format: what is typed next comes with it, as Bold
+ * pressed before writing does elsewhere. An empty pair put in instead is no formatting until
+ * something is in it, and some are other syntax: alone on a line `****` is a divider, which took
+ * the cursor past it, and `~~~~` opens a code block.
+ */
+export interface PendingFormat {
+  /** Where the cursor stands. */
+  at: number;
+  /** The marks what is typed there is put in. */
+  marks: string[];
+  /** Formatting pressed again at the end of its words: what is typed next goes past its closing mark, plain. */
+  stop?: { mark: string; after: number };
+}
+
+const setPending = StateEffect.define<PendingFormat | null>();
+
+export const pendingFormat = StateField.define<PendingFormat | null>({
+  create: () => null,
+  update(value, tr) {
+    for (const effect of tr.effects) if (effect.is(setPending)) return effect.value;
+    // Anything typed, or the cursor moved, and it is gone.
+    if (!value || tr.docChanged) return null;
+    const main = tr.selection?.main;
+    return !main || (main.empty && main.head === value.at && tr.selection!.ranges.length === 1) ? value : null;
+  },
+});
+
+/** What pressing `mark` with an empty cursor at `pos` leaves pending; undefined when it formats the text there instead. */
+function pendingToggle(state: EditorState, pos: number, mark: string): PendingFormat | null | undefined {
+  const { node: nodeName, mark: markName } = MARK_NODES[mark]!;
+  const now = state.field(pendingFormat, false);
+  const here: PendingFormat = now && now.at === pos ? now : { at: pos, marks: [] };
+  const left = (p: PendingFormat) => (p.marks.length || p.stop ? p : null);
+  if (here.stop?.mark === mark) return left({ at: pos, marks: here.marks });
+  if (here.marks.includes(mark)) return left({ ...here, marks: here.marks.filter((m) => m !== mark) });
+  const node = enclosing(state, { from: pos, to: pos }, nodeName);
+  if (node && pos < node.to) {
+    const close = node.getChildren(markName).at(-1);
+    if (close && close.from === pos) return { ...here, stop: { mark, after: close.to } };
+    // Inside its words it is taken away from them.
+    return undefined;
+  }
+  // Inside a word the word is formatted; before or after one, what is typed next.
+  const word = state.wordAt(pos);
+  if (word && word.from < pos && pos < word.to) return undefined;
+  return { ...here, marks: [...here.marks, mark] };
+}
+
+/** The edit for text typed where formatting is pending, or null where none is. */
+export function typedFormatted(state: EditorState, from: number, to: number, text: string): TransactionSpec | null {
+  const pending = state.field(pendingFormat, false);
+  if (!pending || from !== to || from !== pending.at || text.includes('\n')) return null;
+  const at = pending.stop?.after ?? from;
+  // A space before the words stays outside the marks, which cannot start with one.
+  if (!text.trim()) {
+    const next = at + text.length;
+    return { changes: { from: at, insert: text }, selection: { anchor: next }, effects: setPending.of(pending.marks.length ? { at: next, marks: pending.marks } : null), userEvent: 'input.type' };
+  }
+  const open = pending.marks.join('');
+  const close = [...pending.marks].reverse().join('');
+  // Not `input.type`: typed marks are escaped as literal characters, and these are formatting.
+  return { changes: { from: at, insert: open + text + close }, selection: { anchor: at + open.length + text.length }, scrollIntoView: true, userEvent: 'input.format' };
+}
+
+/** Pending formatting and the typing that takes it; without it, formatting with nothing to format puts in an empty pair. */
+export const pendingFormatting: Extension = [
+  pendingFormat,
+  EditorView.inputHandler.of((view, from, to, text) => {
+    // A word being composed is left to the keyboard.
+    const spec = view.composing ? null : typedFormatted(view.state, from, to, text);
+    if (spec) view.dispatch(spec);
+    return spec !== null;
+  }),
+];
+
 /** Whether everything the main selection covers carries `mark`. */
 export function isMarkActive(state: EditorState, mark: string): boolean {
+  const pending = state.field(pendingFormat, false);
+  const main = state.selection.main;
+  if (pending && main.empty && main.head === pending.at) {
+    if (pending.marks.includes(mark)) return true;
+    if (pending.stop?.mark === mark) return false;
+  }
   const spans = targets(state, state.selection.main);
   return spans.length > 0 && spans.every((span) => enclosing(state, span, MARK_NODES[mark]!.node));
 }
@@ -84,6 +170,14 @@ export function isMarkActive(state: EditorState, mark: string): boolean {
 export function toggleMark(mark: string): StateCommand {
   const { node: nodeName, mark: markName } = MARK_NODES[mark]!;
   return ({ state, dispatch }) => {
+    const main = state.selection.main;
+    if (state.selection.ranges.length === 1 && main.empty && state.field(pendingFormat, false) !== undefined) {
+      const pending = pendingToggle(state, main.head, mark);
+      if (pending !== undefined) {
+        dispatch(state.update({ effects: setPending.of(pending) }));
+        return true;
+      }
+    }
     const tr = state.changeByRange((range) => {
       const spans = targets(state, range);
       if (!spans.length) {

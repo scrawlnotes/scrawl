@@ -9668,6 +9668,12 @@ body > .mb-lifted {
   font-size: 16px;
 }
 
+/* a code block's words too: under 16 px the phone zooms in */
+.mb .ch-cmp .in .cm-line.cm-sl-codeblock,
+.mb .ch-edit-box .cm-line.cm-sl-codeblock {
+  font-size: 16px;
+}
+
 .chp-row .send {
   display: grid;
   flex: none;

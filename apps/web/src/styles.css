@@ -16862,6 +16862,44 @@ button.ch-q {
   padding: 0;
 }
 
+/* A code block written in the box looks as it will in the message: a box of its own with room in it. */
+.ch-edit-box .cm-line.cm-sl-codeblock,
+.ch-cmp .in .cm-line.cm-sl-codeblock {
+  padding: 0 12px;
+  border: solid var(--sl-line);
+  border-width: 0 1px;
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+/* its fences, which can be taken away, stay out of the way at its top and bottom */
+.ch-edit-box .cm-line.cm-sl-codeblock-first,
+.ch-cmp .in .cm-line.cm-sl-codeblock-first {
+  padding-top: 6px;
+  border-top-width: 1px;
+  border-radius: 6px 6px 0 0;
+}
+
+.ch-edit-box .cm-line.cm-sl-codeblock-last,
+.ch-cmp .in .cm-line.cm-sl-codeblock-last {
+  padding-bottom: 6px;
+  border-bottom-width: 1px;
+  border-radius: 0 0 6px 6px;
+}
+
+.ch-edit-box .cm-sl-codeblock-first .cm-sl-syntax,
+.ch-cmp .in .cm-sl-codeblock-first .cm-sl-syntax,
+.ch-edit-box .cm-sl-codeblock-last .cm-sl-syntax,
+.ch-cmp .in .cm-sl-codeblock-last .cm-sl-syntax {
+  font-size: 11px;
+}
+
+/* nothing to copy from what is being written */
+.ch-edit-box .cm-sl-copy,
+.ch-cmp .in .cm-sl-copy {
+  display: none;
+}
+
 .ch-cancel {
   color: var(--sl-faint);
   font-size: 12px;
@@ -16960,6 +16998,12 @@ button.ch-q {
 .ch-cmp .fmt button:hover {
   background: var(--sl-sel);
   color: var(--sl-fg);
+}
+
+/* what applies where the cursor is, Bold pressed before writing too */
+.ch-cmp .fmt button[aria-pressed='true'] {
+  background: var(--sl-sel);
+  color: var(--sl-accent);
 }
 
 .ch-cmp .fmt .icon {
