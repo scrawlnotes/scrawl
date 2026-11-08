@@ -16882,12 +16882,12 @@ button.ch-q {
   background: var(--sl-bg);
 }
 
-/* The box to write in and a message changed in place have the editor's Markdown, not a note's page: no line numbers, no margins. */
+/* The box to write in and a message changed in place have the editor's Markdown, not a note's page: no line numbers, no margins; their words as large as a message's. */
 .ch-edit-box .cm-editor,
 .ch-cmp .in .cm-editor {
   height: auto;
   background: none;
-  font: 13px/1.5 var(--sl-font-ui);
+  font: 15px/22px var(--sl-font-ui);
 }
 
 .ch-edit-box .cm-gutters,
@@ -17061,7 +17061,7 @@ button.ch-q {
 
 .ch-cmp .in {
   max-height: 40vh;
-  padding: 6px 12px 0;
+  padding: 10px 12px 4px;
   overflow-y: auto;
 }
 

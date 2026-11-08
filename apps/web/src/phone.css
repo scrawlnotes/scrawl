@@ -9757,6 +9757,7 @@ body > .mb-lifted {
 .mb .ch-cmp .in .cm-editor,
 .mb .ch-edit-box .cm-editor {
   font-size: 16px;
+  line-height: 1.5;
 }
 
 /* a code block's words too: under 16 px the phone zooms in */

@@ -511,7 +511,7 @@ Kodda netleşenler:
 
 - **Ayrı canlı bağlantı:** Chat sunucuya sync'inkinden ayrı bir canlı bağlantı açar; sync'in koduna dokunulmaz. Kullanılıyor bilgisini yalnız Chat'in bağlantısı söyler.
 - **Önbellek:** IndexedDB'de sunucu başına bir kayıt: konuşmalar, konuşma başına son 500 mesaj, imleç ve gönderilmeyi bekleyenler; değişince bir saniye içinde yazılır.
-- **Kuyruk:** mesaj yazıldığı anda konuşmada soluk ve "Sending" ile görünür. Sunucuya ulaşılamıyorsa canlı bağlantı geri gelince sırayla gider; sunucu reddederse "Not sent", yanında Retry ve Delete.
+- **Kuyruk:** mesaj yazıldığı anda konuşmada soluk görünür; 2 saniyede gitmezse altında "Sending" çıkar (hemen çıkınca satır gelip gidiyor, konuşma zıplıyordu). Sunucuya ulaşılamıyorsa canlı bağlantı geri gelince sırayla gider; sunucu reddederse "Not sent", yanında Retry ve Delete.
 - **Okundu:** konuşma ekranda, pencere önde ve en alttayken okunmuş sayılır; konuşmaya tıklamak, bir tuşa basmak ya da pencereye dönmek de okutur.
 - **New çizgisi** konuşma açıldığı andaki ilk okunmamışın üstünde durur, konuşma açık kaldıkça kalır.
 - **Kullanılıyor:** pencere görünür, önde ve son 5 dakikada dokunulmuşsa. Uygulama bunu değişince ve 30 saniyede bir söyler.

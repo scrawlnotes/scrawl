@@ -1205,6 +1205,13 @@ function PendingRow({ url, pending, me, nameOf, after, replied, phone }: { url: 
   const html = useMemo(() => messageHtml(pending.body), [pending.body]);
   const body = useRef<HTMLDivElement>(null);
   const fold = useFold(body, html, phone);
+  // Sending only when it is slow: shown at once, its line came and went as the message did, and the conversation jumped twice.
+  const [late, setLate] = useState(() => Date.now() - pending.at >= 2000);
+  useEffect(() => {
+    if (late) return;
+    const timer = setTimeout(() => setLate(true), 2000 - (Date.now() - pending.at));
+    return () => clearTimeout(timer);
+  }, [late, pending.at]);
   return (
     <div className={`ch-m pending${cont ? ' cont' : ''}${pending.failed ? ' failed' : ''}`}>
       {cont ? <span className="tm">{timeOf(pending.at)}</span> : <Face id={me} name={nameOf(me)} />}
@@ -1241,10 +1248,12 @@ function PendingRow({ url, pending, me, nameOf, after, replied, phone }: { url: 
             </button>
           </div>
         ) : (
-          <div className="ch-going">
-            <Icon name="clock" />
-            {t('chat.sending')}
-          </div>
+          late && (
+            <div className="ch-going">
+              <Icon name="clock" />
+              {t('chat.sending')}
+            </div>
+          )
         )}
       </div>
     </div>

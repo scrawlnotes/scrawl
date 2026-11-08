@@ -402,8 +402,12 @@ async function badge(count: number) {
       return;
     }
     const window = getCurrentWindow();
-    if (/Windows/.test(navigator.userAgent)) await window.setOverlayIcon(count > 0 ? await overlayOf(count) : undefined);
-    else await window.setBadgeCount(count > 0 ? count : undefined);
+    if (/Windows/.test(navigator.userAgent)) {
+      const icon = count > 0 ? await overlayOf(count) : undefined;
+      // Another number came while this one was drawn, as when a message is read at once: put in after it, this one would stay.
+      if (count !== badged) return;
+      await window.setOverlayIcon(icon);
+    } else await window.setBadgeCount(count > 0 ? count : undefined);
   } catch {
     // An icon that keeps no number.
   }
