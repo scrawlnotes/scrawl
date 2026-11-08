@@ -4842,6 +4842,14 @@ p { margin: 0; max-width: 68ch; }
 .ol-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--cc); }
 .ol-box { display: grid; place-items: center; flex: none; width: 15px; height: 15px; box-sizing: border-box; border: 1px solid var(--m-faint); border-radius: 4px; color: var(--m-on-accent); font-size: 10px; }
 .ol-box.on { border-color: var(--m-accent); background: var(--m-accent); }
+.sx-rdo { flex: none; width: 13px; height: 13px; box-sizing: border-box; border: 1.5px solid var(--m-faint); border-radius: 50%; }
+.sx-rdo.on { border: 4px solid var(--m-accent); }
+.sx-cal { padding: 4px 0 0; }
+.sx-cal .d { padding: 14px 16px 6px; color: var(--m-dim); font-size: 13px; font-weight: 600; }
+.sx-cal .e { display: flex; align-items: center; gap: 10px; margin: 0 12px 6px; padding: 9px 12px; border-radius: 8px; background: color-mix(in srgb, var(--cc) 22%, transparent); border-left: 3px solid var(--cc); font-size: 14px; }
+.sx-cal .e em { flex: none; width: 44px; color: var(--m-dim); font-style: normal; font-size: 12.5px; }
+.sx-cal .e small { display: block; color: var(--m-faint); font-size: 12px; }
+.sx-cal .e.done b { color: var(--m-dim); }
 .ol-cals { margin-left: 25px; }
 .ol-cals .st-li { padding: 7px 12px; }
 .ol-evs { display: grid; grid-auto-flow: column; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px 16px; margin: 4px 0 8px; padding: 6px 8px; border: 1px solid var(--m-line); border-radius: 8px; background: color-mix(in srgb, var(--m-side) 70%, transparent); }
@@ -6256,6 +6264,7 @@ p { margin: 0; max-width: 68ch; }
         <h2>Bağlantı ve Outlook etkinlikleri Scrawl'da</h2>
         <p>Settings'te Notifications'ın altında <b>Calendars</b>. <b>Connect Outlook Calendar</b> Microsoft girişini açar. Dönünce hesap ve <b>Show events in Scrawl</b> görünür, altında hesabın takvimleri: kendi takvimlerin işaretli gelir, başkasının paylaştığı işaretsiz. Etkinlikler Today'de ve Upcoming'in List görünümünde günün başında, iki sütunlu bir kutuda durur. Takvimde Outlook takviminin renginde, içi boş kutulardır; Scrawl'ın kayıtları dolu kalır. Scrawl'da değiştirilemezler; üstüne gelince ↗ çıkar, tıklanınca Outlook'ta açılırlar. Geçmiş etkinlik soluk görünür. Giriş düşerse kutunun yerinde tek satır ve <b>Sign in…</b> görünür. Sync to Outlook, 2. dilimde aynı sayfaya gelir.</p>
         <p><b>4. dilim, Google Calendar (taslak, "G:" görünümleri):</b> Settings › Calendars'ta <b>Connect Google Calendar</b> ve <b>Connect Outlook Calendar</b> alt alta. Bir hesap bağlanınca <b>Show events in Scrawl</b> en üstte, bütün hesaplar için tek; altında her hesap kendi başlığıyla (Google, Outlook), hesap satırı ve takvimleri. Google'da varsayılan, Google Calendar'da işaretli takvimler. Bağlanmamış sağlayıcının düğmesi altta kalır. Today'de iki hesabın etkinlikleri tek kutuda, saat sırasıyla, her biri kendi renginde; tıklanınca kendi uygulamasında açılır. Google'ın girişi düşerse yalnız onunkiler gider, kutunun üstünde tek satır.</p>
+        <p><b>2. dilim, Scrawl'dan takvime (8 Kasım'da onaylandı, "S:" görünümleri):</b> hesapların altında <b>Sync tasks to calendar</b>; iki hesap bağlıyken <b>Sync to</b> ile Google ya da Outlook; açılınca <b>What goes</b>: Tasks ve Boards açık, app'ler ve Collections kapalı. Google'a ilk açılışta Google bir kez daha izin ister. Kapatınca ya da hedef değişince Scrawl takvimi sorularak silinir. New app'te Today'e bir şey getiren app için <b>Sync to connected calendar</b>, kapalı; altındaki cümle hangi takvime gittiğini söyler.</p>
         <ul class="traits"><li>Settings › Calendars</li><li>ayrı Microsoft girişi</li><li>takvim seçimi</li><li>Today'de kutu</li><li>List'te günün başında</li><li>takvimde içi boş</li><li>tıklayınca Outlook</li><li>telefonda da</li></ul>
       </div>
       <span class="pick" role="group" aria-label="Outlook görünümü">
@@ -6274,6 +6283,11 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-olview="gtoday">G: Today iki hesap</button>
         <button type="button" data-olview="gsignin">G: Google girişi düşünce</button>
         <button type="button" data-olview="gphone">G: Telefon</button>
+        <button type="button" data-olview="soff">S: Sync kapalı</button>
+        <button type="button" data-olview="son">S: Sync açık</button>
+        <button type="button" data-olview="sask">S: kapatırken</button>
+        <button type="button" data-olview="snewapp">S: New app</button>
+        <button type="button" data-olview="sphone">S: Telefon ve takvim</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -20366,7 +20380,7 @@ p { margin: 0; max-width: 68ch; }
    * Settings › Calendars with Google: `none` connects either; `google` has Google's account and
    * Connect Outlook Calendar under it; `both` has both accounts. Show events is one, at the top.
    */
-  function gSettings(state) {
+  function gSettings(state, tail) {
     function cal(c, name, on, sub) {
       return '<div class="st-li"><span class="ol-dot" style="--cc:' + OL_CC[c] + '"></span><span class="nm"><b>' + name + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</span>' +
         '<span class="ol-box' + (on ? ' on' : '') + '">' + (on ? '✓' : '') + '</span></div>';
@@ -20380,7 +20394,7 @@ p { margin: 0; max-width: 68ch; }
     var body = state === 'none'
       ? '<p class="ol-lead">Your Outlook and Google meetings in Today, Upcoming and the calendar, beside your tasks.</p>' +
         connect('Google Calendar', 'A Google account.') + connect('Outlook Calendar', 'A work or a personal Microsoft account.')
-      : show + google + (state === 'both' ? outlook : '<div style="margin-top: 14px">' + connect('Outlook Calendar', 'A work or a personal Microsoft account.') + '</div>') +
+      : show + google + (state === 'both' ? outlook : '<div style="margin-top: 14px">' + connect('Outlook Calendar', 'A work or a personal Microsoft account.') + '</div>') + (tail || '') +
         '<p class="st-note" style="margin: 0">Each of your devices connects on its own.</p>';
     return '<div class="ovl"><div class="st-dlg tall"><div class="st-head"><b>Settings</b><span class="x">×</span></div><div class="st-main"><nav class="st-nav">' +
       row({ icon: 'person', label: 'Profile' }) + row({ icon: 'half', label: 'Appearance' }) + '<div class="it">' + CI.bell + '<span>Notifications</span></div>' +
@@ -20419,7 +20433,63 @@ p { margin: 0; max-width: 68ch; }
       mbPhone('Today: iki hesabın etkinlikleri tek listede', today, nfTabs('today') + MB_FAB)
     ].join('');
   }
+  // Slice 2 (design/outlook-calendar.md 12): Sync tasks to calendar under the accounts, Sync to
+  // with both connected, What goes; asking before the Scrawl calendar is removed; New app's switch.
+  function sSync(o) {
+    o = o || {};
+    var where = o.outlook ? 'Outlook' : 'Google Calendar';
+    function box(on) { return '<span class="ol-box' + (on ? ' on' : '') + '">' + (on ? '✓' : '') + '</span>'; }
+    function goes(name, sub, on) { return '<div class="st-li"><span class="nm"><b>' + name + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</span>' + box(on) + '</div>'; }
+    function to(name, email, on) { return '<div class="st-li"><span class="sx-rdo' + (on ? ' on' : '') + '"></span><span class="nm"><b>' + name + '</b><small>' + email + '</small></span></div>'; }
+    return '<div class="st-label">Sync</div>' +
+      '<div class="ch-opt" style="margin: 2px 0 10px">' + box(o.on) + '<span><b>Sync tasks to calendar</b><small>Your work goes to a calendar named “Scrawl” in ' + where + ', beside your meetings, and on your phone with it.' +
+      (o.ask ? '<br>Google asks you once more, for the Scrawl calendar.' : '') + '</small></span></div>' +
+      (o.on
+        ? '<div class="st-label">Sync to</div><div class="st-list">' + to('Google', 'kaan.arslan@gmail.com', !o.outlook) + to('Outlook', 'kaanarslan@outlook.com', !!o.outlook) + '</div>' +
+          '<div class="st-label">What goes</div><div class="st-list ol-cals" style="margin-left: 0">' + goes('Tasks', 'Your task lists and the Inbox', true) + goes('Boards', 'Cards given to you', true) +
+          goes('Gym', 'An app: its training days', false) + goes('Appointments', 'An app: its appointments', false) + goes('Collections', 'Calendars of collections outside apps', false) + '</div>'
+        : '');
+  }
+  function sApp(settings) { return olApp('today', gToday(), '3 tasks · 1 card · 6 events', settings); }
+  /** Before the Scrawl calendar goes: what is removed, and Remove or Cancel. */
+  function sAsk() {
+    return '<div class="ovl"><div class="mdlg" style="width: 400px"><p style="margin: 0 0 6px; font-size: 14px; font-weight: 600">Stop syncing tasks to Google Calendar?</p>' +
+      '<p style="margin: 0 0 14px; color: var(--m-dim); font-size: 13px; line-height: 1.5">The Scrawl calendar and its 14 events will be removed from Google Calendar. Your tasks stay in Scrawl.</p>' +
+      '<div style="display: flex; justify-content: flex-end; gap: 8px"><span class="st-btn">Cancel</span><span class="st-btn go">Remove</span></div></div></div>';
+  }
+  /** New app's page with the switch, for an app that brings something to Today. */
+  function sNewApp() {
+    var row = '<div class="wide"><div class="ch-opt"><span class="ol-box"></span><span><b>Sync to connected calendar</b><small>Its appointments go to the Scrawl calendar in Google Calendar, beside your tasks.</small></span></div></div>';
+    return naAppPage().replace(/Spare parts/g, 'Clinic').replace('<span>CRM</span><span>Sales and invoicing</span><span>Stock and purchasing</span>', '<span>Appointments</span>')
+      .replace('its total is in that.</p></div>', 'its total is in that.</p></div>' + row);
+  }
+  /** On a phone: the Sync part of Calendars, and how the work shows in Google Calendar (a plain list, not Google's screen). */
+  function sPhone() {
+    function sw(name, sub, on) { return '<div class="mb-fr nf-sw"><span class="tx"><b>' + name + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</span><span class="mb-switch' + (on ? ' on' : '') + '"></span></div>'; }
+    function to(name, email, on) { return '<div class="mb-fr ol-mcal"><span class="tx"><b>' + name + '</b><small>' + email + '</small></span>' + (on ? '<span class="ol-mck">' + ICON.check + '</span>' : '') + '</div>'; }
+    var sync = mbPage(mbNav('Settings') + mbHead('Calendars'),
+      '<div class="mb-form"><div class="mb-cap">Sync</div><div class="mb-group">' + sw('Sync tasks to calendar', 'Your work goes to a calendar named “Scrawl” in Google Calendar, beside your meetings.', true) + '</div>' +
+      '<div class="mb-cap">Sync to</div><div class="mb-group">' + to('Google', 'kaan.arslan@gmail.com', true) + to('Outlook', 'kaanarslan@outlook.com', false) + '</div>' +
+      '<div class="mb-cap">What goes</div><div class="mb-group">' + sw('Tasks', '', true) + sw('Boards', '', true) + sw('Gym', 'An app', false) + sw('Appointments', 'An app', false) + '</div></div>');
+    var SC = '#e0a84a';
+    function ev(when, title, sub, cc, done) { return '<div class="e' + (done ? ' done' : '') + '" style="--cc:' + cc + '"><em>' + when + '</em><span><b>' + title + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</span></div>'; }
+    var cal = mbPage('<div class="mb-head root"><h2>Google Calendar</h2><small>Monday, Nov 9 · the “Scrawl” calendar beside the others</small></div>',
+      '<div class="sx-cal"><div class="d">Mon, Nov 9</div>' +
+      ev('all day', 'ROA-30 Calendar: drag to reschedule', 'Scrawl · Scrawl › Roadmap', SC) +
+      ev('all day', 'Write the release notes for 0.1.27', 'Scrawl · Scrawl › Tasks', SC) +
+      ev('all day', '✓ Call the dentist', 'Scrawl · Personal › Tasks', SC, true) +
+      ev('08:00', 'School run', 'Family', OL_CC.gfam) + ev('19:00', 'Pilates', 'Kaan Arslan', OL_CC.gme) +
+      '<div class="d">Tue, Nov 10</div>' + ev('all day', 'Pay the electricity bill', 'Scrawl · Personal › Tasks', SC) + '</div>');
+    return [
+      mbPhone('Calendars › Sync: açık, Google seçili', sync, ''),
+      mbPhone('Google Calendar\'da: Scrawl takvimi (düz liste, Google\'ın ekranı değil)', cal, '')
+    ].join('');
+  }
   var OL_VIEWS = {
+    soff: function () { return sApp(gSettings('both', sSync({ ask: true }))); },
+    son: function () { return sApp(gSettings('both', sSync({ on: true }))); },
+    sask: function () { return sApp(gSettings('both', sSync({ on: true })) + sAsk()); },
+    snewapp: sNewApp,
     gnone: function () { return olApp('today', olToday(), '3 tasks · 1 card', gSettings('none')); },
     ggoogle: function () { return olApp('today', gToday(), '3 tasks · 1 card · 6 events', gSettings('google')); },
     gboth: function () { return olApp('today', gToday(), '3 tasks · 1 card · 6 events', gSettings('both')); },
@@ -20440,12 +20510,19 @@ p { margin: 0; max-width: 68ch; }
     if (view === 'olphone') {
       mock.className = 'mock dir-a phones four mbs';
       mock.innerHTML = olPhone();
-    } else if (view === 'gphone') {
+    } else if (view === 'gphone' || view === 'sphone') {
       mock.className = 'mock dir-a phones mbs';
-      mock.innerHTML = gPhone();
+      mock.innerHTML = view === 'gphone' ? gPhone() : sPhone();
     } else {
       mock.className = 'mock dir-a wider';
       mock.innerHTML = OL_VIEWS[view]();
+    }
+    // The Sync part is under the accounts: shown scrolled to it, as one sees it there.
+    var body = view.charAt(0) === 's' ? mock.querySelector('.st-body') : null;
+    if (body) {
+      body.style.overflowY = 'auto';
+      var sync = Array.prototype.find.call(body.querySelectorAll('.st-label'), function (l) { return l.textContent === 'Sync'; });
+      body.scrollTop = sync ? sync.offsetTop - body.offsetTop - 12 : body.scrollHeight;
     }
     section.querySelectorAll('.brief [data-olview]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.olview === view)); });
   }

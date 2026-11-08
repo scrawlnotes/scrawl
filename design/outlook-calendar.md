@@ -42,7 +42,7 @@ Settings'te Notifications'tan sonra yeni bir bölüm. Telefonda Settings'te bir 
   - Her satır bütün space'leri kapsar. Bir app'in satırı ise yalnız o app'i.
   - **Varsayılan:** Tasks ve Boards açık, app'ler ve Collections kapalı. Sync to Outlook açılınca görevler ve kartlar hemen gider; öbürlerini kişi hemen altından açar.
   - Yalnız kişinin kendi işleri gider, Today'deki kurala göre. Paylaşılan bir listede başkasına verilmiş görev gitmez.
-- **App kurulurken:** kişide Sync to Outlook açıksa ve kurulan app Today'e bir şey getiriyorsa, New app penceresinin app sayfasında (adın, yerin ve para birimlerinin sorulduğu sayfa) bir anahtar daha çıkar: **Add to Outlook calendar**. Kapalı gelir. Seçim app'in cevaplarına yazılmaz, kişinin seçim dosyasına yazılır, çünkü paylaşılan bir space'te her kişinin seçimi kendine aittir. Bu yüzden Edit app'te görünmez; sonradan Settings › Calendars'tan değiştirilir.
+- **App kurulurken:** kişide Sync to Outlook açıksa ve kurulan app Today'e bir şey getiriyorsa, New app penceresinin app sayfasında (adın, yerin ve para birimlerinin sorulduğu sayfa) bir anahtar daha çıkar: **Sync to connected calendar**. Kapalı gelir. Seçim app'in cevaplarına yazılmaz, kişinin seçim dosyasına yazılır, çünkü paylaşılan bir space'te her kişinin seçimi kendine aittir. Bu yüzden Edit app'te görünmez; sonradan Settings › Calendars'tan değiştirilir.
   - Sync to Outlook kapalıyken kurulan app için bir şey sorulmaz. App listede kapalı görünür.
   - Var olan bir app'e şablon eklenirken sorulmaz, app'in satırı olduğu gibi kalır.
   - Ajanın kurduğu app için de sorulmaz, app kapalı gelir.
@@ -133,7 +133,7 @@ Dosyada yalnız varsayılandan farklı olanlar tutulur. Yazılmamışsa Tasks ve
 ### 4.5 Kodda
 
 - **core:** `outlook-calendar.ts` (`wantedEvents`, `planCalendar`, dosyanın okunması, yazılması ve birleşmesi). Graph istemcisine takvim uçları, `FakeGraph`'a takvimler ve etkinlikler eklenir.
-- **web:** `cloud.ts` girişi parametreli hale gelir. Yeni `outlook.ts` bağlantıyı ve turun zamanlamasını yönetir. `Settings.tsx`'e Calendars bölümü eklenir. `AppWizard.tsx`'in app sayfasına Add to Outlook calendar eklenir. Today, Upcoming ve `Calendar.tsx`'e etkinlik katmanı, telefona Settings sayfası eklenir.
+- **web:** `cloud.ts` girişi parametreli hale gelir. Yeni `outlook.ts` bağlantıyı ve turun zamanlamasını yönetir. `Settings.tsx`'e Calendars bölümü eklenir. `AppWizard.tsx`'in app sayfasına Sync to connected calendar eklenir. Today, Upcoming ve `Calendar.tsx`'e etkinlik katmanı, telefona Settings sayfası eklenir.
 - **masaüstü:** anahtar için ikinci bir saklama adı. Arka planda çalışma zaten var (18. aşama).
 - **Help:** Settings'e Calendars, Today'e ve Upcoming'e etkinlikler için birer satır.
 
@@ -184,7 +184,7 @@ Gerçek bir outlook.com hesabıyla masaüstünde bağlanılır. Seçilen işler 
 
 1. **Kapsam:** Todoist'teki gibi iki parça (1.1). Outlook'taki ad, gün, saat değişikliği ve silme Scrawl'a geri gelir; Outlook'ta Scrawl takvimine elle eklenen bir etkinlik gelmez.
 2. **Seçim:** Todoist'ten farklı olarak neyin gideceği What goes listesinde tür tür seçilir: Tasks, Boards, kurulu her app ve Collections (app dışındaki takvimler). App'in içindeki her şey o app'in satırına aittir. Yalnız kişinin kendi işleri gider.
-3. **Varsayılan:** Tasks ve Boards açık, app'ler ve Collections kapalı (8 Kasım, kullanıcının kararı). Sync to Outlook açıkken Today'e bir şey getiren bir app kurulursa New app'te Add to Outlook calendar sorulur ve kapalı gelir. Var olan app'e şablon eklenirken ve ajanın kurduğu app'te sorulmaz.
+3. **Varsayılan:** Tasks ve Boards açık, app'ler ve Collections kapalı (8 Kasım, kullanıcının kararı). Sync to Outlook açıkken Today'e bir şey getiren bir app kurulursa New app'te Sync to connected calendar sorulur ve kapalı gelir. Var olan app'e şablon eklenirken ve ajanın kurduğu app'te sorulmaz.
 4. **Bitince ✓, silinince çöp:** biten işin etkinliği ✓ ile kalır. Outlook'ta silinen etkinliğin işi çöpe gider.
 5. **Aralık:** dünden 62 gün sonrasına kadar.
 6. **Nerede:** Scrawl'ın açık olduğu cihazlarda çalışır, masaüstü tepsiden de çalışır. Sunucu Microsoft'a bağlanmaz.
@@ -206,7 +206,7 @@ Outlook'un yaptığının aynısı Google Calendar'la: Google'daki etkinlikler S
 **Dilimler.** Google'ın yazan parçaları ayrı bir dilim olmaz; Outlook'un 2. ve 3. dilimleri iki sağlayıcıyla yazılır, çünkü `wantedEvents` ve `planCalendar` ortaktır ve aynı şey iki kez yazılmaz:
 
 - **4. dilim (şimdi):** Google bağlantısı ve Google etkinlikleri Scrawl'da; Settings › Calendars iki hesaplı düzene geçer.
-- **2. dilim "Scrawl'dan takvime":** Sync tasks to calendar, iki hesap bağlıyken Sync to (Outlook ya da Google), What goes; "Scrawl" takvimi seçilen hesapta. New app'teki anahtarın adı hedefin adını alır (Add to Google Calendar). Önce mockup, ROA-374'te.
+- **2. dilim "Scrawl'dan takvime":** Sync tasks to calendar, iki hesap bağlıyken Sync to (Outlook ya da Google), What goes; "Scrawl" takvimi seçilen hesapta. New app'teki anahtar Sync to connected calendar'dır, hangi takvime gittiğini altındaki cümle söyler. Önce mockup, ROA-374'te.
 - **3. dilim "Takvimden geri gelenler":** iki sağlayıcıdan.
 - **Google'a başvuru 2. dilimden sonra:** video "Scrawl" takvimini de göstermeli.
 
@@ -252,3 +252,33 @@ Outlook'un yaptığının aynısı Google Calendar'la: Google'daki etkinlikler S
 2. **Hesap sayısı:** her sağlayıcıdan bir hesap.
 3. **Google'da varsayılan:** Google Calendar'da işaretli takvimler açık.
 4. **Show events in Scrawl:** bütün hesaplar için tek anahtar, en üstte (Todoist gibi).
+
+## 12. 2. dilim: Scrawl'dan takvime, Outlook ve Google (8 Kasım 2026'da onaylandı, mockup'ıyla)
+
+2. bölümde Outlook için yazılanın iki sağlayıcıyla hâli; kurallar (2.2, 4.3, 10) değişmez. Mockup: `design/mockups.html` › Outlook takvimi, "S:" ile başlayan görünümler.
+
+**Settings › Calendars.** Hesapların altında ayrı bir bölüm, Todoist'teki gibi:
+
+- **Sync tasks to calendar** (kapalı gelir). Altında: "Your work goes to a calendar named “Scrawl” in Google Calendar, beside your meetings, and on your phone with it." Hedef Outlook'sa "in Outlook".
+- **Sync to:** yalnız iki hesap bağlıyken, iki satırdan biri seçilir: Google ve Outlook, e-postalarıyla. Tek hesap varsa hedef odur, satır görünmez.
+- **What goes:** açılınca altında, satır satır anahtarıyla: Tasks, Boards, kurulu her app (Gym, Appointments), Collections (yalnız böyle bir koleksiyon varsa). Tasks ve Boards açık, öbürleri kapalı (10.3).
+- **Google'a ilk açılışta** Google bir kez daha izin ister, çünkü 4. dilimin girişi yalnız okumayı istedi (`calendar.app.created` yok). Anahtarın altında bir cümle: "Google asks you once more, for the Scrawl calendar." Açınca Google'ın penceresi açılır; dönünce senkron başlar. Outlook'un izni zaten yazmayı kapsar.
+- **Kapatınca ya da Sync to değişince** önce sorulur: "The Scrawl calendar and its 14 events will be removed from Google Calendar." Remove ve Cancel. Sync to değiştiyse sonra yeni hesapta "Scrawl" takvimi açılır, işler oraya gider.
+- Telefonda aynı bölüm: switch, Sync to'da iki satır ve seçilinin yanında ✓, What goes'ta her satırın switch'i.
+
+**New app.** Sync tasks to calendar açıkken ve kurulan app Today'e bir şey getiriyorsa, app sayfasında bir anahtar: **Sync to connected calendar**, kapalı gelir. Adı sağlayıcıyı söylemez (8 Kasım, kullanıcı: "add to google calendar demeyelim"; "sync to calendar" da Scrawl'ın kendi takvimi sanılır); altındaki cümle söyler: "Its appointments go to the Scrawl calendar in Google Calendar, beside your tasks.", hedef Outlook'sa "in Outlook" (2.1'deki kurallar).
+
+**Takvimde.** 2.2'deki gibi: görev ve kart tüm gün, kartta önce anahtarı ("ROA-12 Fix the login"); kayıt saatiyle; biten işin başında ✓; notunda "Scrawl · Work › Roadmap".
+
+**Teknik.**
+
+- **Seçim dosyası** (4.4) iki sağlayıcıyı alır: `sync` ve `goes` aynı kalır; `to` (`"outlook"` ya da `"google"`), `account` (hedef hesabın e-postası) ve `calendar` (hedefteki "Scrawl" takviminin kimliği) eklenir. Başka bir hesapla bağlı bir cihaz o hesabın etkinliklerini gösterir, yazmaz (3).
+- **Google'a yazma:** `calendars.insert { summary: "Scrawl" }`; etkinlikler `events.insert`, `patch`, `delete`. Kimlik işin kimliğinden türetilir (base32hex), yeniden denemede aynı etkinlik iki kez açılmaz. Taban `extendedProperties.private.scrawl`'da, 4.3'teki `{ v, id, kind, title, start, end, allDay, done }`. Okuma Scrawl takviminin `events.list`'iyle. Google'ın toplu isteği (`batch/calendar/v3`) 50'lik paketlerle.
+- **Google'ın izni:** Sync tasks to calendar Google'a açılırken giriş `calendar.app.created` eklenerek yeniden yapılır (`include_granted_scopes=true`); masaüstünde sistem tarayıcısında, web'de sayfa gidip döner. Anahtar bu izni taşımıyorsa yazma denenmez, satırda Sign in… çıkar.
+- **Kurallar ortak:** `wantedEvents` ve `planCalendar` sağlayıcıyı bilmez; her sağlayıcı yalnız "oku, aç, değiştir, sil" verir.
+
+**Kararlar (8 Kasım 2026'da onaylandı):**
+
+1. **Yeri:** Sync bölümü hesapların altında, Todoist'teki gibi; Show events en üstte kalır.
+2. **Google'ın yazma izni** senkron ilk açılırken istenir, bağlanırken değil: yalnız okumak isteyen kişiye yazma izni sorulmaz.
+3. **Sync to değişince** eski hesaptaki "Scrawl" takvimi sorularak silinir, yenisinde açılır; iki hesaba birden yazılmaz (Todoist de tek hesaba yazar).
