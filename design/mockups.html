@@ -4784,6 +4784,54 @@ p { margin: 0; max-width: 68ch; }
 .hp-mdoc b { font-weight: 700; }
 .hp-mdoc ol { margin: 0 0 10px; padding-left: 1.6em; }
 .hp-mdoc li::marker { color: var(--m-accent); }
+/* ---------- notifications (design/notifications.md) ---------- */
+.mock .mb-tabbar.ch5.nf5 { grid-template-columns: repeat(5, 1fr); }
+.nf-at { padding: 0 3px; border-radius: 3px; background: color-mix(in srgb, var(--m-accent) 18%, transparent); color: var(--m-accent); font-weight: 500; }
+/* the comment box with the @ list under it */
+.nf-cw { position: relative; }
+.nf-typed { color: var(--m-fg) !important; border-color: var(--m-accent) !important; }
+.nf-typed .caret { display: inline-block; width: 1.5px; height: 14px; margin: 0 1px -3px; background: var(--m-accent); }
+.nf-cpa { display: flex; justify-content: flex-end; margin-top: 6px; }
+.ch-pop.nf-pop { left: 0; top: 34px; bottom: auto; }
+.ch-pop .r.hot { background: var(--m-sel); }
+/* Remind, under Assignee */
+.nf-rm { display: inline-flex; align-items: center; gap: 6px; justify-self: start; padding: 3px 9px; border: 1px solid var(--m-line); border-radius: 5px; color: var(--m-fg); font-size: 12px; }
+.mock .nf-rm svg { width: 13px; height: 13px; color: var(--m-dim); }
+.nf-rm.off { border-color: transparent; padding-left: 0; color: var(--m-faint); }
+/* the comment a notification opened, lit for a moment */
+.tl-cm.nf-flash, .mb-cm.nf-flash { border-color: var(--m-accent); background: color-mix(in srgb, var(--m-accent) 10%, var(--m-side)); }
+.tasksv .meta .ch-f { margin-right: -2px; }
+/* notifications over the app on a computer */
+.ch-toast.nf-t2 { bottom: 150px; }
+/* on a phone */
+.mb-fr.nf-mrm { color: var(--m-accent); }
+.mock .mb-fr.nf-mrm svg { width: 20px; height: 20px; color: var(--m-accent); }
+.mb-fr.nf-mrm .fl { width: auto; color: inherit; }
+.mb-fr.nf-mrm.off, .mock .mb-fr.nf-mrm.off svg { color: var(--m-faint); }
+.mb-compose .f.typed { color: var(--m-fg); }
+.mb-compose .f .caret, .nf-mdesc .caret { display: inline-block; width: 2px; height: 19px; margin: 0 1px -4px; background: var(--m-accent); }
+.nf-mpop { position: absolute; left: 10px; right: 10px; bottom: 100px; z-index: 4; overflow: hidden; border-radius: 12px; background: var(--m-side); box-shadow: 0 8px 28px rgb(0 0 0 / .45); }
+.nf-mpop .cap { padding: 10px 14px 4px; color: var(--m-faint); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
+.nf-mpop .r { display: flex; align-items: center; gap: 11px; height: 46px; padding: 0 14px; font-size: 16px; }
+.nf-mpop .r.hot { background: var(--m-sel); }
+.nf-mdesc { margin: 0 16px; padding: 10px 12px; border: 1px solid var(--m-accent); border-radius: 10px; background: var(--m-bg); font-size: 15.5px; line-height: 1.45; }
+.nf-mdesc .lb { display: block; margin-bottom: 2px; color: var(--m-faint); font-size: 12.5px; }
+.nf-sw { min-height: 62px !important; }
+.nf-sw .tx { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; padding: 8px 0; }
+.nf-sw .tx b { font-weight: 400; }
+.nf-sw .tx small { color: var(--m-faint); font-size: 13px; line-height: 1.35; }
+.nf-sw .mb-switch.on { background: var(--m-accent); }
+/* a phone's lock screen */
+.nf-lock { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: stretch; padding: 64px 10px 0; background: radial-gradient(120% 70% at 30% 0%, #2c3e66 0%, #141a2b 55%, #0d1018 100%); color: #fff; }
+.nf-date { text-align: center; font-size: 17px; font-weight: 600; opacity: .85; }
+.nf-clock { margin: -2px 0 22px; text-align: center; font-size: 76px; font-weight: 700; line-height: 1; letter-spacing: -.02em; }
+.nf-ns { display: flex; flex-direction: column; gap: 8px; }
+.nf-ln { padding: 10px 13px 11px; border-radius: 18px; background: rgb(255 255 255 / .16); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+.nf-ln .ap { display: flex; align-items: center; gap: 7px; margin-bottom: 3px; font-size: 12.5px; opacity: .8; letter-spacing: .02em; }
+.nf-ln .ap small { margin-left: auto; font-size: 12.5px; }
+.nf-ln .ap .ch-lg { width: 18px; height: 18px; font-size: 10px; }
+.nf-ln b { display: block; font-size: 15px; font-weight: 600; line-height: 1.3; }
+.nf-ln p { margin: 1px 0 0; font-size: 14.5px; line-height: 1.3; opacity: .9; }
 </style>
 
 <main class="page">
@@ -6126,6 +6174,28 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-hpview="hpstart">Getting started</button>
         <button type="button" data-hpview="hpsub">Alt sayfa: Sync › OneDrive</button>
         <button type="button" data-hpview="hpphone">Telefon</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="notify">
+    <div class="brief">
+      <div>
+        <span class="letter">BİLDİRİMLER · TASLAK</span>
+        <h2>Mention, atama, hatırlatma ve son tarih</h2>
+        <p>Yalnız sunucudaki space'lerde. Kartın açıklamasında ve yorumunda, görevin açıklamasında <b>@</b> yazınca space'in kişileri çıkar (Chat'teki liste; ajanlar yok); seçilen ad çip olur ve anılan kişiye bildirim gider. Kart ya da görev birine verilince ona gider. Başkasına verilmiş işte <b>Remind Mert</b>: kartta Assignee'nin altında, görevde ··· menüsünde, telefonda kartın sayfasında ve görevin sheet'inde; saatte bir. Sabah 09:00'da tek bildirim: <b>2 due today, 1 due tomorrow</b> ve adları. Bildirime dokununca tam yeri açılır: yorumdaki mention o yoruma gider ve onu bir an işaretler; son tarih Today'i açar. Kaçırılan bildirim için liste yok. Settings › Notifications'ta <b>Notify me about</b>. Teknik tasarım <code>design/notifications.md</code>.</p>
+        <ul class="traits"><li>açıklamada ve kart yorumunda @</li><li>atama</li><li>Remind</li><li>sabah 09:00</li><li>tam yerini açar</li><li>liste yok</li><li>telefonda da</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Bildirim görünümü">
+        <button type="button" data-nfview="nfmention">Yorumda @</button>
+        <button type="button" data-nfview="nfremind">Remind</button>
+        <button type="button" data-nfview="nfmenu">Görev menüsü</button>
+        <button type="button" data-nfview="nftoast">Bildirim</button>
+        <button type="button" data-nfview="nfopen">Dokununca</button>
+        <button type="button" data-nfview="nfset">Settings</button>
+        <button type="button" data-nfview="nfphone">Telefon</button>
+        <button type="button" data-nfview="nfphone2">Telefon 2</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -19723,6 +19793,273 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderHp(sectionHp, b.dataset.hpview);
   });
   renderHp(sectionHp, 'hpstart');
+
+  // Notifications (design/notifications.md), in the Scrawl space on the server, Monday, Nov 9. Mert
+  // asks Kaan about SCR-31, which is Mert's; Elif gave Kaan the release notes; Mert reminded Kaan of
+  // SCR-30. @ in a card's comment and in a task's description; Remind under Assignee and in a task's
+  // menu; what a notification says and what it opens; Notify me about. No list of them.
+  function nfAt(name) { return '<span class="nf-at">@' + name + '</span>'; }
+  function nfF(ini, sz) { return chF(ini, { sz: sz || 'xs' }); }
+  function nfTree(on) {
+    return '<div class="tree fxt">' + row({ label: 'Today', ct: 4, on: on === 'today' }) + row({ label: 'Upcoming', ct: 9 }) + row({ label: 'Chat', ct: 2 }) +
+      spRowT({ sp: true, label: 'Personal' }) +
+      spRowT({ sp: true, open: true, label: 'Scrawl' }) +
+      spRowT({ d: 1, icon: 'board', label: 'Roadmap', ct: 14, on: on === 'board' }) +
+      spRowT({ d: 1, icon: 'tasks', label: 'Tasks', ct: 5, on: on === 'tasks' }) +
+      spRowT({ d: 1, icon: 'notes', label: 'Release checklist' }) +
+      spRowT({ d: 1, folder: true, label: 'design', ct: 12 }) +
+      '</div>' + spFoot(on === 'settings' ? 'settings' : null);
+  }
+  function nfApp(on, body, status, over) {
+    var tabs = tab('tasks', 'Today', 'x', on === 'today') + tab('board', 'Roadmap', 'x', on === 'board') + tab('tasks', 'Tasks · Scrawl', 'x', on === 'tasks');
+    return '<aside class="side">' + nfTree(on) + '</aside><section class="main"><div class="panes">' + pane(tabs + '<div class="tab plus">+</div>', body) + '</div>' +
+      '<div class="status"><span>' + status + '</span>' + syncStatus(false, null) + '</div></section>' + (over || '');
+  }
+  /** Today as it is: what is late, what is today's. The due notification opens it. */
+  function nfToday() {
+    return '<div class="tasksv"><div class="th"><b>Today</b><span class="c3-date">Mon, Nov 9</span><button type="button" class="add">Add task</button></div><div class="tl">' +
+      '<div class="sec">Overdue <small>1</small><span class="resch">Reschedule</span></div>' +
+      upTask({ t: 'Renew the domain', w: 'Tasks · Personal', late: true }, 'Fri, Nov 6') +
+      '<div class="sec">Today <small>3</small></div>' +
+      upTask({ t: 'Write the release notes for 0.1.27', w: 'Tasks · Scrawl', p: 'p2' }) +
+      upTask({ key: 'SCR-30', t: 'Calendar: drag to reschedule', w: 'Roadmap · Scrawl', col: 'Doing', p: 'p1' }) +
+      upTask({ t: 'Call the dentist', w: 'Tasks · Personal' }) +
+      '<div class="qa">+ Add task</div></div></div>';
+  }
+  function nfBoard() {
+    return '<div class="bv">' + boardHead('board') + '<div class="bwrap"><div class="board">' +
+      colm('backlog', 'Backlog', 1, acFace({ key: 'SCR-36', title: 'Undo a column moved by mistake', meta: lbl('board') })) +
+      colm('active', 'Todo', 1, acFace({ key: 'SCR-34', p: 'p2', title: 'Import cards from a CSV', meta: lbl('board'), who: 'E' })) +
+      colm('active', 'Doing', 1, acFace({ key: 'SCR-30', p: 'p1', title: 'Calendar: drag to reschedule', meta: '<span class="today">Today</span>' + lbl('tasks'), who: 'K' })) +
+      colm('review', 'Review', 1, acFace({ key: 'SCR-31', p: 'p2', title: 'Export a board as CSV', meta: '<span>Nov 10</span>' + lbl('board') + '<span class="cm">' + ICON.comment + '1</span>', who: 'M', on: true })) +
+      colm('done', 'Done', 4, acFace({ key: 'SCR-28', title: 'Callouts in notes', done: true, who: 'K' }), { fold: '3 older cards' }) +
+      '</div></div></div>';
+  }
+  /**
+   * SCR-31, Mert's: Elif mentioned in its description; Mert's comment asking Kaan. o.typing: Kaan
+   * writes an answer and @ opened the list. o.remind: Remind Mert under Assignee; 'done' just after
+   * it was pressed. o.flash: opened from the notification, at Mert's comment, lit for a moment.
+   */
+  function nfCard(o) {
+    o = o || {};
+    function f(label, value, cls) { return '<span class="fl">' + label + '</span><span class="in' + (cls ? ' ' + cls : '') + '">' + value + '</span>'; }
+    var K = nfF('K'), M = nfF('M');
+    var pop = '<div class="ch-pop nf-pop"><div class="cap">People in Scrawl</div>' +
+      '<div class="r hot">' + chF('M', { sz: 'sm', on: true }) + '<span>Mert Kaya</span></div>' +
+      '<div class="r">' + chF('E', { sz: 'sm' }) + '<span>Elif Demir</span></div>' +
+      '<div class="r">' + chF('A', { sz: 'sm' }) + '<span>Ahmet Yıldız</span></div></div>';
+    var box = o.typing
+      ? '<div class="nf-cw">' + pop + '<div class="cp-new nf-typed">The headers are right. @<span class="caret"></span></div><div class="nf-cpa"><span class="st-btn go">Comment</span></div></div>'
+      : '<div class="cp-new">Write a comment…</div>';
+    var ask = acCm(M, 'Mert', '09:29', nfAt('Kaan') + ' can you check the CSV headers before I ship it? The days are YYYY-MM-DD now.');
+    if (o.flash) ask = ask.replace('class="tl-cm"', 'class="tl-cm nf-flash"');
+    var remind = o.remind === 'done' ? '<span class="nf-rm off">' + CI.bell + 'Reminded just now</span>' : '<span class="nf-rm">' + CI.bell + 'Remind Mert</span>';
+    return '<div class="ovl center"><div class="cmod" style="position: relative">' +
+      '<div class="cp-head"><span class="key">SCR-31</span><span>Roadmap · Scrawl</span><span class="more" style="margin-left: auto">···</span><span class="x" style="margin-left: 4px">×</span></div>' +
+      '<div class="cm-body"><div class="cm-main">' +
+        '<div class="cp-title">Export a board as CSV</div>' +
+        '<div class="cp-sec">Description</div>' +
+        '<div class="cp-desc"><div class="ln">One row per card, with its own fields and the board’s, in the order of the List view. ' + nfAt('Elif Demir') + ' has the column order the support team uses.</div></div>' +
+        '<div class="cp-sec">Timeline</div><div class="tlog ac-tl">' +
+          acEv(K, 'Kaan', 'created this', 'Nov 2') +
+          acEv(K, 'Kaan', 'gave it to <b>Mert</b>', 'Nov 3') +
+          acEv(M, 'Mert', 'Todo → Doing', 'Nov 5') +
+          ask +
+          acEv(M, 'Mert', 'Doing → Review', '09:30') +
+          (o.remind === 'done' ? acEv(K, 'Kaan', 'reminded <b>Mert</b>', 'now') : '') +
+          box + '</div>' +
+      '</div><div class="cm-side">' +
+        f('Status', '<i class="kind review" style="background: var(--m-accent)"></i>Review<span class="dd">▾</span>') +
+        f('Priority', '<i class="dot p2"></i>p2<span class="dd">▾</span>') +
+        f('Labels', lbl('board')) +
+        f('Due', 'Nov 10') +
+        f('Assignee', M + '<span class="ac-nm">Mert</span>') +
+        (o.remind ? '<span class="fl"></span>' + remind : '') +
+        '<span class="sep"></span>' +
+        '<span class="fl">Worked on</span><div class="ac-worked">' + acWorked(M, 'Mert', '09:30') + acWorked(K, 'Kaan', 'Nov 3') + '</div>' +
+      '</div></div></div></div>';
+  }
+  /** The tasks of Scrawl; the first is Mert's; its menu has Remind Mert before Activity…. */
+  function nfTasks(menu) {
+    var m = menu ? '<div class="cmenu" style="right: 22px; top: 82px"><span>Add subtask</span><span>Date…</span><span>Priority…</span><span>Give to…</span><span>Record…</span><span>Move to…</span><i></i><span class="hot">Remind Mert</span><span>Activity…</span><i></i><span class="red">Delete</span></div>' : '';
+    return '<div class="tasksv" style="position: relative"><div class="th"><b>Tasks</b><span class="chip">Scrawl</span><button type="button" class="add">Add task</button></div><div class="tl">' +
+      acTaskRow('p1', 'Collect the October feedback in one note', '<span>Nov 10</span>' + nfF('M') + '<span>Mert</span>', { hover: menu }) +
+      acTaskRow('p2', 'Write the release notes for 0.1.27', '<span class="today">Today</span>' + nfF('K') + '<span>Kaan</span>') +
+      acTaskRow('', 'Check the Mac mini backup', '<span>Nov 12</span>' + AC_G + '<span>ChatGPT</span>') +
+      acTaskRow('p3', 'Renew the Apple Developer account', '<span>Nov 30</span>' + nfF('E') + '<span>Elif</span>') +
+      '<div class="qa">+ Add task</div></div>' + m + '</div>';
+  }
+  function nfSettings() {
+    function opt(name, sub) { return '<div class="ch-opt"><span class="box">✓</span><span><b>' + name + '</b><small>' + sub + '</small></span></div>'; }
+    return '<div class="ovl"><div class="st-dlg tall"><div class="st-head"><b>Settings</b><span class="x">×</span></div><div class="st-main"><nav class="st-nav">' +
+      row({ icon: 'person', label: 'Profile' }) + row({ icon: 'half', label: 'Appearance' }) +
+      '<div class="it on">' + CI.bell + '<span>Notifications</span></div>' + row({ icon: 'space', label: 'Spaces' }) + row({ icon: 'agent', label: 'Agents' }) + row({ icon: 'logs', label: 'Logs' }) + row({ icon: 'info', label: 'About' }) +
+      '</nav><div class="st-body">' +
+      '<div class="st-label">On this computer</div>' +
+      opt('Show notifications', 'Messages, mentions and the rest show as Windows notifications, also while Scrawl runs in the tray.') +
+      '<span class="st-btn" style="align-self: flex-start">Send a test notification</span>' +
+      '<div class="st-label" style="margin-top: 14px">Notify me about</div>' +
+      '<p class="st-note" style="margin: 0 0 2px">For the spaces on ' + SRV_HOST + ', on every device you use.</p>' +
+      opt('Mentions', 'When someone writes @Kaan on a card or a task.') +
+      opt('Assignments', 'When someone gives you a card or a task.') +
+      opt('Reminders', 'When someone reminds you of a card or a task given to you.') +
+      opt('Due dates', 'At 9:00, what is due today and tomorrow.') +
+      '<div class="st-label" style="margin-top: 14px">In each conversation</div>' +
+      '<p class="st-note" style="margin: 0">The bell at the top of a room or a direct message picks All, Mentions or Off. Direct messages and private rooms start on All, public rooms on Mentions.</p>' +
+      '</div></div></div></div>';
+  }
+  function nfToast(t, title, body, cls) {
+    return '<div class="ch-toast' + (cls ? ' ' + cls : '') + '"><div class="ap"><span class="ch-lg">S</span>Scrawl<small>' + t + '</small></div><b>' + title + '</b><p>' + body + '</p></div>';
+  }
+  var NF_VIEWS = {
+    nfmention: function () { return nfApp('board', nfBoard(), '14 cards', nfCard({ typing: true })); },
+    nfremind: function () { return nfApp('board', nfBoard(), '14 cards', nfCard({ remind: true })); },
+    nfmenu: function () { return nfApp('tasks', nfTasks(true), '5 tasks'); },
+    nftoast: function () {
+      return nfApp('today', nfToday(), '4 tasks',
+        nfToast('9:00', '2 due today, 1 due tomorrow', 'Write the release notes for 0.1.27, SCR-30 and 1 more', 'nf-t2') +
+        nfToast('now', 'Mert mentioned you on SCR-31', '@Kaan can you check the CSV headers before I ship it?'));
+    },
+    nfopen: function () { return nfApp('board', nfBoard(), '14 cards', nfCard({ flash: true, remind: true })); },
+    nfset: function () { return nfApp('today', nfToday(), '4 tasks', nfSettings()); }
+  };
+  function nfTabs(on) {
+    function t(id, icon, label) { return '<span' + (id === on ? ' class="on"' : '') + '>' + icon + label + '</span>'; }
+    return '<nav class="mb-tabbar ch5 nf5">' + t('recent', ICON.clock, 'Recent') + t('browse', ICON.folder, 'Browse') + t('today', ICON.day, 'Today') + t('search', ICON.find, 'Search') + t('chat', CI.chat, 'Chat') + '</nav>';
+  }
+  function nfmEv(face, actor, what, t) { return '<div class="mb-ev">' + face + '<span class="tx"><b>' + actor + '</b>' + what + '</span><span class="t">' + t + '</span></div>'; }
+  function nfmCm(face, actor, t, body, flash) { return '<div class="mb-cm' + (flash ? ' nf-flash' : '') + '"><div class="h">' + face + actor + '<span class="t">' + t + '</span></div><p>' + body + '</p></div>'; }
+  var NF_COMPOSE = '<div class="mb-compose"><span class="f">Write a comment…</span><span class="go off">Comment</span></div>';
+  /** Today as the due notification opens it. */
+  function nfmToday() {
+    return mbPage(mbHead('Today', 'Monday, Nov 9', true),
+      '<div class="mb-sec">Overdue <small>1</small><span class="resch">Reschedule</span></div>' +
+      mbT({ title: 'Renew the domain', meta: mi('cal', 'Nov 6', 'late') + mi('tasks', 'Tasks · Personal') }) +
+      '<div class="mb-sec">Today <small>3</small></div>' +
+      mbT({ p: 'p2', title: 'Write the release notes for 0.1.27', meta: mi('tasks', 'Tasks · Scrawl') }) +
+      mbT({ p: 'p1', key: 'SCR-30', title: 'Calendar: drag to reschedule', meta: mi('board', 'Doing') }) +
+      mbT({ title: 'Call the dentist', meta: mi('tasks', 'Tasks · Personal') }));
+  }
+  function nfmLock() {
+    function n(title, body, t) { return '<div class="nf-ln"><div class="ap"><span class="ch-lg">S</span>SCRAWL<small>' + t + '</small></div><b>' + title + '</b><p>' + body + '</p></div>'; }
+    return '<div class="nf-lock"><div class="nf-date">Monday, November 9</div><div class="nf-clock">9:41</div><div class="nf-ns">' +
+      n('Mert mentioned you on SCR-31', '@Kaan can you check the CSV headers before I ship it?', 'now') +
+      n('Mert reminded you about SCR-30', 'Calendar: drag to reschedule · Due today', '32m ago') +
+      n('2 due today, 1 due tomorrow', 'Write the release notes for 0.1.27, SCR-30 and 1 more', '41m ago') +
+      n('Elif assigned you Write the release notes for 0.1.27', 'Tasks · Scrawl · Due today', 'Sun') +
+      '</div></div>';
+  }
+  /** SCR-31's timeline as the mention opened it: at Mert's comment, lit. */
+  function nfmTimeline(typing) {
+    var K = mbWho('K'), M = mbWho('M');
+    return mbPage(mbNav('Roadmap', ['dots'], 'SCR-31', 'bar'),
+      '<div class="mb-cap" style="padding-left: 16px">Timeline</div><div class="mb-tl ac-mtl">' +
+        nfmEv(K, 'Kaan', 'created this', 'Nov 2') +
+        nfmEv(K, 'Kaan', 'gave it to Mert', 'Nov 3') +
+        nfmEv(M, 'Mert', 'Todo → Doing', 'Nov 5') +
+        nfmCm(M, 'Mert', '09:29', nfAt('Kaan') + ' can you check the CSV headers before I ship it? The days are YYYY-MM-DD now.', !typing) +
+        nfmEv(M, 'Mert', 'Doing → Review', '09:30') +
+      '</div>');
+  }
+  /** SCR-31's page: under Assignee, Remind Mert; done, just after it was pressed. */
+  function nfmCard(done) {
+    var M = mbWho('M');
+    return mbPage(mbNav('Roadmap', ['dots']),
+      '<div class="mb-ckey">SCR-31 · Roadmap</div><div class="mb-ctitle">Export a board as CSV</div>' +
+      '<div class="mb-form" style="padding-top: 0"><div class="mb-group">' +
+        mbField('board', 'Status', '<i class="mb-k review"></i>Review' + MB_CHEV) +
+        mbField('flag', 'Priority', ICON.flag + 'p2', 'p2') +
+        mbField('cal', 'Due', 'Nov 10') +
+        '<div class="mb-fr">' + ICON.person + '<span class="fl">Assignee</span><span class="val">' + M + 'Mert Kaya</span></div>' +
+        '<div class="mb-fr nf-mrm' + (done ? ' off' : '') + '">' + CI.bell + '<span class="fl">' + (done ? 'Reminded just now' : 'Remind Mert') + '</span></div>' +
+      '</div>' +
+      '<div class="mb-cap">Description</div><p class="mb-p" style="margin-top: 0; color: var(--m-fg); font-size: 15px">One row per card, with its own fields and the board’s, in the order of the List view. ' + nfAt('Elif Demir') + ' has the column order the support team uses.</p></div>');
+  }
+  function nfmList() {
+    return mbPage(mbNav('Scrawl', ['dots']) + mbHead('Tasks'),
+      mbT({ p: 'p1', title: 'Collect the October feedback in one note', meta: mi('cal', 'Nov 10') + mi('person', 'Mert') }) +
+      mbT({ p: 'p2', title: 'Write the release notes for 0.1.27', meta: mi('cal', 'Today', 'late') + mi('person', 'Kaan') }));
+  }
+  /** Mert's task in its sheet: Remind Mert under Given to; its activity, the reminder in it. */
+  function nfmTask() {
+    var K = mbWho('K'), M = mbWho('M');
+    var sheet = MB_DIM + '<div class="mb-sheet large"><span class="grab"></span>' +
+      '<div class="mb-sh"><span class="mb-crumb">' + ICON.tasks + 'Tasks · Scrawl</span><span class="x dots">' + ICON.dots3 + '</span><span class="x">' + ICON.x + '</span></div>' +
+      '<div class="mb-task big"><span class="cb p1"></span><span class="tx"><b>Collect the October feedback in one note</b><span class="desc">One line per customer. ' + nfAt('Mert') + ' the Acme notes are in the CRM.</span></span></div>' +
+      '<div class="mb-form"><div class="mb-group">' +
+        mbField('cal', 'Date', 'Nov 10') +
+        '<div class="mb-fr">' + ICON.person + '<span class="fl">Given to</span><span class="val">' + M + 'Mert Kaya</span></div>' +
+        '<div class="mb-fr nf-mrm">' + CI.bell + '<span class="fl">Remind Mert</span></div>' +
+      '</div>' +
+      '<div class="mb-cap">Activity</div><div class="mb-group ac-mact">' +
+        nfmEv(K, 'Kaan', 'created this', 'Nov 2') +
+        nfmEv(K, 'Kaan', 'gave it to Mert', 'Nov 2') +
+        nfmEv(K, 'Kaan', 'reminded Mert', 'Yesterday') +
+      '</div></div></div>';
+    return mbPhone('Görevin sheet’i: Given to’nun altında Remind', nfmList(), nfTabs('browse') + sheet);
+  }
+  /** @ on a phone: the list over the box, the space's people. */
+  function nfmPop(q) {
+    var all = [['M', 'Mert Kaya'], ['E', 'Elif Demir'], ['A', 'Ahmet Yıldız']].filter(function (p) { return !q || p[1].indexOf(q) === 0; });
+    return '<div class="nf-mpop"><div class="cap">People in Scrawl</div>' + all.map(function (p, i) { return '<div class="r' + (i === 0 ? ' hot' : '') + '">' + chF(p[0], { sz: 'md' }) + p[1] + '</div>'; }).join('') + '</div>';
+  }
+  function nfmSettings() {
+    function tr(label, sub) { return '<div class="mb-fr nf-sw"><span class="tx"><b>' + label + '</b><small>' + sub + '</small></span><span class="mb-switch on"></span></div>'; }
+    return mbPage(mbNav('Settings') + mbHead('Notifications'),
+      '<div class="mb-form"><div class="mb-cap">On this phone</div><div class="mb-group">' +
+        tr('Notifications on this phone', 'Messages, mentions and the rest show here, also when Scrawl is closed.') + '</div>' +
+      '<div class="mb-cap">Notify me about</div><div class="mb-group">' +
+        tr('Mentions', 'When someone writes @Kaan on a card or a task.') +
+        tr('Assignments', 'When someone gives you a card or a task.') +
+        tr('Reminders', 'When someone reminds you of a card or a task given to you.') +
+        tr('Due dates', 'At 9:00, what is due today and tomorrow.') + '</div>' +
+      '<p class="mb-p">For the spaces on ' + SRV_HOST + ', on every device you use.</p>' +
+      '<div class="mb-cap">In each conversation</div><p class="mb-p" style="margin-top: 0">On a room’s or a direct message’s Info page, Notifications picks All, Mentions or Off.</p></div>');
+  }
+  /** A task's description on a phone, @El written: only Elif is left in the list. */
+  function nfmDesc() {
+    var sheet = MB_DIM + '<div class="mb-sheet large"><span class="grab"></span>' +
+      '<div class="mb-sh"><span class="mb-crumb">' + ICON.tasks + 'Tasks · Scrawl</span><span class="x">' + ICON.x + '</span></div>' +
+      '<div class="mb-task big"><span class="cb p1"></span><span class="tx"><b>Collect the October feedback in one note</b></span></div>' +
+      '<div class="nf-mdesc"><span class="lb">Description</span>One line per customer. Ask @El<span class="caret"></span></div>' +
+      nfmPop('El').replace('class="nf-mpop"', 'class="nf-mpop" style="top: 236px; bottom: auto"') + '</div>';
+    return mbPhone('Görevin açıklamasında @: yazdıkça süzülür', nfmList(), nfTabs('browse') + sheet);
+  }
+  function nfPhone(second) {
+    if (second) {
+      var typing = '<div class="mb-compose"><span class="f typed">The headers are right. @<span class="caret"></span></span><span class="go">Comment</span></div>';
+      return [
+        mbPhone('Kart yorumunda @: space’in kişileri', nfmTimeline(true), nfmPop() + typing),
+        nfmDesc(),
+        mbPhone('Remind’dan sonra: saatte bir', nfmCard(true), NF_COMPOSE),
+        mbPhone('Settings › Notifications', nfmSettings(), '')
+      ].join('');
+    }
+    return [
+      mbPhone('Kilit ekranında bildirimler', nfmLock(), ''),
+      mbPhone('Mention’a dokununca: o yorum', nfmTimeline(false), NF_COMPOSE),
+      mbPhone('Son tarihe dokununca: Today', nfmToday(), nfTabs('today')),
+      nfmTask()
+    ].join('');
+  }
+  function renderNf(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (view === 'nfphone' || view === 'nfphone2') {
+      mock.className = 'mock dir-a phones four mbs';
+      mock.innerHTML = nfPhone(view === 'nfphone2');
+    } else {
+      mock.className = 'mock dir-a wider';
+      mock.innerHTML = NF_VIEWS[view]();
+    }
+    section.querySelectorAll('.brief [data-nfview]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.nfview === view)); });
+  }
+  var sectionNf = document.querySelector('.dir[data-dir="notify"]');
+  sectionNf.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-nfview]');
+    if (b) renderNf(sectionNf, b.dataset.nfview);
+  });
+  renderNf(sectionNf, 'nfmention');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });

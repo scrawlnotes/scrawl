@@ -245,6 +245,7 @@ import { Upcoming } from './Upcoming';
 import { type ChatLinks, type ChipState, ChatView } from './Chat';
 import { store as chatStore, useChat } from './chatStore';
 import { onNotificationClick, startNotifications } from './notify';
+import { showComment } from './commentFocus';
 import type { Hit } from './messageSearch';
 import { PhoneUpcoming } from './PhoneUpcoming';
 import type { SpacePeople } from './People';
@@ -350,6 +351,9 @@ const sameChoices = (a: FilterChoices, b: FilterChoices) => {
 
 // A tab being dragged to another place in the tab bar.
 const TAB_DRAG_TYPE = 'application/x-scrawl-tab';
+
+/** How long a notification's card or task is waited for while the app opens with it: its space read, its file there. */
+const NOTICE_WAIT_MS = 20_000;
 /** The files a collection imports: CSV and Excel. */
 const IMPORTABLE = '.csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel';
 
@@ -912,9 +916,11 @@ export function App() {
     if (made) setDialog({ kind: 'toCard', ...made });
   }
   /** Opens a card in its board's tab, in the panel. */
-  const showCard = (board: string, id: string) => {
+  /** A card opened over its board; at a comment, which its timeline goes to and lights (a notification of a mention in it). */
+  const showCard = (board: string, id: string, comment?: string) => {
     void session.open(boardOf(board));
     setOpenCard({ board, id });
+    if (comment) showComment(id, comment);
   };
 
   // A filter's menu: rename it, or delete it; its tasks stay where they are. It is changed on its page.
@@ -1873,11 +1879,12 @@ export function App() {
           if (phone) return setTaskSheet({ list, id, subtask: !!tasks[list]!.find((task) => task.id === id)!.parent });
           void session.open(tasksOf(list));
           setRevealTask({ list, id, at: Date.now() });
+          tellOpened(list, id);
         };
       }
       case 'card': {
         const board = holding(boards, (one) => one.cards.some((card) => card.id === id));
-        return board ? () => showCard(board, id) : 'gone';
+        return board ? () => showCard(board, id, item.comment) : 'gone';
       }
       case 'record': {
         const dir = holding(collections, (one) => one.records.some((record) => record.id === id));
@@ -1895,6 +1902,19 @@ export function App() {
     const where = [spaces.find((each) => each.id === space)?.name, basename(localPath(dirname(path)))].filter(Boolean).join(' · ');
     return itemChip({ kind, space, path: localPath(path) }, name, where);
   };
+  // A card or a task opened here tells its server, so that a notice of it waiting for the person's
+  // other devices is not sent to them (design/notifications.md 9.3).
+  const tellOpened = (path: string, id: string) => {
+    const space = spaces.find((each) => each.id === spaceOf(path));
+    const url = space?.source?.provider === 'server' ? space.source.place.url : undefined;
+    if (url) void chatStore.server(url)?.client.opened(space!.id, id).catch(() => undefined);
+  };
+  useEffect(() => {
+    if (openCard) tellOpened(openCard.board, openCard.id);
+  }, [openCard?.board, openCard?.id]);
+  useEffect(() => {
+    if (taskSheet) tellOpened(taskSheet.list, taskSheet.id);
+  }, [taskSheet?.list, taskSheet?.id]);
   const chatLinks = useMemo<ChatLinks>(
     () => ({
       open: (href) => {
@@ -1961,10 +1981,28 @@ export function App() {
     // On a phone Chat is a tab of its own, which opens at the message.
     if (!phone) void session.open(CHAT);
   };
+  // A notification of a card or a task can open the app: what it is of is read a moment later, so
+  // it waits for it, at most a while, and then opens or says why it cannot (design/notifications.md 6).
+  const [noticeGoTo, setNoticeGoTo] = useState<{ href: string; until: number } | null>(null);
+  useEffect(() => {
+    if (!noticeGoTo) return;
+    const target = chipTarget(noticeGoTo.href);
+    if (typeof target === 'function') {
+      setNoticeGoTo(null);
+      return target();
+    }
+    const left = noticeGoTo.until - Date.now();
+    if (left <= 0) {
+      setNoticeGoTo(null);
+      return chatLinks.open(noticeGoTo.href);
+    }
+    const timer = window.setTimeout(() => setNoticeGoTo((now) => (now ? { ...now } : null)), Math.min(left, 1000));
+    return () => window.clearTimeout(timer);
+  }, [noticeGoTo, spaces, boards, tasks]);
   useEffect(() => {
     session.openScrawl = (href) => openScrawl.current(href);
-    // A notification clicked opens Chat at its message.
-    const stop = onNotificationClick((href) => openScrawl.current(href));
+    // A notification clicked opens Chat at its message, or the card or the task it is of.
+    const stop = onNotificationClick((href) => (href.startsWith('scrawl:item/') ? setNoticeGoTo({ href, until: Date.now() + NOTICE_WAIT_MS }) : openScrawl.current(href)));
     return () => {
       session.openScrawl = null;
       stop();

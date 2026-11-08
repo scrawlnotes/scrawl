@@ -40,6 +40,20 @@ export interface PushPayload {
   tag: string;
   /** A reaction's: it stays when its conversation is read. */
   reaction?: boolean;
+  /** What a click opens when it is not a message: a card or a task (design/notifications.md 6). */
+  href?: string;
+}
+
+/** A card's or a task's notice for one person (design/notifications.md): what it says, what a click opens, and what it is about. */
+export interface NoticePush {
+  title: string;
+  body: string;
+  href: string;
+  /** One notification a thing: the next of the same replaces it. */
+  tag: string;
+  space: string;
+  /** The card or the task, by its id: opened, what waits of it is not sent. */
+  item: string;
 }
 
 /** Sends a push; the push service's status comes back, or the call throws with it. */
@@ -69,6 +83,8 @@ interface SubscriptionRow {
 export class Push {
   /** Messages waiting for someone who uses Scrawl elsewhere to read them there. */
   private readonly waiting = new Set<ReturnType<typeof setTimeout>>();
+  /** A card's or a task's notices waiting, by the person, the space and the thing. */
+  private readonly noticesWaiting = new Map<string, Set<ReturnType<typeof setTimeout>>>();
   private readonly sender: Sender;
 
   constructor(
@@ -129,6 +145,45 @@ export class Push {
     if (account) this.soon(account, chat, () => this.tellReaction(account, chat, message, by, emoji));
   }
 
+  /**
+   * A card or a task tells someone: the devices on the live channel hear it at once (the desktop
+   * shows it, a browser in use shows it); the others by a push, now, or after a minute while
+   * Scrawl is in use on one of their devices, unless they open it there meanwhile.
+   */
+  notice(account: string, notice: NoticePush) {
+    this.live.tell([account], { type: 'notice', ...notice });
+    if (!this.live.isActive(account)) {
+      void this.tellNotice(account, notice);
+      return;
+    }
+    const key = `${account}\n${notice.space}\n${notice.item}`;
+    const timer = this.later(() => {
+      this.waiting.delete(timer);
+      this.noticesWaiting.get(key)?.delete(timer);
+      void this.tellNotice(account, notice);
+    }, WAIT_MS);
+    (timer as { unref?: () => void }).unref?.();
+    this.waiting.add(timer);
+    this.noticesWaiting.set(key, (this.noticesWaiting.get(key) ?? new Set()).add(timer));
+  }
+
+  /** Someone opened a card or a task on a device: what waits of it for their other devices is not sent. */
+  opened(account: string, space: string, item: string) {
+    const key = `${account}\n${space}\n${item}`;
+    for (const timer of this.noticesWaiting.get(key) ?? []) {
+      clearTimeout(timer);
+      this.waiting.delete(timer);
+    }
+    this.noticesWaiting.delete(key);
+  }
+
+  private async tellNotice(account: string, notice: NoticePush) {
+    const payload: PushPayload = { title: notice.title, body: notice.body, badge: this.chats.alertCount(account), count: 1, server: this.server, chat: '', message: '', tag: notice.tag, href: notice.href };
+    // The device in use heard it on the live channel.
+    const rows = this.subscriptionsOf(account).filter((row) => !this.live.isDeviceActive(row.device_id));
+    await Promise.all(rows.map((row) => this.deliver(row, payload, 'high')));
+  }
+
   /** Now, not while the conversation is on their screen, and after a minute while they use Scrawl on a device. */
   private soon(account: string, chat: string, run: () => Promise<void>) {
     if (this.live.isViewing(account, chat)) return;
@@ -148,6 +203,7 @@ export class Push {
   stop() {
     for (const timer of this.waiting) clearTimeout(timer);
     this.waiting.clear();
+    this.noticesWaiting.clear();
   }
 
   /** Tells someone's devices of a message, when it still tells them: not read, not deleted, not on a screen. */

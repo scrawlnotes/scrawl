@@ -50,6 +50,7 @@ import { Cell, type CollectionActions, FieldInput, LinkedTable, RecordDialog, St
 import { isPhone, pageBox, pageWindow } from './device';
 import type { MenuHead, MenuItem } from './dialogs';
 import { useEscape } from './choices';
+import { tookComment, useAskedComment } from './commentFocus';
 import { LabelChip, LabelSheet, LabelsField } from './labels';
 import { AttachButton } from './Description';
 import { Icon, type IconName } from './Icon';
@@ -405,6 +406,36 @@ function Timeline({ board, path, card, team, today, actions }: { board: Board; p
     </ActivityLine>
   );
   const subtaskTitle = (id: string | undefined) => card.subtasks?.find((s) => s.id === id)?.title;
+  // A notification of a mention opened the card at its comment: it comes into view, lit a moment.
+  const asked = useAskedComment(card.id);
+  const [lit, setLit] = useState<string | null>(null);
+  useEffect(() => {
+    if (!asked) return;
+    tookComment();
+    if (card.timeline.some((entry) => entry.id === asked)) setLit(asked);
+  }, [asked]);
+  useEffect(() => {
+    if (!lit) return;
+    // Found anew each time: the card is still being drawn, and the comment's element with it. What
+    // is over it (the description, the faces, a part added late) pushes it down meanwhile: while
+    // it is lit, it is brought back into view whenever it left it.
+    const center = () => {
+      const shown = document.querySelector(`[data-comment="${CSS.escape(lit)}"]`);
+      if (!shown) return;
+      let scroller = shown.parentElement;
+      while (scroller && !/(auto|scroll)/.test(getComputedStyle(scroller).overflowY)) scroller = scroller.parentElement;
+      const at = shown.getBoundingClientRect();
+      const box = scroller?.getBoundingClientRect() ?? { top: 0, bottom: window.innerHeight };
+      if (at.top < box.top || at.bottom > box.bottom) shown.scrollIntoView({ block: 'center' });
+    };
+    center();
+    const keep = window.setInterval(center, 200);
+    const timer = window.setTimeout(() => setLit(null), 2000);
+    return () => {
+      window.clearInterval(keep);
+      window.clearTimeout(timer);
+    };
+  }, [lit]);
   return (
     <>
       {card.author && card.created && line('created', card.author, t('card.createdThis'), card.created)}
@@ -421,6 +452,7 @@ function Timeline({ board, path, card, team, today, actions }: { board: Board; p
             <Comment
               key={entry.id}
               entry={entry}
+              lit={entry.id === lit}
               who={<Writer who={who} team={team} />}
               whoText={writerText(who, team)}
               face={<WhoOf who={who ?? {}} people={people} />}
@@ -462,8 +494,10 @@ function WorkedOnList({ card, team, today }: { card: Card; team: SpacePeople | n
 }
 
 /** One comment on the timeline, with its menu: edit in place, or delete. */
-function Comment({ entry, who, whoText, face, today, onEdit, onRemove, menu, viewer }: {
+function Comment({ entry, lit, who, whoText, face, today, onEdit, onRemove, menu, viewer }: {
   entry: Extract<TimelineEntry, { kind: 'comment' }>;
+  /** Lit a moment: a notification opened the card at it. */
+  lit: boolean;
   /** Who wrote it, as the timeline shows it. */
   who: ReactNode;
   /** The same in words, for its menu's head on a phone. */
@@ -492,7 +526,7 @@ function Comment({ entry, who, whoText, face, today, onEdit, onRemove, menu, vie
     setDraft(null);
   };
   return (
-    <div className="tl-cm" onContextMenu={open}>
+    <div className={lit ? 'tl-cm lit' : 'tl-cm'} data-comment={entry.id} onContextMenu={open}>
       <div className="h">
         {face}
         <b>{who}</b>

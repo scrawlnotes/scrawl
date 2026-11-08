@@ -1,4 +1,4 @@
-import { type ChatInfo, type ChatMessage, chatLink, plainText } from '@scrawlnotes/core';
+import { type ChatInfo, type ChatMessage, type ChatNoticeEvent, chatLink, plainText } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
@@ -330,6 +330,32 @@ function heardReaction(url: string, message: ChatMessage, reacted: { by: string;
   else show();
 }
 
+/**
+ * A card's or a task's notice for this person (design/notifications.md), heard on the live channel.
+ * The desktop shows it as its own notification. A browser shows it only while Scrawl is in use in
+ * it: one not in use gets the server's push, and showing it from the channel too would show it twice.
+ */
+function heardNotice(url: string, notice: ChatNoticeEvent) {
+  if (stateNow() !== 'on') return;
+  if (isDesktop) {
+    void invoke('chat_notify', { alert: { title: notice.title, body: notice.body, more: null, tag: notice.tag, group: groupOf(url), href: notice.href } }).catch(() => undefined);
+    return;
+  }
+  if (!store.inUse()) return;
+  void registrations()
+    .then((found) => {
+      const registration = found.find((each) => each.url === url)?.registration;
+      return registration?.showNotification(notice.title, {
+        body: notice.body,
+        tag: notice.tag,
+        icon: '/icons/icon-192.png',
+        badge: '/icons/favicon-32.png',
+        data: { server: url, href: notice.href, tag: notice.tag },
+      });
+    })
+    .catch(() => undefined);
+}
+
 /** The notifications of conversations read, here or on another device, go. */
 function takeAwayRead() {
   const servers = store.read().servers;
@@ -419,7 +445,8 @@ export function onNotificationClick(open: (href: string) => void): () => void {
 }
 
 const clicked = (href: string) => {
-  if (!href.startsWith('scrawl:chat/')) return;
+  // A message, or a card or a task a notice is of.
+  if (!href.startsWith('scrawl:chat/') && !href.startsWith('scrawl:item/')) return;
   if (opens.size === 0) openedAt = href;
   for (const open of opens) open(href);
 };
@@ -434,6 +461,7 @@ export function startNotifications() {
   started = true;
   store.onNew = heardNew;
   store.onReacted = heardReaction;
+  store.onNotice = heardNotice;
   let servers = '';
   store.subscribe(() => {
     const now = store.read();

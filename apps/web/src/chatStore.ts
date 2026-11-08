@@ -7,6 +7,7 @@ import {
   type ChatNotify,
   type ChatKept,
   type ChatMessage,
+  type ChatNoticeEvent,
   newMessageId,
   RemoteOffline,
   ServerAccount,
@@ -303,6 +304,7 @@ class OneServer {
       void this.turn().then(() => fresh && store.onNew?.(this.url, event.message));
       if (event.reacted) store.onReacted?.(this.url, event.message, event.reacted);
     } else if (event.type === 'chat') void this.turn();
+    else if (event.type === 'notice') store.onNotice?.(this.url, event);
     else if (event.type === 'typing') {
       const typing = { ...this.state.typing, [event.chat]: { ...this.state.typing[event.chat], [event.account]: Date.now() + TYPING_MS } };
       this.set({ typing });
@@ -676,6 +678,8 @@ class ChatStore {
   onNew: ((url: string, message: ChatMessage) => void) | null = null;
   /** Told of a reaction put on a message: what shows it as a notification on the desktop, when the message is the person's. */
   onReacted: ((url: string, message: ChatMessage, reacted: { by: string; emoji: string }) => void) | null = null;
+  /** Told of a card's or a task's notice for this person (design/notifications.md): what shows it here. */
+  onNotice: ((url: string, notice: ChatNoticeEvent) => void) | null = null;
 
   /** Whether a conversation is on screen here, the window in front. */
   onScreen(url: string, chat: string): boolean {

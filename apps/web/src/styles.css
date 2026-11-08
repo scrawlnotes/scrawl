@@ -6350,6 +6350,13 @@ textarea.tt-edit {
   background: var(--sl-side);
 }
 
+/* the comment a notification opened the card at, lit a moment (design/notifications.md 6) */
+.tl-cm.lit {
+  border-color: var(--sl-accent);
+  background: color-mix(in srgb, var(--sl-accent) 12%, var(--sl-side));
+  transition: background 0.4s, border-color 0.4s;
+}
+
 .tl-cm .h {
   display: flex;
   gap: 8px;

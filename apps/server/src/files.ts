@@ -84,6 +84,9 @@ export class SpaceFiles {
     private readonly onChange: (space: string, seq: number) => void = () => undefined,
   ) {}
 
+  /** Told after a file is written, with the hash it had before (null when it was not there) and has now: for the notifications it makes. */
+  onWrite: (space: string, path: string, before: string | null, after: string, by: Actor) => void = () => undefined;
+
   /**
    * What changed since `cursor`, a page at a time. Without a cursor, or with one older than what
    * the server remembers, everything there is, in the order of the keys, as it stood at `at`;
@@ -130,17 +133,21 @@ export class SpaceFiles {
   write(space: string, path: string, taken: Taken, ifMatch: string | null, by: Actor): Entry {
     checkPath(path);
     this.blobs.keep(taken);
-    return this.telling(space, () => transaction(this.db, () => {
+    let before: string | null = null;
+    const entry = this.telling(space, () => transaction(this.db, () => {
       const key = keyOf(path);
       const row = this.live(space, key);
       if (row?.kind === 'dir') throw new Conflict(path);
       if (ifMatch === null ? row !== undefined : row?.hash !== ifMatch) throw new Conflict(path);
+      before = row?.hash ?? null;
       this.makeParents(space, path, by);
       const written: Row = { key, path, kind: 'file', hash: taken.hash, size: taken.size, seq: this.next(space), deleted: 0 };
       this.put(space, written, by);
       this.version(space, 'write', path, null, taken.hash, taken.size, by);
       return entryOf(written);
     }));
+    if (before !== taken.hash) this.onWrite(space, path, before, taken.hash, by);
+    return entry;
   }
 
   /** Moves a file, while it has the tag `ifMatch`; nothing may be at `to`, but the same file spelt otherwise. */

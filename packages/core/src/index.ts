@@ -35,5 +35,6 @@ export * from './trashed';
 export * from './pieces';
 export * from './quick-notes';
 export * from './names';
+export * from './notices';
 export * from './links';
 export * from './apps';

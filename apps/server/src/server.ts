@@ -9,6 +9,7 @@ import { type Db, openDb } from './db';
 import { SpaceFiles } from './files';
 import { Invites } from './invites';
 import { Live } from './live';
+import { Notices } from './notices';
 import { OAuth } from './oauth';
 import { Push, type Sender, vapidKeys } from './push';
 import { Spaces } from './spaces';
@@ -38,6 +39,9 @@ export function makeServer(
   const push = new Push(db, live, chats, vapidKeys(join(config.data, 'vapid.json')), subject, config.url, options.sender, options.later);
   chats.onSent = (chat, message) => push.sent(chat, message);
   chats.onReacted = (chat, message, by, emoji) => push.reacted(chat, message, by, emoji);
+  // A board or a task list written tells whoever it mentions or gives something to.
+  const notices = new Notices(db, blobs, push);
+  files.onWrite = (space, path, before, after, by) => notices.written(space, path, before, after, by);
   const app = createApp({ config, blobs, files, accounts, spaces, live, invites, oauth, chats, push, now, ...(options.minSyncLevel !== undefined && { minSyncLevel: options.minSyncLevel }) });
-  return { db, blobs, files, accounts, spaces, live, invites, oauth, chats, push, app };
+  return { db, blobs, files, accounts, spaces, live, invites, oauth, chats, push, notices, app };
 }

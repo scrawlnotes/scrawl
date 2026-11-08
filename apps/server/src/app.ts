@@ -425,6 +425,13 @@ export function createApp(parts: Parts) {
     return c.body(null, 204);
   });
   app.post('/api/v1/push/test', async (c) => c.json({ sent: await push.test(me(c).id, c.get('device')) }));
+  // A card or a task opened on a device: its notice waiting for the person's other devices is not sent (design/notifications.md 9.3).
+  app.post('/api/v1/opened', async (c) => {
+    const body = (await json(c)) as { space?: unknown; item?: unknown };
+    if (typeof body.space !== 'string' || typeof body.item !== 'string') throw new Refused(400, 'bad-opened', 'Which space and which card or task?');
+    push.opened(me(c).id, body.space, body.item);
+    return c.body(null, 204);
+  });
   // Its files and links for its Info window, and its export: a zip written as it is sent (design/chat.md, 8.1 and 10).
   app.get('/api/v1/chat/:id/shared', (c) => c.json(chats.shared(me(c).id, c.req.param('id'))));
   app.get('/api/v1/chat/:id/export', (c) => {

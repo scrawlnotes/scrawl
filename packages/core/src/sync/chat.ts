@@ -126,7 +126,19 @@ export type ChatEvent =
   | { type: 'chat'; cursor: number }
   | { type: 'typing'; chat: string; account: string }
   | { type: 'presence'; active: string[] }
-  | { type: 'presence'; account: string; active: boolean };
+  | { type: 'presence'; account: string; active: boolean }
+  | ChatNoticeEvent;
+
+/** A card or a task told this person something (design/notifications.md): what its notification says and what a click opens. */
+export interface ChatNoticeEvent {
+  type: 'notice';
+  title: string;
+  body: string;
+  href: string;
+  tag: string;
+  space: string;
+  item: string;
+}
 
 /** What a message is sent with. */
 export interface ChatSend {
@@ -248,6 +260,12 @@ export class ChatClient {
     return (await this.client.json<{ sent: number }>('/push/test', { method: 'POST' })).sent;
   }
 
+  /** A card or a task opened here: a notice of it waiting for the person's other devices is not sent (design/notifications.md 9.3). */
+  async opened(space: string, item: string): Promise<void> {
+    const response = await this.client.request('/opened', json('POST', { space, item }));
+    if (!response.ok) throw await errorOf(response);
+  }
+
   /** A conversation as a zip of Markdown and its files, its days and times in `timeZone` (design/chat.md, 10). */
   async export(chat: string, timeZone: string): Promise<Blob> {
     const response = await this.client.request(`/chat/${encodeURIComponent(chat)}/export?tz=${encodeURIComponent(timeZone)}`);
@@ -302,22 +320,41 @@ export interface ChipRef {
   space: string;
   path: string;
   id?: string;
+  /** A comment on the card, which a notification of a mention in it opens at (design/notifications.md 6). */
+  comment?: string;
 }
 
-/** A chip's address: `scrawl:item/card/sp-…/Sales%2FDeals.board.json?id=…`. */
+/** A chip's address: `scrawl:item/card/sp-…/Sales%2FDeals.board.json?id=…`, `&comment=…` at a comment. */
 export function itemLink(item: ChipRef): string {
-  return `scrawl:item/${item.kind}/${encodeURIComponent(item.space)}/${encodeURIComponent(item.path)}${item.id ? `?id=${encodeURIComponent(item.id)}` : ''}`;
+  const at = item.id && item.comment ? `&comment=${encodeURIComponent(item.comment)}` : '';
+  return `scrawl:item/${item.kind}/${encodeURIComponent(item.space)}/${encodeURIComponent(item.path)}${item.id ? `?id=${encodeURIComponent(item.id)}${at}` : ''}`;
 }
 
 /** What a chip's address points at; null for any other address. */
 export function parseItemLink(href: string): ChipRef | null {
-  const match = /^scrawl:item\/([a-z]+)\/([^/?]+)\/([^?]*)(?:\?id=(.+))?$/.exec(href);
+  const match = /^scrawl:item\/([a-z]+)\/([^/?]+)\/([^?]*)(?:\?id=([^&]+)(?:&comment=(.+))?)?$/.exec(href);
   if (!match || !ITEM_KINDS.has(match[1]!)) return null;
   try {
-    return { kind: match[1] as ChipKind, space: decodeURIComponent(match[2]!), path: decodeURIComponent(match[3]!), ...(match[4] && { id: decodeURIComponent(match[4]) }) };
+    return {
+      kind: match[1] as ChipKind,
+      space: decodeURIComponent(match[2]!),
+      path: decodeURIComponent(match[3]!),
+      ...(match[4] && { id: decodeURIComponent(match[4]) }),
+      ...(match[5] && { comment: decodeURIComponent(match[5]) }),
+    };
   } catch {
     return null;
   }
+}
+
+/** The people a text mentions, by id, each once, in the order they come: `[@Mert Kaya](scrawl:person/<id>)`. */
+export function mentionsOf(markdown: string): string[] {
+  const found = new Set<string>();
+  for (const match of markdown.matchAll(/\]\((scrawl:person\/[^)\s]+)\)/g)) {
+    const id = mentioned(match[1]!);
+    if (id) found.add(id);
+  }
+  return [...found];
 }
 
 /** A chip as a message has it: its name as the link's words, where it is as its title. */
