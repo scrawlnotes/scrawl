@@ -38,12 +38,12 @@ import { HelpPhoneNote } from './Help';
 // right over the one it was opened from, and goes back by the button at its top, which says where
 // it goes, or by a swipe from the left edge. What is open (a note, a list, a board, a keys file, a
 // collection, a filter) is drawn once, by the app, and moved into the page that shows it. Nothing
-// is opened or closed as a tab: what was opened last is Browse's Recent, and the app closes the
+// is opened or closed as a tab: what was opened last is Search's Recent, and the app closes the
 // rest of the tabs by itself.
 
-/** The places of the tab bar. */
-export type Place = 'recent' | 'browse' | 'today' | 'search' | 'chat';
-const PLACES: Place[] = ['recent', 'browse', 'today', 'search'];
+/** The places of the tab bar; Chat comes before Settings with a server that has messaging. */
+export type Place = 'search' | 'browse' | 'today' | 'chat' | 'settings';
+const PLACES: Place[] = ['search', 'browse', 'today', 'settings'];
 
 /**
  * What a page of a place shows: its first page, a folder, something open, the trash, the settings
@@ -58,7 +58,6 @@ type PageKind =
   | { kind: 'item'; id: string }
   | { kind: 'trash' }
   | { kind: 'files' }
-  | { kind: 'settings' }
   | { kind: 'section'; section: Section }
   // Help (design/help.md): its topics, a topic's pages, and a page, a note of its own.
   | { kind: 'help' }
@@ -596,10 +595,10 @@ export function Phone(props: PhoneProps) {
   const { ready, tabs, active, titles, tree, filters, counts, item } = props;
   // The app opens on Browse, with nothing over it but the onboarding note when it comes up.
   const [place, setPlace] = useState<Place>('browse');
-  const [stacks, setStacks] = useState<Record<Place, Page[]>>(() => ({ recent: [root()], browse: [root()], today: [root()], search: [root()], chat: [root()] }));
+  const [stacks, setStacks] = useState<Record<Place, Page[]>>(() => ({ search: [root()], browse: [root()], today: [root()], chat: [root()], settings: [root()] }));
   // Chat is a place with a server that has messaging; its number is what is unread and tells you.
   const chat = useChat();
-  const places: Place[] = chat.servers.length ? [...PLACES, 'chat'] : PLACES;
+  const places: Place[] = chat.servers.length ? ['search', 'browse', 'today', 'chat', 'settings'] : PLACES;
   // New room, Browse rooms and New message, from Chat's +, for a server.
   const [making, setMaking] = useState<{ kind: 'newRoom' | 'browse' | 'newMessage'; url: string } | null>(null);
   // Info › People's Add: the private room people are added to.
@@ -827,19 +826,19 @@ export function Phone(props: PhoneProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, tabs, active, seen, stacks]);
 
-  // The settings open as a page in Browse, at a section if one was asked for, over what Browse
-  // shows; one already open is gone back to.
+  // The settings are a tab: asked for, it comes on screen at its first page, or at a section if
+  // one was asked for; that section already on top stays.
   const { open: settingsAsked, onShown } = props.settings;
   useEffect(() => {
     if (!settingsAsked) return;
     onShown();
-    const current = stacksNow.current.browse;
-    const at = current.findIndex((page) => page.kind === 'settings');
-    const base: Page[] = at >= 0 ? current.slice(0, at + 1) : [...current, { kind: 'settings', key: ++pageKeys }];
-    const next: Page[] = settingsAsked.section ? [...base, { kind: 'section', section: settingsAsked.section, key: ++pageKeys }] : base;
-    setStacks((stacks) => ({ ...stacks, browse: next }));
-    setPlace('browse');
-    if (next[next.length - 1] !== current[current.length - 1]) slideIn(next[next.length - 1]!.key);
+    const current = stacksNow.current.settings;
+    const shown = current[current.length - 1]!;
+    const { section } = settingsAsked;
+    const next: Page[] = !section ? [current[0]!] : shown.kind === 'section' && shown.section === section ? current : [current[0]!, { kind: 'section', section, key: ++pageKeys }];
+    setStacks((stacks) => ({ ...stacks, settings: next }));
+    setPlace('settings');
+    if (next !== current && next.length > 1) slideIn(next[next.length - 1]!.key);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsAsked]);
 
@@ -1042,7 +1041,7 @@ export function Phone(props: PhoneProps) {
   // ---------- the pages ----------
 
   const titleOf = (page: Page, of: Place): string => {
-    if (page.kind === 'root') return of === 'today' ? t('side.today') : of === 'recent' ? t('phone.recent') : of === 'search' ? t('phone.search') : of === 'chat' ? t('chat.title') : t('phone.browse');
+    if (page.kind === 'root') return of === 'today' ? t('side.today') : of === 'settings' ? t('settings.title') : of === 'search' ? t('phone.search') : of === 'chat' ? t('chat.title') : t('phone.browse');
     if (page.kind === 'chatConv') {
       const server = chat.servers.find((each) => each.url === page.url);
       const found = server?.chats.find((each) => each.id === page.chat) ?? (server?.visiting?.id === page.chat ? server.visiting : undefined);
@@ -1054,7 +1053,6 @@ export function Phone(props: PhoneProps) {
     if (page.kind === 'folder' || page.kind === 'app') return folderName(page.path);
     if (page.kind === 'trash') return t('side.trash');
     if (page.kind === 'files') return t('side.files');
-    if (page.kind === 'settings') return t('settings.title');
     if (page.kind === 'help') return t('help.title');
     if (page.kind === 'helpTopic') return t(helpTopic(page.id)?.label ?? 'help.title');
     if (page.kind === 'helpNote') return t(HELP_PAGES.find((each) => each.id === page.id)?.label ?? 'help.title');
@@ -1086,10 +1084,10 @@ export function Phone(props: PhoneProps) {
     return folder ? folderName(folder) : '';
   };
 
-  /** Recent: the things opened last, the latest first, with where each is and when it was looked at. */
-  const recentPage = () => {
+  /** Recent, under Search's empty box: the things opened last, the latest first, with where each is and when it was looked at. */
+  const recentRows = () => {
     const recent = recentOf(tabs, seen);
-    if (recent.length === 0) return <Empty icon="clock" title={t('phone.noRecent')} text={t('phone.noRecentText')} />;
+    if (recent.length === 0) return null;
     return (
       <div className="mb-list">
         {recent.map((id) => (
@@ -1261,7 +1259,6 @@ export function Phone(props: PhoneProps) {
           <Row icon="clip" label={t('side.files')} right={counts[FILES] || ''} onClick={() => push({ kind: 'files' })} />
           <Row icon="trash" label={t('side.trash')} right={counts[TRASH] || ''} onClick={() => push({ kind: 'trash' })} />
           <Row icon="cloud" label={t('phone.sync')} right={syncRight} onClick={() => push({ kind: 'sync' })} />
-          <Row icon="settings" label={t('side.settings')} onClick={() => push({ kind: 'settings' })} />
           <Row icon="help" label={t('side.help')} onClick={() => push({ kind: 'help' })} />
         </div>
       </>
@@ -1402,14 +1399,31 @@ export function Phone(props: PhoneProps) {
         </PageFrame>
       );
     }
-    if (page.kind === 'root' && of === 'recent') return <PageFrame title={titleOf(page, of)}>{recentPage()}</PageFrame>;
     if (page.kind === 'root' && of === 'browse') return <PageFrame title={titleOf(page, of)}>{browsePage()}</PageFrame>;
+    if (page.kind === 'root' && of === 'settings') {
+      return (
+        <PageFrame title={titleOf(page, of)}>
+          <div className="mb-list">
+            {settingsSections().map((each) => (
+              <Row
+                key={each.id}
+                icon={each.icon}
+                label={t(each.label)}
+                right={sectionValue(each.id, props.settings.values)}
+                onClick={() => push({ kind: 'section', section: each.id })}
+              />
+            ))}
+          </div>
+        </PageFrame>
+      );
+    }
     if (page.kind === 'root' && of === 'search') {
       return (
         <PageFrame title={titleOf(page, of)}>
           <PhoneSearch
             things={props.search.things}
             actions={searchActions}
+            opened={recentRows()}
             query={query}
             onQuery={setQuery}
             onPick={pickFound}
@@ -1563,23 +1577,6 @@ export function Phone(props: PhoneProps) {
     }
     if (page.kind === 'helpNote') {
       return <HelpNotePage nav={nav} title={titleOf(page, of)} id={page.id} onPage={(id) => push({ kind: 'helpNote', id })} />;
-    }
-    if (page.kind === 'settings') {
-      return (
-        <PageFrame title={titleOf(page, of)} nav={nav}>
-          <div className="mb-list">
-            {settingsSections().map((each) => (
-              <Row
-                key={each.id}
-                icon={each.icon}
-                label={t(each.label)}
-                right={sectionValue(each.id, props.settings.values)}
-                onClick={() => push({ kind: 'section', section: each.id })}
-              />
-            ))}
-          </div>
-        </PageFrame>
-      );
     }
     if (page.kind === 'trashItem') {
       return (
@@ -1830,7 +1827,7 @@ export function Phone(props: PhoneProps) {
         }
       : top.kind === 'root' && place === 'today'
       ? () => props.onAdd(due === 'today' ? TODAY : UPCOMING)
-      : (top.kind === 'root' && place !== 'search' && place !== 'chat') || top.kind === 'folder'
+      : (top.kind === 'root' && place === 'browse') || top.kind === 'folder'
         ? () => props.onCreate(top.kind === 'folder' ? top.path : '')
         : top.kind === 'item' && props.canAdd(top.id)
           ? () => props.onAdd(top.id)
@@ -1956,8 +1953,8 @@ export function Phone(props: PhoneProps) {
       <nav className={places.length > 4 ? 'mb-tabbar five' : 'mb-tabbar'} aria-label={t('phone.places')}>
         {places.map((each) => (
           <button key={each} type="button" aria-current={each === place ? 'page' : undefined} onClick={() => choose(each)}>
-            {each === 'today' ? <DayIcon /> : <Icon name={each === 'recent' ? 'clock' : each === 'search' ? 'search' : each === 'chat' ? 'chat' : 'folder'} />}
-            <span>{each === 'today' ? t('side.today') : each === 'recent' ? t('phone.recent') : each === 'search' ? t('phone.search') : each === 'chat' ? t('chat.title') : t('phone.browse')}</span>
+            {each === 'today' ? <DayIcon /> : <Icon name={each === 'settings' ? 'settings' : each === 'search' ? 'search' : each === 'chat' ? 'chat' : 'folder'} />}
+            <span>{each === 'today' ? t('side.today') : each === 'settings' ? t('side.settings') : each === 'search' ? t('phone.search') : each === 'chat' ? t('chat.title') : t('phone.browse')}</span>
             {each === 'chat' && chat.alerts > 0 && <em className="bdg">{chat.alerts > 99 ? '99+' : chat.alerts}</em>}
           </button>
         ))}

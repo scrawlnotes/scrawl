@@ -1,6 +1,6 @@
 # ⚙️ Settings
 
-**Settings**, in **Browse**, is a page with a row for each section. What you choose is used at once.
+**Settings**, the last tab at the foot of the screen, is a page with a row for each section. What you choose is used at once.
 
 ## Profile
 

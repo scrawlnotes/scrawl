@@ -20,7 +20,7 @@ On the web, press **Downloads** at the foot of the sidebar and install it. Your 
 
 Scrawl is not in the app stores. Open app.scrawlnotes.com on your phone and add it to the home screen: in Safari use **Share › Add to Home Screen**, in Chrome use **⋮ › Add to Home screen**. It then opens from the home screen like any app, with a layout made for the phone:
 
-- **Recent**, **Browse**, **Today** and **Search** at the foot of the screen, and **Chat** with a Scrawl server.
+- **Search**, **Browse**, **Today** and **Settings** at the foot of the screen, and **Chat** before **Settings** with a Scrawl server. What you opened last is in **Search** before you type.
 - Everything opens as a page; back, or a swipe from the left edge, goes back.
 - **+** at the bottom right adds what the page is for: a task, a card, a record, a note.
 - Press and hold a row for its menu.

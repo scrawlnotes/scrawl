@@ -185,6 +185,7 @@ import { folderLabel, setSpaceNames,
   pathOf,
   pathTip,
   QUICK,
+  seenText,
   tabOf,
   tasksOf,
   TODAY,
@@ -225,7 +226,7 @@ import { type ButtonRun, type FileRow, type RuleEvent, Session, type SpaceView }
 import { RemoveSpaceDialog, type Section as SettingsSection, Settings, type SettingsValues } from './Settings';
 import { setOutlookChoice } from './outlook';
 import { Help } from './Help';
-import { StartPage } from './StartPage';
+import { placeOf, StartPage } from './StartPage';
 import { type SpaceSyncView, SyncService } from './sync';
 import { reloadIntoUpdate, subscribeUpdate, updateReady } from './pwa';
 import { restartIntoUpdate, useUpdateView } from './desktopUpdate';
@@ -240,7 +241,7 @@ import { openingDrawn, openingFailed } from './opening';
 import { pendingJoin } from './servers';
 import { type FavoriteRow, Sidebar } from './Sidebar';
 import type { Exported, ExportFormat } from './exporting';
-import { type SearchAction, SearchWindow, type Target, type Thing, thingsOf } from './Search';
+import { type Opened, type SearchAction, SearchWindow, type Target, type Thing, thingsOf } from './Search';
 import { type Dated, dueLabel, type DueSubtask, FilterPage, isSubtaskRef, type SubtaskRef, type TaskActions, TaskList, TodayView } from './Tasks';
 import { Upcoming } from './Upcoming';
 import { type ChatLinks, type ChipState, ChatView } from './Chat';
@@ -2776,6 +2777,13 @@ export function App() {
     if (dir !== null) return dir in collections;
     return id in tabTitles;
   };
+  const openSeen = (id: string) => void (id === WELCOME_NOTE ? session.openWelcome() : session.open(id));
+  // Search's Recent with nothing typed: the start page's, without what is on screen (PLAN 4.2).
+  const opened = (): Opened[] =>
+    recent
+      .filter((seen) => seen.id !== active && stillThere(seen.id))
+      .slice(0, 10)
+      .map(({ id, at }) => ({ id, icon: iconOf(id), name: nameOf(id, tabTitles, filters), where: placeOf(id), when: seenText(at, Date.now()), run: () => openSeen(id) }));
 
   // The quick note being written, in Take a note… or in its window, has the note's format bar: it
   // works on that editor while it is open (design/quick-notes.md 3.2, 3.4).
@@ -3082,7 +3090,7 @@ export function App() {
             onKind={(kind) => (kind === 'quick' ? newQuick() : setDialog(kind === 'app' ? { kind: 'newApp', folder: createIn } : { kind: 'new', start: kind }))}
             onTemplate={(start) => setDialog({ kind: 'new', start: start.kind, template: start.template })}
             onApp={() => setDialog({ kind: 'newApp', folder: createIn })}
-            onOpen={(id) => void (id === WELCOME_NOTE ? session.openWelcome() : session.open(id))}
+            onOpen={openSeen}
             onOpenTask={(taskList, id) => {
               void session.open(tasksOf(taskList));
               setRevealTask({ list: taskList, id, at: Date.now() });
@@ -3925,7 +3933,7 @@ export function App() {
       )}
       {/* On a phone Help is pages in Browse. */}
       {dialog?.kind === 'help' && !phone && <Help onClose={closeDialog} />}
-      {searching && !phone && <SearchWindow things={searchThings} actions={searchActions} onPick={openFound} onPickMessage={openHit} onClose={() => setSearching(false)} still={still} />}
+      {searching && !phone && <SearchWindow things={searchThings} actions={searchActions} opened={opened()} onPick={openFound} onPickMessage={openHit} onClose={() => setSearching(false)} still={still} />}
       {chipPick && !phone && (
         <SearchWindow
           things={pickThings}

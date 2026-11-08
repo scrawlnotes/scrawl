@@ -32,7 +32,7 @@ const COLLECTION_STARTS: { template: CollectionTemplate; label: MessageKey; text
 ];
 
 /** Where something opened is: its folder, or its space and folder when it is in another space; nothing for a filter. */
-function placeOf(id: string): string {
+export function placeOf(id: string): string {
   const path = pathOf(id) ?? collectionPathOf(id);
   if (path === null) return '';
   const where = spaceWhere(path);

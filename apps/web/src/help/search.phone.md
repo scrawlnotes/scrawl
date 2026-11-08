@@ -16,7 +16,7 @@ A word matches from its start: `tu` finds Tulin, not Status. Capitals and accent
 
 What is found opens as its page, a note at the words found, marked; back goes to the results.
 
-The searches you opened something from are kept under the box, the newest first, on this phone only. Tap one to search it again.
+Before you type, **Recent** under the box has the ten things you opened last, the newest first, with where each is and when you looked at it. Under it are the searches you opened something from, on this phone only; tap one to search it again.
 
 ## Actions
 

@@ -575,7 +575,7 @@ Kodda netleşenler:
 
 Kodda netleşenler:
 
-- **Sekme:** sunucu Chat veriyorsa beşinci sekme Chat'tir; rozeti bildirim veren okunmamışların sayısıdır (99'dan sonra 99+). Bilgisayarda açılmış Chat sekmesi telefonda Recent'te öğe olarak görünmez.
+- **Sekme:** sunucu Chat veriyorsa Chat, Settings'ten önceki sekmedir (8 Kasım'dan beri Search, Browse, Today, Chat, Settings); rozeti bildirim veren okunmamışların sayısıdır (99'dan sonra 99+). Bilgisayarda açılmış Chat sekmesi telefonda Recent'te öğe olarak görünmez.
 - **Liste:** önce her space'in room'ları ada göre, sonra Direct (en yeni üstte), arşivliler ve gizliler yok. Satırda son mesaj: "Kaan: …", kendininki "You: …", iki kişilik DM'de yalnız metin, taslak varsa "Draft: …" (vurgulu). Dosya için "Photo", "Video", "Voice message · 0:14" ya da dosyanın adı. Saat bugünse saat, bu hafta gün kısaltması, öncesi tarih. Bildirim veren okunmamış varsa sayı rozeti, Off'ta zil işareti.
 - **+ (FAB):** listede New message, New room, Browse rooms (birden çok sunucuda her biri sunucusuyla). Tasarımda New message ve New room vardı; telefonda public room'a katılmanın başka yolu olmadığı için Browse rooms da eklendi. Pencereler telefonda sheet olarak açılır.
 - **Konuşma sayfası:** altında tab bar yoktur; yazma kutusu oradadır. Üst çubukta geri, ortada ad ve kişi sayısı (DM'de Active), sağda ⓘ; ada dokunmak da Info'yu açar.

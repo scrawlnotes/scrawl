@@ -60,7 +60,7 @@ API keys, passwords and settings in a `.env` file. Secret values stay hidden unt
 
 | At the foot of the screen | In Browse |
 | --- | --- |
-| **Recent**, **Browse**, **Today**, **Search** | Your spaces and folders, **Files**, **Trash**, **Sync**, **Settings** |
+| **Search**, **Browse**, **Today**, **Settings** | Your spaces and folders, **Files**, **Trash**, **Sync** |
 
 ---
 

@@ -16,7 +16,7 @@ A word matches from its start: `tu` finds Tulin, not Status. Capitals and accent
 
 A note opens at the words found, marked. A task is shown in its list, a card and a record open in their window, and a folder or a space opens in the sidebar.
 
-The searches you opened something from are kept under the box, the newest first, on this device only. Click one to search it again.
+Before you type, **Recent** under the box has the things you opened last, the newest first, without the one on screen: **Ctrl+K** and **Enter** go back to the one before. Under it are the searches you opened something from, on this device only; click one to search it again.
 
 ## Actions
 
