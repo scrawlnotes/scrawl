@@ -6255,6 +6255,7 @@ p { margin: 0; max-width: 68ch; }
         <span class="letter">OUTLOOK TAKVİMİ · 1. DİLİM · TASLAK</span>
         <h2>Bağlantı ve Outlook etkinlikleri Scrawl'da</h2>
         <p>Settings'te Notifications'ın altında <b>Calendars</b>. <b>Connect Outlook Calendar</b> Microsoft girişini açar. Dönünce hesap ve <b>Show events in Scrawl</b> görünür, altında hesabın takvimleri: kendi takvimlerin işaretli gelir, başkasının paylaştığı işaretsiz. Etkinlikler Today'de ve Upcoming'in List görünümünde günün başında, iki sütunlu bir kutuda durur. Takvimde Outlook takviminin renginde, içi boş kutulardır; Scrawl'ın kayıtları dolu kalır. Scrawl'da değiştirilemezler; üstüne gelince ↗ çıkar, tıklanınca Outlook'ta açılırlar. Geçmiş etkinlik soluk görünür. Giriş düşerse kutunun yerinde tek satır ve <b>Sign in…</b> görünür. Sync to Outlook, 2. dilimde aynı sayfaya gelir.</p>
+        <p><b>4. dilim, Google Calendar (taslak, "G:" görünümleri):</b> Settings › Calendars'ta <b>Connect Google Calendar</b> ve <b>Connect Outlook Calendar</b> alt alta. Bir hesap bağlanınca <b>Show events in Scrawl</b> en üstte, bütün hesaplar için tek; altında her hesap kendi başlığıyla (Google, Outlook), hesap satırı ve takvimleri. Google'da varsayılan, Google Calendar'da işaretli takvimler. Bağlanmamış sağlayıcının düğmesi altta kalır. Today'de iki hesabın etkinlikleri tek kutuda, saat sırasıyla, her biri kendi renginde; tıklanınca kendi uygulamasında açılır. Google'ın girişi düşerse yalnız onunkiler gider, kutunun üstünde tek satır.</p>
         <ul class="traits"><li>Settings › Calendars</li><li>ayrı Microsoft girişi</li><li>takvim seçimi</li><li>Today'de kutu</li><li>List'te günün başında</li><li>takvimde içi boş</li><li>tıklayınca Outlook</li><li>telefonda da</li></ul>
       </div>
       <span class="pick" role="group" aria-label="Outlook görünümü">
@@ -6267,6 +6268,12 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-olview="olweek">Upcoming: Week</button>
         <button type="button" data-olview="olmonth">Upcoming: Month</button>
         <button type="button" data-olview="olphone">Telefon</button>
+        <button type="button" data-olview="gnone">G: bağlı değil</button>
+        <button type="button" data-olview="ggoogle">G: yalnız Google</button>
+        <button type="button" data-olview="gboth">G: Google ve Outlook</button>
+        <button type="button" data-olview="gtoday">G: Today iki hesap</button>
+        <button type="button" data-olview="gsignin">G: Google girişi düşünce</button>
+        <button type="button" data-olview="gphone">G: Telefon</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -20337,7 +20344,87 @@ p { margin: 0; max-width: 68ch; }
       mbPhone('Upcoming › Day: etkinlikler içi boş kutular', day, nfTabs('today') + MB_FAB)
     ].join('');
   }
+  // Slice 4, Google Calendar (design/outlook-calendar.md 11.1): Google's calendars beside Outlook's.
+  OL_CC.gme = '#039be5'; OL_CC.gfam = '#33b679'; OL_CC.ghol = '#0b8043'; OL_CC.gbday = '#7986cb'; OL_CC.gselin = '#e67c73';
+  var G_EV9 = [{ from: 8, to: 8.5, t: 'School run', c: 'gfam' }, { from: 19, to: 20, t: 'Pilates', c: 'gme' }];
+  /** Today's events from both: Outlook's and Google's in one box, by their time. */
+  function gEvents(googleToo) {
+    return OL_EV[9].concat(googleToo ? G_EV9 : []).slice().sort(function (a, b) { return a.from - b.from; });
+  }
+  /** Today with both accounts' events; `signin`: Google's sign-in ran out, its line over Outlook's events. */
+  function gToday(o) {
+    o = o || {};
+    var warn = o.signin ? '<div class="ol-warn">' + ICON.warn + '<span>Google asks you to sign in again. Your Google events are not showing.</span><span class="st-btn">Sign in…</span></div>' : '';
+    return '<div class="tasksv"><div class="th"><b>Today</b><span class="c3-date">Mon, Nov 9</span><button type="button" class="add">Add task</button></div><div class="tl">' +
+      '<div class="sec">Overdue <small>1</small><span class="resch">Reschedule</span></div>' +
+      upTask({ t: 'Renew the domain', w: 'Tasks · Personal', late: true }, 'Fri, Nov 6') +
+      '<div class="sec">Today <small>3</small></div>' + warn + olBoxOf(9, gEvents(!o.signin), o.hot) +
+      OL_TASKS[9].map(function (t) { return upTask(t); }).join('') +
+      '<div class="qa">+ Add task</div></div></div>';
+  }
+  /**
+   * Settings › Calendars with Google: `none` connects either; `google` has Google's account and
+   * Connect Outlook Calendar under it; `both` has both accounts. Show events is one, at the top.
+   */
+  function gSettings(state) {
+    function cal(c, name, on, sub) {
+      return '<div class="st-li"><span class="ol-dot" style="--cc:' + OL_CC[c] + '"></span><span class="nm"><b>' + name + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</span>' +
+        '<span class="ol-box' + (on ? ' on' : '') + '">' + (on ? '✓' : '') + '</span></div>';
+    }
+    function connect(name, sub) { return '<div class="st-acts"><span class="st-btn go">' + ICON.cal + 'Connect ' + name + '</span><small>' + sub + '</small></div>'; }
+    var google = '<div class="st-label">Google</div><div class="st-list">' + spLi({ icon: 'cal', name: 'Kaan Arslan', sub: 'kaan.arslan@gmail.com · on this computer', r: '<span class="st-btn">Disconnect</span>' }) + '</div>' +
+      '<div class="st-list ol-cals">' + cal('gme', 'Kaan Arslan', true) + cal('gfam', 'Family', true) + cal('gbday', 'Birthdays', false) + '</div>';
+    var outlook = '<div class="st-label">Outlook</div><div class="st-list">' + spLi({ icon: 'cal', name: 'Kaan Arslan', sub: 'kaanarslan@outlook.com · on this computer', r: '<span class="st-btn">Disconnect</span>' }) + '</div>' +
+      '<div class="st-list ol-cals">' + cal('cal', 'Calendar', true) + cal('mert', 'Mert Kaya', false, 'Shared with you') + '</div>';
+    var show = '<div class="ch-opt"><span class="box">✓</span><span><b>Show events in Scrawl</b><small>In Today, Upcoming and the calendar, as they are in Google and Outlook; a click opens one there.</small></span></div>';
+    var body = state === 'none'
+      ? '<p class="ol-lead">Your Outlook and Google meetings in Today, Upcoming and the calendar, beside your tasks.</p>' +
+        connect('Google Calendar', 'A Google account.') + connect('Outlook Calendar', 'A work or a personal Microsoft account.')
+      : show + google + (state === 'both' ? outlook : '<div style="margin-top: 14px">' + connect('Outlook Calendar', 'A work or a personal Microsoft account.') + '</div>') +
+        '<p class="st-note" style="margin: 0">Each of your devices connects on its own.</p>';
+    return '<div class="ovl"><div class="st-dlg tall"><div class="st-head"><b>Settings</b><span class="x">×</span></div><div class="st-main"><nav class="st-nav">' +
+      row({ icon: 'person', label: 'Profile' }) + row({ icon: 'half', label: 'Appearance' }) + '<div class="it">' + CI.bell + '<span>Notifications</span></div>' +
+      '<div class="it on">' + ICON.cal + '<span>Calendars</span></div>' + row({ icon: 'space', label: 'Spaces' }) + row({ icon: 'agent', label: 'Agents' }) + row({ icon: 'logs', label: 'Logs' }) + row({ icon: 'info', label: 'About' }) +
+      '</nav><div class="st-body">' + body + '</div></div></div></div>';
+  }
+  /** On a phone: Calendars before connecting, with both accounts, and Today with both accounts' events. */
+  function gPhone() {
+    var off = mbPage(mbNav('Settings') + mbHead('Calendars'),
+      '<div class="mb-form"><p class="ol-mlead">Your Outlook and Google meetings in Today and Upcoming, beside your tasks.</p>' +
+      '<span class="mb-btn">Connect Google Calendar</span><p class="ol-mnote" style="padding-bottom: 14px">A Google account.</p>' +
+      '<span class="mb-btn">Connect Outlook Calendar</span><p class="ol-mnote">A work or a personal Microsoft account.</p></div>');
+    function cal(c, name, on, sub) {
+      return '<div class="mb-fr ol-mcal"><span class="ol-dot" style="--cc:' + OL_CC[c] + '"></span><span class="tx"><b>' + name + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</span>' +
+        (on ? '<span class="ol-mck">' + ICON.check + '</span>' : '') + '</div>';
+    }
+    function account(email) { return '<div class="mb-fr nf-sw">' + ICON.cal + '<span class="tx"><b>Kaan Arslan</b><small>' + email + '</small></span></div>'; }
+    var on = mbPage(mbNav('Settings') + mbHead('Calendars'),
+      '<div class="mb-form"><div class="mb-group"><div class="mb-fr nf-sw"><span class="tx"><b>Show events in Scrawl</b><small>In Today and Upcoming. A tap opens one where it is.</small></span><span class="mb-switch on"></span></div></div>' +
+        '<div class="mb-cap">Google</div><div class="mb-group">' + account('kaan.arslan@gmail.com') + cal('gme', 'Kaan Arslan', true) + cal('gfam', 'Family', true) + cal('gbday', 'Birthdays', false) +
+        '<div class="mb-fr red">Disconnect</div></div>' +
+        '<div class="mb-cap">Outlook</div><div class="mb-group">' + account('kaanarslan@outlook.com') + cal('cal', 'Calendar', true) + cal('mert', 'Mert Kaya', false, 'Shared with you') +
+        '<div class="mb-fr red">Disconnect</div></div>' +
+      '<p class="ol-mnote">Each of your devices connects on its own.</p></div>');
+    var seg = '<div class="mb-seg"><span class="on">Today</span><span>Upcoming</span></div>';
+    var evs = '<div class="ol-mevs">' + gEvents(true).map(function (o) {
+      return '<div class="ol-mev' + (olPast(9, o) ? ' past' : '') + '" style="--cc:' + OL_CC[o.c] + '"><em>' + clClock(o.from) + '</em><b>' + o.t + '</b>' + OL_EXT + '</div>';
+    }).join('') + '</div>';
+    var today = mbPage('<div class="mb-head root"><h2>Today</h2><small>Monday, Nov 9</small></div>' + seg,
+      '<div class="mb-sec">Today <small>3</small></div>' + evs +
+      mbT({ p: 'p2', title: 'Write the release notes for 0.1.27', meta: mi('tasks', 'Tasks · Scrawl') }) +
+      mbT({ p: 'p1', key: 'SCR-30', title: 'Calendar: drag to reschedule', meta: mi('board', 'Doing') }));
+    return [
+      mbPhone('Calendars: bağlı değil, iki düğme', off, ''),
+      mbPhone('Google ve Outlook bağlı: Show events en üstte, hesap hesap', on, ''),
+      mbPhone('Today: iki hesabın etkinlikleri tek listede', today, nfTabs('today') + MB_FAB)
+    ].join('');
+  }
   var OL_VIEWS = {
+    gnone: function () { return olApp('today', olToday(), '3 tasks · 1 card', gSettings('none')); },
+    ggoogle: function () { return olApp('today', gToday(), '3 tasks · 1 card · 6 events', gSettings('google')); },
+    gboth: function () { return olApp('today', gToday(), '3 tasks · 1 card · 6 events', gSettings('both')); },
+    gtoday: function () { return olApp('today', gToday({ hot: 'Pilates' }), 'Pilates · opens in Google Calendar'); },
+    gsignin: function () { return olApp('today', gToday({ signin: true }), '3 tasks · 1 card · 4 events'); },
     oloff: function () { return olApp('today', olToday(), '3 tasks · 1 card · 4 events', olSettings(false)); },
     olset: function () { return olApp('today', olToday(), '3 tasks · 1 card · 4 events', olSettings(true)); },
     oltoday: function () { return olApp('today', olToday({ hot: 'Acme demo' }), 'Acme demo · opens in Outlook'); },
@@ -20353,6 +20440,9 @@ p { margin: 0; max-width: 68ch; }
     if (view === 'olphone') {
       mock.className = 'mock dir-a phones four mbs';
       mock.innerHTML = olPhone();
+    } else if (view === 'gphone') {
+      mock.className = 'mock dir-a phones mbs';
+      mock.innerHTML = gPhone();
     } else {
       mock.className = 'mock dir-a wider';
       mock.innerHTML = OL_VIEWS[view]();

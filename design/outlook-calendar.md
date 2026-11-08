@@ -161,9 +161,9 @@ Gerçek bir outlook.com hesabıyla masaüstünde bağlanılır. Seçilen işler 
 ## 7. Dilimler
 
 1. **Bağlantı ve Outlook etkinliklerinin Scrawl'da görünmesi:** Settings › Calendars'ın üst yarısı; Today, Upcoming ve Calendar'daki katman. Önce mockup.
-2. **Scrawl'dan Outlook'a:** Sync to Outlook, What goes listesi, Scrawl takvimi, seçim dosyası. Önce mockup.
-3. **Outlook'tan geri gelenler:** ad, gün ya da saat, silme.
-4. **Google Calendar:** 11. bölüm. Önce taslak ve mockup.
+2. **Scrawl'dan takvime, Outlook ve Google:** Sync tasks to calendar, iki hesap bağlıyken Sync to, What goes listesi, Scrawl takvimi, seçim dosyası. Önce mockup.
+3. **Takvimden geri gelenler, iki sağlayıcıdan:** ad, gün ya da saat, silme.
+4. **Google bağlantısı ve etkinlikleri:** Settings › Calendars iki hesaplı (11.1). Sıra: 1, 4, 2, 3.
 
 ## 8. PLAN'da değişenler (8 Kasım 2026)
 
@@ -198,4 +198,57 @@ Outlook'un yaptığının aynısı Google Calendar'la: Google'daki etkinlikler S
 - **İzinler** (konsolun sınıflaması, `design/cloud.md` 10.7): `calendar.calendarlist.readonly` (hassas değil, takvim listesi), `calendar.events.readonly` (hassas, seçili takvimlerin etkinlikleri), `calendar.app.created` (hassas değil, "Scrawl" takvimini açmak, ona yazmak, oradaki değişiklikleri okumak; başka takvime dokunmaz). Bütün takvime erişen `calendar` istenmez. Kısıtlı izin yok, güvenlik denetimi (CASA) gerekmez; `calendar.events.readonly` için Google'ın incelemesi gerekir.
 - **Giriş:** Drive'ınkinden ayrı, Outlook'un OneDrive'dan ayrı olması gibi. Masaüstünde Google'ın masaüstü kaydıyla `localhost` dönüşü; web'de ve telefonda kod ve yenileme app.scrawlnotes.com'daki Worker'dan (`design/cloud.md` 10.6).
 - **Graph'ın karşılıkları:** `calendarList.list` (ad, renk, `accessRole`), `events.list` (`timeMin`, `timeMax`, `singleEvents=true`, `timeZone` cihazın IANA adıyla; Google IANA adlarını doğrudan alır), `calendars.insert { summary: "Scrawl" }`, `events.insert` / `patch` / `delete`. Taban, Outlook'taki extended property yerine `extendedProperties.private`'tadır. Etkinliğin kimliği işin kimliğinden türetilir (Google kimliği istemcinin vermesine izin verir, base32hex, 5–1024 karakter); yeniden denemede aynı etkinlik iki kez açılmaz, `transactionId`'nin işini görür. Tıklanınca `htmlLink` Google Calendar'da açar. `429` ve `403 rateLimitExceeded`'da beklenip yeniden denenir.
-- **Taslakta karar verilecek:** Outlook ve Google ikisi birden bağlıyken "Scrawl" takvimi hangisine gider (Todoist işleri tek hesaba gönderir); `.scrawl/calendars.json`'da iki sağlayıcının yeri.
+
+### 11.1 Tasarım (8 Kasım 2026'da onaylandı, mockup'ıyla)
+
+Ölçüt yine Todoist ([Use the Calendar integration](https://todoist.com/help/articles/use-the-calendar-integration-rCqwLCt3G)): Settings › Calendars'ta Connect Google Calendar ve Connect Outlook Calendar; bağlanan her hesabın takvimleri kendi altında; Show events bütün hesaplar için tek anahtar; işler tek bir hesaba gider, iki hesap bağlıyken Sync to ile seçilir. Mockup: `design/mockups.html` › Outlook takvimi, "G:" ile başlayan görünümler.
+
+**Dilimler.** Google'ın yazan parçaları ayrı bir dilim olmaz; Outlook'un 2. ve 3. dilimleri iki sağlayıcıyla yazılır, çünkü `wantedEvents` ve `planCalendar` ortaktır ve aynı şey iki kez yazılmaz:
+
+- **4. dilim (şimdi):** Google bağlantısı ve Google etkinlikleri Scrawl'da; Settings › Calendars iki hesaplı düzene geçer.
+- **2. dilim "Scrawl'dan takvime":** Sync tasks to calendar, iki hesap bağlıyken Sync to (Outlook ya da Google), What goes; "Scrawl" takvimi seçilen hesapta. New app'teki anahtarın adı hedefin adını alır (Add to Google Calendar). Önce mockup, ROA-374'te.
+- **3. dilim "Takvimden geri gelenler":** iki sağlayıcıdan.
+- **Google'a başvuru 2. dilimden sonra:** video "Scrawl" takvimini de göstermeli.
+
+**Settings › Calendars.**
+
+- Üstte bir cümle: "Your Outlook and Google meetings in Today, Upcoming and the calendar, beside your tasks."
+- Hiçbiri bağlı değilken iki düğme alt alta: **Connect Google Calendar** ("A Google account.") ve **Connect Outlook Calendar** ("A work or a personal Microsoft account.").
+- Biri bağlanınca en üstte **Show events in Scrawl**, bütün hesaplar için tek anahtar (bugün Outlook hesabının altında; seçim dosyasında zaten tek, `events`). Altında her hesap bir grup: sağlayıcının adı başlık (Google, Outlook), hesap satırı (ad, "e-posta · on this computer" ya da "· in this browser", Disconnect) ve takvimleri anahtarlarıyla.
+- Bağlanmamış sağlayıcının düğmesi grupların altında kalır.
+- **Her sağlayıcıdan bir hesap.** Todoist ücretli planda üç hesaba izin veriyor; bizde Google'dan ve Outlook'tan birer hesap. İkinci bir Google hesabı sonra.
+- **Google'ın takvimleri** Google'ın sırasıyla, birincil takvim önce. Varsayılan: Google Calendar'da işaretli olanlar açık (`calendarList`'in `selected`'ı), ötekiler kapalı. Outlook'taki "kendininkiler açık, paylaşılanlar kapalı"nın Google'daki karşılığı budur: Google'da tatil ve doğum günü takvimleri de abonedir, kişi Google'da ne görüyorsa o gelir. Başka bir kişinin takviminin altında "Shared with you".
+- Telefonda Calendars sayfası aynı sırayla: Show events, hesap grupları, en altta bağlanma düğmeleri; Disconnect her grubun sonunda kırmızı satır.
+
+**Today, Upcoming ve takvim.**
+
+- İki sağlayıcının etkinlikleri aynı kutuda, saat sırasıyla, her biri takviminin renginde. Tıklanınca kendi uygulamasında açılır; ipucu "Open in Google Calendar" ya da "Open in Outlook".
+- Bir sağlayıcının girişi düşerse yalnız onun etkinlikleri gider, kutunun üstünde tek satır: "Google asks you to sign in again. Your Google events are not showing." ve Sign in…. Öbürünün etkinlikleri kalır.
+- Google'da reddedilen toplantılar görünmez; Google Calendar'ın varsayılanı da böyle.
+
+**Giriş.**
+
+- Masaüstünde sistem tarayıcısında, Outlook'taki gibi; Google'ın masaüstü kaydıyla, `localhost` dönüşü. Yenileme anahtarı kimlik deposunda ayrı bir adla.
+- Web'de ve telefonda sayfa Google'a gider ve döner; kod ve yenileme Worker'dan (`design/cloud.md` 10.6). Yenileme anahtarı `localStorage`'da, erişim anahtarı bellekte, bir saat dolmadan yenilenir; kişi hiçbir yere dokunmaz.
+- Kayıt Testing'deyken Google girişi 7 günde düşürür; yayına alınınca kalkar.
+
+**Teknik.**
+
+- **core:** `OutlookEvent` sağlayıcıdan bağımsız `CalendarEvent` olur, `provider: 'outlook' | 'google'` alanıyla; `eventsOn`, `timedOn` ve `CalendarChoice` ortaktır. Yeni `google-calendar.ts`: `GoogleReader` takvimleri `calendarList.list` ile okur (`summaryOverride ?? summary`, `backgroundColor`, `accessRole === 'owner'`, `selected`), etkinlikleri her görünen takvim için `events.list` ile (`timeMin`, `timeMax`, `singleEvents=true`, `orderBy=startTime`, `timeZone`, `nextPageToken` ile sayfa sayfa). Tüm gün etkinliğin bitişi Google'da ertesi gündür, `lastDay` bir gün geri alınır; `attendees`'de kişinin `responseStatus`'u `declined` olan atlanır. `FakeGoogle`, `FakeGraph` gibi, geliştirirken ve testlerde.
+- **Seçim dosyası:** `show` düz kalır; Outlook'un uzun kimlikleriyle Google'ın e-posta biçimli kimlikleri çakışmaz. `isShown` bir takvimin varsayılanını sağlayıcısından alır: Outlook'ta `own`, Google'da `selected`.
+- **web:** yeni `google.ts`: giriş, Worker'a `POST /google/token` ve `/google/refresh`, 401'de bir kez yenileme, yenilenemezse Sign in…; masaüstünde `oauth_listen` ve `token_request` (izinli adreslere `https://oauth2.googleapis.com/token`). `OutlookEvents.tsx` iki listeyi birleştirir. Settings › Calendars ve telefon sayfası iki hesaplı düzene geçer. Dizeler `google.*`, ortak olanlar `calendars.*`.
+- **masaüstü:** Google'ın masaüstü kaydının kimliği ve gizli olmayan anahtarı kodda, OneDrive'ınki gibi; anahtar için ikinci saklama adı.
+- **Help:** Settings › Calendars satırı Google'ı da anlatır.
+
+**Testler.**
+
+- `GoogleReader`: takvim listesi (birincil, işaretli, işaretsiz, paylaşılan), tüm gün etkinliğin son günü, saatli etkinlik cihazın saatinde, reddedilen toplantı, iki sayfalık liste, 401'de yenileme, 429'da bekleme.
+- Birleşik kutu: iki sağlayıcının etkinlikleri saat sırasıyla; girişi düşen sağlayıcının satırı, öbürünün etkinlikleri.
+- Elle (bitti ölçütü): gerçek bir Google hesabıyla masaüstünde ve iPhone'da bağlanılıyor, Google toplantıları Today'de ve Upcoming'de Outlook'unkilerle birlikte görünüyor, telefonda bir saatten sonra da yeniden giriş istenmiyor.
+
+**Kararlar (8 Kasım 2026'da onaylandı):**
+
+1. **Dilimler:** Google'ın yazan parçaları Outlook'un 2. ve 3. dilimleriyle birlikte; 4. dilim yalnız bağlantı ve etkinlikler.
+2. **Hesap sayısı:** her sağlayıcıdan bir hesap.
+3. **Google'da varsayılan:** Google Calendar'da işaretli takvimler açık.
+4. **Show events in Scrawl:** bütün hesaplar için tek anahtar, en üstte (Todoist gibi).
