@@ -16079,6 +16079,13 @@ button.st-li:hover,
   object-fit: cover;
 }
 
+/* An initial's round that holds a picture is a box of its own size, also where it sits in a line of words. */
+:where(.who:has(> .face-pic), .mb-who:has(> .face-pic)) {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: middle;
+}
+
 .ch-face {
   position: relative;
   display: grid;
