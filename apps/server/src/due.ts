@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { BOARD_EXT, type DueWork, dueWorkIn, dueWords, TASK_LIST_EXT } from '@scrawlnotes/core';
+import { notifyOf } from './auth';
 import type { Blobs } from './blobs';
 import type { Db } from './db';
 import type { Push } from './push';
@@ -56,7 +57,7 @@ export class Due {
     const accounts = this.db.prepare('SELECT id, time_zone FROM accounts WHERE disabled_at IS NULL').all() as { id: string; time_zone: string | null }[];
     for (const account of accounts) {
       const { day, hour } = clockIn(account.time_zone || this.serverZone, at);
-      if (hour < DUE_HOUR || hour >= LATEST_HOUR) continue;
+      if (hour < DUE_HOUR || hour >= LATEST_HOUR || !notifyOf(this.db, account.id).due) continue;
       // Once a day: marked before it goes, so that a slow one is not sent twice.
       if (this.db.prepare('INSERT INTO digests (account_id, day) VALUES (?, ?) ON CONFLICT DO NOTHING').run(account.id, day).changes === 0) continue;
       const words = dueWords(this.workOf(account.id, [day, nextDay(day)]), day);

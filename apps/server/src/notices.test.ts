@@ -146,4 +146,20 @@ describe('notices', () => {
     await s2.settle();
     expect(s2.sent.map((each) => [each.payload.title, each.payload.body])).toEqual([[`Kaan reminded you about ${was.prefix}-1`, 'Export a board as CSV · Due Nov 10']]);
   });
+
+  it('tells Mert nothing of what he turned off, on every device of his, and the rest still', async () => {
+    const s = await start();
+    const json = { 'Content-Type': 'application/json' };
+    const turned = await s.call(s.mert, 'PATCH', '/me', JSON.stringify({ notify: { mentions: false } }), json);
+    expect(turned.body).toMatchObject({ notify: { mentions: false, assignments: true, reminders: true, due: true } });
+    expect((await s.call(s.mert, 'GET', '/me')).body).toMatchObject({ notify: { mentions: false, assignments: true } });
+    expect((await s.call(s.mert, 'PATCH', '/me', JSON.stringify({ notify: { sound: false } }), json)).status).toBe(400);
+    const was = addCard(roadmap(), { title: 'Export a board as CSV' }, at(0), kaan, 'card1');
+    await s.write(s.owner, BOARD, serializeBoard(was));
+    const mentioned = addComment(was, 'card1', `${personLink('Mert Kaya', MERT)} can you check the headers?`, at(5), kaan, 'cm1');
+    await s.write(s.owner, BOARD, serializeBoard(mentioned));
+    await s.write(s.owner, BOARD, serializeBoard(updateCard(mentioned, 'card1', { assignee: { id: MERT, name: 'Mert Kaya' } }, at(6), kaan)));
+    await s.settle();
+    expect(s.sent.map((each) => each.payload.title)).toEqual([`Kaan assigned you ${was.prefix}-1`]);
+  });
 });

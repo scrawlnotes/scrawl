@@ -246,3 +246,14 @@ Yayın: web ve sunucu; masaüstü kullanıcı söyleyince.
 - **Dokununca:** `scrawl:today`; bilgisayarda Today sekmesi, telefonda Today sekmesi.
 - **Testler:** core 2 (kimin işi, metin), sunucu `due.test.ts` 2 (09:00'da bir kez, bitmiş ve çöpteki sayılmaz; hiçbir şey yoksa ve öğleden sonra gitmez), web 1 (servis worker Today'i açar).
 - **Tarayıcıda denendi:** `/?chat=scrawl:today` bilgisayarda ve telefon görünümünde Today'i açtı. Gerçek sabah bildirimi, sunucunun saatine bağlı olduğu için yerelde beklenmedi; testte saat ilerletilerek denendi.
+
+## 17. Yazılırken: 5. dilim (Settings)
+
+8 Kasım 2026. ROA-369.
+
+- **Sunucuda:** `accounts.notify` (JSON); boşsa dördü de açık. `GET /me` seçimleri verir; `PATCH /me` `notify` ile yalnız verilenleri değiştirir (`{ "mentions": false }`); bilinmeyen ad ya da true/false olmayan değer 400 döner. Kapatılan türde bildirim gitmez: mention, atama ve Remind yazılırken süzülür; Due dates kapalıysa sabah bildirimi hazırlanmaz, o sabah sonradan açılırsa öğlene kadar gider.
+- **Uygulamada:** Settings › Notifications'ta cihazın seçiminin altında **Notify me about**, altında "For the spaces on localhost:8080, on every device you use." Bağlı her sunucu için ayrı bölüm. Seçim basılınca sunucuya yazılır; yazılamazsa geri döner ve "It could not be changed. Try again in a moment." der. Eski ya da ulaşılamayan sunucuda bölüm görünmez. Mention'ın açıklamasında kişinin kendi ilk adı: "When someone writes @Kaan …".
+- **Telefonda:** taslaktaki gibi: her seçim bir grubun satırı, sağında switch (cihazın seçimi de); başlık "On this phone", satır "Notifications on this phone"; sunucu cümlesi grubun altında.
+- **Cihazın metni:** "New messages show …" yerine "Messages, mentions and the rest show …" (bilgisayar, tarayıcı, telefon).
+- **Testler:** sunucu 2 (Mert mention'ı kapatınca yalnız atama gider, her cihazında; yanlış seçim 400; Due dates kapalıysa sabah bildirimi gitmez); `/me` testi seçimlerle.
+- **Tarayıcıda denendi:** bilgisayarda ve telefon görünümünde dört seçim; Mentions kapatılıp sayfa yenilenince kapalı kaldı, sunucuda da kapalıydı; telefonda switch'le geri açıldı.

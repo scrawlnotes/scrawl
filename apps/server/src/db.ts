@@ -267,6 +267,10 @@ const MIGRATIONS: string[] = [
     PRIMARY KEY (account_id, day)
   );
   `,
+  // What each person is told of, as their Settings › Notifications sets it; null for all (design/notifications.md 7).
+  `
+  ALTER TABLE accounts ADD COLUMN notify TEXT;
+  `,
 ];
 
 export function openDb(file: string): Db {

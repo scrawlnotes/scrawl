@@ -32,6 +32,20 @@ export interface Notice {
   href: string;
 }
 
+/** What a person on a server is told of (design/notifications.md 7): all of it until they turn some off. */
+export interface NotifyChoices {
+  mentions: boolean;
+  assignments: boolean;
+  reminders: boolean;
+  /** The morning's notification. */
+  due: boolean;
+}
+
+export const NOTIFY_CHOICES = ['mentions', 'assignments', 'reminders', 'due'] as const satisfies readonly (keyof NotifyChoices)[];
+
+/** The choice each kind of notice follows. */
+export const CHOICE_OF: Record<Notice['kind'], keyof NotifyChoices> = { mention: 'mentions', assign: 'assignments', remind: 'reminders' };
+
 /** Whether a path's file is one whose changes can tell someone: a board or a task list. */
 export const tellsPeople = (path: string) => path.endsWith(BOARD_EXT) || path.endsWith(TASK_LIST_EXT);
 

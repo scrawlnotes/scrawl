@@ -63,7 +63,7 @@ describe('setting up and signing in', () => {
     expect(await s.account().status()).toMatchObject({ new: true, setupOpen: true, personal: true });
     const { token, account } = await s.account().setUp({ name: 'Kaan Arslan', email: 'kaan@outlook.com', password: 'a long password', person: PERSON, device: 'Laptop' });
     expect(account).toEqual({ id: PERSON, email: 'kaan@outlook.com', name: 'Kaan Arslan', role: 'owner' });
-    expect(await s.account(token).me()).toEqual({ ...account, picture: null });
+    expect(await s.account(token).me()).toEqual({ ...account, picture: null, notify: { mentions: true, assignments: true, reminders: true, due: true } });
     expect(await s.account().status()).toMatchObject({ new: false, setupOpen: false });
     const again = await refusal(s.account().setUp({ name: 'Someone', email: 'x@example.com', password: 'another password', person: 'x', device: 'Phone' }));
     expect(again).toMatchObject({ status: 409, code: 'set-up' });

@@ -1,3 +1,4 @@
+import type { NotifyChoices } from '../notices';
 import { sha256 } from './hash';
 import { SYNC_LEVEL } from './level';
 import {
@@ -230,6 +231,8 @@ export interface ServerAccountInfo {
   role: 'owner' | 'admin' | 'member';
   /** Their picture's version, as /me tells it; null without one, none from a server older than pictures. */
   picture?: string | null;
+  /** What they are told of, as /me tells it; none from a server older than these notifications. */
+  notify?: NotifyChoices;
 }
 
 export interface ServerSpace {
@@ -350,6 +353,11 @@ export class ServerAccount {
   /** Tells the server the person's time zone, as `Europe/Istanbul`: an agent's "today" there is theirs. */
   setTimeZone(timeZone: string): Promise<ServerAccountInfo & { timeZone: string }> {
     return this.client.json('/me', { ...jsonBody({ timeZone }), method: 'PATCH' });
+  }
+
+  /** Turns some of the person's notifications on or off, on every device of theirs (design/notifications.md 7). */
+  setNotify(notify: Partial<NotifyChoices>): Promise<ServerAccountInfo & { notify: NotifyChoices }> {
+    return this.client.json('/me', { ...jsonBody({ notify }), method: 'PATCH' });
   }
 
   /** The spaces this account is in. */

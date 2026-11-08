@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { BOARD_EXT, type Notice, noticesFrom, noticeWords, TASK_LIST_EXT, tellsPeople } from '@scrawlnotes/core';
+import { BOARD_EXT, CHOICE_OF, type Notice, noticesFrom, noticeWords, TASK_LIST_EXT, tellsPeople } from '@scrawlnotes/core';
+import { notifyOf } from './auth';
 import type { Blobs } from './blobs';
 import type { Db } from './db';
 import type { Actor } from './files';
@@ -41,8 +42,8 @@ export class Notices {
       const spaceName = (this.db.prepare('SELECT name FROM spaces WHERE id = ?').get(space) as { name: string } | undefined)?.name ?? '';
       const where = [nameOf(path), spaceName].filter(Boolean).join(' · ');
       for (const notice of notices) {
-        // Someone not in the space, or an agent, hears of nothing.
-        if (!members.has(notice.to)) continue;
+        // Someone not in the space, or an agent, hears of nothing; nor of what they turned off.
+        if (!members.has(notice.to) || !notifyOf(this.db, notice.to)[CHOICE_OF[notice.kind]]) continue;
         const words = noticeWords(notice, where, (id) => this.accountName(id));
         this.push.notice(notice.to, { ...words, href: notice.href, tag: tagOf(notice), space, item: notice.item.id });
       }

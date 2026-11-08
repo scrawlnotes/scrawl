@@ -1,4 +1,4 @@
-import { type ComputerAgent, dayOf, isAgent, type Me, type MovedMark, newSpaceId, ownerName, type Person, RemoteSignedOut, type ServerSpace, type SpaceSource } from '@scrawlnotes/core';
+import { type ComputerAgent, dayOf, isAgent, type Me, type MovedMark, newSpaceId, NOTIFY_CHOICES, type NotifyChoices, ownerName, type Person, RemoteSignedOut, type ServerSpace, type SpaceSource } from '@scrawlnotes/core';
 import { languages, locale, type MessageKey, t } from '@scrawlnotes/i18n';
 import { type ChangeEvent, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { ContextMenu, Dialog, type MenuItem } from './dialogs';
@@ -360,12 +360,13 @@ function Notifications() {
   const cannot = notify.state === 'blocked' || notify.state === 'homeScreen' || notify.state === 'unsupported';
   return (
     <>
-      <span className="st-label">{t(isDesktop ? 'notify.thisComputer' : 'notify.thisDevice')}</span>
+      <span className="st-label">{t(isDesktop ? 'notify.thisComputer' : isPhone() ? 'notify.thisPhone' : 'notify.thisDevice')}</span>
       <div className="st-space">
         <label className="st-check">
           <input type="checkbox" checked={on} disabled={notify.busy || cannot} onChange={(event) => void change(event.target.checked)} />
+          <PhoneSwitch on={on} />
           <span>
-            {t(isDesktop ? 'notify.show' : 'notify.device')}
+            {t(isDesktop ? 'notify.show' : isPhone() ? 'notify.phone' : 'notify.device')}
             <small>{t(note)}</small>
             {failed && <small className="st-bad">{t('notify.failed')}</small>}
           </span>
@@ -380,11 +381,78 @@ function Notifications() {
           </div>
         )}
       </div>
+      {chatStore.read().servers.map((server) => (
+        <NotifyAbout key={server.url} url={server.url} />
+      ))}
       <span className="st-label">{t('notify.each')}</span>
       <p className="st-note">{t(isPhone() ? 'notify.eachNotePhone' : 'notify.eachNote')}</p>
     </>
   );
 }
+
+const NOTIFY_WORDS: Record<keyof NotifyChoices, [MessageKey, MessageKey]> = {
+  mentions: ['notify.mentions', 'notify.mentionsNote'],
+  assignments: ['notify.assignments', 'notify.assignmentsNote'],
+  reminders: ['notify.reminders', 'notify.remindersNote'],
+  due: ['notify.due', 'notify.dueNote'],
+};
+
+/**
+ * Notify me about (design/notifications.md 7): what a server tells the person of cards and tasks,
+ * on every device of theirs. Read from the server, each change written to it at once; a server
+ * older than these notifications, or one out of reach, shows none.
+ */
+function NotifyAbout({ url }: { url: string }) {
+  const [about, setAbout] = useState<{ choices: NotifyChoices; name: string } | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let live = true;
+    serverAccount(url)
+      .me()
+      .then((info) => live && info.notify && setAbout({ choices: info.notify, name: info.name.split(/\s+/)[0] || info.email.split('@')[0]! }))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [url]);
+  if (!about) return null;
+  const change = (name: keyof NotifyChoices, on: boolean) => {
+    setFailed(false);
+    const turn = (to: boolean) => setAbout((was) => was && { ...was, choices: { ...was.choices, [name]: to } });
+    turn(on);
+    serverAccount(url)
+      .setNotify({ [name]: on })
+      .catch(() => {
+        turn(!on);
+        setFailed(true);
+      });
+  };
+  // On a phone what it is for is said under the group, as Settings says it there.
+  const note = <p className="st-note">{t('notify.aboutNote', { host: hostOf(url) })}</p>;
+  return (
+    <>
+      <span className="st-label">{t('notify.about')}</span>
+      {!isPhone() && note}
+      <div className="st-space">
+        {NOTIFY_CHOICES.map((name) => (
+          <label key={name} className="st-check">
+            <input type="checkbox" checked={about.choices[name]} onChange={(event) => change(name, event.target.checked)} />
+            <PhoneSwitch on={about.choices[name]} />
+            <span>
+              {t(NOTIFY_WORDS[name][0])}
+              <small>{t(NOTIFY_WORDS[name][1], { name: about.name })}</small>
+            </span>
+          </label>
+        ))}
+        {failed && <small className="st-note st-bad">{t('notify.aboutFailed')}</small>}
+      </div>
+      {isPhone() && note}
+    </>
+  );
+}
+
+/** On a phone a choice is a switch on the right of its row; the box under it still takes the tap. */
+const PhoneSwitch = ({ on }: { on: boolean }) => (isPhone() ? <span className={`mb-sw${on ? ' on' : ''}`} aria-hidden="true" /> : null);
 
 function About({ onRestartUpdate }: Pick<SettingsValues, 'onRestartUpdate'>) {
   if (!isDesktop) return <WebAbout onRestartUpdate={onRestartUpdate} />;

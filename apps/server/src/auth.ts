@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID, scrypt, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
-import { isTimeZone } from '@scrawlnotes/core';
+import { isTimeZone, NOTIFY_CHOICES, type NotifyChoices } from '@scrawlnotes/core';
 import { SETUP_MS } from './config';
 import { type Db, transaction } from './db';
 
@@ -65,6 +65,18 @@ export async function passwordMatches(stored: string, password: string): Promise
 }
 
 export const digestOf = (text: string) => createHash('sha256').update(text).digest('hex');
+
+/** What someone is told of: what they turned off is off, the rest on. */
+export function notifyOf(db: Db, id: string): NotifyChoices {
+  const row = db.prepare('SELECT notify FROM accounts WHERE id = ?').get(id) as { notify: string | null } | undefined;
+  let kept: Partial<Record<string, unknown>> = {};
+  try {
+    kept = JSON.parse(row?.notify ?? '{}') ?? {};
+  } catch {
+    // Unreadable: all on, as at first.
+  }
+  return Object.fromEntries(NOTIFY_CHOICES.map((name) => [name, kept[name] !== false])) as unknown as NotifyChoices;
+}
 
 const cleanEmail = (email: unknown) => (typeof email === 'string' ? email.trim() : '');
 const cleanName = (name: unknown) => (typeof name === 'string' ? name.trim().slice(0, 200) : '');
@@ -232,6 +244,23 @@ export class Accounts {
   timeZoneOf(id: string): string | null {
     const row = this.db.prepare('SELECT time_zone FROM accounts WHERE id = ?').get(id) as { time_zone: string | null } | undefined;
     return row?.time_zone ?? null;
+  }
+
+  /** What the person is told of, as Settings › Notifications sets it (design/notifications.md 7). */
+  notifyOf(id: string): NotifyChoices {
+    return notifyOf(this.db, id);
+  }
+
+  /** Turns some of the person's notifications on or off; those not given stay as they were. */
+  setNotify(id: string, given: unknown): NotifyChoices {
+    const entries = given && typeof given === 'object' ? Object.entries(given) : [];
+    if (!entries.length || entries.some(([name, on]) => !(NOTIFY_CHOICES as readonly string[]).includes(name) || typeof on !== 'boolean')) {
+      throw new Refused(400, 'bad-notify', `Notifications are ${NOTIFY_CHOICES.join(', ')}, each true or false`);
+    }
+    this.get(id);
+    const choices = { ...this.notifyOf(id), ...Object.fromEntries(entries) } as NotifyChoices;
+    this.db.prepare('UPDATE accounts SET notify = ? WHERE id = ?').run(JSON.stringify(choices), id);
+    return choices;
   }
 
   /** Makes someone an admin or a member again; only the owner does, and the owner stays the owner. */

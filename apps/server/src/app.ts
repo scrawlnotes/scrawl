@@ -219,7 +219,7 @@ export function createApp(parts: Parts) {
   app.post('/api/v1/accounts/:id/reset', (c) => c.json(invites.reset(c.req.param('id'), c.get('account'))));
   // Every shared space and who is in it, for the owner and admins.
   app.get('/api/v1/shared-spaces', (c) => c.json(spaces.shared(c.get('account'))));
-  app.get('/api/v1/me', (c) => c.json({ ...c.get('account'), picture: accounts.pictureOf(c.get('account').id) }));
+  app.get('/api/v1/me', (c) => c.json({ ...c.get('account'), picture: accounts.pictureOf(c.get('account').id), notify: accounts.notifyOf(c.get('account').id) }));
   // The person's picture, as their Profile sets it; whoever shares a space or a conversation with
   // them reads it, the conversations they are in hear that it changed.
   app.put('/api/v1/me/picture', async (c) => {
@@ -240,8 +240,15 @@ export function createApp(parts: Parts) {
     // Asked for by its version, it never changes under it.
     return c.body(picture.data as Uint8Array<ArrayBuffer>, 200, { 'Content-Type': picture.type, 'Cache-Control': 'private, max-age=31536000, immutable', ETag: `"${picture.hash}"` });
   });
-  // The person's time zone, which the app tells as it signs in and as it opens.
-  app.patch('/api/v1/me', async (c) => c.json(accounts.setTimeZone(c.get('account').id, (await json(c)).timeZone)));
+  // The person's time zone, which the app tells as it signs in and as it opens; what they are told
+  // of, from Settings › Notifications.
+  app.patch('/api/v1/me', async (c) => {
+    const { id } = c.get('account');
+    const body = await json(c);
+    if (body.notify !== undefined) accounts.setNotify(id, body.notify);
+    if (body.timeZone !== undefined || body.notify === undefined) accounts.setTimeZone(id, body.timeZone);
+    return c.json({ ...accounts.get(id), timeZone: accounts.timeZoneOf(id), notify: accounts.notifyOf(id) });
+  });
   app.get('/api/v1/spaces', (c) => c.json(spaces.of(c.get('account').id)));
   app.post('/api/v1/spaces', async (c) => {
     const opened = spaces.open(c.get('account'), await json(c));

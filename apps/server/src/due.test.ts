@@ -93,4 +93,12 @@ describe('the morning', () => {
     await s.at(istanbul(10, 12, 30));
     expect(s.sent).toEqual([]);
   });
+
+  it('tells no one who turned due dates off', async () => {
+    const s = await start();
+    s.server.accounts.setNotify(MERT, { due: false });
+    await s.write('Work/Tasks.tasks.json', serializeList({ sections: [], tasks: addTask([], { title: 'Call the dentist', due: '2026-11-09', assignee: toMert }, day(0), 't1', kaan) }));
+    await s.at(istanbul(9, 9, 0));
+    expect(s.sent).toEqual([]);
+  });
 });
