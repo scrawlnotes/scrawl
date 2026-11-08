@@ -127,7 +127,7 @@ function PeoplePicker({ people, picked, onChange, max, placeholder, autoFocus = 
   );
 }
 
-/** New room: its space, its name and topic, public or private, and the people it starts with. */
+/** New room: its space, its name and topic, public or private, and a private one's people. */
 export function NewRoomDialog({ server, space, onDone, onClose }: { server: ChatServer; space: string | null; onDone: (chat: ChatInfo) => void; onClose: () => void }) {
   const spaces = spacesOf(server);
   const [where, setWhere] = useState(space ?? spaces[0]?.id ?? '');
@@ -143,7 +143,7 @@ export function NewRoomDialog({ server, space, onDone, onClose }: { server: Chat
     setBusy(true);
     setFailed(null);
     try {
-      onDone(await store.server(server.url)!.openRoom({ space: chosen.id, name: name.trim(), topic: topic.trim(), kind, members: people }));
+      onDone(await store.server(server.url)!.openRoom({ space: chosen.id, name: name.trim(), topic: topic.trim(), kind, members: kind === 'private' ? people : [] }));
     } catch (error) {
       const code = error instanceof ServerError ? error.code : '';
       setFailed(code === 'name-taken' ? t('chat.nameTaken', { space: chosen.name }) : code === 'bad-name' ? t('chat.badName') : t('chat.notMade'));
@@ -184,8 +184,12 @@ export function NewRoomDialog({ server, space, onDone, onClose }: { server: Chat
           </button>
         ))}
       </div>
-      <p className="choices-label">{t('chat.people')}</p>
-      <PeoplePicker people={(chosen?.people ?? []).filter((person) => person.id !== server.me)} picked={people} onChange={setPeople} placeholder={t('chat.addPeople')} active={server.active} />
+      {kind === 'private' && (
+        <>
+          <p className="choices-label">{t('chat.people')}</p>
+          <PeoplePicker people={(chosen?.people ?? []).filter((person) => person.id !== server.me)} picked={people} onChange={setPeople} placeholder={t('chat.addPeople')} active={server.active} />
+        </>
+      )}
       <div className="dialog-actions">
         <button type="button" onClick={onClose}>
           {t('dialog.cancel')}
@@ -248,7 +252,7 @@ export function BrowseRoomsDialog({ server, space, onOpen, onNewRoom, onClose }:
         {leadOf(room, server)}
         <span className="tx">
           <b>{room.name}</b>
-          <small>{[t('count.people', { count: room.members.length }), room.topic].filter(Boolean).join(' · ')}</small>
+          <small>{[room.kind === 'private' && t('count.people', { count: room.members.length }), room.topic].filter(Boolean).join(' · ')}</small>
         </span>
       </button>
       {room.archived === null && (room.joined ? <span className="in">{t('chat.joined')}</span> : room.kind === 'public' && (
@@ -523,7 +527,8 @@ export function ChatInfoDialog({ server, chat, tab: first, nameOf, menu, onJump,
   const count = (n: number) => (info.shared ? <small>{n}</small> : null);
   const tabs: { id: InfoTab; label: string; n?: ReactNode }[] = [
     ...(direct ? [] : [{ id: 'about' as const, label: t('chat.settings') }]),
-    { id: 'people', label: t('chat.people'), n: <small>{chat.members.length}</small> },
+    // A public room has no People: anyone in its space can join and read it.
+    ...(chat.kind === 'public' ? [] : [{ id: 'people' as const, label: t('chat.people'), n: <small>{chat.members.length}</small> }]),
     { id: 'media', label: t('chat.media'), n: count(info.media.length) },
     { id: 'files', label: t('chat.files'), n: count(info.files.length) },
     { id: 'voice', label: t('chat.voiceTab'), n: count(info.voice.length) },

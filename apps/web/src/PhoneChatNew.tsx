@@ -93,7 +93,8 @@ function ToLine({ label, chips, query, placeholder, onQuery, onRemoveLast, autoF
 
 /**
  * Create a room, in Slack's three steps: its name, with its space when + was not under one; Public
- * or Private, and Create; then the people to add from its space, or Skip. The room is open after.
+ * or Private, and Create; then, for a private one, the people to add from its space, or Skip. The
+ * room is open after.
  */
 export function PhoneNewRoom({ server, space, onDone, onClose }: { server: ChatServer; space: string | null; onDone: (chat: ChatInfo) => void; onClose: () => void }) {
   const spaces = spacesOf(server);
@@ -120,8 +121,8 @@ export function PhoneNewRoom({ server, space, onDone, onClose }: { server: ChatS
     try {
       const room = await one.openRoom({ space: chosen.id, name: name.trim(), kind });
       setBusy(false);
-      // Alone in its space, there is no one to add.
-      if (!people.length) return onDone(room);
+      // A public room has no people to add: anyone in its space joins it. Alone in its space, neither.
+      if (kind === 'public' || !people.length) return onDone(room);
       setMade(room);
       setStep('people');
     } catch (error) {
@@ -357,7 +358,7 @@ export function PhoneBrowseRooms({ server, space, onOpen, onClose }: { server: C
       <span className="ic">{roomMark(room)}</span>
       <span className="nm">
         {room.name}
-        <small>{[t('count.people', { count: room.members.length }), room.topic].filter(Boolean).join(' · ')}</small>
+        <small>{[room.kind === 'private' && t('count.people', { count: room.members.length }), room.topic].filter(Boolean).join(' · ')}</small>
       </span>
       {room.joined && room.archived === null && <span className="in">{t('chat.joined')}</span>}
     </button>

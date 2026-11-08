@@ -310,7 +310,7 @@ function InfoPage({ server, chat, menu, say, onPart, onLeft, onClose }: {
         <div className="mb-group">
           {!direct && row('settings', t('chat.settings'), '', () => onPart('about'))}
           {chat.joined && row(chat.notify === 'off' ? 'bellOff' : 'bell', t('chat.notifications'), t(`chat.notify.${chat.notify}`), (event) => menu(event, info.notifyItems()))}
-          {row('people', t('chat.people'), String(chat.members.length), () => onPart('people'))}
+          {chat.kind !== 'public' && row('people', t('chat.people'), String(chat.members.length), () => onPart('people'))}
         </div>
         <div className="cap">
           <span>

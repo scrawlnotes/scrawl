@@ -3054,8 +3054,6 @@ export const en = {
   'chat.picked': { one: '{count} selected', other: '{count} selected' },
   'chat.forwarded': { one: 'Forwarded', other: 'Forwarded to {count} conversations' },
   'chat.forwardFailed': 'It could not be forwarded. Try again.',
-  'chat.copyLink': 'Copy link',
-  'chat.linkCopied': 'Link copied',
   'chat.linkGone': 'That message is not there for you.',
   'chat.toTask': 'To task',
   'chat.toCard': 'To card',

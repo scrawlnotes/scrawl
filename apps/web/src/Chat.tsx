@@ -223,7 +223,7 @@ export function ChatView({ snapshot, menu, onStatus, links, goTo }: Props) {
 
   useEffect(() => {
     if (!shownChat || !shownServer) return onStatus(null);
-    onStatus(shownChat.kind === 'direct' ? [titleOf(shownChat, shownServer.me)] : [`#${shownChat.name}`, t('count.people', { count: shownChat.members.length })]);
+    onStatus(shownChat.kind === 'direct' ? [titleOf(shownChat, shownServer.me)] : shownChat.kind === 'public' ? [`#${shownChat.name}`] : [`#${shownChat.name}`, t('count.people', { count: shownChat.members.length })]);
   }, [shownChat?.id, shownChat?.name, shownChat?.members.length]);
 
   const pick = (next: Open) => {
@@ -608,22 +608,11 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
     return { title: first.slice(0, 200), description: message.body.trim() ? `${message.body.trim()}\n\n${back}` : back, from: `${where} · ${nameOf(message.author)}` };
   };
   const messageMenu = (event: MouseEvent, message: ChatMessage) => menu(event, actionsOf(message));
-  /** What is done with a message: Edit for whoever wrote it, Copy text and Copy link, To task and To card, Delete. */
+  /** What is done with a message: Edit for whoever wrote it, Copy text, To task and To card, Delete. */
   const actionsOf = (message: ChatMessage): MenuItem[] => {
     const items: MenuItem[] = [];
     if (mine(message) && !message.forwarded) items.push({ label: t('chat.edit'), icon: 'pen', run: () => setEditing(message.id) });
     items.push({ label: t('chat.copyText'), icon: 'copy', run: () => void copy(message.body).catch(() => undefined) });
-    items.push({
-      label: t('chat.copyLink'),
-      icon: 'link',
-      run: () => {
-        const address = chatLink(server.url, chat.id, message.id);
-        void copy(address, `[${t('chat.fromLink', { where, name: nameOf(message.author), day: shortDay(message.at) })}](${address})`).then(
-          () => links.say(t('chat.linkCopied')),
-          () => links.say(t('error.clipboard')),
-        );
-      },
-    });
     const task = made(message);
     items.push({ label: t('chat.toTask'), icon: 'tasks', apart: true, run: () => links.toTask(task.title, task.description, task.from) });
     items.push({ label: t('chat.toCard'), icon: 'board', run: () => links.toCard(task.title, task.description, task.from) });
@@ -696,7 +685,7 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
           </button>
           <button type="button" className="chp-mid" onClick={phone.onInfo}>
             <b>{chat.kind === 'private' ? titleOf(chat, server.me) : chat.kind === 'direct' ? titleOf(chat, server.me) : `# ${chat.name}`}</b>
-            <small className={otherActive ? 'act' : ''}>{chat.kind === 'direct' ? (otherActive ? t('chat.active') : people.length > 1 ? t('count.people', { count: chat.members.length }) : '') : t('count.people', { count: chat.members.length })}</small>
+            <small className={otherActive ? 'act' : ''}>{chat.kind === 'direct' ? (otherActive ? t('chat.active') : people.length > 1 ? t('count.people', { count: chat.members.length }) : '') : chat.kind === 'private' ? t('count.people', { count: chat.members.length }) : ''}</small>
           </button>
           <button type="button" className="mb-ib" aria-label={t('chat.info')} title={t('chat.info')} onClick={phone.onInfo}>
             <Icon name="info" />
@@ -711,7 +700,7 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
         <b>{titleOf(chat, server.me)}</b>
         {chat.kind === 'direct' ? otherActive && <span className="tp act">{t('chat.active')}</span> : chat.topic && <span className="tp">{chat.topic}</span>}
         <span className="acts">
-          {chat.kind !== 'direct' && (
+          {chat.kind === 'private' && (
             <button type="button" className="ppl" title={chat.members.map((person) => person.name).join(', ')} onClick={() => setInfo('people')}>
               <Icon name="people" />
               {chat.members.length}
