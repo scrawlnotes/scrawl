@@ -173,7 +173,7 @@ Scrawl `drive.file` kullanır. Sonuçları:
 
 Bütün Drive'a erişim istenirse sonra "kendi kaydını kullan" yolunun arkasına konabilir; ilk sürümde yoktur.
 
-**Paylaşılan space'te durum belirsizdir.** `drive.file` erişimi kişiye bağlıdır: A'nın Scrawl'ının açtığı dosyayı B'nin Scrawl'ı kendiliğinden görmez, B'nin onu Scrawl'la açmış olması gerekir. Google bunun için Picker'ı verir; masaüstünde girişle birlikte tarayıcıda açılır, seçilenlerin kimlikleri geri döner. Klasör seçilince içindekilere ve A'nın sonradan eklediklerine erişim gelip gelmediği belgelerde yazmaz. Uygulamadan önce iki hesapla denenir: A bir klasör paylaşır, B Picker'la seçer, A sonra bir dosya ekler, B onu görür mü. Görmüyorsa paylaşılan space için `drive` erişimi ek izin olarak istenir; Google sonradan ek izin istemeye izin verir, ama kısıtlı izin olduğundan Google'ın incelemesi gerekir.
+**Google Drive yalnız kişisel space içindir (8 Kasım 2026, kullanıcının kararı).** `drive.file` erişimi kişiye bağlıdır: A'nın Scrawl'ının açtığı dosyayı B'nin Scrawl'ı görmez. Klasörü Picker'la seçmek de içindekileri açmıyor: Ekim 2026'da başka bir geliştirici iki hesapla denedi, seçilen klasörün alt klasörleri listede gelmedi ([calibre-cloud #156](https://github.com/shitikanth/calibre-cloud/issues/156)). Paylaşılan space için bütün Drive'a erişen `drive` gerekirdi; Google onu kısıtlı sayar ve her yıl, Google'ın onayladığı bir firmanın yaptığı ücretli bir güvenlik denetimi (CASA) ister. Paylaşılan space'ler OneDrive'da ya da bir Scrawl sunucusunda kalır. Bu, kişinin Google Drive'ı arayacağı her yerde söylenir (10.5).
 
 ### 10.2 Giriş
 
@@ -212,10 +212,15 @@ Bütün Drive'a erişim istenirse sonra "kendi kaydını kullan" yolunun arkası
 
 ### 10.5 Arayüz
 
-- Settings → Spaces'te, bağlı değilken "Connect OneDrive"ın yanında "Connect Google Drive" durur. Altındaki cümle sağlayıcıya göre değişir: "Scrawl works only in the folder you choose, and sees only the files it puts there."
-- Klasör penceresi: "Choose a folder in Google Drive". Yalnızca Scrawl'ın açtığı klasörler listelenir, kökte `Scrawl` önerilir. Altta bir cümle: "Files put in this folder from elsewhere are not seen by Scrawl."
+Google Drive yalnız kişisel space'in yeridir (10.1); bu, kişinin onu arayacağı her yerde söylenir.
+
+- **Sync Personal (kişisel space'in Location listesi):** Google Drive, OneDrive'ın altında bir satırdır; yanında hesabın e-postası ya da "not connected". Bağlı değilken seçilince "Connect Google Drive to choose a folder in it." ve Connect Google Drive düğmesi; altında: "Scrawl sees only the files it puts in the folder you choose, so Google Drive keeps only your personal space."
+- **Add space (Shared with others):** Location listesinde Google Drive satırı soluk durur, seçilemez; altında "Only for your personal space". Paylaşılan bir space'i Google Drive'a koymak isteyen, aradığı yerde neden olmadığını görür.
+- **Klasör penceresi:** "Choose a folder in Google Drive". Yalnızca Scrawl'ın açtığı klasörler listelenir, kökte `Scrawl` önerilir. Altta bir cümle: "Files put in this folder from elsewhere are not seen by Scrawl."
+- **Telefon:** aynı satırlar ve aynı metinler Spaces'in Location sayfalarında.
+- **Help › Spaces:** "Google Drive keeps only your personal space. A space shared with others is on OneDrive or a Scrawl server."
 - OneDrive'ın adını taşıyan yazılar (durum çubuğu, panel, giriş sayfası, hatalar) sağlayıcının adını alır.
-- Ekran değişiklikleri küçüktür; onaydan sonra `design/mockups.html`'deki Settings ve klasör penceresi görünümlerine Google Drive hâlleri eklenir.
+- Önce mockup: `design/mockups.html`'deki Sync Personal, Add space ve klasör penceresine, telefondaki karşılıklarına Google Drive hâlleri eklenir.
 
 ### 10.6 Tarayıcıda (6. aşama)
 
@@ -223,10 +228,17 @@ Adaptör çekirdektedir, web sürümü de onu kullanır. `drive.file` erişimi k
 
 ### 10.7 Hazırlık (Scrawl'ın Google kaydı)
 
-1. Google Cloud'da bir proje, içinde Drive API açık.
-2. OAuth onay ekranı: dış kullanıcılar, kapsam yalnızca `drive.file`.
-3. "Desktop app" türünde bir OAuth istemcisi. Kimliği (ve gizli olmayan gizli anahtarı) OneDrive'ınki gibi koda girer.
-4. Kayıt yayına alınır. `drive.file` için yalnızca marka doğrulaması gerekir; yayına alınana kadar giriş haftada bir yenilenir.
+Google Calendar (sonraya kaldı, `design/outlook-calendar.md` 9) aynı projede olur; ikisi tek başvuruyla geçer (8 Kasım 2026). Başvuru console.cloud.google.com'da, Google Auth Platform'dan yapılır; ücretsizdir.
+
+1. **Proje:** Drive API ve Calendar API açık.
+2. **Branding:** ad, logo, destek e-postası, ana sayfa `https://scrawlnotes.com`, gizlilik sayfası, yetkili alan `scrawlnotes.com` (`app.scrawlnotes.com` onun altında). Alan adı Google Search Console'da, Cloudflare'e eklenen bir TXT kaydıyla doğrulanır; doğrulayan hesap projede Owner ya da Editor'dür.
+3. **Audience:** External. Yayına alınana kadar (Testing) en çok 100 test kullanıcısı girer, giriş 7 günde bir yenilenir; kod bu hâldeyken yazılır ve denenir.
+4. **Data Access:** `drive.file` ve takvim izinleri. `drive.file` hassas sayılmaz. Takvimi okuma izni hassastır: her birine neden daha dar bir iznin yetmediğini anlatan bir cümle yazılır.
+5. **Clients:** "Desktop app" (masaüstü, `127.0.0.1` dönüşü) ve "Web application" (`app.scrawlnotes.com`). Kimlikler (ve gizli olmayan gizli anahtar) OneDrive'ınki gibi koda girer.
+6. **Başvuru:** kod çalışınca Publish app, sonra Verification Center'da Prepare for verification, video ve Submit. Video YouTube'da liste dışıdır: Google Drive'a ve takvime bağlanma, Google'ın İngilizce onay ekranının tamamı, adres çubuğunda client ID, her iznin nerede kullanıldığı.
+7. **Güvenlik denetimi (CASA) gerekmez;** o yalnız kısıtlı izinler içindir. Google kesin süre vermiyor; birkaç gün ile birkaç hafta. Yazışma proje sahibinin e-postasına gelir.
+
+Bizde eksik olan: scrawlnotes.com'da gizlilik sayfası yok, ana sayfa da ona link vermiyor. Sayfa, Google'dan gelen dosya ve etkinliklerin cihazla kişinin hesabı arasında kaldığını, bize gelmediğini, kimseyle paylaşılmadığını söyler ve Google'ın Limited Use cümlesini içerir. Google ile bağlanma düğmeleri Google'ın marka kurallarına uyar.
 
 Adaptör ve ekranlar bu kayıt olmadan, taklit Drive'la yazılıp sınanır.
 
