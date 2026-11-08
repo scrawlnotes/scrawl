@@ -2992,6 +2992,7 @@ export const en = {
   'chat.copied': 'Copied',
   'chat.showLines': 'Show all {count} lines',
   'chat.inRoom': 'In {name}',
+  'mention.people': 'People in {space}',
   'chat.inDirect': 'In this conversation',
   'chat.notifyRoom': 'Notify everyone in {name}',
   'chat.replying': 'Replying to {name}',

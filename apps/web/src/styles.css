@@ -6428,6 +6428,12 @@ textarea.tt-edit {
   border-color: var(--sl-faint);
 }
 
+/* a comment written and edited in the editor descriptions have: as the box was, its words as a comment shows them */
+.cp-new .desc-field .cm-editor,
+.tl-cm .desc-field .cm-editor {
+  font-size: 13px;
+}
+
 .cp-new textarea::placeholder {
   color: var(--sl-faint);
 }
@@ -17100,6 +17106,13 @@ button.ch-q {
   background: var(--sl-side);
   box-shadow: 0 10px 26px rgb(0 0 0 / 0.4);
   font-size: 12.5px;
+}
+
+/* the @ list of a description or a comment, at the @ (design/notifications.md 2): over the card, the sheet, the keyboard */
+.ch-pop.at-caret {
+  position: fixed;
+  bottom: auto;
+  z-index: 1000;
 }
 
 .ch-pop .cap {

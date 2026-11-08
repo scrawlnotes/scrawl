@@ -1,0 +1,27 @@
+import type { Person } from '@scrawlnotes/core';
+import { describe, expect, it } from 'vitest';
+import { peopleChoices } from './mentionChoices';
+
+// Who @ offers in a description or a comment (design/notifications.md 2).
+
+const person = (id: string, name: string, more: Partial<Person> = {}): Person => ({ id, name, seen: '2026-11-08T09:00:00.000Z', active: true, ...more });
+const PEOPLE = [
+  person('kaan', 'Kaan Arslan'),
+  person('mert', 'Mert Kaya'),
+  person('old-mert', 'Mert Kaya'),
+  person('elif', 'Elif Demir', { active: false }),
+  person('kaan:laptop', 'Claude Code (Laptop)'),
+  person('ahmet', 'Ahmet Yıldız'),
+];
+
+describe('peopleChoices', () => {
+  it('offers the others, not agents nor anyone made inactive, by the start of a word of the name', () => {
+    expect(peopleChoices(PEOPLE, 'kaan', '').map((each) => each.key)).toEqual(['mert', 'old-mert', 'ahmet']);
+    expect(peopleChoices(PEOPLE, 'kaan', 'ka').map((each) => each.key)).toEqual(['mert', 'old-mert']);
+    expect(peopleChoices(PEOPLE, 'kaan', 'cl')).toEqual([]);
+  });
+
+  it('on a server, only those in the space there, each as a mention', () => {
+    expect(peopleChoices(PEOPLE, 'kaan', 'me', new Set(['kaan', 'mert']))).toEqual([{ key: 'mert', label: 'Mert Kaya', insert: '[@Mert Kaya](scrawl:person/mert)' }]);
+  });
+});

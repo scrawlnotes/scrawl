@@ -4511,6 +4511,29 @@ body > .mb-lifted {
   scrollbar-width: none;
 }
 
+/* a card's comment written in the editor descriptions have, in the pill the box was */
+.mb-compose .desc-field {
+  flex: 1;
+  min-width: 0;
+  max-height: 140px;
+  min-height: 40px;
+  padding: 9px 14px;
+  box-sizing: border-box;
+  border: 1px solid var(--sl-line);
+  border-radius: 20px;
+  background: var(--sl-bg);
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.mb-compose .desc-field:focus-within {
+  border-color: var(--sl-accent);
+}
+
+.mb-compose .desc-field .cm-editor {
+  font: 15.5px/1.4 var(--sl-font-ui);
+}
+
 .mb-compose textarea::-webkit-scrollbar {
   display: none;
 }
@@ -9779,6 +9802,15 @@ body > .mb-lifted {
   left: 8px;
   width: auto;
   font-size: 15px;
+}
+
+/* the @ list of a description or a comment on a phone: across the screen, rows a finger takes */
+.ch-pop.at-caret.phone {
+  font-size: 15px;
+}
+
+.ch-pop.at-caret.phone .r {
+  min-height: 44px;
 }
 
 /* Info as a page: the mark, name and topic; groups of rows; the photos and videos */

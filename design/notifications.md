@@ -210,3 +210,16 @@ Yayın: web ve sunucu; masaüstü kullanıcı söyleyince.
 - **Testler:** core `notices.test.ts` (9), sunucu `notices.test.ts` (4), web `pushWorker.test.ts` (3: servis worker'ın tıklaması).
 - **Tarayıcıda denendi (yerel sunucu, Kaan ve Mert):** Kaan'ın ROA-3'e yazdığı `@Mert` yorumu Mert'in canlı kanalına "Kaan mentioned you on ROA-3" olarak geldi; linki bilgisayarda ve telefon görünümünde kartı o yorumda işaretli açtı; görev linki listeyi açıp görevi gösterdi; olmayan kartın linki 20 saniye sonra "It was moved or deleted." dedi.
 - **Denenmeyen:** gerçek push'a ve Windows bildirimine dokunmak (Claude'un tarayıcısı bildirim iznini reddediyor). @ listesi henüz yok (2. dilim); denemede mention linki elle yazıldı.
+
+## 14. Yazılırken: 2. dilim (@ listesi)
+
+8 Kasım 2026. ROA-366.
+
+- **Tek liste:** Chat'in @ listesi ortak parçada (`Mentions.tsx`, seçenekleri `mentionChoices.ts`); Chat, kartın ve görevin açıklaması ve kartın yorumu onu kullanır. Görev eklenirken de açıklamada vardır; koleksiyon kayıtlarının notlarında yoktur.
+- **Yorum kutusu:** Chat'in kutusu da açıklamalar da aynı editörle (`createEditor`) yazılıyor; kart yorumu ve yorumun düzenlenmesi açıklamanın alanıyla (`DescriptionField`, Attach'sız) yazılır. Görünüşü aynı kaldı: bilgisayarda kutu, telefonda alttaki hap.
+- **Liste nerede:** @'in altında, yer yoksa üstünde (telefonda klavye ve kutu); telefonda ekran genişliğinde, satırlar 44 px.
+- **Kimler:** kendin, ajanlar ve pasif kişiler yok. Sunucudaki space'te yalnız sunucuda o space'in üyesi olanlar (Chat'in general room'u herkesi tutar): space'in kişilerinde aynı kişinin eski bir kaydı kalabiliyor, yerel denemede Mert iki kez çıktı; eskisi anılsa bildirim gitmezdi.
+- **Çip:** mention linki editörde ve yorum okunurken Chat'teki gibi çip (`cm-sl-mention`); eski yorumlardaki elle yazılmış linkler de.
+- **Testler:** web `mentionChoices.test.ts` (2).
+- **Tarayıcıda denendi:** kart yorumunda @Me → Mert Kaya, Enter ile seçildi, çip oldu, gönderilince kutu boşaldı ve yorum çiple göründü; görevin açıklamasında Enter görevi kaydetmeden adı koydu, Escape listeyi kapattı; telefon görünümünde liste kutunun üstünde açıldı; Chat'te liste eskisi gibi ("In #general", @room).
+- **Görülen ama dokunulmayan:** kişi seçicide (Assignee) de aynı eski kayıt duruyor; eskisi seçilirse atama bildirimi gitmez.

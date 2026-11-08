@@ -1,4 +1,4 @@
-import { type ChatFile, type ChatInfo, type ChatMessage, chatLink, continues, mentionAt, parseChatLink, personLink, plainText, ROOM_MENTION } from '@scrawlnotes/core';
+import { type ChatFile, type ChatInfo, type ChatMessage, chatLink, continues, parseChatLink, personLink, plainText, ROOM_MENTION } from '@scrawlnotes/core';
 import {
   createEditor,
   editorTakesEnter,
@@ -25,6 +25,7 @@ import { clock, measure, Recording } from './chatMedia';
 import { Attachments, ForwardDialog, type Going, isImage, NotifyBanner, NotifyBell, RecorderBar, Tray } from './ChatParts';
 import { type ChatServer, type ChatSnapshot, draftOf, keepDraft, keepOpen, lastOpen, type Pending, store } from './chatStore';
 import { ConfirmDialog, type MenuItem } from './dialogs';
+import { MentionList, useMentions } from './Mentions';
 import { Icon, type IconName } from './Icon';
 import { Face, leadOf, namesOf, others, shortDay, timeOf, titleOf } from './ChatFaces';
 import { BrowseRoomsDialog, ChatInfoDialog, type InfoTab, NewMessageDialog, NewRoomDialog } from './ChatRooms';
@@ -1374,13 +1375,6 @@ const FORMATS: { title: MessageKey; mark?: string; icon?: IconName; className?: 
   { title: 'format.codeBlock', icon: 'codeBlock', on: 'codeBlock', run: (view) => toggleCodeBlock(view) },
 ];
 
-interface Choice {
-  key: string;
-  label: ReactNode;
-  sub?: string;
-  insert: string;
-}
-
 /**
  * The box to write in: Markdown in the editor notes have; Enter sends; @ offers the people of the
  * conversation; + adds files, a code block or a chip; the microphone records a voice message.
@@ -1417,7 +1411,6 @@ export function Composer({ server, chat, replyTo, nameOf, menu, links, dropping,
   const box = useRef<HTMLDivElement>(null);
   const editor = useRef<ScrawlEditor | null>(null);
   const [text, setText] = useState(() => draftOf(server.url, draftKey));
-  const [mention, setMention] = useState<{ from: number; to: number; query: string; at: number } | null>(null);
   // The formatting row, which Aa opens over the box; and the emoji, over it too.
   const [formatting, setFormatting] = useState(false);
   // What applies where the cursor is, Bold pressed before writing too: its button is pressed.
@@ -1642,14 +1635,14 @@ export function Composer({ server, chat, replyTo, nameOf, menu, links, dropping,
     window.setTimeout(() => editor.current && focusOnCapital(editor.current.view));
   };
 
-  const look = () => {
-    const view = editor.current?.view;
-    if (!view) return setMention(null);
-    const head = view.state.selection.main.head;
-    const line = view.state.doc.lineAt(head);
-    const found = mentionAt(line.text, head - line.from);
-    setMention((was) => (found ? { from: line.from + found.from, to: head, query: found.query, at: was && was.from === line.from + found.from ? was.at : 0 } : null));
-  };
+  // @: the conversation's people, and in a room @room.
+  const mentions = useMentions(editor, (query) => [
+    ...others(chat, server.me)
+      .filter((person) => !chat.gone.includes(person.id) && person.name.toLowerCase().split(/\s+/).some((word) => word.startsWith(query)))
+      .map((person) => ({ key: person.id, label: person.name, insert: personLink(person.name, person.id) })),
+    ...(chat.kind !== 'direct' && 'room'.startsWith(query) ? [{ key: '@room', label: '@room', sub: t('chat.notifyRoom', { name: `#${chat.name}` }), insert: ROOM_MENTION }] : []),
+  ]);
+  const look = mentions.look;
 
   useEffect(() => {
     const made = createEditor({
@@ -1688,36 +1681,8 @@ export function Composer({ server, chat, replyTo, nameOf, menu, links, dropping,
     if (replyTo && editor.current) focusOnCapital(editor.current.view);
   }, [replyTo?.id]);
 
-  const query = mention?.query.toLowerCase() ?? '';
-  const choices: Choice[] = mention
-    ? [
-        ...others(chat, server.me)
-          .filter((person) => !chat.gone.includes(person.id) && person.name.toLowerCase().split(/\s+/).some((word) => word.startsWith(query)))
-          .map((person) => ({ key: person.id, label: person.name, insert: personLink(person.name, person.id) })),
-        ...(chat.kind !== 'direct' && 'room'.startsWith(query) ? [{ key: '@room', label: '@room', sub: t('chat.notifyRoom', { name: `#${chat.name}` }), insert: ROOM_MENTION }] : []),
-      ]
-    : [];
-  const picked = mention ? Math.min(mention.at, Math.max(0, choices.length - 1)) : 0;
-
-  const choose = (choice: Choice) => {
-    const view = editor.current?.view;
-    if (!view || !mention) return;
-    const insert = `${choice.insert} `;
-    view.dispatch({ changes: { from: mention.from, to: mention.to, insert }, selection: { anchor: mention.from + insert.length } });
-    setMention(null);
-    view.focus();
-  };
-
   /** @ where the cursor is, apart from a word before it: the mention list opens. */
-  const startMention = () => {
-    const view = editor.current?.view;
-    if (!view) return;
-    const head = view.state.selection.main.head;
-    const before = view.state.doc.sliceString(Math.max(0, head - 1), head);
-    view.dispatch({ changes: { from: head, insert: before && !/\s/.test(before) ? ' @' : '@' }, selection: { anchor: head + (before && !/\s/.test(before) ? 2 : 1) } });
-    view.focus();
-    window.setTimeout(look);
-  };
+  const startMention = mentions.start;
   /** An emoji where the cursor is, in place of what is selected. */
   const putEmoji = (chosen: string) => {
     const view = editor.current?.view;
@@ -1755,26 +1720,7 @@ export function Composer({ server, chat, replyTo, nameOf, menu, links, dropping,
   const onKeyDownCapture = (event: KeyboardEvent) => {
     const view = editor.current?.view;
     if (!view) return;
-    if (mention && choices.length) {
-      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-        event.preventDefault();
-        event.stopPropagation();
-        const step = event.key === 'ArrowDown' ? 1 : -1;
-        setMention({ ...mention, at: (picked + step + choices.length) % choices.length });
-        return;
-      }
-      if (event.key === 'Enter' || event.key === 'Tab') {
-        event.preventDefault();
-        event.stopPropagation();
-        choose(choices[picked]!);
-        return;
-      }
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        setMention(null);
-        return;
-      }
-    }
+    if (mentions.onKeyDown(event)) return;
     if (event.key === 'Escape' && replyTo) {
       event.preventDefault();
       onCancelReply();
@@ -1836,31 +1782,22 @@ export function Composer({ server, chat, replyTo, nameOf, menu, links, dropping,
           </button>
         </div>
       )}
-      {mention && choices.length > 0 && (
-        <div className="ch-pop" role="listbox">
-          <div className="cap">{chat.kind === 'direct' ? t('chat.inDirect') : t('chat.inRoom', { name: `#${chat.name}` })}</div>
-          {choices.map((choice, i) => (
-            <button
-              type="button"
-              role="option"
-              aria-selected={i === picked}
-              key={choice.key}
-              className={i === picked ? 'r hot' : 'r'}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => choose(choice)}
-            >
-              {choice.key === '@room' ? (
-                <span className="atr">
-                  <Icon name="people" />
-                </span>
-              ) : (
-                <Face id={choice.key} name={String(choice.label)} size="sm" online={server.active.includes(choice.key)} />
-              )}
-              <span>{choice.label}</span>
-              {choice.sub && <small>{choice.sub}</small>}
-            </button>
-          ))}
-        </div>
+      {mentions.open && (
+        <MentionList
+          caption={chat.kind === 'direct' ? t('chat.inDirect') : t('chat.inRoom', { name: `#${chat.name}` })}
+          choices={mentions.choices}
+          picked={mentions.picked}
+          onChoose={mentions.choose}
+          face={(choice) =>
+            choice.key === '@room' ? (
+              <span className="atr">
+                <Icon name="people" />
+              </span>
+            ) : (
+              <Face id={choice.key} name={choice.label} size="sm" online={server.active.includes(choice.key)} />
+            )
+          }
+        />
       )}
       {formatting && (
         <div className="fmt" onMouseDown={(event) => event.preventDefault()}>

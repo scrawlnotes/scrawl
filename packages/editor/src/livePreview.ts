@@ -62,6 +62,8 @@ const openInBrowser = (href: string) => void (OUTSIDE.test(href) && window.open(
 const followKey = () => (typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl');
 
 const linkMark = (href: string) => {
+  // A person mentioned (design/notifications.md 2): a chip with the name it was written with, as in Chat.
+  if (/^scrawl:person\//.test(href.trim())) return Decoration.mark({ class: 'cm-sl-mention', attributes: { 'data-href': href }, kind: 'link' });
   const follows = followable(href);
   return Decoration.mark({
     class: follows ? 'cm-sl-link cm-sl-link-out' : 'cm-sl-link',

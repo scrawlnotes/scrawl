@@ -144,6 +144,8 @@ const editorTheme = EditorView.theme({
     padding: '1px 4px',
   },
   '.cm-sl-link': { color: 'var(--sl-accent)', textDecoration: 'underline', textUnderlineOffset: '3px' },
+  // A person mentioned: the chip a message has (`.msg-at`).
+  '.cm-sl-mention': { padding: '0 3px', borderRadius: '3px', background: 'color-mix(in srgb, var(--sl-accent) 18%, transparent)', color: 'var(--sl-accent)', fontWeight: '500' },
   // Ctrl/Cmd is held: a link can be followed, so it takes the hand, and the one under it stands out.
   '.cm-sl-following .cm-sl-link-out': { cursor: 'pointer' },
   '.cm-sl-following .cm-sl-link-out:hover': { textDecorationThickness: '2px' },

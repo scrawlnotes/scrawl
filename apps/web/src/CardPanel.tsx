@@ -52,7 +52,8 @@ import type { MenuHead, MenuItem } from './dialogs';
 import { useEscape } from './choices';
 import { tookComment, useAskedComment } from './commentFocus';
 import { LabelChip, LabelSheet, LabelsField } from './labels';
-import { AttachButton } from './Description';
+import { AttachButton, type DescriptionHost, DescriptionField } from './Description';
+import { SpaceMentionList, useSpaceMentions } from './Mentions';
 import { Icon, type IconName } from './Icon';
 import { boardLabel } from './items';
 import { ActivityLine, GaveTo, when, Writer, writerOf, writerText } from './Activity';
@@ -330,6 +331,9 @@ function StatusPicker({ anchor, board, current, onPick, onClose }: {
   );
 }
 
+/** The editor a comment is written in: a description's, with @ for the space's people; files pasted in it go to the board's space. */
+const commentHost = (actions: CardPanelActions): DescriptionHost => ({ editor: actions.editor, attach: actions.attach, people: actions.people });
+
 /** A text field as tall as what is written in it. */
 function GrowingField({ value, onChange, onKeyDown, placeholder, autoFocus, label }: {
   value: string;
@@ -459,6 +463,8 @@ function Timeline({ board, path, card, team, today, actions }: { board: Board; p
               today={today}
               menu={actions.menu}
               viewer={(parent, doc) => actions.viewer(path, parent, doc)}
+              home={path}
+              host={commentHost(actions)}
               onEdit={(text) => actions.editComment(path, card.id, entry.id, text)}
               onRemove={() => actions.removeComment(path, card.id, entry.id)}
             />
@@ -494,7 +500,7 @@ function WorkedOnList({ card, team, today }: { card: Card; team: SpacePeople | n
 }
 
 /** One comment on the timeline, with its menu: edit in place, or delete. */
-function Comment({ entry, lit, who, whoText, face, today, onEdit, onRemove, menu, viewer }: {
+function Comment({ entry, lit, who, whoText, face, today, onEdit, onRemove, menu, viewer, home, host }: {
   entry: Extract<TimelineEntry, { kind: 'comment' }>;
   /** Lit a moment: a notification opened the card at it. */
   lit: boolean;
@@ -509,6 +515,9 @@ function Comment({ entry, lit, who, whoText, face, today, onEdit, onRemove, menu
   onRemove: () => void;
   menu: CardPanelActions['menu'];
   viewer: Viewer;
+  /** The board, and the editor a comment is written in. */
+  home: string;
+  host: DescriptionHost;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   // On a phone, an action sheet with who wrote it and when.
@@ -540,17 +549,7 @@ function Comment({ entry, lit, who, whoText, face, today, onEdit, onRemove, menu
         <MarkdownView text={entry.text} viewer={viewer} />
       ) : (
         <>
-          <GrowingField
-            value={draft}
-            label={t('card.editComment')}
-            autoFocus
-            onChange={setDraft}
-            onKeyDown={(event) => {
-              if (event.key !== 'Escape') return;
-              event.preventDefault();
-              setDraft(null);
-            }}
-          />
+          <DescriptionField home={home} value={draft} hint={t('card.editComment')} host={host} autoFocus attach={false} onChange={setDraft} onEscape={() => setDraft(null)} />
           <div className="cp-actions">
             <button type="button" onClick={() => setDraft(null)}>
               {t('dialog.cancel')}
@@ -594,6 +593,12 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
   const computer = computerFor(null, records.collections(), { ...records.boards(), [path]: board }, today);
   const shownAs = computer.shown(path);
   const team = actions.people?.(path) ?? null;
+  // @ in the description and in a comment: the space's people (design/notifications.md 2).
+  const mentions = useSpaceMentions(editor, team, path);
+  const look = useRef(mentions.look);
+  look.current = mentions.look;
+  // A comment's box is made anew once it is sent: empty again.
+  const [sent, setSent] = useState(0);
   const ctx: ValueContext = {
     records: records.records,
     collection: records.collection,
@@ -621,6 +626,7 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
       unsaved.current = doc;
       window.clearTimeout(timer.current);
       timer.current = window.setTimeout(flush, SAVE_DELAY_MS);
+      window.setTimeout(() => look.current());
     });
     return () => {
       flush();
@@ -641,6 +647,7 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
     if (!comment.trim()) return;
     actions.addComment(path, card.id, comment);
     setComment('');
+    setSent((n) => n + 1);
   };
   const columnName = (id: string | null) => (id === null ? '' : (board.columns.find((c) => c.id === id)?.name ?? t('card.removedColumn')));
 
@@ -662,7 +669,8 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
         <div className="cp-main">
         <TextField id="card-title" label={t('card.title')} value={card.title} onSave={(title) => update({ title })} />
         <div className="cp-sec">{t('card.description')}</div>
-        <div className="cp-desc" ref={host} />
+        <div className="cp-desc" ref={host} onKeyDownCapture={mentions.onKeyDown} onKeyUp={mentions.look} onMouseUp={mentions.look} onInput={mentions.look} />
+        <SpaceMentionList mentions={mentions} team={team} />
         <AttachButton onFiles={(files) => editor.current && actions.attach(editor.current, path, files)} />
         {board.blocks?.length ? (
           <CardBlocks board={board} path={path} card={card} today={today} actions={actions} onOpen={(source, r) => setOver({ dir: source.dir, id: r.id })} />
@@ -693,12 +701,7 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
         <div className="tlog">
           <Timeline board={board} path={path} card={card} team={team} today={today} actions={actions} />
           <div className="cp-new">
-            <GrowingField
-              value={comment}
-              label={t('card.comment')}
-              placeholder={t('card.commentHint')}
-              onChange={setComment}
-            />
+            <DescriptionField key={sent} home={path} value="" hint={t('card.commentHint')} host={commentHost(actions)} attach={false} onChange={setComment} />
             <div className="cp-actions">
               <button type="button" className="primary" disabled={!comment.trim()} onClick={send}>
                 {t('card.comment')}
@@ -896,6 +899,11 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
   const computer = computerFor(null, records.collections(), { ...records.boards(), [path]: board }, today);
   // In a space with people a card is given to one of them; in the personal space a name is typed.
   const team = actions.people?.(path) ?? null;
+  // @ in the description and in a comment: the space's people (design/notifications.md 2).
+  const mentions = useSpaceMentions(editor, team, path);
+  const look = useRef(mentions.look);
+  look.current = mentions.look;
+  const [sent, setSent] = useState(0);
   const workers = workersOf(card);
   const ctx: ValueContext = {
     records: records.records,
@@ -929,6 +937,7 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
         unsaved.current = doc;
         window.clearTimeout(timer.current);
         timer.current = window.setTimeout(flush, SAVE_DELAY_MS);
+        window.setTimeout(() => look.current());
       },
       t('phone.addDescription'),
     );
@@ -950,6 +959,7 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
     if (!comment.trim()) return;
     actions.addComment(path, card.id, comment);
     setComment('');
+    setSent((n) => n + 1);
   };
   const none = <span className="none">{t('phone.none')}</span>;
   const setValue = (field: Field, value: FieldValue) => update({ values: { [field.key]: value } });
@@ -1123,7 +1133,8 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
           )}
         </div>
         <div className="mb-cap mb-cpad">{t('card.description')}</div>
-        <div className="mb-cdesc" ref={host} />
+        <div className="mb-cdesc" ref={host} onKeyDownCapture={mentions.onKeyDown} onKeyUp={mentions.look} onMouseUp={mentions.look} onInput={mentions.look} />
+        <SpaceMentionList mentions={mentions} team={team} />
         <div className="mb-cattach">
           <AttachButton onFiles={(files) => editor.current && actions.attach(editor.current, path, files)} />
         </div>
@@ -1149,7 +1160,7 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
         </div>
       </div>
       <div className="mb-compose">
-        <GrowingField value={comment} label={t('card.comment')} placeholder={t('card.commentHint')} onChange={setComment} />
+        <DescriptionField key={sent} home={path} value="" hint={t('card.commentHint')} host={commentHost(actions)} attach={false} onChange={setComment} />
         <button type="button" className="go" disabled={!comment.trim()} onMouseDown={(event) => event.preventDefault()} onClick={send}>
           {t('card.comment')}
         </button>

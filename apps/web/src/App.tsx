@@ -2118,6 +2118,7 @@ export function App() {
   const descriptionHost: DescriptionHost = {
     editor: (home, parent, doc, onChange, hint) => session.openEditor(home, parent, doc, onChange, hint),
     attach: (editor, home, files) => session.attachTo(editor, home, files),
+    people: peopleOf,
   };
   // A record a calendar moved or stretched: its values written, said with Undo, which writes back what they were.
   const moveRecord = (dir: string, id: string, values: CollectionRecord['values'], text: string) => {
