@@ -513,8 +513,9 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
       return;
     }
     if (atEnd.current) box.scrollTop = box.scrollHeight;
-    // Any message changed, not only one more: a reaction or an edit on the last makes it longer.
-  }, [messages, pending.length, lastSeq]);
+    // Any message changed, not only one more: a reaction or an edit on the last makes it longer. The
+    // New line too: put in on coming back, over what came meanwhile, it pushed the last message under the box.
+  }, [messages, pending.length, lastSeq, newFrom]);
 
   // Made smaller (a phone's keyboard, the box written in growing) or longer (a picture come in): still at the end if it was,
   // else what was right over the box to write in stays there, as a keyboard coming up pushes the conversation up.
