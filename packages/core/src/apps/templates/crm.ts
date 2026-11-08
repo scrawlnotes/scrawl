@@ -127,7 +127,7 @@ export const crm: AppTemplate = {
     app.view('activities', { id: 'todo', name: 'To do', conditions: open, sort: { key: 'when', dir: 'asc' }, group: 'bucket', columns: ['type', 'when', 'with_said'], button: 'Done', ring: true }, true);
     app.view('activities', { id: 'done', name: 'Done', conditions: done, sort: { key: 'when', dir: 'desc' }, columns: ['type', 'when', 'with_said', 'said'] });
     // What is planned comes to Today on its day with Done, a time to Upcoming too; a late one stays in Overdue.
-    app.view('activities', { ...calendar({ start: 'when', color: 'type', upcoming: true, button: 'Done', words: ['with_said'] }, open), id: 'calendar', hidden: true });
+    app.view('activities', { ...calendar({ start: 'when', color: 'type', upcoming: true, button: 'Done', person: 'by', words: ['with_said'] }, open), id: 'calendar', hidden: true });
     app.rule('activities', {
       kind: 'check',
       name: firms ? 'Link it to a company or a person' : 'Pick the person',

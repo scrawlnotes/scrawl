@@ -326,13 +326,15 @@ function FieldRow({ field, value, values, worked, changed, bad, autoFocus, today
           </div>
         );
       }
-      // A choice of a few side by side: Out, In, Transfer.
+      // A choice of a few under its name: three or fewer a segmented bar the width of the row (Out, In,
+      // Transfer), more as chips that go on to a second line when they do not fit (Call … Task).
       if (field.type === 'select' && field.chips) {
+        const options = offeredOptions(field, values);
         return (
-          <div className={classes}>
+          <div className={classes + ' mb-chipsrow'}>
             {label}
-            <span className="segs" role="radiogroup" aria-label={field.label}>
-              {offeredOptions(field, values).map((option) => (
+            <span className={options.length > 3 ? 'segs many' : 'segs mb-segs'} role="radiogroup" aria-label={field.label}>
+              {options.map((option) => (
                 <button key={option} type="button" role="radio" aria-checked={value === option} className={value === option ? 'on' : undefined} onClick={() => onChange(option)}>
                   {optionName(field, option, values)}
                 </button>
@@ -347,7 +349,7 @@ function FieldRow({ field, value, values, worked, changed, bad, autoFocus, today
       if (field.type === 'multi-select' && field.chips) {
         const on = Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
         return (
-          <div className={classes}>
+          <div className={classes + ' mb-chipsrow'}>
             {label}
             <span className="segs many" role="group" aria-label={field.label}>
               {offeredOptions(field, values).map((option) => (

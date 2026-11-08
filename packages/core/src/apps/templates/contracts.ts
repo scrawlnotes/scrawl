@@ -262,9 +262,9 @@ export const contracts: AppTemplate = {
     tab('ended', 'Ended', [{ field: 'status', op: 'is', value: ['Ended'] }]);
     // In Today: its notice day with Give notice; its end day with Renew, by itself for one that renews by itself; one given notice ends by itself
     // on its end day, one that does not renew the day after: in Today only, where End is pressed by itself.
-    app.view('contracts', { ...calendar({ start: 'cancel_by', ...(kinds.length > 0 && { color: 'type' }), upcoming: true, button: 'Give notice', words: ['notice_said'] }, [{ field: 'deciding', op: 'true' }]), id: 'notice', name: 'Notice by', hidden: true });
-    app.view('contracts', { ...calendar({ start: 'ends', ...(kinds.length > 0 && { color: 'type' }), upcoming: true, button: 'Renew', auto: 'renews_itself', words: ['amount_said'] }, [{ field: 'status', op: 'is', value: ['Active'] }]), id: 'renewals', name: 'Renewals', hidden: true });
-    app.view('contracts', { ...calendar({ start: 'auto_end', ...(kinds.length > 0 && { color: 'type' }), upcoming: 'today', button: 'End', auto: 'ends_itself' }, [{ field: 'ends_itself', op: 'true' }]), id: 'ends', name: 'Ending', hidden: true });
+    app.view('contracts', { ...calendar({ start: 'cancel_by', ...(kinds.length > 0 && { color: 'type' }), upcoming: true, button: 'Give notice', person: 'owner', words: ['notice_said'] }, [{ field: 'deciding', op: 'true' }]), id: 'notice', name: 'Notice by', hidden: true });
+    app.view('contracts', { ...calendar({ start: 'ends', ...(kinds.length > 0 && { color: 'type' }), upcoming: true, button: 'Renew', auto: 'renews_itself', person: 'owner', words: ['amount_said'] }, [{ field: 'status', op: 'is', value: ['Active'] }]), id: 'renewals', name: 'Renewals', hidden: true });
+    app.view('contracts', { ...calendar({ start: 'auto_end', ...(kinds.length > 0 && { color: 'type' }), upcoming: 'today', button: 'End', auto: 'ends_itself', person: 'owner' }, [{ field: 'ends_itself', op: 'true' }]), id: 'ends', name: 'Ending', hidden: true });
 
     app.homeTile('contracts', { off: true });
     app.homeTile('contract-events', { off: true });

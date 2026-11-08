@@ -320,7 +320,7 @@ ${[...spread, ...lines.map((l) => `  add("${app.called('budget-lines')}", { name
       });
       app.view('time-entries', { id: 'week', name: 'Week', kind: 'sheet', sheet: { row: 'project', day: 'date', value: 'hours' }, conditions: [] }, true);
       app.view('time-entries', { id: 'all', name: 'All', conditions: [], sort: { key: 'date', dir: 'desc' }, columns: ['project', 'person', 'date', 'hours'] });
-      app.view('time-entries', { ...calendar({ start: 'started', upcoming: true, button: 'Stop', words: ['project'] }, [{ field: 'started', op: 'not-empty' }]), id: 'running', name: 'Running', hidden: true });
+      app.view('time-entries', { ...calendar({ start: 'started', upcoming: true, button: 'Stop', person: 'person', words: ['project'] }, [{ field: 'started', op: 'not-empty' }]), id: 'running', name: 'Running', hidden: true });
       app.view('time-entries', { id: 'this-week', name: 'This week', conditions: [{ field: 'this_week', op: 'true' }], sort: { key: 'date', dir: 'desc' }, hidden: true });
       app.homeTile('time-entries', { off: true });
       app.homeTiles('time-entries', [{ view: 'this-week', title: 'Hours this week', head: [{ label: 'h', field: 'hours' }], lines: [{ label: 'Most on', field: 'hours', by: 'project' }, { label: 'Most by', field: 'hours', by: 'person' }], empty: 'No hours this week.' }]);

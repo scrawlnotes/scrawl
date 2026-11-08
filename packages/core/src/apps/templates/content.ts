@@ -135,8 +135,8 @@ export const content: AppTemplate = {
     tab('published', 'Published', [{ field: 'status', op: 'is', value: ['Published'] }]);
     tab('mine', 'Mine', [{ field: 'owner', op: 'is', value: ['me'] }, notOut]);
     // In Today: a piece sent for review with Approve, first, as a record comes by its first calendar; its day with Publish.
-    app.view('content', { ...calendar({ start: 'review_on', upcoming: 'today', button: 'Approve', words: ['review_said'] }, [{ field: 'status', op: 'is', value: ['Review'] }]), id: 'review', name: 'To review', hidden: true });
-    app.view('content', { ...calendar({ start: 'goes_out', ...(channels.length > 0 && { color: 'channel' }), upcoming: true, button: 'Publish', words: ['where'] }, [{ field: 'status', op: 'is', value: ['Writing', 'Review', 'Scheduled'] }]), id: 'going-out', name: 'Going out', hidden: true });
+    app.view('content', { ...calendar({ start: 'review_on', upcoming: 'today', button: 'Approve', person: 'reviewer', words: ['review_said'] }, [{ field: 'status', op: 'is', value: ['Review'] }]), id: 'review', name: 'To review', hidden: true });
+    app.view('content', { ...calendar({ start: 'goes_out', ...(channels.length > 0 && { color: 'channel' }), upcoming: true, button: 'Publish', person: 'owner', words: ['where'] }, [{ field: 'status', op: 'is', value: ['Writing', 'Review', 'Scheduled'] }]), id: 'going-out', name: 'Going out', hidden: true });
     app.view('content', { id: 'week', name: 'This week', conditions: [{ field: 'this_week', op: 'true' }], sort: { key: 'goes_out', dir: 'asc' }, hidden: true });
     app.view('content', { id: 'to-review', name: 'In review', conditions: [{ field: 'status', op: 'is', value: ['Review'] }], sort: { key: 'review_on', dir: 'asc' }, hidden: true });
     app.view('content', { id: 'month', name: 'This month', conditions: [{ field: 'published_month', op: 'true' }], sort: { key: 'published_on', dir: 'desc' }, hidden: true });

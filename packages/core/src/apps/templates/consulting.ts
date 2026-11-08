@@ -186,7 +186,7 @@ export const consulting: AppTemplate = {
     app.field('deliverables', day('due', 'Due'));
     app.field('deliverables', select('status', 'Status', ['To do', 'In progress', 'Delivered'], { 'To do': 'gray', 'In progress': 'blue', Delivered: 'green' }, 'To do'));
     app.field('deliverables', formula('due_said', 'When', `empty(due) ? "" : status != "Delivered" && due < today() ? text(today() - due) + (today() - due == 1 ? " day late" : " days late") : monthname(due) + " " + text(monthday(due))`));
-    app.view('deliverables', calendar({ start: 'due', color: 'status', upcoming: true, button: 'Delivered', words: ['engagement', 'owner'] }, [{ field: 'status', op: 'is-not', value: ['Delivered'] }]));
+    app.view('deliverables', calendar({ start: 'due', color: 'status', upcoming: true, button: 'Delivered', person: 'owner', words: ['engagement', 'owner'] }, [{ field: 'status', op: 'is-not', value: ['Delivered'] }]));
     app.rule('deliverables', { kind: 'action', name: 'Delivered', src: 'action("Delivered", { when: () => status != "Delivered", hint: "", done: () => name + " · delivered" }, () => {\n  status = "Delivered"\n})' });
     app.block('engagements', { block: 'linked', collection: app.path('deliverables'), style: 'list', title: 'Deliverables', fields: ['due_said', 'owner'], sort: 'due', where: [{ field: 'status', op: 'is-not', value: ['Delivered'] }], add: 'Deliverable', column: 2 });
 
@@ -232,7 +232,7 @@ export const consulting: AppTemplate = {
       app.view('time-entries', { id: 'week', name: 'Week', kind: 'sheet', sheet: { row: 'engagement', day: 'date', value: 'hours' }, conditions: [] }, true);
       app.view('time-entries', { id: 'all', name: 'All', conditions: [], sort: { key: 'date', dir: 'desc' }, columns: ['engagement', 'person', 'date', 'hours', 'amount', 'billed'] });
       // A timer running is in Today with Stop, and on Home.
-      const running: View = { ...calendar({ start: 'started', upcoming: true, button: 'Stop', words: ['engagement', 'running_said'] }, [{ field: 'started', op: 'not-empty' }]), id: 'running', name: 'Running', hidden: true };
+      const running: View = { ...calendar({ start: 'started', upcoming: true, button: 'Stop', person: 'person', words: ['engagement', 'running_said'] }, [{ field: 'started', op: 'not-empty' }]), id: 'running', name: 'Running', hidden: true };
       app.view('time-entries', running);
       app.view('time-entries', { id: 'this-week', name: 'This week', conditions: [{ field: 'this_week', op: 'true' }], sort: { key: 'date', dir: 'desc' }, hidden: true });
       app.homeTile('time-entries', { off: true });

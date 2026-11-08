@@ -135,7 +135,7 @@ export const recruiting: AppTemplate = {
       app.formOrder('interviews', ['name', 'candidate', 'position', 'date', 'type', 'interviewer', ...(scores ? ['score', 'verdict'] : []), 'takeaways']);
       app.view('interviews', calendar({ start: 'date', color: 'type', upcoming: false }), true);
       // Its time in Today, and after it, late, till its feedback is written.
-      app.view('interviews', { ...calendar({ start: 'date', color: 'type', upcoming: true, button: 'Write feedback', words: ['position'] }, [{ field: 'done', op: 'false' }]), id: 'feedback', name: 'Feedback', hidden: true });
+      app.view('interviews', { ...calendar({ start: 'date', color: 'type', upcoming: true, button: 'Write feedback', person: 'interviewer', words: ['position'] }, [{ field: 'done', op: 'false' }]), id: 'feedback', name: 'Feedback', hidden: true });
       app.view('interviews', { id: 'week', name: 'Coming', conditions: [{ field: 'coming', op: 'true' }], sort: { key: 'date', dir: 'asc' }, columns: ['candidate', 'type', 'date'], hidden: true });
       app.view('interviews', { id: 'due', name: 'Feedback due', conditions: [{ field: 'due', op: 'true' }], sort: { key: 'date', dir: 'asc' }, columns: ['candidate', 'type', 'date'], hidden: true });
       app.rule('interviews', { kind: 'onSave', name: 'Its name', src: 'onSave("Its name", () => {\n  if (empty(name) && !empty(candidate)) name = type + " · " + candidate.name\n})' });

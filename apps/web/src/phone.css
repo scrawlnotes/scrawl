@@ -10661,6 +10661,27 @@ html:has(.phone-app) .ch-view .go.next {
   font-size: 14px;
 }
 
+/* A choice of three or fewer: a segmented bar the width of the row, as iOS has it. */
+.mb-chipsrow .segs.mb-segs {
+  display: flex;
+  flex-wrap: nowrap;
+  align-self: stretch;
+}
+
+.mb-chipsrow .segs.mb-segs > button {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 6px 8px;
+  font-size: 14px;
+}
+
+/* More: chips the size of a link's, going on to a second line when they do not fit. */
+.mb-chipsrow .segs.many > button {
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 14px;
+}
+
 /* A rows question on a phone: each row a card of its boxes, two to a line. */
 .na-sheet .na-rows {
   display: flex !important;

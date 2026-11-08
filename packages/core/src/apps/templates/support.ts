@@ -210,7 +210,7 @@ export const support: AppTemplate = {
     tab('solved', 'Solved', [{ field: 'status', op: 'is', value: ['Solved', 'Closed'] }]);
     app.view('requests', { id: 'open', name: 'Open', conditions: [open], sort: { key: 'reply_due', dir: 'asc' }, hidden: true });
     // A reply due comes to Today with Reply; one late stays in Overdue.
-    app.view('requests', { ...calendar({ start: 'reply_due', color: 'priority', upcoming: true, button: 'Reply', words: ['who', ...(bugs ? ['bug_said'] : []), 'reply_said'] }, [{ field: 'status', op: 'is', value: OPEN }]), id: 'due', name: 'Reply due', hidden: true });
+    app.view('requests', { ...calendar({ start: 'reply_due', color: 'priority', upcoming: true, button: 'Reply', person: 'assignee', words: ['who', ...(bugs ? ['bug_said'] : []), 'reply_said'] }, [{ field: 'status', op: 'is', value: OPEN }]), id: 'due', name: 'Reply due', hidden: true });
     app.homeTile('requests', { off: true });
     app.homeTiles('requests', [
       { view: 'open', title: 'Requests', head: [{ label: 'open' }, { label: 'late', conditions: [{ field: 'late', op: 'true' }], warn: true }], value: 'reply_said', empty: 'No open requests.' },

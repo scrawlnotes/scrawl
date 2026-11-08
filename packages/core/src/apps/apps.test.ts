@@ -169,7 +169,7 @@ describe('setting up an app', () => {
         .flatMap((schema) => (schema.views ?? []).filter((v) => v.kind === 'calendar').map((v) => [schema.role!, { ...v.calendar, conditions: v.conditions }] as const)),
     );
     expect(Object.fromEntries(calendars)).toEqual({
-      activities: { start: 'when', color: 'type', upcoming: true, button: 'Done', words: ['with_said'], conditions: [{ field: 'done', op: 'false' }] },
+      activities: { start: 'when', color: 'type', upcoming: true, button: 'Done', person: 'by', words: ['with_said'], conditions: [{ field: 'done', op: 'false' }] },
       orders: { start: 'due', color: 'status', upcoming: true, button: 'Record payment', words: ['customer', 'state'], conditions: [{ field: 'status', op: 'is', value: ['Invoiced'] }] },
       payments: { start: 'due', color: 'direction', upcoming: true, button: 'Mark paid', auto: 'pays_itself', words: ['party', 'amount'], conditions: [{ field: 'status', op: 'is-not', value: ['Paid'] }] },
       // A project's last calendar: from its start to its end; before it, its update due, with Post update.
@@ -178,11 +178,11 @@ describe('setting up an app', () => {
       'purchase-orders': { start: 'expected', color: 'status', upcoming: true, button: 'Receive', words: ['supplier', 'total'], conditions: [{ field: 'status', op: 'is', value: ['Ordered', 'Partially received'] }] },
       releases: { start: 'planned', color: 'status', upcoming: true, button: 'Ship', words: ['done_said'], conditions: [{ field: 'status', op: 'is', value: ['Planned'] }] },
       // An interview's last calendar: its time, in Today with Write feedback till it is written.
-      interviews: { start: 'date', color: 'type', upcoming: true, button: 'Write feedback', words: ['position'], conditions: [{ field: 'done', op: 'false' }] },
+      interviews: { start: 'date', color: 'type', upcoming: true, button: 'Write feedback', person: 'interviewer', words: ['position'], conditions: [{ field: 'done', op: 'false' }] },
       // An asset's last calendar: its warranty ending, in Upcoming; before it, coming back and its service, with their buttons.
       assets: { start: 'warranty', color: 'category', upcoming: true, words: ['supplier'], conditions: [{ field: 'status', op: 'is-not', value: ['Retired'] }] },
       // A piece's last calendar: its day with Publish; before it, sent for review, in Today with Approve. Its steps each with Done; campaigns are a timeline.
-      content: { start: 'goes_out', color: 'channel', upcoming: true, button: 'Publish', words: ['where'], conditions: [{ field: 'status', op: 'is', value: ['Writing', 'Review', 'Scheduled'] }] },
+      content: { start: 'goes_out', color: 'channel', upcoming: true, button: 'Publish', person: 'owner', words: ['where'], conditions: [{ field: 'status', op: 'is', value: ['Writing', 'Review', 'Scheduled'] }] },
       'content-steps': { start: 'due', upcoming: true, button: 'Done', words: ['piece'], conditions: [{ field: 'done', op: 'false' }] },
     });
     // Activities and interviews hold a time when one is given.
@@ -329,9 +329,9 @@ describe('setting up an app', () => {
       ['ending', 'table', null],
       ['drafts', 'table', null],
       ['ended', 'table', null],
-      ['notice', 'calendar', { start: 'cancel_by', color: 'type', upcoming: true, button: 'Give notice', words: ['notice_said'] }],
-      ['renewals', 'calendar', { start: 'ends', color: 'type', upcoming: true, button: 'Renew', auto: 'renews_itself', words: ['amount_said'] }],
-      ['ends', 'calendar', { start: 'auto_end', color: 'type', upcoming: 'today', button: 'End', auto: 'ends_itself' }],
+      ['notice', 'calendar', { start: 'cancel_by', color: 'type', upcoming: true, button: 'Give notice', person: 'owner', words: ['notice_said'] }],
+      ['renewals', 'calendar', { start: 'ends', color: 'type', upcoming: true, button: 'Renew', auto: 'renews_itself', person: 'owner', words: ['amount_said'] }],
+      ['ends', 'calendar', { start: 'auto_end', color: 'type', upcoming: 'today', button: 'End', auto: 'ends_itself', person: 'owner' }],
     ]);
     expect(plan.templates.map((s) => [s.id, s.buttons])).toEqual([
       ['subscriptions', ['Renew', 'Change plan', 'Pause', 'Resume', 'Cancel membership', 'End', 'Reactivate']],
@@ -381,7 +381,7 @@ describe('setting up an app', () => {
     expect(board('Team/Actions.board.json').columns.map((c) => c.name)).toEqual(['To do', 'Doing', 'Done', "Won't do"]);
     // An open incident in Today every day with Post update; one resolved, its review a few days on.
     expect(schema('Team/Incidents').views!.filter((v) => v.kind === 'calendar').map((v) => [v.id, v.calendar])).toEqual([
-      ['ongoing', { start: 'started', color: 'severity', upcoming: 'today', button: 'Post update', words: ['said'] }],
+      ['ongoing', { start: 'started', color: 'severity', upcoming: 'today', button: 'Post update', person: 'owner', words: ['said'] }],
       ['reviews', { start: 'review_on', color: 'severity', upcoming: true, button: 'Write review', person: 'owner', words: ['when_said'] }],
       ['calendar', { start: 'started', end: 'ended', color: 'severity', upcoming: false }],
     ]);
