@@ -1,7 +1,7 @@
-import { type CalendarChoice, type ComputerAgent, dayOf, isAgent, isShown, type Me, type MovedMark, newSpaceId, NOTIFY_CHOICES, type NotifyChoices, ownerName, type Person, RemoteSignedOut, type ServerSpace, type SpaceSource } from '@scrawlnotes/core';
+import { type CalendarChoice, type CalendarProviderId, type ComputerAgent, dayOf, isAgent, isShown, type Me, type MovedMark, newSpaceId, NOTIFY_CHOICES, type NotifyChoices, ownerName, type Person, RemoteSignedOut, rowGoes, type ServerSpace, type SpaceSource } from '@scrawlnotes/core';
 import { languages, locale, type MessageKey, t } from '@scrawlnotes/i18n';
 import { type ChangeEvent, type CSSProperties, Fragment, type KeyboardEvent, type MouseEvent, type ReactNode, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { ContextMenu, Dialog, type MenuItem } from './dialogs';
+import { ConfirmDialog, ContextMenu, Dialog, type MenuItem } from './dialogs';
 import type { SpaceView } from './session';
 import { chooseLanguage, isPhone, languageTag, type Mode, NUMBER_CHOICES, type Numbers, shadeOfMode, SIZES, type SizeKind, thisSizeKind } from './device';
 import { Icon, type IconName } from './Icon';
@@ -27,6 +27,7 @@ import { PictureOr } from './ChatFaces';
 import { notifySnapshot, sendTest, turnOff, turnOn, useNotify } from './notify';
 import type { CalendarState } from './calendarAccount';
 import { CALENDAR_ACCOUNTS, useCalendarAccounts } from './calendars';
+import { removeScrawlCalendar, syncTarget, useCalendarSync } from './calendarSync';
 
 export type Section = 'profile' | 'appearance' | 'general' | 'notifications' | 'calendars' | 'spaces' | 'agents' | 'language' | 'logs' | 'about';
 
@@ -538,7 +539,7 @@ function Calendars({ calendarChoice: choice, onChooseCalendars: onChoose }: Pick
               <p className="st-note ol-cals-wait">{t('outlook.reading')}</p>
             ) : (
               <div className={`st-list ol-cals${choice.events ? '' : ' off'}`}>
-                {account.calendars.map((calendar) => {
+                {account.calendars.filter((calendar) => calendar.id !== choice.calendar).map((calendar) => {
                   const on = isShown(choice, calendar);
                   return (
                     <label key={calendar.id} className="st-li ol-cal">
@@ -565,7 +566,139 @@ function Calendars({ calendarChoice: choice, onChooseCalendars: onChoose }: Pick
         );
       })}
       {unconnected}
+      <SyncPart choice={choice} onChoose={onChoose} accounts={connected} />
       <p className="st-note">{t('outlook.eachDevice')}</p>
+    </>
+  );
+}
+
+/**
+ * Calendars' Sync part (design/outlook-calendar.md 12): Sync tasks to calendar; with both accounts
+ * connected, Sync to; on, What goes, row by row. Turning it off, or to the other account, first
+ * says what is removed. Google lets Scrawl write once it asks once more.
+ */
+function SyncPart({ choice, onChoose, accounts }: { choice: CalendarChoice; onChoose: (choice: CalendarChoice) => void; accounts: CalendarState[] }) {
+  const sync = useCalendarSync();
+  const [asking, setAsking] = useState<{ title: string; message: string; action: string; run: () => Promise<void> } | null>(null);
+  const store = (id: CalendarProviderId) => CALENDAR_ACCOUNTS.find((each) => each.id === id)!;
+  const to = syncTarget(choice) ?? accounts[0]?.id ?? null;
+  const target = accounts.find((each) => each.id === to);
+  if (!to || !target?.account) return null;
+  const whereOf = (id: CalendarProviderId) => t(id === 'google' ? 'calendars.google' : 'calendars.outlook');
+  const where = whereOf(to);
+  /** Writing to Google needs its leave once: asked as syncing goes there. */
+  const allowIfNeeded = (id: CalendarProviderId) => {
+    if (!store(id).canWrite()) void store(id).connect(true);
+  };
+  const turn = (on: boolean) => {
+    if (on) {
+      onChoose({ ...choice, sync: true, to, account: target.account!.email });
+      allowIfNeeded(to);
+    } else if (choice.calendar) {
+      setAsking({
+        title: t('calendars.stopTitle', { where }),
+        message: t('calendars.stopWhat', { where, count: sync.count }),
+        action: t('calendars.remove'),
+        run: async () => {
+          await removeScrawlCalendar(choice);
+          onChoose({ ...choice, sync: false, calendar: null });
+        },
+      });
+    } else onChoose({ ...choice, sync: false });
+  };
+  const moveTo = (next: CalendarState) => {
+    if (next.id === to || !next.account) return;
+    const go = async () => {
+      await removeScrawlCalendar(choice);
+      onChoose({ ...choice, to: next.id, account: next.account!.email, calendar: null });
+      allowIfNeeded(next.id);
+    };
+    if (!choice.calendar) return void go();
+    setAsking({ title: t('calendars.moveTitle', { where: whereOf(next.id) }), message: t('calendars.moveWhat', { from: where, where: whereOf(next.id), count: sync.count }), action: t('calendars.move'), run: go });
+  };
+  const goes = (row: 'tasks' | 'boards' | 'collections' | { app: string }) => rowGoes(choice, row);
+  const pick = (row: 'tasks' | 'boards' | 'collections' | { app: string }, on: boolean) =>
+    onChoose({ ...choice, goes: typeof row === 'object' ? { ...choice.goes, apps: { ...choice.goes.apps, [row.app]: on } } : { ...choice.goes, [row]: on } });
+  const rowOf = (key: string, name: string, sub: string, row: 'tasks' | 'boards' | 'collections' | { app: string }) => {
+    const on = goes(row);
+    return (
+      <label key={key} className="st-li ol-cal">
+        <span className="nm">
+          <b>{name}</b>
+          <small>{sub}</small>
+        </span>
+        <input type="checkbox" checked={on} onChange={(event) => pick(row, event.target.checked)} />
+        {isPhone() && <PhoneSwitch on={on} />}
+      </label>
+    );
+  };
+  const needsLeave = choice.sync && sync.status === 'permission';
+  return (
+    <>
+      <span className="st-label">{t('calendars.sync')}</span>
+      <div className="st-space">
+        <label className="st-check">
+          <input type="checkbox" checked={choice.sync} onChange={(event) => turn(event.target.checked)} />
+          <PhoneSwitch on={choice.sync} />
+          <span>
+            {t('calendars.syncTasks')}
+            <small>
+              {t('calendars.syncWhat', { where })}
+              {to === 'google' && !store('google').canWrite() && <> {t('calendars.syncAsk')}</>}
+            </small>
+          </span>
+        </label>
+      </div>
+      {needsLeave && (
+        <div className="st-acts">
+          <button type="button" className="primary" disabled={target.connecting} onClick={() => void store(to).connect(true)}>
+            {t('calendars.allow')}
+          </button>
+        </div>
+      )}
+      {choice.sync && sync.status === 'failed' && sync.error && <p className="st-note st-bad">{t('calendars.syncFailed', { where, error: sync.error })}</p>}
+      {choice.sync && accounts.length > 1 && (
+        <>
+          <span className="st-label">{t('calendars.syncTo')}</span>
+          <div className="st-list ol-cals">
+            {accounts.map((account) => (
+              <label key={account.id} className="st-li ol-cal">
+                <span className="nm">
+                  <b>{t(`${account.id}.title`)}</b>
+                  <small>{account.account?.email}</small>
+                </span>
+                <input type="radio" name="sync-to" checked={account.id === to} onChange={() => moveTo(account)} />
+                {isPhone() && account.id === to && <Icon name="check" />}
+              </label>
+            ))}
+          </div>
+        </>
+      )}
+      {choice.sync && (
+        <>
+          <span className="st-label">{t('calendars.whatGoes')}</span>
+          <div className="st-list ol-cals">
+            {rowOf('tasks', t('calendars.tasks'), t('calendars.tasksWhat'), 'tasks')}
+            {rowOf('boards', t('calendars.boards'), t('calendars.boardsWhat'), 'boards')}
+            {sync.rows.apps.map((app) => rowOf(app.path, app.name, t('calendars.anApp'), { app: app.path }))}
+            {sync.rows.collections && rowOf('collections', t('calendars.collections'), t('calendars.collectionsWhat'), 'collections')}
+          </div>
+        </>
+      )}
+      {asking && (
+        <ConfirmDialog
+          title={asking.title}
+          message={asking.message}
+          action={asking.action}
+          danger
+          onConfirm={() => {
+            const { run } = asking;
+            setAsking(null);
+            void run();
+          }}
+          onClose={() => setAsking(null)}
+        />
+      )}
     </>
   );
 }

@@ -11,9 +11,11 @@ import {
   askedQuestions,
   type Audience,
   audienceOf,
+  COLLECTION_FILE,
   dirname,
   fitsWith,
   localPath,
+  parseSchema,
   PIECES,
   type Question,
   type QuestionColumn,
@@ -62,7 +64,7 @@ type Step = 'templates' | 'app' | TemplateId | 'summary';
 /** A piece's name and kind, by its role. */
 const pieceOf = (role: string) => PIECES[role]!;
 
-export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreate, onClose }: {
+export function NewAppDialog({ folders, folder, adding, editing, toCalendar, onPlan, onCreate, onClose }: {
   /** Every place, the personal space's top first. */
   folders: string[];
   /** The place it starts in. */
@@ -73,8 +75,10 @@ export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreat
   editing?: AppFile;
   /** The plan of what was chosen; throws AppProblems for what is wrong with it. */
   onPlan: (input: AppInput, place: FolderChoice) => Promise<AppPlan>;
-  /** Sets it up; a message when it could not be. */
-  onCreate: (plan: AppPlan, place: FolderChoice) => Promise<string | null>;
+  /** Where the person's work goes, "Google Calendar", when it goes to one: a new app that brings something to Today is asked whether it goes too. */
+  toCalendar?: string;
+  /** Sets it up; a message when it could not be. With `synced`, its things go to the connected calendar. */
+  onCreate: (plan: AppPlan, place: FolderChoice, synced?: boolean) => Promise<string | null>;
   onClose: () => void;
 }) {
   const phone = isPhone();
@@ -111,6 +115,9 @@ export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreat
   const [origins, setOrigins] = useState<Record<string, (number | null)[]>>({});
   const [plan, setPlan] = useState<AppPlan | null>(null);
   const [problems, setProblems] = useState<string[]>([]);
+  // Sync to connected calendar: asked of a new app that brings something to Today, off till turned on.
+  const [synced, setSynced] = useState(false);
+  const [bringsToToday, setBringsToToday] = useState(false);
   const busy = useRef(false);
 
   const installed = new Set<TemplateId>((app?.templates ?? []).map((x) => x.id));
@@ -254,7 +261,7 @@ export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreat
     if (step === 'summary') {
       if (!plan) return;
       busy.current = true;
-      const failed = await onCreate(plan, place);
+      const failed = await onCreate(plan, place, synced && bringsToToday);
       busy.current = false;
       if (failed) setProblems([failed]);
       return;
@@ -272,6 +279,21 @@ export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreat
     setProblems([]);
     setAt(at + 1);
   };
+  // Whether what is chosen brings something to Today, worked out as the app's page opens, from its plan with the answers as they start.
+  const askCalendar = !!toCalendar && !app && !blank && step === 'app';
+  const choice = chosen.join(',');
+  useEffect(() => {
+    if (!askCalendar) return;
+    let live = true;
+    onPlan(input(), place).then(
+      (made) => live && setBringsToToday(bringsSomethingToToday(made)),
+      () => live && setBringsToToday(false),
+    );
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [askCalendar, choice, place.folder]);
   const back = () => {
     setProblems([]);
     if (at === 0) onClose();
@@ -342,6 +364,7 @@ export function NewAppDialog({ folders, folder, adding, editing, onPlan, onCreat
           currencies={currencies}
           onCurrencies={setCurrencies}
           problems={problems}
+          calendar={askCalendar && bringsToToday ? { where: toCalendar!, on: synced, onToggle: setSynced } : undefined}
         />
       );
     }
@@ -552,7 +575,13 @@ function TemplatesPage({ phone, side, onSide, chosen, installed, fits, rolesOf, 
   );
 }
 
-function AppPage({ phone, side, adding, name, onName, folders, place, onPlace, money, currencies, onCurrencies, problems }: {
+/** Whether an app brings something to Today: a board, or a calendar that shows there. */
+function bringsSomethingToToday(plan: AppPlan): boolean {
+  if (plan.created.some((each) => each.kind === 'board')) return true;
+  return plan.files.some((file) => file.path.endsWith(`/${COLLECTION_FILE}`) && (parseSchema(file.text).views ?? []).some((view) => view.kind === 'calendar' && !!view.calendar?.upcoming));
+}
+
+function AppPage({ phone, side, adding, name, onName, folders, place, onPlace, money, currencies, onCurrencies, problems, calendar }: {
   phone: boolean;
   /** Whose app it is: its currencies are said for a business's orders or a person's accounts. */
   side: Audience;
@@ -567,6 +596,8 @@ function AppPage({ phone, side, adding, name, onName, folders, place, onPlace, m
   currencies: string[];
   onCurrencies: (codes: string[]) => void;
   problems: string[];
+  /** Sync to connected calendar, where it goes. */
+  calendar?: { where: string; on: boolean; onToggle: (on: boolean) => void };
 }) {
   const [typed, setTyped] = useState('');
   const [wrong, setWrong] = useState<string | null>(null);
@@ -670,6 +701,15 @@ function AppPage({ phone, side, adding, name, onName, folders, place, onPlace, m
           <small className={wrong || (adding && problems.length > 0) ? 'na-help na-bad' : 'na-help'} role={adding && problems.length > 0 ? 'alert' : undefined}>
             {wrong ?? (adding && problems[0]) ?? help}
           </small>
+        </div>
+      )}
+      {calendar && (
+        <div className="na-field wide">
+          <label className="na-tick">
+            <input type="checkbox" checked={calendar.on} onChange={(event) => calendar.onToggle(event.target.checked)} />
+            <b>{t('calendars.newAppSync')}</b>
+          </label>
+          <small className="na-help">{t('calendars.newAppSyncWhat', { where: calendar.where })}</small>
         </div>
       )}
     </div>

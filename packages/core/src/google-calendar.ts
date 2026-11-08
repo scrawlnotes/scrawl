@@ -1,5 +1,6 @@
+import { baseOf, type CalendarWriter, endOf, eventKey, eventTitle, readBase, type SyncedEvent, type WantedEvent } from './calendar-sync';
 import { type AccountCalendar, type CalendarAccount, type CalendarEvent, clockFromUtc } from './outlook';
-import { Graph, type GraphOptions } from './sync/onedrive';
+import { Graph, GraphError, type GraphOptions } from './sync/onedrive';
 import { addDays } from './tasks';
 
 // Google Calendar's calendars in Scrawl (design/outlook-calendar.md 11.1): the account's calendars
@@ -119,5 +120,97 @@ export class GoogleReader {
       page = answer.nextPageToken;
     }
     return out;
+  }
+}
+
+/** Writing Scrawl's work to its "Scrawl" calendar in Google, in `timeZone`, the device's (design/outlook-calendar.md 12). */
+export class GoogleWriter implements CalendarWriter {
+  private readonly http: Graph;
+
+  constructor(
+    options: GraphOptions,
+    private readonly timeZone: string,
+  ) {
+    this.http = new Graph(options);
+  }
+
+  private async send(method: string, url: string, body?: unknown, ok: number[] = []): Promise<Response> {
+    const response = await this.http.request(url, { method, ...(body !== undefined && { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }) });
+    if (!response.ok && !ok.includes(response.status)) {
+      let reason = '';
+      let message = response.statusText;
+      try {
+        const error = ((await response.json()) as { error?: { message?: string; errors?: { reason?: string }[] } }).error;
+        reason = error?.errors?.[0]?.reason ?? '';
+        message = error?.message ?? message;
+      } catch {
+        // Its status says enough.
+      }
+      throw new GraphError(response.status, reason, `Google Calendar: ${response.status} ${message}`);
+    }
+    return response;
+  }
+
+  async makeCalendar(): Promise<string> {
+    return ((await (await this.send('POST', `${API}/calendars`, { summary: 'Scrawl', timeZone: this.timeZone })).json()) as { id: string }).id;
+  }
+
+  async hasCalendar(calendar: string): Promise<boolean> {
+    return (await this.send('GET', `${API}/calendars/${encodeURIComponent(calendar)}?fields=id`, undefined, [404])).ok;
+  }
+
+  async removeCalendar(calendar: string): Promise<void> {
+    await this.send('DELETE', `${API}/calendars/${encodeURIComponent(calendar)}`, undefined, [404, 410]);
+  }
+
+  async synced(calendar: string, from: string, to: string): Promise<SyncedEvent[]> {
+    const out: SyncedEvent[] = [];
+    let page: string | undefined = '';
+    while (page !== undefined) {
+      const query = new URLSearchParams({
+        timeMin: startOf(from),
+        timeMax: startOf(addDays(to, 1)),
+        singleEvents: 'true',
+        maxResults: '2500',
+        fields: 'items(id,start,extendedProperties),nextPageToken',
+        ...(page ? { pageToken: page } : {}),
+      });
+      const answer: { items?: (GoogleEvent & { extendedProperties?: { private?: Record<string, string> } })[]; nextPageToken?: string } = await this.http.json(
+        `${API}/calendars/${encodeURIComponent(calendar)}/events?${query}`,
+      );
+      for (const raw of answer.items ?? []) {
+        const day = raw.start?.date ?? (raw.start?.dateTime ? clockFromUtc(new Date(raw.start.dateTime).toISOString()).slice(0, 10) : '');
+        out.push({ eventId: raw.id, base: readBase(raw.extendedProperties?.private?.scrawl), day });
+      }
+      page = answer.nextPageToken;
+    }
+    return out;
+  }
+
+  private body(wanted: WantedEvent) {
+    const when = wanted.start
+      ? { start: { dateTime: `${wanted.start}:00`, timeZone: this.timeZone }, end: { dateTime: `${endOf(wanted)}:00`, timeZone: this.timeZone } }
+      : { start: { date: wanted.day }, end: { date: addDays(wanted.day, 1) } };
+    return {
+      summary: eventTitle(wanted),
+      description: wanted.where,
+      ...when,
+      transparency: wanted.start ? 'opaque' : 'transparent',
+      reminders: { useDefault: false },
+      extendedProperties: { private: { scrawl: JSON.stringify(baseOf(wanted)) } },
+    };
+  }
+
+  async create(calendar: string, wanted: WantedEvent): Promise<void> {
+    // The id comes from the work's: a retry finds it there (409) and does not make it twice.
+    await this.send('POST', `${API}/calendars/${encodeURIComponent(calendar)}/events`, { id: eventKey(wanted.id), ...this.body(wanted) }, [409]);
+  }
+
+  async update(calendar: string, eventId: string, wanted: WantedEvent): Promise<void> {
+    await this.send('PATCH', `${API}/calendars/${encodeURIComponent(calendar)}/events/${encodeURIComponent(eventId)}`, this.body(wanted));
+  }
+
+  async remove(calendar: string, eventId: string): Promise<void> {
+    await this.send('DELETE', `${API}/calendars/${encodeURIComponent(calendar)}/events/${encodeURIComponent(eventId)}`, undefined, [404, 410]);
   }
 }

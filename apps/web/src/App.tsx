@@ -225,6 +225,8 @@ import { PeopleSheet } from './PhoneSpaces';
 import { type ButtonRun, type FileRow, type RuleEvent, Session, type SpaceView } from './session';
 import { RemoveSpaceDialog, type Section as SettingsSection, Settings, type SettingsValues } from './Settings';
 import { setCalendarChoice } from './calendars';
+import { calendarTargetName, setCalendarWork, setSyncChoice } from './calendarSync';
+import { calendarWork } from './calendarWork';
 import { Help } from './Help';
 import { placeOf, StartPage } from './StartPage';
 import { type SpaceSyncView, SyncService } from './sync';
@@ -500,7 +502,10 @@ export function App() {
     session.getSnapshot,
   );
   // Which of Outlook's calendars show follows the personal space's choice, on every device.
-  useEffect(() => setCalendarChoice(calendarChoice), [calendarChoice]);
+  useEffect(() => {
+    setCalendarChoice(calendarChoice);
+    setSyncChoice(calendarChoice, (choice) => session.chooseCalendars(choice));
+  }, [session, calendarChoice]);
   // A record open as a note is named in its tab by what the record is called; its file is named by its id.
   // The onboarding note is not in the tree, which names the notes.
   const tabTitles = useMemo(() => {
@@ -2113,6 +2118,28 @@ export function App() {
   useEffect(() => {
     for (const path of appFolders) void session.appAt(path).then((file) => setAppFiles((was) => ({ ...was, [path]: file })));
   }, [session, appFolders]);
+  // The person's dated work to the outside calendar (design/outlook-calendar.md 12): from yesterday,
+  // as far as Upcoming looks, once the spaces are read; the sync takes it a few seconds after a change.
+  useEffect(() => {
+    if (!ready) return;
+    const all = Object.values(collections);
+    const shown = all.filter((c) => c.schema.views?.some((v) => v.kind === 'calendar' && v.calendar?.upcoming));
+    const records = dueRecords(
+      shown.map((c) => withComputed(c, all, boards, today)),
+      addDays(today, -1),
+      { all, until: addDays(today, 62), me: me?.name || undefined },
+    );
+    const recordSubtasks = dueRecordSubtasks(collections).filter((each) => !me || !spaceOf(each.collection) || isMyWork(each.subtask, me.id));
+    const placeOf = (path: string) => {
+      const space = spaceOf(path);
+      const where = (space ? (spaces.find((each) => each.id === space)?.name ?? '') : (session.getSnapshot().space.name ?? t('settings.personal'))) || t('settings.personal');
+      const name = path.split('/').pop()!.replace(/\.(tasks|board)\.json$/, '');
+      return `${where} › ${name}`;
+    };
+    const wanted = calendarWork({ tasks: myTasks, boards: myBoards, records, recordSubtasks, apps: appFolders, placeOf }, calendarChoice, today);
+    const outside = shown.some((c) => !appFolders.some((app) => c.dir === app || c.dir.startsWith(`${app}/`)));
+    setCalendarWork(wanted, { apps: appFolders.map((path) => ({ path, name: appFiles[path]?.name ?? path.split('/').pop()! })), collections: outside });
+  }, [ready, collections, boards, today, me, myTasks, myBoards, appFolders, appFiles, spaces, calendarChoice, session]);
   const appIcons = Object.fromEntries(
     appFolders.flatMap((path) => {
       const file = appFiles[path];
@@ -3860,9 +3887,12 @@ export function App() {
           folders={everyFolder(tree, spaces)}
           folder={dialog.folder}
           onPlan={(input, place) => session.planNewApp(input, place)}
-          onCreate={async (plan, place) => {
+          toCalendar={calendarChoice.sync ? calendarTargetName(calendarChoice) : undefined}
+          onCreate={async (plan, place, synced) => {
             const done = await session.installNewApp(plan, place);
             if ('error' in done) return done.error;
+            // Its things go to the connected calendar too: the choice is the person's, not the app's.
+            if (synced) session.chooseCalendars({ ...calendarChoice, goes: { ...calendarChoice.goes, apps: { ...calendarChoice.goes.apps, [plan.folder]: true } } });
             setDialog(null);
             setShown({ text: t('apps.setUp', { name: plan.app.name, what: appCounts(plan) }), undo: () => void done.undo(), toast: true });
             return null;

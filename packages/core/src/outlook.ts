@@ -1,3 +1,4 @@
+import { baseOf, type CalendarWriter, endOf, eventKey, eventTitle, readBase, type SyncedEvent, type WantedEvent } from './calendar-sync';
 import type { VaultFs } from './fs';
 import { mergeFields } from './sync/merge-records';
 import { GRAPH, Graph, GraphError, type GraphOptions } from './sync/onedrive';
@@ -175,37 +176,185 @@ export class OutlookReader {
   }
 }
 
+/** Where an Outlook event keeps what Scrawl wrote into it (design/outlook-calendar.md 4.3). */
+const BASE_PROPERTY = 'String {5b1f6c3e-8a2d-4e7b-9f40-3c6d1a8e2b57} Name ScrawlBase';
+
+/** Writing Scrawl's work to its "Scrawl" calendar in Outlook, in `timeZone`, the device's. */
+export class OutlookWriter implements CalendarWriter {
+  private readonly graph: Graph;
+
+  constructor(
+    options: GraphOptions,
+    private readonly timeZone: string,
+  ) {
+    this.graph = new Graph(options);
+  }
+
+  private async send(method: string, url: string, body?: unknown, ok: number[] = []): Promise<Response> {
+    const response = await this.graph.request(url, { method, ...(body !== undefined && { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }) });
+    if (!response.ok && !ok.includes(response.status)) {
+      let message = response.statusText;
+      try {
+        message = ((await response.json()) as { error?: { message?: string } }).error?.message ?? message;
+      } catch {
+        // Its status says enough.
+      }
+      throw new GraphError(response.status, '', `Outlook: ${response.status} ${message}`);
+    }
+    return response;
+  }
+
+  async makeCalendar(): Promise<string> {
+    return ((await (await this.send('POST', `${GRAPH}/me/calendars`, { name: 'Scrawl' })).json()) as { id: string }).id;
+  }
+
+  async hasCalendar(calendar: string): Promise<boolean> {
+    return (await this.send('GET', `${GRAPH}/me/calendars/${encodeURIComponent(calendar)}?$select=id`, undefined, [404])).ok;
+  }
+
+  async removeCalendar(calendar: string): Promise<void> {
+    await this.send('DELETE', `${GRAPH}/me/calendars/${encodeURIComponent(calendar)}`, undefined, [404]);
+  }
+
+  async synced(calendar: string, from: string, to: string): Promise<SyncedEvent[]> {
+    const out: SyncedEvent[] = [];
+    const query = new URLSearchParams({
+      startDateTime: new Date(`${from}T00:00:00`).toISOString(),
+      endDateTime: new Date(`${addDays(to, 1)}T00:00:00`).toISOString(),
+      $select: 'id,start,isAllDay',
+      $expand: `singleValueExtendedProperties($filter=id eq '${BASE_PROPERTY}')`,
+      $top: '200',
+    });
+    let url: string | undefined = `${GRAPH}/me/calendars/${encodeURIComponent(calendar)}/calendarView?${query}`;
+    while (url) {
+      const page: { value?: (GraphEvent & { singleValueExtendedProperties?: { value?: string }[] })[]; '@odata.nextLink'?: string } = await this.graph.json(url, {
+        headers: { Prefer: 'outlook.timezone="UTC"' },
+      });
+      for (const raw of page.value ?? []) {
+        const at = raw.start?.dateTime ?? '';
+        out.push({ eventId: raw.id, base: readBase(raw.singleValueExtendedProperties?.[0]?.value), day: raw.isAllDay ? at.slice(0, 10) : clockFromUtc(at).slice(0, 10) });
+      }
+      url = page['@odata.nextLink'];
+    }
+    return out;
+  }
+
+  private body(wanted: WantedEvent) {
+    const when = wanted.start
+      ? { isAllDay: false, start: { dateTime: `${wanted.start}:00`, timeZone: this.timeZone }, end: { dateTime: `${endOf(wanted)}:00`, timeZone: this.timeZone } }
+      : { isAllDay: true, start: { dateTime: `${wanted.day}T00:00:00`, timeZone: this.timeZone }, end: { dateTime: `${addDays(wanted.day, 1)}T00:00:00`, timeZone: this.timeZone } };
+    return {
+      subject: eventTitle(wanted),
+      body: { contentType: 'text', content: wanted.where },
+      ...when,
+      showAs: wanted.start ? 'busy' : 'free',
+      isReminderOn: false,
+      singleValueExtendedProperties: [{ id: BASE_PROPERTY, value: JSON.stringify(baseOf(wanted)) }],
+    };
+  }
+
+  async create(calendar: string, wanted: WantedEvent): Promise<void> {
+    // The same transaction id for the same work: a retry does not make it twice.
+    await this.send('POST', `${GRAPH}/me/calendars/${encodeURIComponent(calendar)}/events`, { ...this.body(wanted), transactionId: eventKey(wanted.id) });
+  }
+
+  async update(_calendar: string, eventId: string, wanted: WantedEvent): Promise<void> {
+    await this.send('PATCH', `${GRAPH}/me/events/${encodeURIComponent(eventId)}`, this.body(wanted));
+  }
+
+  async remove(_calendar: string, eventId: string): Promise<void> {
+    await this.send('DELETE', `${GRAPH}/me/events/${encodeURIComponent(eventId)}`, undefined, [404]);
+  }
+}
+
 /** A calendar that is not there any more; its events are left out rather than stopping the others. */
-export const isGone = (error: unknown) => error instanceof GraphError && (error.status === 404 || error.status === 403);
+export const isGone =(error: unknown) => error instanceof GraphError && (error.status === 404 || error.status === 403);
 
 export const CALENDARS_FILE = '.scrawl/calendars.json';
 
-/** What the person chose of Outlook's calendars: whether events show at all, and calendars shown against how they start. */
-export interface CalendarChoice {
-  events: boolean;
-  /** A calendar turned on or off; one not here shows when it is the account's own. */
-  show: Record<string, boolean>;
+/** Where Scrawl's work goes: the account by its kind and its address, and its "Scrawl" calendar's id there, null till it is made. */
+export type CalendarProviderId = 'outlook' | 'google';
+
+/** What goes to the calendar, by row (design/outlook-calendar.md 2.1): only what differs from how it starts. */
+export interface CalendarGoes {
+  tasks?: boolean;
+  boards?: boolean;
+  collections?: boolean;
+  /** An installed app, by its folder's path, `@space/folder` for one in a space. */
+  apps: Record<string, boolean>;
 }
 
-export const NO_CHOICE: CalendarChoice = { events: true, show: {} };
+/**
+ * What the person chose (design/outlook-calendar.md 4.4, 12): whether events show at all,
+ * calendars shown against how they start, and whether their work goes to a calendar, which and what.
+ */
+export interface CalendarChoice {
+  events: boolean;
+  /** A calendar turned on or off; one not here shows as the account starts it. */
+  show: Record<string, boolean>;
+  sync: boolean;
+  to: CalendarProviderId | null;
+  account: string | null;
+  calendar: string | null;
+  goes: CalendarGoes;
+}
+
+export const NO_CHOICE: CalendarChoice = { events: true, show: {}, sync: false, to: null, account: null, calendar: null, goes: { apps: {} } };
+
+/** Whether a row goes: as chosen, else Tasks and Boards do and the rest do not. */
+export function rowGoes(choice: Pick<CalendarChoice, 'goes'>, row: 'tasks' | 'boards' | 'collections' | { app: string }): boolean {
+  if (typeof row === 'object') return choice.goes.apps[row.app] ?? false;
+  return choice.goes[row] ?? row !== 'collections';
+}
+
+const booleans = (value: unknown): Record<string, boolean> => {
+  const out: Record<string, boolean> = {};
+  if (value && typeof value === 'object') for (const [key, on] of Object.entries(value as Record<string, unknown>)) if (typeof on === 'boolean' && key) out[key] = on;
+  return out;
+};
+const text = (value: unknown) => (typeof value === 'string' && value ? value : null);
 
 /** Reads the choice; what is not one is left out. */
-export function parseCalendarChoice(text: string): CalendarChoice {
+export function parseCalendarChoice(source: string): CalendarChoice {
   let data: Record<string, unknown> | null;
   try {
-    data = JSON.parse(text) as Record<string, unknown>;
+    data = JSON.parse(source) as Record<string, unknown>;
   } catch {
     return NO_CHOICE;
   }
-  const show: Record<string, boolean> = {};
-  if (data?.show && typeof data.show === 'object') {
-    for (const [id, on] of Object.entries(data.show as Record<string, unknown>)) if (typeof on === 'boolean' && id) show[id] = on;
-  }
-  return { events: data?.events !== false, show };
+  if (!data || typeof data !== 'object') return NO_CHOICE;
+  const rows = (data.goes && typeof data.goes === 'object' ? data.goes : {}) as Record<string, unknown>;
+  const goes: CalendarGoes = { apps: booleans(rows.apps) };
+  for (const row of ['tasks', 'boards', 'collections'] as const) if (typeof rows[row] === 'boolean') goes[row] = rows[row] as boolean;
+  return {
+    events: data.events !== false,
+    show: booleans(data.show),
+    sync: data.sync === true,
+    to: data.to === 'outlook' || data.to === 'google' ? data.to : null,
+    account: text(data.account),
+    calendar: text(data.calendar),
+    goes,
+  };
 }
 
-export const serializeCalendarChoice = (choice: CalendarChoice) =>
-  `${JSON.stringify({ version: 1, ...(!choice.events && { events: false }), ...(Object.keys(choice.show).length > 0 && { show: choice.show }) }, null, 2)}\n`;
+export function serializeCalendarChoice(choice: CalendarChoice): string {
+  const { apps, ...rows } = choice.goes;
+  const goes = { ...rows, ...(Object.keys(apps).length > 0 && { apps }) };
+  return `${JSON.stringify(
+    {
+      version: 1,
+      ...(!choice.events && { events: false }),
+      ...(Object.keys(choice.show).length > 0 && { show: choice.show }),
+      ...(choice.sync && { sync: true }),
+      ...(choice.to && { to: choice.to }),
+      ...(choice.account && { account: choice.account }),
+      ...(choice.calendar && { calendar: choice.calendar }),
+      ...(Object.keys(goes).length > 0 && { goes }),
+    },
+    null,
+    2,
+  )}\n`;
+}
 
 export async function loadCalendarChoice(fs: VaultFs): Promise<CalendarChoice> {
   try {
@@ -220,9 +369,20 @@ export const saveCalendarChoice = (fs: VaultFs, choice: CalendarChoice) => fs.wr
 /** Whether a calendar's events show: as chosen, else as the account shows it, else when it is the account's own. */
 export const isShown = (choice: CalendarChoice, calendar: Pick<AccountCalendar, 'id' | 'own' | 'shown'>) => choice.show[calendar.id] ?? calendar.shown ?? calendar.own;
 
-/** The choice from both sides of a sync, calendar by calendar. */
+/** The choice from both sides of a sync, calendar by calendar and row by row. */
 export function mergeCalendarChoice(base: string, local: string, remote: string): string {
   const [b, l, r] = [base, local, remote].map(parseCalendarChoice) as [CalendarChoice, CalendarChoice, CalendarChoice];
-  const merged = mergeFields({ events: b.events }, { events: l.events }, { events: r.events });
-  return serializeCalendarChoice({ events: merged.events, show: mergeFields(b.show, l.show, r.show) });
+  const scalars = ({ events, sync, to, account, calendar, goes }: CalendarChoice) => ({ events, sync, to, account, calendar, tasks: goes.tasks, boards: goes.boards, collections: goes.collections });
+  const merged = mergeFields(scalars(b), scalars(l), scalars(r));
+  const goes: CalendarGoes = { apps: mergeFields(b.goes.apps, l.goes.apps, r.goes.apps) };
+  for (const row of ['tasks', 'boards', 'collections'] as const) if (typeof merged[row] === 'boolean') goes[row] = merged[row];
+  return serializeCalendarChoice({
+    events: merged.events !== false,
+    show: mergeFields(b.show, l.show, r.show),
+    sync: merged.sync === true,
+    to: merged.to ?? null,
+    account: merged.account ?? null,
+    calendar: merged.calendar ?? null,
+    goes,
+  });
 }

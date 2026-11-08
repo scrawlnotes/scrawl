@@ -8,8 +8,10 @@ import {
   isShown,
   loadCalendarChoice,
   mergeCalendarChoice,
+  NO_CHOICE,
   type CalendarEvent,
   OutlookReader,
+  OutlookWriter,
   parseCalendarChoice,
   saveCalendarChoice,
   serializeCalendarChoice,
@@ -109,7 +111,7 @@ describe('Reading Outlook', () => {
 describe('The choice of calendars', () => {
   it('shows the account’s own calendars and not a shared one, till chosen otherwise', () => {
     const choice = parseCalendarChoice('{"version":1,"show":{"bday":false,"mert":true,"bad":"yes"}}');
-    expect(choice).toEqual({ events: true, show: { bday: false, mert: true } });
+    expect(choice).toEqual({ ...NO_CHOICE, show: { bday: false, mert: true } });
     expect(isShown(choice, { id: 'cal', own: true })).toBe(true);
     expect(isShown(choice, { id: 'bday', own: true })).toBe(false);
     expect(isShown(choice, { id: 'mert', own: false })).toBe(true);
@@ -117,19 +119,37 @@ describe('The choice of calendars', () => {
   });
 
   it('writes only what was chosen, and reads none from nothing', async () => {
-    expect(serializeCalendarChoice({ events: true, show: {} })).toBe('{\n  "version": 1\n}\n');
+    expect(serializeCalendarChoice(NO_CHOICE)).toBe('{\n  "version": 1\n}\n');
     const fs = new MemoryFs();
-    expect(await loadCalendarChoice(fs)).toEqual({ events: true, show: {} });
-    await saveCalendarChoice(fs, { events: false, show: { mert: true } });
-    expect(await loadCalendarChoice(fs)).toEqual({ events: false, show: { mert: true } });
-    expect(parseCalendarChoice('not json')).toEqual({ events: true, show: {} });
+    expect(await loadCalendarChoice(fs)).toEqual(NO_CHOICE);
+    await saveCalendarChoice(fs, { ...NO_CHOICE, events: false, show: { mert: true } });
+    expect(await loadCalendarChoice(fs)).toEqual({ ...NO_CHOICE, events: false, show: { mert: true } });
+    expect(parseCalendarChoice('not json')).toEqual(NO_CHOICE);
   });
 
   it('keeps calendars chosen on two devices, each its own', () => {
     expect(mergeKindOf(CALENDARS_FILE)).toBe('calendars');
-    const base = serializeCalendarChoice({ events: true, show: {} });
-    const mine = serializeCalendarChoice({ events: true, show: { bday: false } });
-    const theirs = serializeCalendarChoice({ events: false, show: { mert: true } });
-    expect(parseCalendarChoice(mergeCalendarChoice(base, mine, theirs))).toEqual({ events: false, show: { bday: false, mert: true } });
+    const base = serializeCalendarChoice(NO_CHOICE);
+    const mine = serializeCalendarChoice({ ...NO_CHOICE, show: { bday: false } });
+    const theirs = serializeCalendarChoice({ ...NO_CHOICE, events: false, show: { mert: true } });
+    expect(parseCalendarChoice(mergeCalendarChoice(base, mine, theirs))).toEqual({ ...NO_CHOICE, events: false, show: { bday: false, mert: true } });
+  });
+});
+
+describe('Writing to Outlook', () => {
+  it('writes a task all day in the device’s zone, with its base and a fixed transaction id', async () => {
+    const sent: { method: string; url: string; body: Record<string, unknown> | null }[] = [];
+    const fetch = (async (input: string, init?: RequestInit) => {
+      sent.push({ method: init?.method ?? 'GET', url: input, body: typeof init?.body === 'string' ? (JSON.parse(init.body) as Record<string, unknown>) : null });
+      return new Response('{}', { status: init?.method === 'DELETE' ? 404 : 201 });
+    }) as typeof globalThis.fetch;
+    const writer = new OutlookWriter({ fetch, token: async () => 'token' }, ISTANBUL);
+    const work = { id: 'task:Tasks.tasks.json#t1', title: 'Pay the bill', day: '2026-11-10', done: true, where: 'Scrawl · Personal › Tasks' };
+    await writer.create('cal', work);
+    await writer.create('cal', work);
+    await writer.remove('cal', 'gone');
+    expect(sent[0]!.body).toMatchObject({ subject: '✓ Pay the bill', isAllDay: true, showAs: 'free', start: { dateTime: '2026-11-10T00:00:00', timeZone: ISTANBUL }, end: { dateTime: '2026-11-11T00:00:00', timeZone: ISTANBUL } });
+    expect(sent[0]!.body!.transactionId).toBe(sent[1]!.body!.transactionId);
+    expect(sent[2]).toMatchObject({ method: 'DELETE', url: 'https://graph.microsoft.com/v1.0/me/events/gone' });
   });
 });

@@ -109,6 +109,8 @@ export async function pkce(): Promise<{ verifier: string; challenge: string }> {
 
 export interface TokenAnswer {
   access_token?: string;
+  /** What was granted, as Google says it: the scopes, by spaces. */
+  scope?: string;
   refresh_token?: string;
   expires_in?: number;
   error?: string;

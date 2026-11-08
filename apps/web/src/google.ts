@@ -1,4 +1,4 @@
-import { addDays, type CalendarEvent, dayIn, GoogleReader, RemoteOffline } from '@scrawlnotes/core';
+import { addDays, type CalendarEvent, dayIn, GoogleReader, GoogleWriter, RemoteOffline } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { invoke, readTokenAnswer, type TokenPost } from './cloud';
 import { calendarAccount, type CalendarSource } from './calendarAccount';
@@ -9,16 +9,18 @@ import { isDesktop } from './storage';
 // the code is turned into a key, and the key renewed, by app.scrawlnotes.com's Worker
 // (design/cloud.md 10.6); the desktop asks Google itself, with the desktop registration.
 
-/** Only what slice 4 reads; writing to the "Scrawl" calendar (calendar.app.created) comes with slice 2. */
+/** Reading; writing the "Scrawl" calendar is asked for when syncing first goes to Google (design/outlook-calendar.md 12). */
 const SCOPES = ['calendar.calendarlist.readonly', 'calendar.events.readonly'].map((scope) => `https://www.googleapis.com/auth/${scope}`).join(' ');
+const WRITE = 'https://www.googleapis.com/auth/calendar.app.created';
 const AUTHORIZE = 'https://accounts.google.com/o/oauth2/v2/auth';
 const TOKEN = 'https://oauth2.googleapis.com/token';
 const REVOKE = 'https://oauth2.googleapis.com/revoke';
 /** The Worker's two addresses, `/token` and `/refresh`. */
 const WORKER = 'https://app.scrawlnotes.com/google';
 const WEB_CLIENT = '498960667148-tbn2glc3lolfqq8rcbf986bp8qqi0f4m.apps.googleusercontent.com';
-// shortcut: the desktop registration's ID and secret (which Google does not count as secret) are not in yet; till they are, connecting on the desktop says so.
-const DESKTOP_CLIENT = '';
+/** The desktop registration; Google gives an installed app's secret to everyone who has the app, and does not count it as secret. */
+const DESKTOP_CLIENT = '498960667148-mr6e8qpi7uarn0efrl90oklbcgkr0rij.apps.googleusercontent.com';
+// shortcut: the desktop registration's secret is not in yet; till it is, connecting on the desktop says so.
 const DESKTOP_SECRET = '';
 
 /** On the desktop the shell posts to Google's token address, with the desktop registration. */
@@ -46,7 +48,7 @@ const store = calendarAccount({
   id: 'google',
   secret: 'google-calendar',
   authorizeUrl: (redirect, state, challenge, extra) => {
-    if (isDesktop && !DESKTOP_CLIENT) throw new Error(t('google.notOnDesktop'));
+    if (isDesktop && !DESKTOP_SECRET) throw new Error(t('google.notOnDesktop'));
     return `${AUTHORIZE}?${new URLSearchParams({
       client_id: isDesktop ? DESKTOP_CLIENT : WEB_CLIENT,
       response_type: 'code',
@@ -66,6 +68,9 @@ const store = calendarAccount({
   renew: (email) => ({ prompt: 'consent', ...(email ? { login_hint: email } : {}) }),
   renewsByLeaving: false,
   reader: (token) => new GoogleReader({ token }),
+  writer: (token, timeZone) => new GoogleWriter({ token }, timeZone),
+  // Google adds it to what was granted before; a key from then on has both.
+  write: { scope: WRITE, extra: (email) => ({ scope: `${SCOPES} ${WRITE}`, include_granted_scopes: 'true', prompt: 'consent', ...(email ? { login_hint: email } : {}) }) },
   fake: !isDesktop && import.meta.env.DEV && import.meta.env.VITE_GOOGLE !== 'real' ? fakeGoogle() : null,
 });
 

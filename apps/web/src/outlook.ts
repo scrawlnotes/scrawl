@@ -1,4 +1,4 @@
-import { addDays, type CalendarEvent, dayIn, OutlookReader } from '@scrawlnotes/core';
+import { addDays, type CalendarEvent, dayIn, OutlookReader, OutlookWriter } from '@scrawlnotes/core';
 import { AUTHORITY, clientId, postFromPage, postFromShell, tokenRequest } from './cloud';
 import { calendarAccount, type CalendarSource } from './calendarAccount';
 import { isDesktop } from './storage';
@@ -31,6 +31,7 @@ export const outlook = calendarAccount({
   renew: (email) => ({ prompt: 'none', ...(email ? { login_hint: email } : {}) }),
   renewsByLeaving: true,
   reader: (token) => new OutlookReader({ token }),
+  writer: (token, timeZone) => new OutlookWriter({ token }, timeZone),
   fake: !isDesktop && import.meta.env.DEV && import.meta.env.VITE_OUTLOOK !== 'real' ? fakeOutlook() : null,
 });
 

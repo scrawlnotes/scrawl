@@ -1,9 +1,11 @@
 import {
   type AccountCalendar,
   addDays,
+  baseOf,
   type CalendarAccount,
   type CalendarChoice,
   type CalendarEvent,
+  type CalendarWriter,
   isGone,
   isShown,
   NO_CHOICE,
@@ -53,6 +55,10 @@ export interface CalendarProvider {
   /** In the browser, whether the key lasts a day only and is renewed by signing in again (Microsoft's). */
   renewsByLeaving: boolean;
   reader(token: (fresh: boolean) => Promise<string>): CalendarSource;
+  /** Writing Scrawl's work to its "Scrawl" calendar there, in the device's zone. */
+  writer(token: (fresh: boolean) => Promise<string>, timeZone: string): CalendarWriter;
+  /** The permission writing needs beyond reading, asked for when syncing first goes there (Google's); none when reading's covers it. */
+  write?: { scope: string; extra(email?: string): Record<string, string> };
   /** A stand-in, while developing in the browser; none for the real account. */
   fake: CalendarSource | null;
 }
@@ -99,6 +105,8 @@ export function calendarAccount(p: CalendarProvider) {
   const BROWSER_KEY = `scrawl.${p.id}Key`;
   const PENDING = `scrawl.${p.id}SignIn`;
   const RENEWED = `scrawl.${p.id}Renewed`;
+  /** What the account granted, as its answers say (Google's), for whether it may write. */
+  const SCOPES = `scrawl.${p.id}Scopes`;
   const fake = p.fake;
 
   // ---------- the key ----------
@@ -130,7 +138,15 @@ export function calendarAccount(p: CalendarProvider) {
 
   function keepAccess(answer: Tokens) {
     access = { token: answer.access_token, until: Date.now() + ((answer.expires_in ?? 3600) - 60) * 1000 };
+    try {
+      if (answer.scope) localStorage.setItem(SCOPES, answer.scope);
+    } catch {
+      // Not kept: writing is asked for again.
+    }
   }
+
+  /** Whether the account lets Scrawl write its "Scrawl" calendar. */
+  const canWrite = () => !!fake || !p.write || (localStorage.getItem(SCOPES) ?? '').split(' ').includes(p.write.scope);
 
   async function renew(): Promise<string> {
     const key = await keptKey();
@@ -163,7 +179,7 @@ export function calendarAccount(p: CalendarProvider) {
   }
 
   /** In the browser: takes the page to the account's sign-in; it comes back to `prepare`. */
-  async function leave(intent: Pending['intent'], email?: string): Promise<boolean> {
+  async function leave(intent: Pending['intent'], email?: string, more: Record<string, string> = {}): Promise<boolean> {
     const { verifier, challenge } = await pkce();
     const at = randomText(16);
     const redirect = `${window.location.origin}/`;
@@ -172,17 +188,17 @@ export function calendarAccount(p: CalendarProvider) {
     } catch {
       return false;
     }
-    window.location.assign(p.authorizeUrl(redirect, at, challenge, intent === 'renew' ? p.renew(email) : p.connect));
+    window.location.assign(p.authorizeUrl(redirect, at, challenge, { ...(intent === 'renew' ? p.renew(email) : p.connect), ...more }));
     return true;
   }
 
   /** On the desktop: the system browser, and the answer caught on this computer. */
-  async function signInOnDesktop() {
+  async function signInOnDesktop(more: Record<string, string> = {}) {
     const { verifier, challenge } = await pkce();
     const at = randomText(16);
     const port = await invoke<number>('oauth_listen');
     const redirect = p.desktopRedirect(port);
-    await invoke('open_url', { url: p.authorizeUrl(redirect, at, challenge, p.connect) });
+    await invoke('open_url', { url: p.authorizeUrl(redirect, at, challenge, { ...p.connect, ...more }) });
     const code = await invoke<string>('oauth_wait', { port, state: at, pages: { done: t(`${p.id}.browserDone`), failed: t('cloud.browserFailed') } });
     await signedInWith(await p.tokens({ grant_type: 'authorization_code', code, redirect_uri: redirect, code_verifier: verifier }));
   }
@@ -287,7 +303,16 @@ export function calendarAccount(p: CalendarProvider) {
   /** The months drawn somewhere now, by how many. */
   const wanted = new Map<string, number>();
 
-  const shownCalendars = () => (state.choice.events ? (state.calendars ?? []).filter((calendar) => isShown(state.choice, calendar)) : []);
+  // The "Scrawl" calendar is not shown: what is in it is Scrawl's own, there already.
+  const shownCalendars = () =>
+    state.choice.events ? (state.calendars ?? []).filter((calendar) => calendar.id !== state.choice.calendar && isShown(state.choice, calendar)) : [];
+
+  /** Writing to the account, in-memory while developing. */
+  let written: CalendarWriter | null = null;
+  const writer = (): CalendarWriter => {
+    written ??= fake ? fakeWriter() : p.writer(token, Intl.DateTimeFormat().resolvedOptions().timeZone);
+    return written;
+  };
 
   async function loadMonth(month: string, again = false) {
     if (state.status !== 'on') return;
@@ -345,6 +370,7 @@ export function calendarAccount(p: CalendarProvider) {
 
     /** How the account stands now, outside of drawing. */
     snapshot: (): CalendarState => state,
+    subscribe,
 
     /**
      * The events of the calendars shown, from `from` to `to`, both days included: those read, while
@@ -385,17 +411,24 @@ export function calendarAccount(p: CalendarProvider) {
     /** The color of one of its calendars; undefined for a calendar not its own. */
     colorOf: (calendar: string) => state.calendars?.find((each) => each.id === calendar)?.color,
 
-    /** Connects the account: on the desktop it waits for the system browser; in the browser the page goes to sign in and back. */
-    async connect(): Promise<void> {
+    canWrite,
+    writer,
+
+    /**
+     * Connects the account: on the desktop it waits for the system browser; in the browser the
+     * page goes to sign in and back. With `write`, it asks for writing too (Google's).
+     */
+    async connect(write = false): Promise<void> {
       if (state.connecting) return;
       state = { ...state, connecting: true, error: null };
       changed();
+      const more = write && p.write ? p.write.extra(state.account?.email) : {};
       try {
         if (fake) {
           await new Promise((resolve) => setTimeout(resolve, 900));
           await signedInWith({ access_token: 'fake', refresh_token: 'fake', expires_in: 3600 });
-        } else if (isDesktop) await signInOnDesktop();
-        else await leave('connect');
+        } else if (isDesktop) await signInOnDesktop(more);
+        else await leave('connect', undefined, more);
       } catch (error) {
         fail(error);
       } finally {
@@ -409,10 +442,40 @@ export function calendarAccount(p: CalendarProvider) {
       const key = await keptKey().catch(() => null);
       await forgetKey();
       localStorage.removeItem(ACCOUNT);
+      localStorage.removeItem(SCOPES);
       cache.clear();
       state = { ...state, status: 'off', account: null, calendars: null, error: null };
       changed();
       return key;
+    },
+  };
+}
+
+/** A "Scrawl" calendar in memory, while developing in the browser. */
+function fakeWriter(): CalendarWriter {
+  const events = new Map<string, { eventId: string; base: ReturnType<typeof baseOf>; day: string }>();
+  let made = 0;
+  return {
+    async makeCalendar() {
+      return `fake-scrawl-${++made}`;
+    },
+    async hasCalendar() {
+      return true;
+    },
+    async removeCalendar() {
+      events.clear();
+    },
+    async synced(_calendar, from, to) {
+      return [...events.values()].filter((each) => each.day >= from && each.day <= to);
+    },
+    async create(_calendar, wanted) {
+      events.set(wanted.id, { eventId: wanted.id, base: baseOf(wanted), day: wanted.day });
+    },
+    async update(_calendar, eventId, wanted) {
+      events.set(eventId, { eventId, base: baseOf(wanted), day: wanted.day });
+    },
+    async remove(_calendar, eventId) {
+      events.delete(eventId);
     },
   };
 }
