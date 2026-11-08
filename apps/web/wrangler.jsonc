@@ -1,13 +1,21 @@
-// The web app on Cloudflare, at app.scrawlnotes.com: its built files only, no Worker code. Every
-// address that is not a file opens the app. Published with `pnpm --filter @scrawlnotes/web run release`.
+// The web app on Cloudflare, at app.scrawlnotes.com: its built files, and every address that is not
+// a file opens the app. The Worker runs only for /google/*: it adds the web client's secret to
+// Google's sign-in (worker/google.ts, design/cloud.md 10.6); the secret is set with
+// `wrangler secret put GOOGLE_CLIENT_SECRET`, never written here. Published with
+// `pnpm --filter @scrawlnotes/web run release`.
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "scrawl-web",
   "compatibility_date": "2026-10-09",
+  "main": "./worker/google.ts",
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/google/*"]
   },
+  "vars": { "GOOGLE_CLIENT_ID": "498960667148-tbn2glc3lolfqq8rcbf986bp8qqi0f4m.apps.googleusercontent.com" },
+  // It keeps no logs: the keys pass through it.
+  "observability": { "enabled": false },
   "routes": [{ "pattern": "app.scrawlnotes.com", "custom_domain": true }],
   // One address only: the sign-in comes back to it, and the browser keeps the notes for it.
   "workers_dev": false,
