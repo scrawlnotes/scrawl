@@ -255,6 +255,8 @@ export interface PhoneProps {
   };
   /** Chat, the fifth tab, with a server that has messaging: what its messages point at, the menu, and a message's link followed elsewhere. */
   chat: { links: ChatLinks; menu: (event: MouseEvent, items: MenuItem[]) => void; goTo: { href: string; at: number } | null };
+  /** When the morning's notification asked for Today (design/notifications.md 6); 0 when it never did. */
+  todayAsked?: number;
   /**
    * Quick notes (design/quick-notes.md 4): how many, beside their row in Browse; `list` draws their
    * page's cards, opening one as a page; `note` draws a note's page, a new one with `path` null;
@@ -611,6 +613,12 @@ export function Phone(props: PhoneProps) {
   /** How far a finger has pulled the page on top to the right, going back. */
   const [pull, setPull] = useState<number | null>(null);
   const [due, setDue] = useState<'today' | 'upcoming'>('today');
+  // The morning's notification tapped: Today's tab, on Today.
+  useEffect(() => {
+    if (!props.todayAsked) return;
+    setDue('today');
+    setPlace('today');
+  }, [props.todayAsked]);
   const [newFolderIn, setNewFolderIn] = useState<string | null>(null);
   // Settings › Spaces: reordering the spaces, adding one, a space's menu and the question before it leaves this phone.
   const [reordering, setReordering] = useState(false);

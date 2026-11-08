@@ -259,6 +259,14 @@ const MIGRATIONS: string[] = [
     at INTEGER NOT NULL
   );
   `,
+  // The morning's notification of work due, once a day for each person (design/notifications.md 5).
+  `
+  CREATE TABLE digests (
+    account_id TEXT NOT NULL REFERENCES accounts (id),
+    day TEXT NOT NULL,
+    PRIMARY KEY (account_id, day)
+  );
+  `,
 ];
 
 export function openDb(file: string): Db {

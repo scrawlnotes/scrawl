@@ -445,8 +445,8 @@ export function onNotificationClick(open: (href: string) => void): () => void {
 }
 
 const clicked = (href: string) => {
-  // A message, or a card or a task a notice is of.
-  if (!href.startsWith('scrawl:chat/') && !href.startsWith('scrawl:item/')) return;
+  // A message, a card or a task a notice is of, or Today for the morning's.
+  if (!href.startsWith('scrawl:chat/') && !href.startsWith('scrawl:item/') && href !== 'scrawl:today') return;
   if (opens.size === 0) openedAt = href;
   for (const open of opens) open(href);
 };

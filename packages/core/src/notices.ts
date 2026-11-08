@@ -1,6 +1,6 @@
-import { BOARD_EXT, type Board, parseBoard, type TimelineEntry } from './board';
+import { BOARD_EXT, type Board, isFinished, parseBoard, type TimelineEntry } from './board';
 import { lastReminded, REMIND_EVERY_MS, type WorkedOn } from './activity';
-import { isAgentId, ownerOf, type PersonRef } from './people';
+import { isAgentId, isMyWork, ownerOf, type PersonRef } from './people';
 import { itemLink, mentionsOf, plainText } from './sync/chat';
 import { parseList, TASK_LIST_EXT, type Task, type TaskEntry } from './tasks';
 
@@ -174,5 +174,46 @@ export function noticeWords(notice: Notice, where: string, nameOf: (id: string) 
   const body = notice.text || (notice.item.key ? notice.item.title : where);
   // A reminder says when it is due as well.
   if (notice.kind === 'remind' && notice.item.due) return { title, body: `${body} · Due ${new Date(`${notice.item.due}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })}` };
+  return { title, body };
+}
+
+// ---------- the morning's due work ----------
+
+/** A piece of work due, as the morning's notification names it: a card by its key, a task by its name. */
+export interface DueWork {
+  name: string;
+  due: string;
+}
+
+/**
+ * The work of the person `me` in a board or a task list that is due on one of `days` and not
+ * finished (design/notifications.md 5): Today's rule, given to them or to an agent of theirs, or
+ * given to no one and made by them. A file that cannot be read has none.
+ */
+export function dueWorkIn(path: string, text: string, me: string, days: string[]): DueWork[] {
+  if (!readable(text)) return [];
+  const on = new Set(days);
+  if (path.endsWith(BOARD_EXT)) {
+    const board = parseBoard(text);
+    return board.cards
+      .filter((card) => card.due && on.has(card.due) && !isFinished(board, card) && isMyWork(card, me))
+      .map((card) => ({ name: `${board.prefix}-${card.key}`, due: card.due! }));
+  }
+  if (path.endsWith(TASK_LIST_EXT)) {
+    return parseList(text)
+      .tasks.filter((task) => task.due && on.has(task.due) && !task.done && isMyWork(task, me))
+      .map((task) => ({ name: task.title, due: task.due! }));
+  }
+  return [];
+}
+
+/** What the morning's notification says: "2 due today, 1 due tomorrow", and the first of them by name; null when nothing is due. */
+export function dueWords(work: DueWork[], today: string): { title: string; body: string } | null {
+  if (!work.length) return null;
+  const now = work.filter((each) => each.due === today);
+  const later = work.filter((each) => each.due !== today);
+  const title = [now.length && `${now.length} due today`, later.length && `${later.length} due tomorrow`].filter(Boolean).join(', ');
+  const names = [...now, ...later].map((each) => each.name);
+  const body = names.length <= 3 ? names.join(', ').replace(/, ([^,]*)$/, ' and $1') : `${names.slice(0, 2).join(', ')} and ${names.length - 2} more`;
   return { title, body };
 }

@@ -54,12 +54,15 @@ if (command === 'backup') {
     process.exit(1);
   }
   const server = makeServer(config);
+  // The morning's notification of work due (design/notifications.md 5).
+  server.due.start();
   const sockets = new WebSocketServer({ noServer: true });
   const http = serve({ fetch: server.app.fetch, port: config.port, websocket: { server: sockets } }, () => {
     console.log(`Scrawl server ${VERSION} at ${config.url} (port ${config.port}, data in ${config.data})`);
     if (server.accounts.isNew()) console.log(`New server: connect to ${config.url} from Scrawl within an hour to set it up. The first to connect becomes its owner.`);
   });
   const stop = () => {
+    server.due.stop();
     server.live.stop();
     // Open live connections would keep the server from closing; their devices connect again.
     for (const socket of sockets.clients) socket.terminate();

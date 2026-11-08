@@ -234,3 +234,15 @@ Yayın: web ve sunucu; masaüstü kullanıcı söyleyince.
 - **Bildirim:** "Kaan reminded you about ROA-3", altında başlık (görevde listesi) ve günü varsa "· Due Nov 10".
 - **Testler:** core `notices.test.ts`'e 3 (kayıt ve sınır, bildirim ve metin, görev), sunucu `notices.test.ts`'e 1.
 - **Tarayıcıda denendi:** ROA-3 Mert'e verilince Mert'e "Kaan assigned you ROA-3" gitti; Remind Mert'e basınca "Kaan reminded you about ROA-3" gitti, düğme "Reminded just now" olup soldu, zaman çizgisine "Kaan reminded Mert" yazıldı; telefonda Assignee'nin altında soluk satır; Launch'taki görev Mert'e verilince menüde Remind Mert çıktı, basınca bildirim gitti ve öğe soldu.
+
+## 16. Yazılırken: 4. dilim (Son tarih)
+
+8 Kasım 2026. ROA-368.
+
+- **Okunduğu yer:** 9.3'teki `due_items` tablosu tutulmadı. Sunucu kişinin sabahı gelince onun space'lerindeki (kişisel space'i dahil) pano ve listeleri o an okur (`Due.workOf`, core'da `dueWorkIn`); hiç eskimez, taşıma ve silmede güncellenecek bir şey yoktur. `.scrawl/` altındaki dosyalar (çöp) okunmaz. Tek tablo `digests (account_id, day)`: günde bir kez, gönderilmeden önce yazılır.
+- **Ne zaman:** dakikada bir bakılır; kişinin saati 09:00'u geçmiş ve o gün gönderilmemişse. Saat dilimi uygulamanın açılışta söylediği (`PATCH /me`), yoksa sunucununki. Sunucu sabah kapalıydıysa 12:00'den sonra o günün bildirimi gönderilmez: öğleden sonra gelen bir "bugün" bildirimi tuhaf olurdu.
+- **Ne sayılır:** bugün ve yarın bitmesi gereken, bitmemiş görevler ve kartlar, Today'in kuralıyla (`isMyWork`). Kartların alt görevleri sayılmaz.
+- **Ne der:** "2 due today, 1 due tomorrow"; altında üçe kadar ad ("ROA-1 and Call the dentist"), fazlası "Fix the login, SCR-12 and 2 more". Kart anahtarıyla, görev adıyla.
+- **Dokununca:** `scrawl:today`; bilgisayarda Today sekmesi, telefonda Today sekmesi.
+- **Testler:** core 2 (kimin işi, metin), sunucu `due.test.ts` 2 (09:00'da bir kez, bitmiş ve çöpteki sayılmaz; hiçbir şey yoksa ve öğleden sonra gitmez), web 1 (servis worker Today'i açar).
+- **Tarayıcıda denendi:** `/?chat=scrawl:today` bilgisayarda ve telefon görünümünde Today'i açtı. Gerçek sabah bildirimi, sunucunun saatine bağlı olduğu için yerelde beklenmedi; testte saat ilerletilerek denendi.

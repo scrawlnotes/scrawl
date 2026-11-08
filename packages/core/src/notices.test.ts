@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { addCard, addComment, editComment, moveCardToKind, newBoard, remindCard, serializeBoard, updateCard } from './board';
-import { noticesFrom, noticeWords, tellsPeople } from './notices';
-import { addTask, remindTask, serializeList, updateTask } from './tasks';
+import { dueWorkIn, dueWords, noticesFrom, noticeWords, tellsPeople } from './notices';
+import { addTask, remindTask, serializeList, setDone, updateTask } from './tasks';
 import { parseItemLink, personLink } from './sync/chat';
 
 const KAAN = { id: 'kaan', name: 'Kaan Arslan' };
@@ -133,7 +133,46 @@ describe('reminders', () => {
     const was = updateTask(addTask([], { title: 'Collect the feedback' }, at(0), 't1', KAAN), 't1', { assignee: { id: 'mert', name: 'Mert Kaya' } }, at(1), KAAN);
     const now = remindTask(was, 't1', at(5), KAAN, 'r1');
     expect(notices(serializeList({ sections: [], tasks: was }), serializeList({ sections: [], tasks: now })).map((n) => [n.kind, n.to])).toEqual([['remind', 'mert']]);
-    const done = updateTask(was, 't1', { done: true }, at(2), KAAN);
+    const done = setDone(was, 't1', true, at(2), KAAN);
     expect(remindTask(done, 't1', at(5), KAAN)).toBe(done);
+  });
+});
+
+describe('the morning', () => {
+  const DAYS = ['2026-11-09', '2026-11-10'];
+  it("finds the person's work due today and tomorrow, as Today does, not what is finished", () => {
+    let roadmap = addCard(board(), { title: 'Theirs, due today', due: '2026-11-09' }, at(0), KAAN, 'card2');
+    roadmap = addCard(roadmap, { title: 'Mine by an agent, tomorrow', due: '2026-11-10', assignee: { id: 'kaan:laptop', name: 'Claude Code (Laptop)' } }, at(0), KAAN, 'card3');
+    roadmap = addCard(roadmap, { title: 'Done today', due: '2026-11-09' }, at(0), KAAN, 'card4');
+    roadmap = moveCardToKind(roadmap, 'card4', 'done', at(1), KAAN);
+    roadmap = addCard(roadmap, { title: 'Next week', due: '2026-11-16' }, at(0), KAAN, 'card5');
+    // card1 is Mert's; card2 no one's, made by Kaan.
+    expect(dueWorkIn(PATH, serializeBoard(roadmap), 'kaan', DAYS)).toEqual([
+      { name: `${roadmap.prefix}-2`, due: '2026-11-09' },
+      { name: `${roadmap.prefix}-3`, due: '2026-11-10' },
+    ]);
+    // Given to Kaan: his, not Mert's.
+    const tasks = addTask([], { title: 'Fix the login', due: '2026-11-09', assignee: { id: 'kaan', name: 'Kaan Arslan' } }, at(0), 't1', KAAN);
+    expect(dueWorkIn(LIST, serializeList({ sections: [], tasks }), 'kaan', DAYS)).toEqual([{ name: 'Fix the login', due: '2026-11-09' }]);
+    expect(dueWorkIn(LIST, serializeList({ sections: [], tasks }), 'mert', DAYS)).toEqual([]);
+  });
+
+  it('says how many today and tomorrow, and names the first', () => {
+    const today = '2026-11-09';
+    expect(dueWords([], today)).toBeNull();
+    expect(dueWords([{ name: 'Fix the login', due: today }], today)).toEqual({ title: '1 due today', body: 'Fix the login' });
+    expect(dueWords([{ name: 'SCR-12', due: '2026-11-10' }], today)).toEqual({ title: '1 due tomorrow', body: 'SCR-12' });
+    expect(
+      dueWords(
+        [
+          { name: 'Fix the login', due: today },
+          { name: 'SCR-30', due: '2026-11-10' },
+          { name: 'SCR-12', due: today },
+          { name: 'Call the dentist', due: '2026-11-10' },
+        ],
+        today,
+      ),
+    ).toEqual({ title: '2 due today, 2 due tomorrow', body: 'Fix the login, SCR-12 and 2 more' });
+    expect(dueWords([{ name: 'A', due: today }, { name: 'B', due: today }, { name: 'C', due: today }], today)!.body).toBe('A, B and C');
   });
 });

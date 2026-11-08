@@ -40,9 +40,9 @@ self.addEventListener('push', (event) => {
   );
 });
 
-/** What a notification opens: a card or a task it is of (design/notifications.md 6), else the message. */
+/** What a notification opens: a card or a task it is of, Today for the morning's (design/notifications.md 6), else the message. */
 const hrefOf = (data) =>
-  typeof data.href === 'string' && data.href.startsWith('scrawl:item/')
+  typeof data.href === 'string' && (data.href.startsWith('scrawl:item/') || data.href === 'scrawl:today')
     ? data.href
     : data.chat && data.message
       ? `scrawl:chat/${encodeURIComponent(data.server)}/${encodeURIComponent(data.chat)}/${encodeURIComponent(data.message)}`

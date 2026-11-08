@@ -1981,6 +1981,10 @@ export function App() {
     // On a phone Chat is a tab of its own, which opens at the message.
     if (!phone) void session.open(CHAT);
   };
+  // The morning's notification opens Today: a tab on a computer, the Today tab on a phone.
+  const [todayAsked, setTodayAsked] = useState(0);
+  const openToday = useRef(() => undefined as void);
+  openToday.current = () => (phone ? setTodayAsked(Date.now()) : void session.open(TODAY));
   // A notification of a card or a task can open the app: what it is of is read a moment later, so
   // it waits for it, at most a while, and then opens or says why it cannot (design/notifications.md 6).
   const [noticeGoTo, setNoticeGoTo] = useState<{ href: string; until: number } | null>(null);
@@ -2002,7 +2006,9 @@ export function App() {
   useEffect(() => {
     session.openScrawl = (href) => openScrawl.current(href);
     // A notification clicked opens Chat at its message, or the card or the task it is of.
-    const stop = onNotificationClick((href) => (href.startsWith('scrawl:item/') ? setNoticeGoTo({ href, until: Date.now() + NOTICE_WAIT_MS }) : openScrawl.current(href)));
+    const stop = onNotificationClick((href) =>
+      href === 'scrawl:today' ? openToday.current() : href.startsWith('scrawl:item/') ? setNoticeGoTo({ href, until: Date.now() + NOTICE_WAIT_MS }) : openScrawl.current(href),
+    );
     return () => {
       session.openScrawl = null;
       stop();
@@ -3412,6 +3418,7 @@ export function App() {
               },
             }}
             chat={{ links: chatLinks, menu: openMenu, goTo: chatGoTo }}
+            todayAsked={todayAsked}
           />
           {newRecord && collections[newRecord.dir] && (
             <PhoneNewRecord
