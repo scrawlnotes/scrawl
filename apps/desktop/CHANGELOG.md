@@ -4,10 +4,14 @@ The desktop app's versions. The notes of each go on its GitHub release and into 
 
 ## 0.1.27
 
-A picture in its round, and Chat where you left it.
+Notifications of cards and tasks, and Chat.
 
+- With a Scrawl server, Scrawl tells you of what is yours: someone mentions you in a card's description or comment, or a task's description; gives you a card or a task; or reminds you of one. At 9:00, one notification of what is due today and tomorrow. A notification opens the card at its comment, the task, or Today.
+- Typing @ in a card's or a task's description, or a card's comment, lists the people of the space. A card or a task given to someone else has Remind and their name, once an hour.
+- Settings › Notifications picks what you are told of: Mentions, Assignments, Reminders and Due dates, the same on every device of yours.
 - A picture stays in its small round wherever a face sits beside words: on a card on a board and in a list it took the card's whole width.
-- A conversation made shorter or taller keeps the message over the box to write in where it was, and one opened at its newest message stays at its end, with what comes in after it in sight.
+- Chat: a conversation made shorter or taller keeps the message over the box to write in where it was; the box writes as large as a message reads; a photo opened is made larger with the wheel, a pinch or a double click; a public room has no members, anyone in its space joins it.
+- Bold, Italic, Strikethrough and Code pressed before writing format what you type next, in Chat and in a note.
 
 ## 0.1.26
 
