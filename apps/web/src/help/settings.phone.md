@@ -16,7 +16,7 @@ Each device keeps its own.
 
 ## Notifications
 
-With a Scrawl server: whether Chat's messages show on this phone, and a test one. On an iPhone, they come only to Scrawl on the home screen.
+With a Scrawl server: whether messages, mentions and the rest show on this phone, and a test one. On an iPhone, they come only to Scrawl on the home screen. Under it, **Notify me about** picks what the server tells you of, **Mentions**, **Assignments**, **Reminders** and **Due dates**, the same on every device of yours.
 
 ## Spaces
 

@@ -4,10 +4,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/client';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
-import { ServerAccount } from '@scrawlnotes/core';
+import { serializePeople, ServerAccount, SYNC_LEVEL } from '@scrawlnotes/core';
 import { afterEach, describe, expect, it } from 'vitest';
 import { type Config } from './config';
 import type { LiveSocket } from './live';
+import type { PushPayload, Sender } from './push';
 import { makeServer } from './server';
 
 // The agent's door: an agent signs in through the server's own OAuth, gets a token for /mcp, and
@@ -41,17 +42,21 @@ function start() {
   const data = mkdtempSync(join(tmpdir(), 'scrawl-agent-'));
   let clock = Date.UTC(2026, 9, 15, 10, 0);
   const config: Config = { url: URL_, port: 0, data, maxFileBytes: 1024 * 1024, ownerEmail: null, appUrl: 'https://app.scrawlnotes.com' };
-  const server = makeServer(config, { now: () => clock, fetchDoc: docs });
+  // The pushes the server sends, as their payloads.
+  const sent: PushPayload[] = [];
+  const sender: Sender = async (_subscription, payload) => (sent.push(JSON.parse(payload) as PushPayload), { statusCode: 201 });
+  const server = makeServer(config, { now: () => clock, fetchDoc: docs, sender });
   opened.push({
     data,
     close: () => {
+      server.push.stop();
       server.live.stop();
       server.db.close();
     },
   });
   const fetch: typeof globalThis.fetch = (input, init) => Promise.resolve(server.app.request(input instanceof Request ? input : String(input), init));
   const account = (token: string | null = null) => new ServerAccount({ url: URL_, token: () => token, fetch });
-  return { server, fetch, account, later: (ms: number) => (clock += ms) };
+  return { server, fetch, account, sent, later: (ms: number) => (clock += ms) };
 }
 
 type S = ReturnType<typeof start>;
@@ -408,6 +413,34 @@ describe('working through /mcp', () => {
     expect(refused.isError).toBe(true);
     await agent.close();
     expect(done.code).toBeTruthy();
+  });
+});
+
+describe('notifications', () => {
+  it('tells Mert of a card an agent gives him, of its @Mert in a comment and of its reminder', async () => {
+    const s = start();
+    const kaan = await owner(s);
+    const { link } = await s.account(kaan).invite(SPACE);
+    const { token: mert } = await s.account().accept(link.split('/').pop()!, { name: 'Mert Kaya', email: 'mert@example.com', password: 'a long password', person: 'person-mert', device: 'Phone' });
+    const api = (token: string, method: string, path: string, body: string, headers: Record<string, string>) => s.server.app.request(`${URL_}/api/v1${path}`, { method, headers: { Authorization: `Bearer ${token}`, ...headers }, body });
+    await api(mert, 'POST', '/push/subscriptions', JSON.stringify({ endpoint: 'https://push.example.com/mert', keys: { p256dh: 'BKey', auth: 'auth' } }), { 'Content-Type': 'application/json' });
+    // The space's people, as the app writes them on each device.
+    const seen = '2026-10-15T09:00:00.000Z';
+    const people = serializePeople([{ id: PERSON, name: 'Kaan Arslan', seen, active: true }, { id: 'person-mert', name: 'Mert Kaya', seen, active: true }]);
+    expect((await api(kaan, 'PUT', `/spaces/${SPACE}/files/.scrawl/people.json`, people, { 'Scrawl-Sync': String(SYNC_LEVEL), 'If-None-Match': '*' })).status).toBe(200);
+    const client = await mcp(s, (await connect(s)).access);
+    await client.callTool({ name: 'create', arguments: { kind: 'board', name: 'Scrawl', template: 'software', space: SPACE } });
+    await client.callTool({ name: 'save_card', arguments: { board: 'Scrawl', title: 'Export a board as CSV', assignee: 'Mert' } });
+    await client.callTool({ name: 'comment', arguments: { board: 'Scrawl', card: 'SCR-1', text: '@Mert can you check the headers?' } });
+    s.later(10 * 60_000);
+    expect((await client.callTool({ name: 'save_card', arguments: { board: 'Scrawl', id: 'SCR-1', remind: true } })).structuredContent).toMatchObject({ reminded: 'Mert Kaya' });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(s.sent.map((each) => [each.title, each.body])).toEqual([
+      ['Test agent · Kaan assigned you SCR-1', 'Export a board as CSV'],
+      ['Test agent · Kaan mentioned you on SCR-1', '@Mert Kaya can you check the headers?'],
+      ['Test agent · Kaan reminded you about SCR-1', 'Export a board as CSV'],
+    ]);
+    await client.close();
   });
 });
 

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { type AgentConversation, withMentions } from './chat';
+import { withMentions as made } from '@scrawlnotes/core';
+import type { AgentConversation } from './chat';
+
+const withMentions = (text: string, conversation: AgentConversation) => made(text, conversation.people, conversation.kind !== 'direct');
 
 // What an agent writes in a message: @Name and @room become mentions as the app writes them
 // (design/chat.md, 3.5 and 9). The rest is tried through a server's /mcp (apps/server, agent.test.ts).

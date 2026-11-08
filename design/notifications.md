@@ -257,3 +257,15 @@ Yayın: web ve sunucu; masaüstü kullanıcı söyleyince.
 - **Cihazın metni:** "New messages show …" yerine "Messages, mentions and the rest show …" (bilgisayar, tarayıcı, telefon).
 - **Testler:** sunucu 2 (Mert mention'ı kapatınca yalnız atama gider, her cihazında; yanlış seçim 400; Due dates kapalıysa sabah bildirimi gitmez); `/me` testi seçimlerle.
 - **Tarayıcıda denendi:** bilgisayarda ve telefon görünümünde dört seçim; Mentions kapatılıp sayfa yenilenince kapalı kaldı, sunucuda da kapalıydı; telefonda switch'le geri açıldı.
+
+## 18. Yazılırken: 6. dilim (Ajan ve Help)
+
+8 Kasım 2026. ROA-370.
+
+- **Mention:** `withMentions` core'a taşındı (`sync/chat.ts`, kişiler ve `room` alır); `send_message` de onu kullanır. Ajan `comment` metninde, `save_card` ve `save_task` açıklamasında `@Ad Soyad` ya da tek kişide geçen ilk adı space'in aktif kişilerinden mention'a çevirir (`mentionsMade`); ajanlar ve pasif kişiler yok. Araçların açıklamasında bir cümle.
+- **Remind:** `save_card` ve `save_task`'ta `id` ile `remind: true`; sonuçta `reminded: "Mert Kaya"`. Yapılamıyorsa hiçbir şey yazılmaz ve nedeni söylenir: kimliği bilinmiyor, bitmiş, kimseye verilmemiş, ajana verilmiş, ajanın çalıştığı kişiye verilmiş (kendisine söylesin), ya da bir saat dolmadı ("You reminded Mert Kaya of it 20 min ago; once an hour"). Yeni kartta ve görevde yok.
+- **Rehber:** "Who did what" bölümüne bir paragraf: mention nasıl yazılır, remind ne zaman.
+- **Düzeltme:** ajanın kaydındaki ad zaten kimin olduğunu taşıyor ("Claude Code · Kaan Arslan"); bildirim başlığı "Claude Code · Kaan Arslan · Kaan" oluyordu. Artık adın yalnız ajan kısmı alınır: "Claude Code · Kaan assigned you SCR-1".
+- **Help:** Working together'a "Mentions and notifications" bölümü (dört tür, ajan, Settings, kaçan bildirim tutulmaz); Boards ve Task lists'e (telefon sayfaları dahil) @ ile mention cümlesi; Settings'e (telefon dahil) Notify me about.
+- **Testler:** ajan 2 (açıklama ve yorumda mention, pasif kişi ve ajan hariç; remind ve beş ret), sunucu 1 (`/mcp` üzerinden ajan atar, yorumda @Mert yazar, hatırlatır: Mert'e üç push gider).
+- **Tarayıcıda:** Help penceresinde Working together'ın yeni bölümü.

@@ -36,6 +36,7 @@ export {
   personLink,
   plainText,
   ROOM_MENTION,
+  withMentions,
   withMessages,
 } from './chat';
 export { clearLeftPlace, MOVED_DIR, type MovedMark, movedAt, movedPath, parseMoved, serializeMoved } from './moved';

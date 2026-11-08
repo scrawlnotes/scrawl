@@ -1,3 +1,4 @@
+import { fold } from '../search';
 import { errorOf, ServerClient, type ServerOptions } from './server';
 
 // Messaging on a Scrawl server (design/chat.md): the conversations, their messages and what is
@@ -345,6 +346,43 @@ export function parseItemLink(href: string): ChipRef | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * A text's mentions made as the app writes them, for an agent that writes `@Name`: `@` and the
+ * name of one of `people`, full or the first alone when only one has it, and `@room` when `room`
+ * (design/chat.md 9, design/notifications.md 8). One made already, an address and a name inside a
+ * word stay as they are.
+ */
+export function withMentions(text: string, people: readonly { id: string; name: string }[], room = false): string {
+  // Each name as it is written, found by its folded form: Şahin is Sahin too.
+  const names = new Map<string, { id: string; name: string } | 'room'>();
+  const written = new Set<string>();
+  if (room) {
+    names.set('room', 'room');
+    written.add('room');
+  }
+  const firsts = new Map<string, { person: { id: string; name: string }; as: string }[]>();
+  for (const person of people) {
+    names.set(fold(person.name.trim().replace(/\s+/g, ' ')), person);
+    written.add(person.name.trim()).add(fold(person.name.trim()));
+    const first = person.name.trim().split(/\s+/)[0] ?? '';
+    if (first) firsts.set(fold(first), [...(firsts.get(fold(first)) ?? []), { person, as: first }]);
+  }
+  for (const [first, those] of firsts) {
+    if (those.length !== 1 || names.has(first)) continue;
+    names.set(first, those[0]!.person);
+    written.add(those[0]!.as).add(first);
+  }
+  const longest = [...written].sort((a, b) => b.length - a.length).map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'));
+  if (!longest.length) return text;
+  // Not one already made: a mention's words are in brackets.
+  const pattern = new RegExp(`(^|[^\\p{L}\\p{N}\\[@])@(${longest.join('|')})(?![\\p{L}\\p{N}])`, 'giu');
+  return text.replace(pattern, (whole, before: string, name: string) => {
+    const who = names.get(fold(name.replace(/\s+/g, ' ')));
+    if (!who) return whole;
+    return `${before}${who === 'room' ? ROOM_MENTION : personLink(who.name, who.id)}`;
+  });
 }
 
 /** The people a text mentions, by id, each once, in the order they come: `[@Mert Kaya](scrawl:person/<id>)`. */

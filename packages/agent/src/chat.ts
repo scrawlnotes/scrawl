@@ -1,4 +1,4 @@
-import { fold, personLink, ROOM_MENTION } from '@scrawlnotes/core';
+import { fold, withMentions } from '@scrawlnotes/core';
 import { dayArg } from './cards';
 import { Refusal } from './paths';
 import { type Agent, type Client, selfOf } from './space';
@@ -153,41 +153,6 @@ async function personOf(agent: Agent, chat: AgentChat, ref: string): Promise<{ i
   throw new Refusal(`No one is "${ref.trim()}" in the spaces`, { people: people.map((person) => person.name) });
 }
 
-/**
- * A message's words with its mentions made: `@room` in a room, and `@` and the name of someone in
- * the conversation, full or the first alone when only one has it, as the app writes them.
- */
-export function withMentions(text: string, conversation: AgentConversation): string {
-  // Each name as it is written, found by its folded form: Şahin is Sahin too.
-  const names = new Map<string, { id: string; name: string } | 'room'>();
-  const written = new Set<string>();
-  if (conversation.kind !== 'direct') {
-    names.set('room', 'room');
-    written.add('room');
-  }
-  const firsts = new Map<string, { person: { id: string; name: string }; as: string }[]>();
-  for (const person of conversation.people) {
-    names.set(fold(person.name.trim().replace(/\s+/g, ' ')), person);
-    written.add(person.name.trim()).add(fold(person.name.trim()));
-    const first = person.name.trim().split(/\s+/)[0] ?? '';
-    if (first) firsts.set(fold(first), [...(firsts.get(fold(first)) ?? []), { person, as: first }]);
-  }
-  for (const [first, people] of firsts) {
-    if (people.length !== 1 || names.has(first)) continue;
-    names.set(first, people[0]!.person);
-    written.add(people[0]!.as).add(first);
-  }
-  const longest = [...written].sort((a, b) => b.length - a.length).map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'));
-  if (!longest.length) return text;
-  // Not one already made: a mention's words are in brackets.
-  const pattern = new RegExp(`(^|[^\\p{L}\\p{N}\\[@])@(${longest.join('|')})(?![\\p{L}\\p{N}])`, 'giu');
-  return text.replace(pattern, (whole, before: string, name: string) => {
-    const who = names.get(fold(name.replace(/\s+/g, ' ')));
-    if (!who) return whole;
-    return `${before}${who === 'room' ? ROOM_MENTION : personLink(who.name, who.id)}`;
-  });
-}
-
 export interface MessagesArgs {
   in?: string;
   space?: string;
@@ -257,6 +222,6 @@ export async function sendMessageTool(agent: Agent, args: SendMessageArgs, clien
   }
   if (where.archived) throw new Refusal(`${where.name} is archived: it is read, not written`);
   const self = await selfOf(agent, client, true);
-  const sent = await chat.send(where.id, withMentions(text, where), args.replyTo?.trim() || null, self?.id ?? null);
+  const sent = await chat.send(where.id, withMentions(text, where.people, where.kind !== 'direct'), args.replyTo?.trim() || null, self?.id ?? null);
   return { data: { sent: { id: sent.id, in: where.name, at: clock(agent, sent.at) }, ...(where.space && { space: where.space.id }) } };
 }

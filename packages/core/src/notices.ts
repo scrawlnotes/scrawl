@@ -180,8 +180,9 @@ function taskNotices(input: { space: string; path: string; before: string | null
 export function noticeWords(notice: Notice, where: string, nameOf: (id: string) => string | undefined = () => undefined): { title: string; body: string } {
   const first = (name: string | undefined) => name?.trim().split(/\s+/)[0];
   const by = notice.by.id;
+  // An agent's stamp has whose it is after its name already ("Claude Code · Kaan Arslan"): its own part only.
   const who = by && isAgentId(by)
-    ? [notice.by.name || 'An agent', first(nameOf(ownerOf(by)))].filter(Boolean).join(' · ')
+    ? [notice.by.name?.split(' · ')[0]?.trim() || 'An agent', first(nameOf(ownerOf(by)))].filter(Boolean).join(' · ')
     : first((by && nameOf(by)) || notice.by.name) || 'Someone';
   const which = notice.item.key ?? notice.item.title;
   const title = notice.kind === 'assign' ? `${who} assigned you ${which}` : notice.kind === 'remind' ? `${who} reminded you about ${which}` : `${who} mentioned you on ${which}`;

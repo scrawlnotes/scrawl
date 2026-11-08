@@ -8,6 +8,8 @@ Press **+** beside the tabs and pick **Board**. Under a column, **Add card** tak
 
 A card has a key such as `SCR-12`, a description, subtasks, a priority, labels, a date, who it is given to, and links to notes and tasks. Click a card to open it beside the columns. Under it, its timeline shows its moves and comments together, with who made each, a person or an agent.
 
+Type `@` in its description or a comment to mention someone in the space; with a Scrawl server they are told. See [Working together](working-together).
+
 Drag a card to another column to move it. **Board** and **List** at the top switch between the columns and a table of the same cards.
 
 ## Columns

@@ -8,6 +8,8 @@ In **Browse** or in a folder, press **+** at the bottom right and pick **Board**
 
 A board shows one column at a time; swipe, or tap the column names at the top. A card has a key such as `SCR-12`, a description, subtasks, a priority, labels, a date, who it is given to, and links to notes and tasks. Tap a card for its page: its fields, its description, and its timeline of moves and comments, with who made each, a person or an agent.
 
+Type `@` in its description or a comment to mention someone in the space; with a Scrawl server they are told. See [Working together](working-together).
+
 Press and hold a card for **Status…**, which moves it to another column, **Copy as brief** and **Delete**. **Board** and **List**, beside the board's name, switch between the columns and a list of the same cards.
 
 ## Columns

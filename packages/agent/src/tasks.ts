@@ -17,6 +17,7 @@ import {
   saveList,
   sectionTasks,
   serializeList,
+  remindTask,
   setDone,
   type Task,
   type TaskList,
@@ -27,7 +28,7 @@ import {
 import { type People, peopleIn, taskActivity, workedOnNames, workedOnOut } from './activity';
 import { checkItems, dayArg } from './cards';
 import { Refusal } from './paths';
-import { actorOf, type Agent, authorOf, type AgentSpace, type Client, type Due, dueIs, type Element, elementsOf, exists, isAssignee, nameIn, noteRefOf, nowOf, personRefOf, pickAcross, pickElement, pickRecord, pickSpace, selfOf, todayOf, type Who, workedOnBy } from './space';
+import { actorOf, type Agent, authorOf, type AgentSpace, checkRemind, type Client, type Due, dueIs, type Element, elementsOf, exists, isAssignee, mentionsMade, nameIn, noteRefOf, nowOf, personRefOf, pickAcross, pickElement, pickRecord, pickSpace, selfOf, todayOf, type Who, workedOnBy } from './space';
 
 // Tasks: what is due, the tasks of a list, adding, moving and closing one. A task without a list
 // goes to the personal space's Inbox, as Todoist's.
@@ -170,6 +171,8 @@ export interface TaskArgs {
   done?: boolean;
   /** Add it even though an open task with its title is there already. */
   another?: boolean;
+  /** Remind whoever the task is given to of it (design/notifications.md 8). */
+  remind?: boolean;
   /** Many tasks at once in the list, each with the fields of one: all written, or none. */
   items?: TaskItem[];
 }
@@ -235,6 +238,8 @@ interface TaskDone {
   message?: string;
   /** What changed beside it: the open subtasks completed with it. */
   followed?: string[];
+  /** The one reminded of it, by name. */
+  reminded?: string;
 }
 
 /** One task added or changed, or, with `items`, many in one list in one go. */
@@ -286,7 +291,7 @@ async function saveTask(agent: Agent, client: Client, args: TaskArgs) {
     return { data: { ...where, list: elsewhere, from: path, created, task: taskOut(elsewhere, into, into.tasks.find((t) => t.id === step.id)!, people, true), ...(step.followed && { followed: step.followed }) } };
   }
   await saveList(space.fs, path, step.list);
-  return { data: { ...where, list: path, created, task: taskOut(path, step.list, step.list.tasks.find((t) => t.id === step.id)!, people, true), ...(step.followed && { followed: step.followed }) } };
+  return { data: { ...where, list: path, created, ...(step.reminded && { reminded: step.reminded }), task: taskOut(path, step.list, step.list.tasks.find((t) => t.id === step.id)!, people, true), ...(step.followed && { followed: step.followed }) } };
 }
 
 async function saveTasks(agent: Agent, client: Client, args: TaskArgs & { items: TaskItem[] }) {
@@ -316,7 +321,7 @@ async function saveTasks(agent: Agent, client: Client, args: TaskArgs & { items:
       created: count('created'),
       changed: count('changed'),
       exists: count('exists'),
-      tasks: done.map((step) => ({ status: step.status, ...taskOut(path, list, list.tasks.find((t) => t.id === step.id)!, people), ...(step.followed && { followed: step.followed }) })),
+      tasks: done.map((step) => ({ status: step.status, ...(step.reminded && { reminded: step.reminded }), ...taskOut(path, list, list.tasks.find((t) => t.id === step.id)!, people), ...(step.followed && { followed: step.followed }) })),
     },
   };
 }
@@ -328,7 +333,9 @@ async function applyTask(space: AgentSpace, list: TaskList, path: string, args: 
   const priority = args.priority === undefined ? undefined : ([1, 2, 3, 4].includes(args.priority) ? (args.priority as Priority) : undefined);
   if (args.priority !== undefined && priority === undefined) throw new Refusal('Priority is 1 (highest) to 4 (none)', { given: args.priority });
   const due = dayArg(args.due, 'Due');
+  if (args.remind && !args.id) throw new Refusal('remind is for a task that is there, given to someone: give its id; nothing was written');
   const assignee = args.assignee === undefined ? undefined : await personRefOf(space, args.assignee, who);
+  const description = args.description === undefined ? undefined : await mentionsMade(space.fs, args.description);
   const record = args.record === undefined ? undefined : await recordRefOf(space.fs, args.record);
   const note = await noteRefOf(space.fs, args.note);
   let tasks = list.tasks;
@@ -348,7 +355,7 @@ async function applyTask(space: AgentSpace, list: TaskList, path: string, args: 
       id,
       {
         ...(args.title !== undefined && { title: args.title }),
-        ...(args.description !== undefined && { description: args.description }),
+        ...(description !== undefined && { description }),
         ...(due !== undefined && { due }),
         ...(priority !== undefined && { priority }),
         ...(args.labels !== undefined && { labels: args.labels }),
@@ -378,7 +385,7 @@ async function applyTask(space: AgentSpace, list: TaskList, path: string, args: 
       title,
       ...(section !== null && { section }),
       ...(parent !== null && { parent }),
-      ...(args.description !== undefined && { description: args.description }),
+      ...(description !== undefined && { description }),
       ...(due !== undefined && { due }),
       ...(priority !== undefined && { priority }),
       ...(args.labels?.length && { labels: args.labels }),
@@ -400,11 +407,18 @@ async function applyTask(space: AgentSpace, list: TaskList, path: string, args: 
     tasks = setDone(tasks, id, args.done, clock, actor);
     if (args.done) along = tasks.filter((t) => open.has(t.id) && t.done).map((t) => t.title);
   }
+  let reminded: string | undefined;
+  if (args.remind) {
+    const task = tasks.find((t) => t.id === id)!;
+    checkRemind(task, task.done, actor, who, clock());
+    tasks = remindTask(tasks, id, clock, actor);
+    reminded = task.assignee!.name ?? task.assignee!.id!;
+  }
   let next: TaskList = { ...list, tasks };
   // A new one is where parent and section put it already; after moves it among its siblings.
   if (place && (args.after !== undefined || (!created && (args.parent !== undefined || args.section !== undefined)))) {
     next = placeTask(next, path, id, created ? undefined : args.parent, created ? undefined : args.section, clock, args.after);
   }
   const followed = along.length > 0 ? [`${along.length === 1 ? 'Its open subtask was' : `Its ${along.length} open subtasks were`} completed with it: ${along.join(', ')}`] : undefined;
-  return { list: next, id, status: created ? 'created' : 'changed', ...(followed && { followed }) };
+  return { list: next, id, status: created ? 'created' : 'changed', ...(followed && { followed }), ...(reminded && { reminded }) };
 }

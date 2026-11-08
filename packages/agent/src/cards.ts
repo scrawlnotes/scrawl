@@ -2,6 +2,7 @@ import {
   type Actor,
   addCard,
   addComment,
+  remindCard,
   type Board,
   boardName,
   type Card,
@@ -41,7 +42,7 @@ import {
 import { cardActivity, type People, peopleIn, workedOnNames, workedOnOut, writerOf } from './activity';
 import { checkOpen, cleanPath, Refusal } from './paths';
 import { parseValues, ruleSpaceNow } from './records';
-import { actorOf, type Agent, authorOf, type AgentSpace, type Client, type Due, dueIs, elementsOf, exists, isAssignee, nameIn, noteRefOf, nowOf, personRefOf, pickAcross, pickSpace, selfOf, todayOf, type Who, workedOnBy } from './space';
+import { actorOf, type Agent, authorOf, type AgentSpace, checkRemind, type Client, type Due, dueIs, elementsOf, exists, isAssignee, mentionsMade, nameIn, noteRefOf, nowOf, personRefOf, pickAcross, pickSpace, selfOf, todayOf, type Who, workedOnBy } from './space';
 import { applySubtasks, type SubtaskArg, subtaskOut } from './subtasks';
 
 // Boards: the cards of a board, short, and of every board by a day or a person; a card in full or
@@ -356,6 +357,8 @@ export interface CardArgs {
   after?: string;
   /** Add the card even though an open one has its title already. */
   another?: boolean;
+  /** Remind whoever the card is given to of it (design/notifications.md 8). */
+  remind?: boolean;
   /** Many cards at once on the board, each with the fields of one: all written, or none. */
   items?: CardItem[];
 }
@@ -372,6 +375,8 @@ interface CardDone {
   card: Card;
   status: 'created' | 'changed' | 'exists';
   message?: string;
+  /** The one reminded of it, by name. */
+  reminded?: string;
 }
 
 /** What a field holds, said for a value that does not fit it. */
@@ -469,7 +474,7 @@ async function saveCard(agent: Agent, client: Client, args: CardArgs) {
   if (step.status === 'exists') return { data: { ...where, created: false, exists: true, message: step.message, card: cardOut(board, step.card, today, people) } };
   await saveBoard(space.fs, element.path, step.board);
   await writeWins(space.fs, board, step.board, [step.card.id], today);
-  return { data: { ...where, created: step.status === 'created', card: cardOut(step.board, step.board.cards.find((c) => c.id === step.card.id)!, today, people) } };
+  return { data: { ...where, created: step.status === 'created', ...(step.reminded && { reminded: step.reminded }), card: cardOut(step.board, step.board.cards.find((c) => c.id === step.card.id)!, today, people) } };
 }
 
 async function saveCards(agent: Agent, client: Client, args: CardArgs & { items: CardItem[] }) {
@@ -498,7 +503,7 @@ async function saveCards(agent: Agent, client: Client, args: CardArgs & { items:
       created: count('created'),
       changed: count('changed'),
       exists: count('exists'),
-      cards: done.map((step) => ({ status: step.status, ...cardLine(board, board.cards.find((c) => c.id === step.card.id)!, today, people) })),
+      cards: done.map((step) => ({ status: step.status, ...(step.reminded && { reminded: step.reminded }), ...cardLine(board, board.cards.find((c) => c.id === step.card.id)!, today, people) })),
     },
   };
 }
@@ -510,7 +515,9 @@ async function applyCard(space: AgentSpace, board: Board, args: CardItem, now: D
   const priority = args.priority === undefined ? undefined : ([1, 2, 3, 4].includes(args.priority) ? (args.priority as Priority) : undefined);
   if (args.priority !== undefined && priority === undefined) throw new Refusal('Priority is 1 (highest) to 4 (none)', { given: args.priority });
   const due = dayArg(args.due, 'Due');
+  if (args.remind && !args.id) throw new Refusal('remind is for a card that is there, given to someone: give its id; nothing was written');
   const assignee = args.assignee === undefined ? undefined : await personRefOf(space, args.assignee, who);
+  const description = args.description === undefined ? undefined : await mentionsMade(space.fs, args.description);
   const values = args.values ? await parseValues(space.fs, board.fields ?? [], args.values) : undefined;
   if (values && Object.keys(values.extra).length > 0) {
     const [key, raw] = Object.entries(values.extra)[0]!;
@@ -529,7 +536,7 @@ async function applyCard(space: AgentSpace, board: Board, args: CardItem, now: D
       card.id,
       {
         ...(args.title !== undefined && { title: args.title }),
-        ...(args.description !== undefined && { description: args.description }),
+        ...(description !== undefined && { description }),
         ...(priority !== undefined && { priority }),
         ...(due !== undefined && { due }),
         ...(args.labels !== undefined && { labels: args.labels }),
@@ -548,6 +555,12 @@ async function applyCard(space: AgentSpace, board: Board, args: CardItem, now: D
       const after = args.after !== undefined ? afterOf(board, to, args.after, card.id) : (columnCards(board, to).filter((c) => c.id !== card.id).pop()?.id ?? null);
       board = moveCard(board, card.id, { column: to, after }, () => now, by);
     }
+    if (args.remind) {
+      const now_ = board.cards.find((c) => c.id === card.id)!;
+      checkRemind(now_, isFinished(board, now_), by, who, now);
+      board = remindCard(board, card.id, () => now, by);
+      return { board, card, status: 'changed', reminded: now_.assignee!.name ?? now_.assignee!.id! };
+    }
   } else {
     const title = args.title?.trim();
     if (!title) throw new Refusal('A new card needs a title');
@@ -563,7 +576,7 @@ async function applyCard(space: AgentSpace, board: Board, args: CardItem, now: D
       title,
       ...(column && { column: column.id }),
       ...(phase !== undefined && { phase: phase?.id ?? null }),
-      ...(args.description !== undefined && { description: args.description }),
+      ...(description !== undefined && { description }),
       ...(priority !== undefined && { priority }),
       ...(due !== undefined && { due }),
       ...(args.labels && { labels: args.labels }),
@@ -589,7 +602,7 @@ export async function commentTool(agent: Agent, client: Client, args: { space?: 
   let board = await loadBoard(space.fs, element.path);
   const people = await peopleIn(space.fs);
   const card = pickCard(board, args.card);
-  const text = args.text.trim();
+  const text = await mentionsMade(space.fs, args.text.trim());
   if (!text) throw new Refusal('A comment needs text');
   const now = nowOf(agent);
   const by = actorOf(client, await agent.person());

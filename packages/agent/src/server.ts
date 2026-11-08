@@ -52,6 +52,10 @@ const subtasks = z
   )
   .optional()
   .describe('Subtasks to add, change, tick off (done: true) or take off (remove: true); the others stay as they are. One level, in the order added.');
+/** A description's or a comment's `@Name` (design/notifications.md 8). */
+const MENTION = '`@Name` mentions one of the space’s people, by the name `spaces` lists, or the first name alone when only one has it: on a Scrawl server they are told.';
+const remind = (what: string) =>
+  z.boolean().optional().describe(`true tells whoever the ${what} is given to that you reminded them of it. Once an hour; not for one given to no one, to an agent or to the person you work for, nor a finished one: those are refused, nothing written.`);
 const another = z.boolean().optional().describe('true to add it even though one with the same name is already there. Left out, the tool returns the one that exists instead of adding a second.');
 const by = z.string().optional().describe('Who worked on it, as its workedOn has them: "self" for you, "me" for the person, or a person’s or an agent’s name. With by or since, what is done comes too.');
 const since = z.string().optional().describe('A day as YYYY-MM-DD: worked on since that day, by `by` when given, else by anyone.');
@@ -334,7 +338,7 @@ export function buildServer(agent: Agent): McpServer {
   const cardFields = {
     id: z.string().optional().describe('The card to change: its key like SCR-12, its number or id. Left out, a card is added.'),
     title: z.string().optional(),
-    description: z.string().optional().describe('Markdown. For steps to tick off use subtasks.'),
+    description: z.string().optional().describe(`Markdown. For steps to tick off use subtasks. ${MENTION}`),
     column: z.string().optional(),
     phase: z.string().optional().describe('A phase by name; "none" for the general backlog.'),
     priority: z.number().int().min(1).max(4).optional().describe('1 highest, 4 none.'),
@@ -346,6 +350,7 @@ export function buildServer(agent: Agent): McpServer {
     subtasks,
     after: z.string().optional().describe('The card it goes right after in its column, by key (SCR-12); "top" for the first place. Left out, a card moved to another column goes at its end.'),
     another,
+    remind: remind('card'),
   };
 
   server.registerTool(
@@ -369,7 +374,7 @@ export function buildServer(agent: Agent): McpServer {
     {
       title: 'Comment on a card',
       description: 'Writes a comment on a card’s timeline with your name: say what you did and what is left. The same text sent again right after is not written twice.',
-      inputSchema: z.object({ space, board: z.string(), card: z.string().describe('The card’s key, number or id.'), text: z.string() }),
+      inputSchema: z.object({ space, board: z.string(), card: z.string().describe('The card’s key, number or id.'), text: z.string().describe(`Markdown. ${MENTION}`) }),
       annotations: { readOnlyHint: false, destructiveHint: false },
     },
     (args, ctx) => writing(ctx, () => commentTool(agent, client(ctx), args)),
@@ -399,7 +404,7 @@ export function buildServer(agent: Agent): McpServer {
   const taskFields = {
     id: z.string().optional().describe('The task to change: its id or title. Left out, a task is added.'),
     title: z.string().optional(),
-    description: z.string().optional(),
+    description: z.string().optional().describe(`Markdown. ${MENTION}`),
     due: day,
     priority: z.number().int().min(1).max(4).optional(),
     labels: z.array(z.string()).optional().describe('All its labels: they replace what it has; [] takes them off. A space’s tasks and cards share their labels: use the ones there before making new ones.'),
@@ -411,6 +416,7 @@ export function buildServer(agent: Agent): McpServer {
     after: z.string().optional().describe('The task it goes right after, under the same parent or in the same section, by id or title; "top" for the first place. Left out, a moved task goes at the end.'),
     done: z.boolean().optional(),
     another,
+    remind: remind('task'),
   };
 
   server.registerTool(

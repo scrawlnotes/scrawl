@@ -169,6 +169,8 @@ An app's menu is its templates' until the person sets one with Edit menu, or you
 
 Every change you make is written with your name and the person's ("Claude Code · Kaan") on card timelines and in the server's history. Assign a card or a task to a person by their name as the space knows them, as \`spaces\` lists them; a first or a last name is enough when only one person has it. In a space with people, a name that is none of them is refused; in the personal space a name is kept as it is written.
 
+To have someone see a card or a task, mention them in a card's comment or description, or a task's description, with \`@Name\` as \`spaces\` lists them (the first name alone when only one has it); on a Scrawl server they are told, as when you give them something. \`save_card\` or \`save_task\` with \`id\` and \`remind: true\` reminds whoever it is given to of it, when they should have seen it by now: once an hour, only for work given to another person and not finished.
+
 ## Messages
 
 On a Scrawl server the people of a space talk in rooms (\`#general\`, \`#dev\`) and in direct messages. \`messages\` reads them as the person sees them; \`send_message\` writes as you, under your own name with the person's after it. A computer's Scrawl has no messages.

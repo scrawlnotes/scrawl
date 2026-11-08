@@ -1310,6 +1310,58 @@ describe('the agent’s own identity', () => {
   });
 });
 
+describe('mentions and reminders', () => {
+  async function team() {
+    const shared = new MemoryFs();
+    const seen = '2026-10-15T08:00:00.000Z';
+    const self = { id: 'me:4f2a9c1e', name: 'Claude Code (KAAN-PC)', client: 'Claude Code', place: 'KAAN-PC' };
+    await savePeople(shared, [
+      { id: 'me', name: 'Kaan Arslan', seen, active: true },
+      { id: 'mert', name: 'Mert Kaya', seen, active: true },
+      { id: 'elif', name: 'Elif Demir', seen, active: false },
+      { id: self.id, name: self.name, agent: { client: 'Claude Code', place: 'KAAN-PC', owner: 'Kaan Arslan' }, seen, active: true },
+    ]);
+    const list = await createTaskList(shared, '', 'Tasks');
+    const board = await createBoard(shared, '', 'Scrawl', 'software');
+    let day = NOW;
+    const as: Agent = { spaces: async () => [spaceOf(shared, false, 'Acme')], person: async () => ({ id: 'me', name: 'Kaan Arslan' }), now: () => day, self: async () => self };
+    const later = (minutes: number) => (day = new Date(NOW.getTime() + minutes * 60_000));
+    return { shared, list, board, as, later };
+  }
+
+  it('makes @Name in a comment and a description a mention of one of the space’s people, as the app writes it', async () => {
+    const { shared, list, board, as } = await team();
+    await saveCardTool(as, CLIENT, { board: 'Scrawl', title: 'Export', description: 'For @Mert, not @Elif Demir, who left, nor @Claude' });
+    await commentTool(as, CLIENT, { board: 'Scrawl', card: 'SCR-1', text: '@mert kaya can you check the headers? mert@example.com' });
+    await saveTaskTool(as, CLIENT, { list: 'Tasks', title: 'Collect the feedback', description: 'Ask @Kaan' });
+    const card = (await loadBoard(shared, board)).cards[0]!;
+    expect(card.description).toBe('For [@Mert Kaya](scrawl:person/mert), not @Elif Demir, who left, nor @Claude');
+    expect(card.timeline.find((e) => e.kind === 'comment')).toMatchObject({ text: '[@Mert Kaya](scrawl:person/mert) can you check the headers? mert@example.com' });
+    expect((await loadList(shared, list)).tasks[0]!.description).toBe('Ask [@Kaan Arslan](scrawl:person/me)');
+  });
+
+  it('reminds whoever a card or a task is given to, once an hour, and refuses what cannot be reminded', async () => {
+    const { shared, list, board, as, later } = await team();
+    await saveCardTool(as, CLIENT, { board: 'Scrawl', items: [{ title: 'Export', assignee: 'Mert' }, { title: 'Mine', assignee: 'Kaan' }, { title: 'Nobody' }] });
+    expect((await saveCardTool(as, CLIENT, { board: 'Scrawl', id: 'SCR-1', remind: true })).data).toMatchObject({ reminded: 'Mert Kaya' });
+    expect((await loadBoard(shared, board)).cards[0]!.timeline.at(-1)).toMatchObject({ kind: 'remind', to: { id: 'mert' }, byId: 'me:4f2a9c1e' });
+    later(20);
+    expect((await refusal(saveCardTool(as, CLIENT, { board: 'Scrawl', id: 'SCR-1', remind: true }))).message).toContain('20 min ago; once an hour');
+    later(61);
+    expect((await saveCardTool(as, CLIENT, { board: 'Scrawl', id: 'SCR-1', remind: true })).data).toMatchObject({ reminded: 'Mert Kaya' });
+    expect((await refusal(saveCardTool(as, CLIENT, { board: 'Scrawl', id: 'SCR-2', remind: true }))).message).toContain('the person you work for');
+    expect((await refusal(saveCardTool(as, CLIENT, { board: 'Scrawl', id: 'SCR-3', remind: true }))).message).toContain('given to no one');
+    expect((await refusal(saveCardTool(as, CLIENT, { board: 'Scrawl', title: 'New', assignee: 'Mert', remind: true }))).message).toContain('give its id');
+    const added = await saveTaskTool(as, CLIENT, { list: 'Tasks', title: 'Collect the feedback', assignee: 'Mert' });
+    const id = (added.data as { task: { id: string } }).task.id;
+    expect((await saveTaskTool(as, CLIENT, { list: 'Tasks', id, remind: true })).data).toMatchObject({ reminded: 'Mert Kaya' });
+    expect((await loadList(shared, list)).tasks[0]!.timeline!.at(-1)).toMatchObject({ kind: 'remind', to: { id: 'mert' } });
+    await saveTaskTool(as, CLIENT, { list: 'Tasks', id, done: true });
+    later(200);
+    expect((await refusal(saveTaskTool(as, CLIENT, { list: 'Tasks', id, remind: true }))).message).toContain('finished');
+  });
+});
+
 describe('records on a calendar', () => {
   it("gives what the calendars bring to Today and Upcoming, and a collection's records on some days", async () => {
     const { agent, fs, activities } = await sample();

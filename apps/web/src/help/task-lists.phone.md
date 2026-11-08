@@ -6,7 +6,7 @@ A task list is what you have to do, in a folder beside that work's notes. A fold
 
 In **Browse** or in a folder, press **+** at the bottom right and pick **Task list**. In the list, **+** adds a task. A task has a title, a description, a date, a priority from 1 to 4, labels, and in a space shared with others who it is given to.
 
-Tap a task for its sheet, where everything about it is changed.
+Tap a task for its sheet, where everything about it is changed. In a task's description, `@` mentions someone in the space; with a Scrawl server they are told. See [Working together](working-together).
 
 - **Subtasks:** hold a task and move it to the right, under another, to make it a subtask, up to four levels.
 - **Moving:** hold a task and drag it where it should go. **Move to…** in its menu moves it to another list or section.

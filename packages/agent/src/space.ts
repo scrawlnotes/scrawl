@@ -1,4 +1,5 @@
 import {
+  type Actor,
   type AgentRow,
   basename,
   BOARD_EXT,
@@ -10,6 +11,7 @@ import {
   fold,
   isAgent,
   isAgentId,
+  lastReminded,
   loadPeople,
   ownerName,
   type Person as PersonRow,
@@ -17,6 +19,7 @@ import {
   type Record as CollectionRecord,
   readTree,
   refOf,
+  REMIND_EVERY_MS,
   sameAgent,
   savePeople,
   shownName,
@@ -26,6 +29,7 @@ import {
   type WorkedOn,
   wallClock,
   withAgent,
+  withMentions,
 } from '@scrawlnotes/core';
 import type { AgentChat } from './chat';
 import { Refusal } from './paths';
@@ -366,6 +370,36 @@ export function pickRecord(collection: Collection, ref: string): CollectionRecor
 /** The names of a space's people, those who still open it; its agents are not among them. */
 export async function peopleOf(fs: VaultFs): Promise<string[]> {
   return (await loadPeople(fs).catch(() => [])).filter((p) => p.active && p.name && !isAgent(p)).map((p) => p.name!);
+}
+
+/**
+ * What the agent writes in a card's comment or description, or a task's description, with its
+ * `@Name`s made mentions of the space's people, as the app writes them; agents and those who no
+ * longer open the space are none (design/notifications.md 8). On a server, a mention tells them.
+ */
+export async function mentionsMade(fs: VaultFs, text: string): Promise<string> {
+  if (!text.includes('@')) return text;
+  const people = (await loadPeople(fs).catch(() => [])).filter((p) => p.active && p.name && !isAgent(p));
+  return withMentions(text, people.map((p) => ({ id: p.id, name: p.name! })));
+}
+
+/**
+ * Refuses a reminder that cannot be sent (design/notifications.md 4 and 8): of a card or a task not
+ * finished, given to a person other than the one the agent works for, by an agent whose identity
+ * is known, once an hour.
+ */
+export function checkRemind(item: { assignee?: PersonRef | null; timeline?: readonly { kind: string }[] }, finished: boolean, actor: Actor, who: Who, now: Date) {
+  const to = item.assignee;
+  if (!actor.id) throw new Refusal('Who you are is not known here, so you cannot remind anyone; nothing was written');
+  if (finished) throw new Refusal('It is finished: there is nothing to remind anyone of; nothing was written');
+  if (!to?.id) throw new Refusal('It is given to no one: give it to someone first; nothing was written');
+  if (isAgentId(to.id) || to.id === actor.id) throw new Refusal('It is given to an agent: only people are reminded; nothing was written');
+  if (to.id === who.me?.id) throw new Refusal('It is given to the person you work for: tell them yourself; nothing was written');
+  const last = lastReminded(item.timeline, actor.id, to.id);
+  if (last && now.getTime() - Date.parse(last) < REMIND_EVERY_MS) {
+    const minutes = Math.max(1, Math.round((now.getTime() - Date.parse(last)) / 60_000));
+    throw new Refusal(`You reminded ${to.name ?? 'them'} of it ${minutes} min ago; once an hour; nothing was written`, { reminded: last });
+  }
 }
 
 /** The names of a space's agents that still change something there, each with whose it is: "Claude Code (KAAN-PC) · Kaan". */

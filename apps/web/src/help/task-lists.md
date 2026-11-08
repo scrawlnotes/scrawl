@@ -6,7 +6,7 @@ A task list is what you have to do, in a folder beside that work's notes. A fold
 
 Press **+** beside the tabs and pick **Task list**, then add tasks at the end of the list or of a section. A task has a title, a description, a date, a priority from 1 to 4, labels, and in a space shared with others who it is given to.
 
-Click a task to change it. The bar under it has **Date**, **Priority**, **Labels**, **Given to**, **Record** and **Attach**.
+Click a task to change it. The bar under it has **Date**, **Priority**, **Labels**, **Given to**, **Record** and **Attach**. In a task's description, `@` mentions someone in the space; with a Scrawl server they are told. See [Working together](working-together).
 
 - **Subtasks:** drag a task to the right, under another, to make it a subtask, up to four levels.
 - **Moving:** drag a task, with its subtasks, where it should go. **Move to…** in its menu moves it to another list or section.
