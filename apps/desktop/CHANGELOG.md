@@ -2,6 +2,13 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.27
+
+A picture in its round, and Chat where you left it.
+
+- A picture stays in its small round wherever a face sits beside words: on a card on a board and in a list it took the card's whole width.
+- A conversation made shorter or taller keeps the message over the box to write in where it was, and one opened at its newest message stays at its end, with what comes in after it in sight.
+
 ## 0.1.26
 
 Help, a picture of you, and Chat easier to read.
