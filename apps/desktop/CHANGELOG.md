@@ -2,6 +2,16 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.29
+
+Google Calendar beside Outlook, and your work in your calendar.
+
+- Settings › Calendars connects Google Calendar too: one Google and one Outlook account. Their meetings show together at the head of Today and of each day in Upcoming, and in the calendar; a click opens one in Google Calendar or Outlook.
+- Sync tasks to calendar: your tasks and cards go to a calendar named “Scrawl” in Google Calendar or Outlook, and an app's appointments and days when you choose, so your phone's calendar has them beside your meetings. A name, a day or a time changed there comes back to Scrawl, and an event removed there sends its work to the Trash, with Undo.
+- Search opens with Recent: the ten things you opened last, then your last searches.
+- Chat stays at its last message when new ones come in while the window is hidden.
+- In a shared space, what a team app brings to Today goes to the person it is for, as a CRM activity to its By.
+
 ## 0.1.28
 
 Outlook's calendar beside your work, and videos every device plays.
