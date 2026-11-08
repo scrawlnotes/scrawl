@@ -14,11 +14,21 @@ import { Notices } from './notices';
 import { OAuth } from './oauth';
 import { Push, type Sender, vapidKeys } from './push';
 import { Spaces } from './spaces';
+import { type VideoTools, Videos } from './video';
 
 /** The server's parts on its data folder, and its app; for running it and for tests. */
 export function makeServer(
   config: Config,
-  options: { now?: () => number; pageSize?: number; fetchDoc?: typeof fetch; sender?: Sender; later?: (run: () => void, ms: number) => ReturnType<typeof setTimeout>; minSyncLevel?: number } = {},
+  options: {
+    now?: () => number;
+    pageSize?: number;
+    fetchDoc?: typeof fetch;
+    sender?: Sender;
+    later?: (run: () => void, ms: number) => ReturnType<typeof setTimeout>;
+    minSyncLevel?: number;
+    /** ffmpeg's, which `serve` finds; none in a test that does not give its own. */
+    videoTools?: VideoTools | null;
+  } = {},
 ) {
   const now = options.now ?? Date.now;
   mkdirSync(config.data, { recursive: true });
@@ -35,6 +45,9 @@ export function makeServer(
   chats.openGenerals();
   // Messages written before search came are found too.
   chats.indexMessages();
+  // A video that a computer cannot play gets a copy that plays everywhere (design/chat.md 27).
+  const videos = options.videoTools ? new Videos(blobs, options.videoTools, (skip) => chats.nextVideo(skip), (hash, result) => chats.videoDone(hash, result)) : null;
+  chats.videos = videos;
   // A push service takes an https address or an email as who sends.
   const subject = config.url.startsWith('https://') ? config.url : 'mailto:push@scrawlnotes.com';
   const push = new Push(db, live, chats, vapidKeys(join(config.data, 'vapid.json')), subject, config.url, options.sender, options.later);

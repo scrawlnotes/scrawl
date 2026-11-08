@@ -45,20 +45,49 @@ export async function measure(file: Blob): Promise<Measured> {
   return {};
 }
 
+/**
+ * A video's size and length, as soon as they are known, and its picture at half a second. An
+ * iPhone gives no picture of a video off the page that has not played: it is put on the page,
+ * unseen, and played muted for a moment. Without a picture it goes with its size and length.
+ */
 function videoOf(file: Blob): Promise<Measured> {
   const url = URL.createObjectURL(file);
   const video = document.createElement('video');
   video.muted = true;
-  video.preload = 'metadata';
+  video.playsInline = true;
+  video.preload = 'auto';
+  video.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none';
+  document.body.append(video);
   return new Promise<Measured>((resolve) => {
+    let known: Measured = {};
+    let finished = false;
     const done = (measured: Measured) => {
+      if (finished) return;
+      finished = true;
+      video.pause();
+      video.remove();
       URL.revokeObjectURL(url);
       resolve(measured);
     };
-    video.onloadeddata = () => (video.currentTime = Math.min(0.5, video.duration / 2 || 0));
-    video.onseeked = async () => done({ width: video.videoWidth, height: video.videoHeight, duration: video.duration, thumb: await small(video, video.videoWidth, video.videoHeight) });
-    video.onerror = () => done({});
-    window.setTimeout(() => done({}), 8000);
+    video.onloadedmetadata = () => {
+      known = {
+        ...(video.videoWidth && { width: video.videoWidth, height: video.videoHeight }),
+        ...(Number.isFinite(video.duration) && { duration: video.duration }),
+      };
+      window.setTimeout(() => done(known), 3000);
+      video.currentTime = Math.min(0.5, video.duration / 2 || 0);
+      void video.play().then(
+        () => video.pause(),
+        () => undefined,
+      );
+    };
+    video.onseeked = async () => {
+      if (finished) return;
+      const thumb = video.videoWidth ? await small(video, video.videoWidth, video.videoHeight) : undefined;
+      done({ ...known, ...(thumb && { thumb }) });
+    };
+    video.onerror = () => done(known);
+    window.setTimeout(() => done(known), 8000);
     video.src = url;
   });
 }

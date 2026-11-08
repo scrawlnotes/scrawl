@@ -23,7 +23,8 @@ export interface Taken {
 }
 
 export class Blobs {
-  private readonly tmp: string;
+  /** Where what comes in waits, and what is made here is written, on the same disk as the blobs. */
+  readonly tmp: string;
 
   constructor(private readonly dir: string) {
     this.tmp = join(dir, '..', 'tmp');
@@ -67,6 +68,15 @@ export class Blobs {
     }
     mkdirSync(join(this.dir, taken.hash.slice(0, 2)), { recursive: true });
     renameSync(taken.temp, target);
+  }
+
+  /** Keeps a file made here in `tmp`, as one sent is kept: by its digest, which it gives. */
+  async keepFile(path: string): Promise<string> {
+    const digest = createHash('sha256');
+    for await (const chunk of createReadStream(path)) digest.update(chunk as Buffer);
+    const hash = digest.digest('hex');
+    this.keep({ temp: path, hash, size: statSync(path).size });
+    return hash;
   }
 
   open(hash: string): ReadStream {

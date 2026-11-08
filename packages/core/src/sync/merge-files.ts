@@ -8,6 +8,7 @@ import { KEYS_EXT } from '../keys';
 import { LABELS_FILE, parseLabels, serializeLabels, type SpaceLabel } from '../labels';
 import { RULES_FILE } from '../rules';
 import { mergeMe, parseMe, serializeMe } from '../me';
+import { CALENDARS_FILE, mergeCalendarChoice, parseCalendarChoice } from '../outlook';
 import { mergePeople, parsePeople } from '../people';
 import { mergeQuickOrders, parseQuickOrder, QUICK_NOTES_FILE, serializeQuickOrder } from '../quick-notes';
 import { parseSpace, serializeSpace } from '../space';
@@ -17,7 +18,7 @@ import { canonical, mergeFields, mergeOrder, mergeRecords, mergeValue, spreadOrd
 
 // Merging a file changed on both sides, by what kind of file it is. See design/sync.md, section 5.
 
-export type MergeKind = 'text' | 'tasks' | 'board' | 'filters' | 'favorites' | 'labels' | 'quickNotes' | 'space' | 'me' | 'people' | 'agents' | 'trash' | 'syncLevel';
+export type MergeKind = 'text' | 'tasks' | 'board' | 'filters' | 'favorites' | 'calendars' | 'labels' | 'quickNotes' | 'space' | 'me' | 'people' | 'agents' | 'trash' | 'syncLevel';
 
 const TRASH_INDEX = '.scrawl/trash/index.json';
 
@@ -31,6 +32,7 @@ export function mergeKindOf(path: string): MergeKind | null {
   if (lower.endsWith(BOARD_EXT)) return 'board';
   if (lower === '.scrawl/filters.json') return 'filters';
   if (lower === FAVORITES_FILE) return 'favorites';
+  if (lower === CALENDARS_FILE) return 'calendars';
   if (lower === LABELS_FILE) return 'labels';
   if (lower === QUICK_NOTES_FILE) return 'quickNotes';
   if (lower === '.scrawl/space.json') return 'space';
@@ -285,6 +287,7 @@ const MERGERS: Record<Exclude<MergeKind, 'text'>, (base: string, local: string, 
   board: mergeBoard,
   filters: mergeFilterFile,
   favorites: mergeFavoritesFile,
+  calendars: mergeCalendarChoice,
   labels: mergeLabelsFile,
   quickNotes: (base, local, remote) => serializeQuickOrder(mergeQuickOrders(parseQuickOrder(base), parseQuickOrder(local), parseQuickOrder(remote), mergeOrder)),
   space: (base, local, remote) => serializeSpace(mergeFields(parseSpace(base), parseSpace(local), parseSpace(remote))),
@@ -304,6 +307,7 @@ const READERS: Record<Exclude<MergeKind, 'text'>, (text: string) => unknown> = {
   board: parseBoard,
   filters: parseFiltersFile,
   favorites: parseFavorites,
+  calendars: parseCalendarChoice,
   labels: parseLabels,
   quickNotes: parseQuickOrder,
   space: parseSpace,

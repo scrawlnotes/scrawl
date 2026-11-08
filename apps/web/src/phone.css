@@ -5792,6 +5792,51 @@ body > .mb-lifted {
   padding: 6px 12px;
 }
 
+/* Calendars on a phone, after the mockup: the calendars a group of their own, a check on the right
+   of one shown; the box under the row takes the tap. Disconnect a red row of its own. */
+.mb-settings .ol-cals,
+.mb-settings .ol-cals-wait {
+  margin-left: 0;
+}
+
+.mb-settings .ol-cal {
+  min-height: 48px;
+  padding: 6px 16px;
+}
+
+.mb-settings .ol-cal .nm b {
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.mb-settings .ol-cal input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+.mb-settings .ol-cal > .icon {
+  width: 20px;
+  height: 20px;
+  color: var(--sl-accent);
+}
+
+.mb-settings .ol-disconnect .st-li {
+  justify-content: center;
+  color: var(--sl-p1);
+  font-size: 16px;
+}
+
+.mb-settings .ol-connect button {
+  flex: 1;
+  justify-content: center;
+  min-height: 48px;
+}
+
+.mb-settings .st-lead {
+  font-size: 15px;
+}
+
 .mb-settings .st-li .nm small {
   font-size: 13px;
 }
@@ -7902,6 +7947,83 @@ body > .mb-lifted {
 
 .mb-chip.rec i {
   background: var(--cc);
+}
+
+/* Outlook's all-day events above a phone's hours: a hollow edge in their calendar's color. */
+.mb-chip.ol {
+  background: none;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc) 55%, transparent);
+}
+
+.mb-chip.ol i {
+  background: var(--cc);
+}
+
+/* Outlook's events at the head of a day on a phone (design/mockups.html › Outlook takvimi): a
+   group of rows a finger can hit, each its time, its calendar's mark and its name; a tap opens it in Outlook. */
+.ol-mevs {
+  display: flex;
+  flex-direction: column;
+  margin: 2px 16px 10px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--sl-side);
+}
+
+.ol-mev {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 46px;
+  padding: 0 14px;
+  color: var(--sl-fg);
+  text-align: left;
+}
+
+.ol-mev + .ol-mev::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 14px;
+  right: 0;
+  border-top: 1px solid var(--sl-line);
+}
+
+.ol-mev em {
+  flex: none;
+  width: 52px;
+  color: var(--sl-dim);
+  font-size: 14px;
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+.ol-mev b {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  padding-left: 10px;
+  border-left: 3px solid var(--cc);
+  font-size: 15px;
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ol-mev .icon {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  color: var(--sl-faint);
+}
+
+.ol-mev.past {
+  opacity: 0.5;
+}
+
+.ol-mev:active {
+  background: var(--sl-sel);
 }
 
 /* A collection's Calendar view on a phone: its Day fills the page, its hours scroll alone. */

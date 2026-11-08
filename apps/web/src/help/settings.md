@@ -22,6 +22,10 @@ On the desktop app: **Keep running when the window is closed**, which keeps sync
 
 With a Scrawl server: whether messages, mentions and the rest show as notifications on this device, and a test one. Under it, **Notify me about** picks what the server tells you of, **Mentions**, **Assignments**, **Reminders** and **Due dates**, the same on every device of yours.
 
+## Calendars
+
+**Connect Outlook Calendar** signs in with a work or a personal Microsoft account, apart from OneDrive. Your Outlook meetings then show in Today, Upcoming and the calendar; a click opens one in Outlook, where it is changed. **Show events in Scrawl** turns them all off, and the box beside each calendar picks which show: yours start on, one shared with you off. What you pick is the same on every device; each device connects on its own.
+
 ## Spaces
 
 Your personal space, the spaces you share with others, the servers you are connected to, and this device. A space's page has its name, where it is kept on this device, where it syncs, and its people. **Add space…** adds a shared OneDrive folder or a server's space. See [Spaces and folders](spaces) and [Sync](sync).

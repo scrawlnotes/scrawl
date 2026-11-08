@@ -4,6 +4,7 @@ import { type Account, Refused } from './auth';
 import type { Blobs, Taken } from './blobs';
 import { type Db, transaction } from './db';
 import type { Spaces } from './spaces';
+import type { VideoDone } from './video';
 
 // Messaging (design/chat.md). A room belongs to a shared space: a public one is seen by everyone
 // in the space and joined by whoever wants, a private one by those in it, who bring others in;
@@ -33,8 +34,14 @@ export interface ChatFile {
   height?: number;
   /** A recording's or a video's length, in seconds. */
   duration?: number;
-  /** A small picture of a photo or a video, made by the app before it sent it. */
+  /** A small picture of a photo or a video, made by the app before it sent it, or by the server for a video. */
   thumb?: string;
+  /** What a video's picture is coded in, as the server found: `hevc`, `h264`. */
+  codec?: string;
+  /** A video's H.264 copy, which plays everywhere, once the server made it (design/chat.md 27). */
+  play?: string;
+  /** The server is looking at a video, and may make a copy of it. */
+  preparing?: true;
 }
 
 export interface Message {
@@ -158,6 +165,9 @@ interface FileRow {
   height: number | null;
   duration: number | null;
   thumb: string | null;
+  codec: string | null;
+  play: string | null;
+  play_state: 'converting' | 'same' | 'ready' | 'failed' | null;
 }
 
 /** What a device hears on the live channel: a message as it now is, or that something else changed. */
@@ -570,6 +580,7 @@ export class Chats {
     });
     const told = this.told(chat, row);
     this.onSent?.(chat.id, row.id);
+    if (told.files.some((file) => file.preparing)) void this.videos?.kick();
     return told;
   }
 
@@ -795,6 +806,51 @@ export class Chats {
   onSent: ((chat: string, message: string) => void) | null = null;
   /** Told of a reaction put on a message: the push to whoever wrote it (design/chat.md, 3.6). */
   onReacted: ((chat: string, message: string, by: string, emoji: string) => void) | null = null;
+  /** What looks at the videos waiting, where the server has ffmpeg (design/chat.md 27); none without. */
+  videos: { kick: () => Promise<void> } | null = null;
+
+  // ---------- videos ----------
+
+  /** Videos sent before the server looked at videos, or while it could not, wait for it now; and those it was at when it stopped. */
+  lookAtVideos(): Promise<void> {
+    if (!this.videos) return Promise.resolve();
+    this.db.prepare("UPDATE message_files SET play_state = 'converting' WHERE play_state IS NULL AND type LIKE 'video/%'").run();
+    return this.videos.kick();
+  }
+
+  /** The next video waiting, with whether a message that has it lacks its first picture. */
+  nextVideo(skip: Set<string>): { hash: string; poster: boolean } | undefined {
+    const rows = this.db
+      .prepare(
+        `SELECT f.hash, MAX(f.thumb IS NULL) AS poster FROM message_files f JOIN messages m ON m.id = f.message_id
+         WHERE f.play_state = 'converting' AND m.deleted_at IS NULL GROUP BY f.hash ORDER BY MIN(m.created_at)`,
+      )
+      .all() as { hash: string; poster: number }[];
+    const row = rows.find((each) => !skip.has(each.hash));
+    return row && { hash: row.hash, poster: row.poster === 1 };
+  }
+
+  /**
+   * What the server found and made of a video, written to every message that has it: its copy, and
+   * the size, length and first picture those sent without them lack. Each such message is told
+   * again, not as edited.
+   */
+  videoDone(hash: string, result: VideoDone) {
+    const rows = transaction(this.db, () => {
+      this.db
+        .prepare(
+          `UPDATE message_files SET codec = ?, play = ?, play_state = ?, width = COALESCE(width, ?), height = COALESCE(height, ?),
+           duration = COALESCE(duration, ?), thumb = COALESCE(thumb, ?) WHERE hash = ? AND play_state = 'converting'`,
+        )
+        .run(result.codec, result.play, result.state, result.width ?? null, result.height ?? null, result.duration ?? null, result.thumb ?? null, hash);
+      const ids = this.db.prepare('SELECT DISTINCT m.id FROM messages m JOIN message_files f ON f.message_id = m.id WHERE f.hash = ? AND m.deleted_at IS NULL').all(hash) as { id: string }[];
+      return ids.map(({ id }) => {
+        this.db.prepare('UPDATE messages SET rev = ? WHERE id = ?').run(this.nextRev(), id);
+        return this.messageRow(id)!;
+      });
+    });
+    for (const row of rows) this.told(this.row(row.chat_id), row);
+  }
 
   /**
    * Whom a reaction tells: whoever wrote the message, when someone else put it on, it is still
@@ -890,17 +946,18 @@ export class Chats {
     return { hash: taken.hash, size: taken.size };
   }
 
-  /** A file for someone who uploaded it or sees a message that has it, with what to call it. */
+  /** A file for someone who uploaded it or sees a message that has it, with what to call it; a video's copy and first picture are its message's too. */
   file(account: string, hash: string): { hash: string; size: number; type: string; name: string } {
     if (!HASH.test(hash)) throw new Refused(404, 'no-file', 'No such file');
     const rows = this.db
-      .prepare('SELECT f.*, m.chat_id FROM message_files f JOIN messages m ON m.id = f.message_id WHERE (f.hash = ? OR f.thumb = ?) AND m.deleted_at IS NULL')
-      .all(hash, hash) as unknown as (FileRow & { chat_id: string })[];
+      .prepare("SELECT f.*, m.chat_id FROM message_files f JOIN messages m ON m.id = f.message_id WHERE (f.hash = ? OR f.thumb = ? OR (f.play = ? AND f.play_state = 'ready')) AND m.deleted_at IS NULL")
+      .all(hash, hash, hash) as unknown as (FileRow & { chat_id: string })[];
     const seen = rows.find((row) => this.sees(row.chat_id, account));
     const uploaded = this.db.prepare('SELECT 1 FROM chat_uploads WHERE hash = ? AND account_id = ?').get(hash, account);
     if (!seen && !uploaded) throw new Refused(404, 'no-file', 'No such file');
     const whole = seen && seen.hash === hash;
-    return { hash, size: this.blobs.sizeOf(hash), type: whole ? seen.type : '', name: whole ? seen.name : '' };
+    const copy = seen && !whole && seen.play === hash;
+    return { hash, size: this.blobs.sizeOf(hash), type: whole ? seen.type : copy ? 'video/mp4' : '', name: whole ? seen.name : '' };
   }
 
   // ---------- inside ----------
@@ -1056,12 +1113,35 @@ export class Chats {
     return chats.some((row) => this.sees(row.chat_id, account));
   }
 
+  /**
+   * A message's files. A video already here, sent again or forwarded, has what the server found
+   * of it; another waits for the server to look at it (design/chat.md 27).
+   */
   private writeFiles(message: string, files: ChatFile[]) {
-    files.forEach((file, n) =>
+    files.forEach((file, n) => {
+      const video = file.type.startsWith('video/');
+      const known = video
+        ? (this.db.prepare('SELECT * FROM message_files WHERE hash = ? AND play_state IS NOT NULL ORDER BY thumb IS NULL LIMIT 1').get(file.hash) as unknown as FileRow | undefined)
+        : undefined;
+      const state = known?.play_state ?? (video && this.videos ? 'converting' : null);
       this.db
-        .prepare('INSERT INTO message_files (message_id, n, hash, name, type, size, width, height, duration, thumb) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-        .run(message, n, file.hash, file.name, file.type, file.size, file.width ?? null, file.height ?? null, file.duration ?? null, file.thumb ?? null),
-    );
+        .prepare('INSERT INTO message_files (message_id, n, hash, name, type, size, width, height, duration, thumb, codec, play, play_state) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .run(
+          message,
+          n,
+          file.hash,
+          file.name,
+          file.type,
+          file.size,
+          file.width ?? known?.width ?? null,
+          file.height ?? known?.height ?? null,
+          file.duration ?? known?.duration ?? null,
+          file.thumb ?? known?.thumb ?? null,
+          known?.codec ?? null,
+          known?.play ?? null,
+          state,
+        );
+    });
   }
 
   /** Those mentioned in a message who are in its conversation. */
@@ -1299,6 +1379,9 @@ function fileOf(row: FileRow): ChatFile {
     ...(row.height !== null && { height: row.height }),
     ...(row.duration !== null && { duration: row.duration }),
     ...(row.thumb !== null && { thumb: row.thumb }),
+    ...(row.codec !== null && { codec: row.codec }),
+    ...(row.play !== null && row.play_state === 'ready' && { play: row.play }),
+    ...(row.play_state === 'converting' && { preparing: true as const }),
   };
 }
 

@@ -89,6 +89,8 @@ import { TaskActivity } from './Activity';
 import { AssigneeChip, NameOf, PersonPicker, type SpacePeople, WhoOf } from './People';
 import { Empty, liftUntilTouch, suppressClick } from './sheets';
 import { holdToDrag, pressOnField } from './touchDrag';
+import { useOutlook, useOutlookDay } from './outlook';
+import { EventBox } from './OutlookEvents';
 
 /** A task in its list, or a card on its board: something with a day to move. */
 /**
@@ -2392,13 +2394,14 @@ export function TodayView({ lists, boards, today, actions, bare, adding, still =
   const cardItem = ({ board, card }: { board: string; card: Card }, grouped?: boolean) => (
     <CardRow key={`${board}#${card.id}`} board={board} whole={boards[board]!} card={card} today={today} actions={actions} grouped={grouped} />
   );
-  const section = (title: string, tasks: { list: string; task: Task }[], cards: { board: string; card: Card }[] = [], action?: ReactNode, records: DueRecord[] = []) =>
-    tasks.length + cards.length + records.length > 0 && (
+  const section = (title: string, tasks: { list: string; task: Task }[], cards: { board: string; card: Card }[] = [], action?: ReactNode, records: DueRecord[] = [], head?: ReactNode) =>
+    (tasks.length + cards.length + records.length > 0 || head) && (
       <div key={title}>
         <div className="sec">
-          {title} <small>{tasks.length + cards.length + records.length}</small>
+          {title} {tasks.length + cards.length + records.length > 0 && <small>{tasks.length + cards.length + records.length}</small>}
           {action}
         </div>
+        {head}
         {tasks.map(item)}
         {cards.map((due) => cardItem(due))}
         {records.map((due) => (
@@ -2408,6 +2411,10 @@ export function TodayView({ lists, boards, today, actions, bare, adding, still =
     );
   // The records of today, those with no time first, then by the hour.
   const records = recordsByDay(actions.dueRecords(), today).get(today) ?? [];
+  // Outlook's events of today, at the head of Today's own (design/outlook-calendar.md 2.4).
+  const outlook = useOutlook();
+  const todayEvents = useOutlookDay(today);
+  const outlookToday = todayEvents.length > 0 || (outlook.status === 'signin' && outlook.choice.events) ? <EventBox day={today} today={today} warn /> : undefined;
   // The days a program came on that went by with nothing written for them (design/gym.md 4.3).
   const lateRecords = actions.dueRecords().filter((d) => d.late);
   const cards = splitDueCards(boards, today);
@@ -2467,7 +2474,7 @@ export function TodayView({ lists, boards, today, actions, bare, adding, still =
         ),
         lateRecords,
       )}
-      {section(t('tasks.today'), due.today, [], undefined, records)}
+      {section(t('tasks.today'), due.today, [], undefined, records, outlookToday)}
       {[...byBoard].map(([place, dues]) => (
         <div key={place}>
           <div className="sec">

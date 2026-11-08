@@ -1,15 +1,16 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { serve } from '@hono/node-server';
 import { ServerAccount } from '@scrawlnotes/core';
 import { strFromU8, unzipSync } from 'fflate';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WebSocketServer } from 'ws';
 import type { Config } from './config';
-import { linksIn } from './chat';
+import { type ChatEvent, linksIn } from './chat';
 import { makeServer } from './server';
+import { type Probe, type VideoTools, Videos } from './video';
 
 // Messaging (design/chat.md): rooms and direct messages, messages and what is done to them, how
 // far each person read, files, what changed after a cursor, and the live channel's events.
@@ -29,11 +30,11 @@ afterEach(async () => {
 });
 
 /** Kaan owns the server; Mert and Elif are in Acme with him, Deniz only in Other. */
-async function start(options: { listen?: boolean } = {}) {
+async function start(options: { listen?: boolean; videoTools?: VideoTools } = {}) {
   const data = mkdtempSync(join(tmpdir(), 'scrawl-chat-'));
   let clock = Date.UTC(2026, 9, 24, 10, 0);
   const config: Config = { url: URL, port: 0, data, maxFileBytes: 1024 * 1024, ownerEmail: null, appUrl: 'https://app.scrawlnotes.com' };
-  const server = makeServer(config, { now: () => clock });
+  const server = makeServer(config, { now: () => clock, ...(options.videoTools && { videoTools: options.videoTools }) });
   closers.push(() => {
     server.live.stop();
     server.db.close();
@@ -435,6 +436,107 @@ describe('files', () => {
     expect((await s.call(s.elif, 'GET', `/chat/files/${photo.body.hash}`)).status).toBe(200);
     await s.call(s.mert, 'DELETE', `/chat/messages/${message.id}`);
     expect((await s.call(s.elif, 'GET', `/chat/files/${photo.body.hash}`)).status).toBe(404);
+  });
+});
+
+/**
+ * ffmpeg as a test has it: a file's first byte says what its picture is, 1 HEVC, 2 H.264, 3 not a
+ * video it reads; a copy and a first picture are written as words, and each call is counted.
+ */
+function fakeTools() {
+  const calls = { probe: 0, convert: 0, poster: 0 };
+  const tools: VideoTools = {
+    probe: async (file) => {
+      calls.probe++;
+      const first = readFileSync(file)[0];
+      if (first === 3) throw new Error('Invalid data found when processing input');
+      return { codec: first === 1 ? 'hevc' : 'h264', width: 1080, height: 1920, duration: 13, audio: 'aac', hdr: false } satisfies Probe;
+    },
+    convert: async (file, out) => {
+      calls.convert++;
+      writeFileSync(out, `copy of ${readFileSync(file).toString('hex')}`);
+    },
+    poster: async (_file, out) => {
+      calls.poster++;
+      writeFileSync(out, 'first picture');
+    },
+  };
+  return { tools, calls };
+}
+
+describe('videos', () => {
+  it('gives a video that is not H.264 a copy, and its size, length and first picture, telling its conversation', async () => {
+    const { tools, calls } = fakeTools();
+    const s = await start({ videoTools: tools });
+    const general = await s.general(s.kaan);
+    const video = await s.call(s.kaan, 'POST', '/chat/files', new Uint8Array([1, 0, 0, 7]));
+    const tell = vi.spyOn(s.server.live, 'tell');
+    // The iPhone could not measure it: it goes with nothing but its name and type.
+    const sent = await s.say(s.kaan, general.id, '', { files: [{ hash: video.body.hash, name: 'ScreenRecording.mp4', type: 'video/mp4' }] });
+    expect(sent.files[0]).toMatchObject({ preparing: true });
+    expect(sent.files[0].play).toBeUndefined();
+    await s.server.chats.videos!.kick();
+
+    const [now] = (await s.call(s.mert, 'GET', `/chat/${general.id}/messages`)).body.messages.slice(-1);
+    expect(now.files[0]).toMatchObject({ codec: 'hevc', width: 1080, height: 1920, duration: 13 });
+    expect(now.files[0].preparing).toBeUndefined();
+    expect(now.edited).toBeNull();
+    expect(now.rev).toBeGreaterThan(sent.rev);
+    expect(calls).toEqual({ probe: 1, convert: 1, poster: 1 });
+    const heard = tell.mock.calls.map(([, event]) => event as ChatEvent);
+    expect(heard.some((event) => event.type === 'message' && event.message.id === sent.id && event.message.files[0]!.play === now.files[0].play)).toBe(true);
+
+    // The copy is read by those in the conversation, as an MP4; Deniz, not in Acme, cannot.
+    const copy = await s.server.app.request(`${URL}/api/v1/chat/files/${now.files[0].play}`, { headers: { Authorization: `Bearer ${s.mert}` } });
+    expect(copy.headers.get('Content-Type')).toBe('video/mp4');
+    expect(await copy.text()).toBe('copy of 01000007');
+    expect(await (await s.server.app.request(`${URL}/api/v1/chat/files/${now.files[0].thumb}`, { headers: { Authorization: `Bearer ${s.mert}` } })).text()).toBe('first picture');
+    expect((await s.call(s.deniz, 'GET', `/chat/files/${now.files[0].play}`)).status).toBe(404);
+
+    // Sent again or forwarded, it is not converted again; deleted, its copy goes with it.
+    const again = await s.say(s.mert, general.id, '', { files: [{ hash: video.body.hash, name: 'again.mp4', type: 'video/mp4' }] });
+    expect(again.files[0]).toMatchObject({ play: now.files[0].play, width: 1080, thumb: now.files[0].thumb });
+    const design = await s.room(s.kaan, 'design', 'public');
+    const forwarded = await s.say(s.kaan, design.id, '', { forwardOf: sent.id });
+    expect(forwarded.files[0].play).toBe(now.files[0].play);
+    await s.server.chats.videos!.kick();
+    expect(calls.convert).toBe(1);
+    for (const message of [sent, again, forwarded]) await s.call(message.author === KAAN ? s.kaan : s.mert, 'DELETE', `/chat/messages/${message.id}`);
+    expect((await s.call(s.mert, 'GET', `/chat/files/${now.files[0].play}`)).status).toBe(404);
+  });
+
+  it('leaves an H.264 video as it is, and says when one could not be read', async () => {
+    const { tools, calls } = fakeTools();
+    const s = await start({ videoTools: tools });
+    const general = await s.general(s.kaan);
+    const h264 = await s.call(s.kaan, 'POST', '/chat/files', new Uint8Array([2, 1]));
+    const thumb = await s.call(s.kaan, 'POST', '/chat/files', new Uint8Array([9]));
+    const broken = await s.call(s.kaan, 'POST', '/chat/files', new Uint8Array([3, 1]));
+    const one = await s.say(s.kaan, general.id, '', { files: [{ hash: h264.body.hash, name: 'a.mp4', type: 'video/mp4', width: 640, height: 360, thumb: thumb.body.hash }] });
+    const two = await s.say(s.kaan, general.id, '', { files: [{ hash: broken.body.hash, name: 'b.mov', type: 'video/quicktime' }] });
+    await s.server.chats.videos!.kick();
+    const messages = (await s.call(s.kaan, 'GET', `/chat/${general.id}/messages`)).body.messages as { id: string; files: Record<string, unknown>[] }[];
+    // What the app measured stays; no first picture is made where there is one.
+    expect(messages.find((each) => each.id === one.id)!.files[0]).toEqual({ hash: h264.body.hash, name: 'a.mp4', type: 'video/mp4', size: 2, width: 640, height: 360, duration: 13, thumb: thumb.body.hash, codec: 'h264' });
+    expect(messages.find((each) => each.id === two.id)!.files[0]).toEqual({ hash: broken.body.hash, name: 'b.mov', type: 'video/quicktime', size: 2 });
+    expect(calls).toEqual({ probe: 2, convert: 0, poster: 0 });
+  });
+
+  it('looks at the videos sent while the server could not, once it can', async () => {
+    const s = await start();
+    const general = await s.general(s.kaan);
+    const video = await s.call(s.kaan, 'POST', '/chat/files', new Uint8Array([1, 2]));
+    const sent = await s.say(s.kaan, general.id, '', { files: [{ hash: video.body.hash, name: 'old.mp4', type: 'video/mp4' }] });
+    // Without ffmpeg it is kept as it was sent, and not said to be preparing.
+    expect(sent.files[0].preparing).toBeUndefined();
+
+    const { tools, calls } = fakeTools();
+    s.server.chats.videos = new Videos(s.server.blobs, tools, (skip) => s.server.chats.nextVideo(skip), (hash, result) => s.server.chats.videoDone(hash, result));
+    await s.server.chats.lookAtVideos();
+    const [now] = (await s.call(s.kaan, 'GET', `/chat/${general.id}/messages`)).body.messages.slice(-1);
+    expect(now.files[0]).toMatchObject({ codec: 'hevc', width: 1080 });
+    expect(typeof now.files[0].play).toBe('string');
+    expect(calls.convert).toBe(1);
   });
 });
 

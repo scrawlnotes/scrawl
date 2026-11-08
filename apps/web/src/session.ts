@@ -108,6 +108,10 @@ import {
   loadFilters,
   loadFavorites,
   type Favorite,
+  type CalendarChoice,
+  loadCalendarChoice,
+  NO_CHOICE,
+  saveCalendarChoice,
   linesBlocks,
   linkedRecords,
   moveFavorites,
@@ -531,6 +535,8 @@ export interface Snapshot {
   filters: TaskFilter[];
   /** What the person starred, in the order they put it (design/filters.md 5); what is gone is still here, not shown. */
   favorites: Favorite[];
+  /** Which of Outlook's calendars the person shows (design/outlook-calendar.md 4.4), the same on every device. */
+  calendarChoice: CalendarChoice;
   /** Each space's labels as its `.scrawl/labels.json` keeps them, by the space's key: `''` for the personal one, the others by id. */
   labels: Record<string, SpaceLabel[]>;
   /** The settings of the open space, its name among them. */
@@ -828,6 +834,7 @@ export class Session {
     appLooks: {},
     filters: [],
     favorites: [],
+    calendarChoice: NO_CHOICE,
     labels: {},
     space: {},
     trash: [],
@@ -969,6 +976,7 @@ export class Session {
     const welcomeHere = await welcomeThere(this.personal);
     const filters = (keptConnection() === null && (await addPresetFilters(this.personal).catch(() => null))) || (await loadFilters(this.personal));
     const favorites = await loadFavorites(this.personal);
+    const calendarChoice = await loadCalendarChoice(this.personal);
     const quickOrder = await loadQuickOrder(this.personal);
     const space = await loadSpace(this.personal);
     // Nothing is asked at the first start: the name and the email wait for a space where others see them.
@@ -1056,6 +1064,7 @@ export class Session {
       appLooks: workspace.apps ?? {},
       filters,
       favorites,
+      calendarChoice,
       labels,
       space,
       trash: [],
@@ -2900,6 +2909,7 @@ export class Session {
     const trash = await this.readTrash(reads);
     const filters = reads(PERSONAL) ? await loadFilters(this.personal) : before.filters;
     const favorites = reads(PERSONAL) ? await loadFavorites(this.personal) : before.favorites;
+    const calendarChoice = reads(PERSONAL) ? await loadCalendarChoice(this.personal) : before.calendarChoice;
     const labels = { ...before.labels, ...(await this.readLabels(reads)) };
     const space = reads(PERSONAL) ? await loadSpace(this.personal) : before.space;
     const now = this.snapshot;
@@ -2926,6 +2936,7 @@ export class Session {
       trash: [...now.trash.filter((item) => !mine(item.path)), ...trash].sort((a, b) => b.deleted.localeCompare(a.deleted)),
       filters,
       favorites,
+      calendarChoice,
       labels,
       space,
     });
@@ -3687,6 +3698,15 @@ export class Session {
   /** What moved or was renamed, and what was in it, keeps its star. */
   private moveStars(from: string, to: string) {
     this.writeFavorites(moveFavorites(this.snapshot.favorites, from, to));
+  }
+
+  /** Which of Outlook's calendars show, and whether any do: kept in the personal space for every device. */
+  chooseCalendars(calendarChoice: CalendarChoice) {
+    this.set({ calendarChoice, saved: false });
+    this.taskWrites = this.taskWrites
+      .then(() => saveCalendarChoice(this.personal, calendarChoice))
+      .catch(() => undefined)
+      .then(() => this.markSaved());
   }
 
   /** Writes the favorites, when they changed. */

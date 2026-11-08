@@ -18,6 +18,10 @@ Each device keeps its own.
 
 With a Scrawl server: whether messages, mentions and the rest show on this phone, and a test one. On an iPhone, they come only to Scrawl on the home screen. Under it, **Notify me about** picks what the server tells you of, **Mentions**, **Assignments**, **Reminders** and **Due dates**, the same on every device of yours.
 
+## Calendars
+
+**Connect Outlook Calendar** signs in with a work or a personal Microsoft account, apart from OneDrive. Your Outlook meetings then show in Today and Upcoming; a tap opens one in Outlook, where it is changed. **Show events in Scrawl** turns them all off, and each calendar is ticked to show: yours start ticked, one shared with you not. What you pick is the same on every device; each device connects on its own.
+
 ## Spaces
 
 Your personal space, the spaces you share with others, the servers you are connected to, and this device. A space's page has its name, where it syncs, and its people. **Add space…** adds a shared OneDrive folder or a server's space. See [Spaces and folders](spaces) and [Sync](sync).

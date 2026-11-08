@@ -223,6 +223,7 @@ import { PhoneCreate } from './PhoneCreate';
 import { PeopleSheet } from './PhoneSpaces';
 import { type ButtonRun, type FileRow, type RuleEvent, Session, type SpaceView } from './session';
 import { RemoveSpaceDialog, type Section as SettingsSection, Settings, type SettingsValues } from './Settings';
+import { setOutlookChoice } from './outlook';
 import { Help } from './Help';
 import { StartPage } from './StartPage';
 import { type SpaceSyncView, SyncService } from './sync';
@@ -492,11 +493,13 @@ export function App() {
     if (restartWhenDownloaded) restartUpdate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restartWhenDownloaded]);
-  const { ready, reading, folder, defaultFolder, me, tree, quick, quickOrder, quickSort, quickTexts, quickFormat, spaces, tabs, active, recent, titles, tasks, sections, boards, boardLooks, listLooks, labelLooks, folderLooks, created, keys: keyFiles, keysLooks, collections, collectionLooks, appLooks, filters, favorites, labels: spaceLabels, space, trash, fileCount, downloads, fileVersion, saved, stats, written, format, source, recording, recordError } =
+  const { ready, reading, folder, defaultFolder, me, tree, quick, quickOrder, quickSort, quickTexts, quickFormat, spaces, tabs, active, recent, titles, tasks, sections, boards, boardLooks, listLooks, labelLooks, folderLooks, created, keys: keyFiles, keysLooks, collections, collectionLooks, appLooks, filters, favorites, calendarChoice, labels: spaceLabels, space, trash, fileCount, downloads, fileVersion, saved, stats, written, format, source, recording, recordError } =
     useSyncExternalStore(
     session.subscribe,
     session.getSnapshot,
   );
+  // Which of Outlook's calendars show follows the personal space's choice, on every device.
+  useEffect(() => setOutlookChoice(calendarChoice), [calendarChoice]);
   // A record open as a note is named in its tab by what the record is called; its file is named by its id.
   // The onboarding note is not in the tree, which names the notes.
   const tabTitles = useMemo(() => {
@@ -3127,6 +3130,8 @@ export function App() {
     },
     me,
     onSaveProfile: (name, email) => session.saveProfile(name, email),
+    calendarChoice,
+    onChooseCalendars: (choice) => session.chooseCalendars(choice),
     spaceName: space.name,
     onRenameSpace: (name) => session.renameSpace(name),
     spaces,

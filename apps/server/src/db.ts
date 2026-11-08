@@ -271,6 +271,15 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE accounts ADD COLUMN notify TEXT;
   `,
+  // A video's H.264 copy, which plays everywhere, made here (design/chat.md 27): what its picture
+  // is coded in, the copy's digest, and how far the server got: converting, same (already H.264),
+  // ready or failed; null for a file not looked at.
+  `
+  ALTER TABLE message_files ADD COLUMN codec TEXT;
+  ALTER TABLE message_files ADD COLUMN play TEXT;
+  ALTER TABLE message_files ADD COLUMN play_state TEXT;
+  CREATE INDEX message_files_play ON message_files (play);
+  `,
 ];
 
 export function openDb(file: string): Db {

@@ -14,6 +14,7 @@ import { backFromRenewing, prepareSignIn } from './cloud';
 import { startDesktopUpdates } from './desktopUpdate';
 import { applyLanguage, applyNumbers, applySize, applyTheme, keepTyping, loadMode, loadTheme, onTurn, shadeOfMode, systemShade } from './device';
 import { openingBegins } from './opening';
+import { prepareOutlook } from './outlook';
 import { startWebApp } from './pwa';
 import { keptConnection } from './sync';
 
@@ -34,13 +35,16 @@ keepTyping();
 // In the browser, a sign-in that went to Microsoft is finished first, or an old one renewed, in
 // which case the page leaves before anything is drawn. Then a new version that waits on the
 // device is gone over to, before the app draws and syncs anything (design/sync-gate.md 2).
+// Outlook's sign-in is its own and is taken first, so that OneDrive's does not take its return.
 const connection = keptConnection();
-void prepareSignIn(connection && connection.account.email).then(async (stay) => {
-  if (!stay || !(await startWebApp())) return;
-  createRoot(document.getElementById('root')!).render(
-    <StrictMode>
-      <App />
-    </StrictMode>,
-  );
-  startDesktopUpdates();
-});
+void prepareOutlook()
+  .then((stay) => stay && prepareSignIn(connection && connection.account.email))
+  .then(async (stay) => {
+    if (!stay || !(await startWebApp())) return;
+    createRoot(document.getElementById('root')!).render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    );
+    startDesktopUpdates();
+  });

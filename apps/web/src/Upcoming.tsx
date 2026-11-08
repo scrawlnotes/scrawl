@@ -13,6 +13,7 @@ import {
   dueCards,
   dueToday,
   dueUpcoming,
+  eventsOn,
   INBOX_TASKS,
   keyOf,
   monthDays,
@@ -29,6 +30,8 @@ import type { TaskPlaceChoice } from './dialogs';
 import { StillOpening } from './Loading';
 import { Icon } from './Icon';
 import { dateWords, DatePop, TaskComposer } from './TaskComposer';
+import { useOutlookEvents } from './outlook';
+import { AllDayEvents, EventBox, eventBoxes, EventChip, openEventBox } from './OutlookEvents';
 import {
   CardRow,
   type Dated,
@@ -249,7 +252,10 @@ function UpcomingList({ lists, boards, today, actions, places, onAdd, onStatus, 
   const recordsOn = recordsByDay(actions.dueRecords(), today);
   // A program's days that went by with nothing written for them stay in Overdue (design/gym.md 4.3).
   const lateRecords = actions.dueRecords().filter((d) => d.late);
-  const busy = [...tasksOn, ...cards.later, ...subtasks.later, ...recordsOn].filter(([, on]) => on.length > 0).map(([day]) => day);
+  // Outlook's events, as far ahead as the records go: a day with only events is not a free one.
+  const events = useOutlookEvents(today, addDays(today, 62));
+  const eventDays = new Set(events.flatMap((event) => (event.lastDay < today ? [] : [event.day < today ? today : event.day])));
+  const busy = [...[...tasksOn, ...cards.later, ...subtasks.later, ...recordsOn].filter(([, on]) => on.length > 0).map(([day]) => day), ...eventDays];
   const runs = dayRuns([...new Set(busy)], today);
 
   const open = (at: string, day: string) => setAdding({ at, due: day, n: (adding?.n ?? 0) + 1 });
@@ -334,10 +340,12 @@ function UpcomingList({ lists, boards, today, actions, places, onAdd, onStatus, 
     const dayCards = cards.later.get(day) ?? [];
     const daySubtasks = subtasks.later.get(day) ?? [];
     const dayRecords = recordsOn.get(day) ?? [];
+    const count = dayTasks.length + dayCards.length + daySubtasks.length + dayRecords.length;
     rows.push(
       <div key={`sec:${day}`} className="sec" data-day={day}>
-        {dayHeading(day, today)} <small>{dayTasks.length + dayCards.length + daySubtasks.length + dayRecords.length}</small>
+        {dayHeading(day, today)} {count > 0 && <small>{count}</small>}
       </div>,
+      <EventBox key={`events:${day}`} day={day} today={today} />,
       ...dayTasks.map(item),
       ...dayCards.map(cardItem),
       ...daySubtasks.map(subtaskItem),
@@ -402,6 +410,8 @@ function UpcomingCalendar({ lists, boards, today, actions, places, onAdd, onStat
   const days = monthDays(month);
 
   const { tasks, cards, subtasks, records, byDay } = datedByDay(lists, boards, today, actions.dueSubtasks(), actions.dueRecords());
+  // Outlook's events of the days shown, after each day's own (design/outlook-calendar.md 2.4).
+  const events = useOutlookEvents(days[0]!, days[days.length - 1]!);
 
   // As many lines as a day has room for, however tall the window is.
   useLayoutEffect(() => {
@@ -461,13 +471,17 @@ function UpcomingCalendar({ lists, boards, today, actions, places, onAdd, onStat
       <div ref={grid} className="grid">
         {days.map((day) => {
           const entries = byDay.get(day) ?? [];
+          const dayEvents = eventsOn(events, day);
           // A day with more than fits shows one line fewer, and how many more there are in its place.
-          const shown = entries.length > fit ? entries.slice(0, fit - 1) : entries;
-          const more = entries.length - shown.length;
+          const lines = entries.length + dayEvents.length;
+          const room = lines > fit ? fit - 1 : lines;
+          const shown = entries.slice(0, room);
+          const shownEvents = dayEvents.slice(0, Math.max(0, room - shown.length));
+          const more = lines - shown.length - shownEvents.length;
           const className = [
             'cd',
             !inMonth(day) && 'out',
-            entries.length > 0 && 'busy',
+            lines > 0 && 'busy',
             day < today && 'past',
             day === today && 'today',
             opened?.day === day && 'on',
@@ -522,6 +536,9 @@ function UpcomingCalendar({ lists, boards, today, actions, places, onAdd, onStat
                 </button>
               )}
               {shown.map((entry) => line(entry, day))}
+              {shownEvents.map((event) => (
+                <EventChip key={`${event.calendar}|${event.id}`} event={event} day={day} today={today} />
+              ))}
               {more > 0 && (
                 <button
                   type="button"
@@ -635,6 +652,8 @@ function UpcomingWeek({ lists, boards, today, actions, places, onAdd, onStatus, 
   const [dragging, setDragging] = useState<{ item: Dated; from: string } | null>(null);
   const [dropOn, setDropOn] = useState<string | null>(null);
   const { tasks, cards, subtasks, records, byDay } = datedByDay(lists, boards, today, actions.dueSubtasks(), actions.dueRecords());
+  // Outlook's events: those with a time hollow on the hours, the rest in the all-day row.
+  const events = useOutlookEvents(days[0]!, days.at(-1)!);
   const one = days.length === 1;
   // A day shows all it has; a week three a day, and +N more.
   const fit = one ? Number.MAX_SAFE_INTEGER : 3;
@@ -659,6 +678,7 @@ function UpcomingWeek({ lists, boards, today, actions, places, onAdd, onStatus, 
     color: choiceColor(due.colorField, due.choice),
     movable: !!movedValues(due.schema, due.view.calendar!, due, due.start),
   }));
+  boxes.push(...eventBoxes(events, days, today));
   const dueOf = new Map(timed.map((due) => [recordKey(due), due]));
   const moveBox = (box: CalendarBox, start: string) => {
     const due = dueOf.get(box.key);
@@ -735,13 +755,20 @@ function UpcomingWeek({ lists, boards, today, actions, places, onAdd, onStatus, 
             {t('tasks.moreOnDay', { count: more })}
           </button>
         )}
+        <AllDayEvents events={eventsOn(events, day)} day={day} today={today} />
       </div>
     );
   };
 
+  const openBox = (box: CalendarBox) => {
+    if (openEventBox(box, events)) return;
+    const due = dueOf.get(box.key);
+    if (due) actions.openRecord(due.collection, due.record.id);
+  };
+
   return (
     <div className="up-week">
-      <TimeGrid days={days} today={today} allDay={cell} boxes={boxes} onOpen={(box) => dueOf.get(box.key) && actions.openRecord(dueOf.get(box.key)!.collection, dueOf.get(box.key)!.record.id)} onMove={moveBox} onResize={stretchBox} gridRef={grid} />
+      <TimeGrid days={days} today={today} allDay={cell} boxes={boxes} onOpen={openBox} onMove={moveBox} onResize={stretchBox} gridRef={grid} />
       {opened && (
         <DayWindow
           key={opened.day}
@@ -848,6 +875,7 @@ function DayWindow({ grid, opened, entries, lists, boards, today, actions, place
           <Icon name="close" />
         </button>
       </h4>
+      <EventBox day={day} today={today} narrow />
       <div className="day-rows">
         {entries.map((entry) => (
           <EntryRow key={entryKey(entry)} entry={entry} lists={lists} boards={boards} today={today} actions={actions} />

@@ -4,6 +4,7 @@ import { backup, backups, NoSuchBackup, restore } from './backup';
 import { addressProblem, configFromEnv, dataProblem, VERSION } from './config';
 import { exportSpace, NoSuchSpace } from './export';
 import { makeServer } from './server';
+import { ffmpegTools } from './video';
 
 // `scrawl-server` runs the server; `scrawl-server backup` makes a backup of a running one;
 // `scrawl-server restore <backup>` puts one back, with the server stopped; `scrawl-server export
@@ -53,9 +54,11 @@ if (command === 'backup') {
     console.error(problem);
     process.exit(1);
   }
-  const server = makeServer(config);
+  const server = makeServer(config, { videoTools: await ffmpegTools() });
   // The morning's notification of work due (design/notifications.md 5).
   server.due.start();
+  // Videos sent before, or left half done when it stopped, are looked at now (design/chat.md 27).
+  void server.chats.lookAtVideos();
   const sockets = new WebSocketServer({ noServer: true });
   const http = serve({ fetch: server.app.fetch, port: config.port, websocket: { server: sockets } }, () => {
     console.log(`Scrawl server ${VERSION} at ${config.url} (port ${config.port}, data in ${config.data})`);

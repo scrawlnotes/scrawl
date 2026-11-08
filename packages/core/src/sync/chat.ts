@@ -25,6 +25,12 @@ export interface ChatFile {
   height?: number;
   duration?: number;
   thumb?: string;
+  /** What a video's picture is coded in, as the server found: `hevc`, `h264` (design/chat.md 27). */
+  codec?: string;
+  /** A video's H.264 copy, which plays everywhere, once the server made it. */
+  play?: string;
+  /** The server is looking at a video, and may make a copy of it. */
+  preparing?: true;
 }
 
 export interface ChatMessage {

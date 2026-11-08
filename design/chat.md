@@ -393,7 +393,7 @@ Olaylar yalnız o konuşmanın üyelerine gider. Bağlantı koparsa istemci yeni
 - Ekler: Cache Storage'da hash ile. Küçük resimler hep, büyük dosyalar açılınca iner. Resim `fetch` ile anahtar başlığıyla alınır, blob URL'le gösterilir; `<img src>` başlık taşıyamaz.
 - Kuyruk: mesaj gönderilmeden önce istemcinin ürettiği kimlikle yazılır. Bağlanınca sırayla gider; sunucu aynı kimliği ikinci kez yazmaz.
 - Taslaklar: konuşma başına, bu cihazda (`localStorage`).
-- Gönderilmeden önce küçük resim istemcide üretilir (en çok 1280 piksel, WebP, Safari'de JPEG); videonun ilk karesi ve sesin süresi de istemcide ölçülür. Sunucu medya işlemez, yerel bağımlılık gelmez.
+- Gönderilmeden önce küçük resim istemcide üretilir (en çok 1280 piksel, WebP, Safari'de JPEG); videonun ilk karesi ve sesin süresi de istemcide ölçülür. Sunucu videoyu H.264'e çevirir ve ölçülemeyenin ölçüsünü doldurur (27).
 
 ### 11.6 Arama
 
@@ -672,3 +672,59 @@ Taslak: `design/mockups.html`, Mesajlaşma › **Telefon tek liste** (6 Kasım o
 - **Bildirim şeridi** arama kutusuyla çiplerin arasında, önceki gibi.
 - **Kod:** yalnız web. `PhoneChat.tsx` (`PhoneChatList`: tek liste, çipler, No messages yet), `Phone.tsx` (Chat'te FAB yerine başlıktaki +), stiller ve metinler. Çipin seçimi `localStorage`'da. Sunucu ve core değişmez.
 - **Deneme:** tarayıcıda telefon boyutunda iki kişiyle: sıra yeni mesajla değişiyor, çipler süzüyor, No messages yet'teki room'a ilk mesaj gidince yukarı çıkıyor, + menüsü açılıyor. Sonra iPhone'da.
+
+## 27. Video her yerde oynasın (8 Kasım)
+
+Eren iPhone'dan bir ekran kaydı gönderdi. Telefonda oynuyor, Windows'taki masaüstü uygulamasında süre ilerliyor ama görüntü siyah. İki neden var:
+
+- **Video HEVC (H.265).** iPhone'un kamerası ve ekran kaydı varsayılan olarak bunu yazar. Windows masaüstü uygulamasının tarayıcı motoru (WebView2) HEVC'yi ancak Microsoft'un ayrı satılan HEVC Video Extensions'ı kuruluysa çözer. Firefox hiç çözmez. Kurulu değilse ses çalar, görüntü siyah kalır.
+- **iPhone videoyu ölçemedi.** iPhone sayfaya konmamış ve oynatılmamış bir videonun karesini vermiyor; 8 saniye bekleyip ölçüsüz gönderdi. Mesajda genişlik, yükseklik, süre ve ilk kare yok; masaüstünde dikey video yatay siyah bir kutuda.
+
+Üç parça:
+
+### 27.1 iPhone'da ölçme
+
+Video ölçülürken sayfaya görünmeden konur ve sessizce bir an oynatılır. Genişlik, yükseklik ve süre ilk bilgiyle (metadata) alınır; ilk kare 0,5 saniyedeki kare. Kare 3 saniyede gelmezse video ölçüsü ve süresiyle gider. Kod: `chatMedia.ts` `videoOf`.
+
+### 27.2 Sunucu çevirir
+
+- **Ne zaman:** mesaja video eklenince sunucu arka planda `ffprobe` ile görüntünün kodlamasına bakar. H.264 ise bir şey yapmaz. Başka bir şeyse (HEVC, VP9, AV1) `ffmpeg` ile H.264 ve AAC bir MP4 kopyası yapar. Mesaj beklemez, hemen gider.
+- **Kopya:** `libx264`, `-preset veryfast -crf 23`, uzun kenar en çok 1920 (büyükse küçülür), ses AAC ise kopyalanır, değilse AAC 128k; `-movflags +faststart` (indirilirken oynamaya başlar). Videonun yönü korunur. HDR video (iPhone kamerası) SDR'a çevrilir, yoksa soluk görünür.
+- **Eksikleri doldurma:** mesajda genişlik, yükseklik, süre ya da ilk kare yoksa sunucu `ffprobe` ve `ffmpeg` ile doldurur. İlk kare 0,5 saniyedeki kare, uzun kenar en çok 1280, WebP.
+- **Sıra:** aynı anda bir video çevrilir, en çok iki çekirdekle (`-threads 2`), sunucunun öbür işlerini boğmasın diye. Bir çevirme 30 dakikayı geçerse bırakılır. Sunucu kapanırsa yarım kalanlar açılınca yeniden sıraya girer.
+- **Eski videolar:** sunucu açılınca daha önce bakılmamış videolara sırayla bir kez bakar. Eren'in videosu da böyle düzelir.
+- **ffmpeg yoksa:** sunucu Docker imajı dışında, ffmpeg'siz kurulduysa hiçbir şey çevrilmez, video eskisi gibi kalır. Sunucu açılışta bunu bir kez kaydına yazar.
+- **Saklama:** kopya ve ilk kare de öbür dosyalar gibi digest'iyle saklanır. Aynı kalitede H.264, HEVC'nin aşağı yukarı iki katı yer tutar; 4K bir video 1920'ye indiği için kopyası aslından küçük de olabilir. Mesaj silinince satırıyla birlikte gider.
+- **Yazılmayan:** export'a ve ajanın `messages` aracına yalnız asıl dosya girer. Download aslını indirir.
+
+### 27.3 Uygulama oynatır
+
+- Kopya hazırsa herkes kopyayı oynatır, iPhone da. Hazır değilse asıl dosya oynatılır.
+- Bu bilgisayar aslının görüntüsünü çözemezse (açılınca genişliği 0 ya da hata):
+  - **Çevriliyorsa:** ilk kare soluk, üstünde "Preparing this video for this computer…". Kopya hazır olunca kendiliğinden oynar.
+  - **Çevrilemediyse ya da sunucuda ffmpeg yoksa:** ilk kare soluk, nedeni ve Download. Kodlama biliniyorsa "This video is HEVC (H.265), which this computer can't play.", bilinmiyorsa "This video can't be played on this computer."
+
+### 27.4 Teknik
+
+- **Tablo:** `message_files`'a üç sütun: `codec` (ffprobe'un dediği: `hevc`, `h264`), `play` (H.264 kopyanın digest'i), `play_state` (`NULL` bakılmadı, `same` zaten H.264, `converting`, `ready`, `failed`). `message_files_play` dizini.
+- **API:** `ChatFile`'a `codec?`, `play?` (hazırsa), `preparing?: true` (çevriliyorken). `GET /api/v1/chat/files/:hash` kopyayı ve ilk kareyi de mesajın dosyası sayar: kopyayı mesajı görenler okur, başkası okuyamaz. Kopyanın türü `video/mp4`.
+- **Canlı:** kopya hazır olunca, çevirme düşünce ya da eksikler dolunca mesajın `rev`'i artar ve konuşmadakilere `message` olayı gider; mesaj düzenlenmiş görünmez. Uygulama mesajı yerinde yeniler.
+- **Kod:** sunucuda yeni `video.ts` (ffprobe ve ffmpeg'i `child_process.spawn` ile çalıştırır, sırayı tutar; komutlar kabuğa gitmez, argüman listesiyle); `chat.ts` video eklenince sıraya koyar, `file()` kopyayı tanır; `db.ts` sütunlar. Core `ChatFile` alanları. Web `ChatParts.tsx` `VideoBox`, metinler.
+- **Docker:** `apps/server/Dockerfile`'da Debian'ın `ffmpeg` paketi (`--no-install-recommends`). Paket imaja 472 MB ekler (8 Kasım'da `node:24-slim` üstünde ölçüldü); içinde gereken her şey var: `libx264`, `aac`, `libwebp`, HDR için `zscale` ve `tonemap`. Hazır derlenmiş tek dosyalık (static) bir ffmpeg daha küçük olurdu ama Debian dışından gelir ve Debian'ın güvenlik güncellemelerini almaz. Sunucu yeni sürümle (0.2.37) yayınlanır.
+- **Güvenlik:** ffmpeg dosyayı yalnız okur, çıktıyı sunucunun geçici klasörüne yazar, sonra digest'iyle yerine koyar. Dosya adı komuta girmez (yol digest'ten). Süre sınırı takılıp kalan bir çevirmeyi keser.
+
+### 27.5 Testler
+
+- **Sunucu (sahte çevirici ile, ffmpeg gerekmez):** H.264 video `same` olur, kopya yapılmaz; HEVC `converting`, sonra `ready`, `play` dolar, `rev` artar, konuşmadakilere olay gider; kopyayı mesajı gören okur, görmeyen 404 alır; çevirme düşerse `failed`; ölçüsüz videonun genişliği, yüksekliği, süresi ve ilk karesi dolar; açılışta bakılmamış eski video sıraya girer; silinen mesajın kopyası okunmaz.
+- **Gerçek ffmpeg (makinede varsa, yoksa atlanır):** küçük bir HEVC video H.264'e çevrilir, `ffprobe` kopyada `h264` der.
+- **Tarayıcı:** Claude'un tarayıcısında HEVC'yi çözemeyen durum: "Preparing…" görünür, kopya gelince oynar; çevrilemeyende neden ve Download.
+- **Gerçek:** canlı sunucuda Eren'in videosu kopyalanır ve masaüstünde oynar; iPhone'dan yeni bir ekran kaydı dikey kutuda ilk karesiyle gelir.
+
+### 27.6 Yazılırken
+
+- **Ölçüler:** Eren'in ekran kaydı (HEVC, 1284 × 2778, 13 saniye, 17,7 MB) iki çekirdekle 10 saniyede çevrildi; kopya 886 × 1920 ve 1,1 MB, ilk karesi 22 KB. Debian'ın ffmpeg'i 5.1.
+- **Yön:** telefonun yan kaydettiği dikey videoda yön `ffprobe`'un döndürme bilgisinden okunur; genişlik ve yükseklik gösterildiği gibi yazılır. ffmpeg kopyayı ve ilk kareyi dik yazar.
+- **Aynı video bir daha:** aynı video yeniden gönderilir ya da forward edilirse sunucunun bulduğu (kopya, ölçü, ilk kare) ona da yazılır, yeniden çevrilmez. Çevirme sürerken gelen de bekleyenlere katılır; iş biter bitmez o videoyu taşıyan bütün mesajlar yenilenir.
+- **ffmpeg'siz sunucu:** video "hazırlanıyor" görünmez; çözemeyen bilgisayar hemen nedeni ve Download'u gösterir.
+- **Oynarken kopya gelirse:** oynayan video kesilmez; kopya bir sonraki oynatmada kullanılır.
+- **Durum adları:** `play_state` `converting`, `same`, `ready`, `failed`; uygulamaya `preparing` ve `play` olarak gider.

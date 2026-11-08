@@ -32,7 +32,8 @@ LABEL org.opencontainers.image.source=https://github.com/scrawlnotes/scrawl \
 ENV NODE_ENV=production SCRAWL_DATA=/data PORT=8080
 COPY --from=build /repo/apps/server/dist/ /app/
 # wget is for the health checks of hosting panels: Coolify's runs curl or wget inside the container.
-RUN apt-get update && apt-get install --yes --no-install-recommends wget \
+# ffmpeg makes the H.264 copy of a video that some computers cannot play (design/chat.md 27).
+RUN apt-get update && apt-get install --yes --no-install-recommends wget ffmpeg \
   && rm -rf /var/lib/apt/lists/*
 RUN printf '#!/bin/sh\nexec node --disable-warning=ExperimentalWarning --enable-source-maps /app/server.mjs "$@"\n' > /usr/local/bin/scrawl-server \
   && chmod +x /usr/local/bin/scrawl-server \

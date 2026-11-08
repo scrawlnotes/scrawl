@@ -12685,6 +12685,54 @@ button.st-li:hover,
   color: var(--sl-p1);
 }
 
+/* Settings › Calendars (design/mockups.html › Outlook takvimi): the account, Show events in Scrawl,
+   and the account's calendars a step in under it, each its color, its name and its box. */
+.st-lead {
+  margin: 0;
+  color: var(--sl-dim);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.ol-account .st-li > .icon {
+  color: var(--sl-dim);
+}
+
+.ol-account .nm small.st-bad,
+.st-note.st-bad {
+  color: var(--sl-p1);
+}
+
+.ol-cals {
+  margin-left: 25px;
+}
+
+.ol-cals.off {
+  opacity: 0.5;
+}
+
+.ol-cals-wait {
+  margin-left: 25px;
+}
+
+.ol-cal {
+  padding: 7px 12px;
+  cursor: pointer;
+}
+
+.ol-cal input {
+  flex: none;
+  margin: 0;
+  accent-color: var(--sl-accent);
+}
+
+.ol-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
 .ag-none {
   display: flex;
   flex-direction: column;
@@ -15097,6 +15145,160 @@ button.st-li:hover,
 
 .cal-t.timed.rec:hover {
   background: color-mix(in srgb, var(--cc) 14%, transparent);
+}
+
+/* Outlook's events (design/mockups.html › Outlook takvimi): read only, so hollow where Scrawl's own
+   are filled: a box of the hours with an edge in its calendar's color, a chip with a hollow mark. */
+.tg-box.ol {
+  border: 1px solid color-mix(in srgb, var(--cc) 55%, transparent);
+  border-left: 3px solid var(--cc);
+  background: color-mix(in srgb, var(--cc) 7%, var(--sl-bg));
+}
+
+.tg-box.past,
+.cal-t.past {
+  opacity: 0.5;
+}
+
+.cal-t.ol {
+  --pc: var(--cc);
+  cursor: pointer;
+}
+
+.cal-t.timed.ol {
+  padding-left: 3px;
+  background: none;
+}
+
+.cal-t.timed.ol::before {
+  content: '';
+  flex: none;
+  box-sizing: border-box;
+  width: 4px;
+  height: 12px;
+  border: 1.5px solid var(--cc);
+  border-radius: 2px;
+}
+
+.cal-t.ol.all {
+  background: none;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cc) 55%, transparent);
+}
+
+.cal-t.ol:hover {
+  background: color-mix(in srgb, var(--cc) 12%, transparent);
+}
+
+/* A day's events in Today and Upcoming's List: a box of two columns read down, each event its
+   calendar's mark, its time and its name; ↗ under the pointer, as a click opens it in Outlook. */
+.ol-evs {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px 16px;
+  margin: 4px 0 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--sl-line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--sl-side) 70%, transparent);
+}
+
+.ol-evs.narrow {
+  grid-auto-flow: row;
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0 0 8px;
+}
+
+.ol-ev {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: 28px;
+  padding: 0 6px;
+  border-radius: 5px;
+  color: var(--sl-fg);
+  font-size: 12.5px;
+  text-align: left;
+}
+
+.ol-ev::before {
+  content: '';
+  flex: none;
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--cc);
+}
+
+.ol-ev em {
+  flex: none;
+  min-width: 72px;
+  color: var(--sl-dim);
+  font-size: 11.5px;
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+.ol-ev span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ol-ev .icon {
+  display: none;
+  flex: none;
+  width: var(--icon-12);
+  height: var(--icon-12);
+  margin-left: auto;
+  color: var(--sl-dim);
+}
+
+.ol-ev:hover,
+.ol-ev:focus-visible {
+  background: var(--sl-sel);
+}
+
+.ol-ev:hover .icon,
+.ol-ev:focus-visible .icon {
+  display: block;
+}
+
+.ol-ev.past {
+  opacity: 0.5;
+}
+
+.ol-ev.more {
+  color: var(--sl-faint);
+}
+
+.ol-ev.more::before {
+  background: none;
+}
+
+.ol-warn {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 4px 0 8px;
+  padding: 6px 8px 6px 12px;
+  border: 1px dashed var(--sl-line);
+  border-radius: 8px;
+  color: var(--sl-dim);
+  font-size: 12.5px;
+}
+
+.ol-warn > .icon {
+  flex: none;
+  width: var(--icon-14);
+  height: var(--icon-14);
+  color: var(--sl-p2);
+}
+
+.ol-warn .st-btn {
+  margin-left: auto;
 }
 
 .cd .cal-pop {
@@ -17866,6 +18068,52 @@ button.ch-video img {
 }
 
 .ch-video .play .ch-wait {
+  margin: 0;
+  border-color: rgb(255 255 255 / 0.3);
+  border-top-color: #fff;
+}
+
+/* a video this computer cannot draw: its picture dimmed, why, and Download */
+.ch-video.cant img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.35;
+}
+
+.ch-video.cant .why {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  color: #fff;
+  font-size: 13px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.ch-video.cant .why button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid rgb(255 255 255 / 0.35);
+  border-radius: 6px;
+  background: rgb(0 0 0 / 0.45);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ch-video.cant .why button:hover {
+  background: rgb(0 0 0 / 0.7);
+}
+
+.ch-video.cant .ch-wait {
   margin: 0;
   border-color: rgb(255 255 255 / 0.3);
   border-top-color: #fff;

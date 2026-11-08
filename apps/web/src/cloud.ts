@@ -13,7 +13,7 @@ import { isDesktop } from './storage';
 
 /** Scrawl's own app registration: public, as every desktop app's is. */
 export const DEFAULT_CLIENT_ID = 'fb9dd1e9-b9b0-40ad-ace0-f47a28240fe4';
-const AUTHORITY = 'https://login.microsoftonline.com/common/oauth2/v2.0';
+export const AUTHORITY = 'https://login.microsoftonline.com/common/oauth2/v2.0';
 const SCOPES = 'Files.ReadWrite offline_access User.Read';
 /**
  * With a folder someone shared: the files the user can reach, not only their own. Asked only
@@ -74,7 +74,7 @@ function keepRenewFailure(reason: string | null) {
   }
 }
 
-async function invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+export async function invoke<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   return (await import('@tauri-apps/api/core')).invoke<T>(command, args);
 }
 
@@ -98,16 +98,16 @@ export function setClientId(id: string) {
 }
 
 const base64url = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-const randomText = (length: number) => base64url(crypto.getRandomValues(new Uint8Array(length)));
+export const randomText = (length: number) => base64url(crypto.getRandomValues(new Uint8Array(length)));
 
 /** The proof that the one who asks for the tokens is the one who began the sign-in. */
-async function pkce(): Promise<{ verifier: string; challenge: string }> {
+export async function pkce(): Promise<{ verifier: string; challenge: string }> {
   const verifier = randomText(48);
   const challenge = base64url(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))));
   return { verifier, challenge };
 }
 
-interface TokenAnswer {
+export interface TokenAnswer {
   access_token?: string;
   refresh_token?: string;
   expires_in?: number;
@@ -116,10 +116,10 @@ interface TokenAnswer {
 }
 
 /** Sends a form to the token address and gives the answer as it came. */
-type TokenPost = (form: Record<string, string>) => Promise<{ status: number; body: string }>;
+export type TokenPost = (form: Record<string, string>) => Promise<{ status: number; body: string }>;
 
 /** On the desktop the shell sends it, without the page's Origin, which Microsoft refuses for a desktop app. */
-const postFromShell: TokenPost = async (form) => {
+export const postFromShell: TokenPost = async (form) => {
   try {
     return await invoke('token_request', { url: `${AUTHORITY}/token`, form });
   } catch (error) {
@@ -129,7 +129,7 @@ const postFromShell: TokenPost = async (form) => {
 };
 
 /** In the browser the page sends it; Microsoft takes it for the addresses registered as a single-page application. */
-const postFromPage: TokenPost = async (form) => {
+export const postFromPage: TokenPost = async (form) => {
   let response: Response;
   try {
     response = await fetch(`${AUTHORITY}/token`, { method: 'POST', body: new URLSearchParams(form) });
@@ -140,7 +140,7 @@ const postFromPage: TokenPost = async (form) => {
 };
 
 /** Asks for tokens; a key that is refused means signing in again. */
-async function tokenRequest(post: TokenPost, form: Record<string, string>): Promise<TokenAnswer & { access_token: string }> {
+export async function tokenRequest(post: TokenPost, form: Record<string, string>): Promise<TokenAnswer & { access_token: string }> {
   const answer = await post({ client_id: clientId(), scope: scopesFor(), ...form });
   let body: TokenAnswer = {};
   try {
@@ -344,7 +344,7 @@ export interface SignInResult {
   error?: string;
 }
 
-function readJson<T>(storage: Storage, key: string): T | null {
+export function readJson<T>(storage: Storage, key: string): T | null {
   try {
     const text = storage.getItem(key);
     return text ? (JSON.parse(text) as T) : null;

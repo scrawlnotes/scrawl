@@ -32,9 +32,12 @@ export interface CalendarBox {
   color: string;
   /** Moved and stretched by dragging; one that cannot be is only opened. */
   movable?: boolean;
+  /** An event of Outlook's: hollow in its calendar's color, faint once it is over (design/outlook-calendar.md 2.4). */
+  outlook?: boolean;
+  faint?: boolean;
 }
 
-const pad = (n: number) => String(n).padStart(2, '0');
+const pad =(n: number) => String(n).padStart(2, '0');
 const clock = (minutes: number) => `${pad(Math.floor(minutes / 60) % 24)}:${pad(minutes % 60)}`;
 const snap = (minutes: number) => Math.round(minutes / STEP) * STEP;
 
@@ -183,7 +186,7 @@ export function TimeGrid({ days, today, allDay, boxes, onOpen, onMove, onResize,
     return (
       <div
         key={box.key}
-        className={['tg-box', short && 'short', lifted && 'ghost', box.movable !== false && onMove && 'movable'].filter(Boolean).join(' ')}
+        className={['tg-box', short && 'short', lifted && 'ghost', box.movable !== false && onMove && 'movable', box.outlook && 'ol', box.faint && 'past'].filter(Boolean).join(' ')}
         style={boxStyle(laidBox.from, laidBox.to, laidBox.col, laidBox.cols, box.color)}
         title={`${box.title} · ${clock(laidBox.from)} – ${clock(laidBox.to)}`}
         role="button"
@@ -372,7 +375,7 @@ export function PhoneHours({ day, today, boxes, onOpen, onSwipe, onMove, onTarge
             <button
               key={box.item.key}
               type="button"
-              className={[((box.to - box.from) / 60) * PHONE_HOUR < 40 ? 'tg-box short' : 'tg-box', held?.key === box.item.key && 'ghost'].filter(Boolean).join(' ')}
+              className={[((box.to - box.from) / 60) * PHONE_HOUR < 40 ? 'tg-box short' : 'tg-box', held?.key === box.item.key && 'ghost', box.item.outlook && 'ol', box.item.faint && 'past'].filter(Boolean).join(' ')}
               style={style(box.from, box.to, box.col, box.cols, box.item.color)}
               onPointerDown={(event) => hold(event, box)}
               onContextMenu={(event) => onMove && event.preventDefault()}

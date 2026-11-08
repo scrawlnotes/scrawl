@@ -23,8 +23,9 @@ Click a task to change it. The bar under it has **Date**, **Priority**, **Labels
 
 - Late ones are under **Overdue**. **Reschedule** gives them all a new day at once.
 - What you finished today is at the end, and opens again with a tick.
+- With Outlook connected in Settings › Calendars, the day's meetings are in a box at its head; a click opens one in Outlook.
 
-**Upcoming** shows what is coming, day by day, as a list or a calendar. The numbers beside both in the sidebar count what each shows.
+**Upcoming** shows what is coming, day by day, as a list or a calendar, Outlook's meetings with it, hollow in the calendar. The numbers beside both in the sidebar count what each shows.
 
 ## Labels
 

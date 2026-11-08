@@ -238,24 +238,78 @@ export function Lightbox({ url, images, at, onClose, onShow }: { url: string; im
   );
 }
 
-/** A video with its first picture; it is read from the server when it is played. */
+/** A video's coding as a person knows it, for why it does not play. */
+const CODECS: Record<string, string> = { hevc: 'HEVC (H.265)', h264: 'H.264', vp8: 'VP8', vp9: 'VP9', av1: 'AV1', mpeg4: 'MPEG-4', prores: 'ProRes' };
+
+/**
+ * A video with its first picture; it is read from the server when it is played: the server's
+ * H.264 copy once it is made, else the video as it was sent (design/chat.md 27). One whose picture
+ * this computer cannot draw, as HEVC where Windows has no HEVC extension, waits for the copy while
+ * the server makes it and then plays; with no copy coming it says why, with Download, rather than
+ * playing its sound over black.
+ */
 function VideoBox({ url, file }: { url: string; file: ChatFile }) {
   const poster = useFileUrl(url, file.thumb, 'image/webp');
-  const [source, setSource] = useState<string | null>(null);
+  const [source, setSource] = useState<{ hash: string; address: string } | null>(null);
   const [loading, setLoading] = useState(false);
+  /** What was played and could not be drawn here. */
+  const [failed, setFailed] = useState<string | null>(null);
   const ratio = file.width && file.height ? file.width / file.height : 16 / 9;
   const style = { width: Math.round(Math.min(400, 260 * ratio)), aspectRatio: String(ratio) };
-  if (source) return <video className="ch-video" style={style} src={source} controls autoPlay />;
-  const play = () => {
+  const wanted = file.play ?? file.hash;
+  const start = (hash: string) => {
     setLoading(true);
     void store
       .server(url)
-      ?.fileUrl(file.hash, file.type)
-      .then(setSource, () => undefined)
+      ?.fileUrl(hash, hash === file.play ? 'video/mp4' : file.type)
+      .then((address) => setSource({ hash, address }), () => undefined)
       .finally(() => setLoading(false));
   };
+  // The copy came while this computer waited for it: it plays.
+  useEffect(() => {
+    if (failed === file.hash && file.play && source?.hash !== file.play) start(file.play);
+  }, [failed, file.play]);
+
+  const dim = poster && <img src={poster} alt="" draggable={false} />;
+  if (failed === file.hash && !file.play && file.preparing)
+    return (
+      <div className="ch-video cant" style={style}>
+        {dim}
+        <span className="why">
+          <span className="ch-wait" />
+          {t('chat.preparingVideo')}
+        </span>
+      </div>
+    );
+  if (failed !== null && failed === wanted)
+    return (
+      <div className="ch-video cant" style={style}>
+        {dim}
+        <span className="why">
+          {file.codec && file.codec !== 'h264' ? t('chat.cantPlayCodec', { codec: CODECS[file.codec] ?? file.codec.toUpperCase() }) : t('chat.cantPlay')}
+          <button type="button" onClick={() => void save(url, file)}>
+            <Icon name="download" />
+            {t('chat.download')}
+          </button>
+        </span>
+      </div>
+    );
+  // What plays goes on playing when a copy comes.
+  if (source && source.hash !== failed)
+    return (
+      <video
+        key={source.hash}
+        className="ch-video"
+        style={style}
+        src={source.address}
+        controls
+        autoPlay
+        onLoadedMetadata={(event) => event.currentTarget.videoWidth === 0 && setFailed(source.hash)}
+        onError={() => setFailed(source.hash)}
+      />
+    );
   return (
-    <button type="button" className="ch-video" style={style} aria-label={file.name || t('chat.video')} onClick={play}>
+    <button type="button" className="ch-video" style={style} aria-label={file.name || t('chat.video')} onClick={() => start(wanted)}>
       {poster && <img src={poster} alt="" draggable={false} />}
       <span className="play">{loading ? <span className="ch-wait" /> : <Icon name="playFill" />}</span>
       {file.duration !== undefined && <small>{clock(file.duration)}</small>}

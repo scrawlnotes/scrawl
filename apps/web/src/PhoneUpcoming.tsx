@@ -1,4 +1,4 @@
-import { addDays, type Board, type Card, dayRuns, dueToday, dueUpcoming, INBOX_TASKS, keyOf, minutesOfDay, monthDays, movedValues, recordLabel, type Task, weekDays } from '@scrawlnotes/core';
+import { addDays, type Board, type Card, dayRuns, dueToday, dueUpcoming, eventsOn, INBOX_TASKS, keyOf, minutesOfDay, monthDays, movedValues, recordLabel, type Task, timedOn, weekDays } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, Fragment, useState } from 'react';
 import { type CalendarBox, choiceColor, PhoneHours } from './Calendar';
@@ -8,6 +8,8 @@ import { Empty } from './sheets';
 import { dateWords } from './TaskComposer';
 import { CardRow, type Dated, type DueSubtask, placeOf, RecordRow, recordKey, recordsByDay, splitDueCards, splitDueSubtasks, SubtaskRow, subtaskRefOf, type TaskActions, TaskItem, TaskPage } from './Tasks';
 import { datedByDay, dayHeading, type Entry, entryKey, EntryRow, freeWords, monthWords } from './Upcoming';
+import { openOutlookEvent, outlookColor, useOutlookEvents } from './outlook';
+import { EventBox, eventBoxes, openEventBox } from './OutlookEvents';
 
 // Upcoming on a phone, after the Phone views of the Upcoming and Calendar mockups, in three views
 // chosen beside its title. List: what is late first, with Reschedule, then today, then only the
@@ -40,6 +42,9 @@ export function PhoneUpcoming(props: Props) {
 function PhoneDay({ lists, boards, today, actions, day, onDay, still = null }: Props) {
   const { byDay, records } = datedByDay(lists, boards, today, actions.dueSubtasks(), actions.dueRecords());
   const [target, setTarget] = useState<string | null>(null);
+  // Outlook's events of the week shown: hollow on the hours, all day above them, a dot under their day.
+  const week = weekDays(day);
+  const events = useOutlookEvents(week[0]!, week.at(-1)!);
   // What has a time is on the hours; the rest above them.
   const timed = records.filter((due) => minutesOfDay(due.start) !== null && due.start.slice(0, 10) === day);
   const entries = (byDay.get(day) ?? []).filter((entry) => !('calendar' in entry && timed.includes(entry.calendar)));
@@ -52,6 +57,13 @@ function PhoneDay({ lists, boards, today, actions, day, onDay, still = null }: P
     color: choiceColor(due.colorField, due.choice),
     movable: !!movedValues(due.schema, due.view.calendar!, due, due.start),
   }));
+  boxes.push(...eventBoxes(events, [day], today));
+  const openBox = (box: CalendarBox) => {
+    if (openEventBox(box, events)) return;
+    const due = timed.find((each) => `${each.collection}@${each.record.id}` === box.key);
+    if (due) actions.openRecord(due.collection, due.record.id);
+  };
+  const allDay = eventsOn(events, day).filter((event) => !timedOn(event, day));
   const move = (box: CalendarBox, start: string) => {
     const due = timed.find((each) => `${each.collection}@${each.record.id}` === box.key);
     const values = due && movedValues(due.schema, due.view.calendar!, due, start);
@@ -86,8 +98,8 @@ function PhoneDay({ lists, boards, today, actions, day, onDay, still = null }: P
   return (
     <TaskPage title={t('tasks.upcoming')} bare footer={<StillOpening text={still} />}>
       <div className="mb-wstrip">
-        {weekDays(day).map((each) => {
-          const busy = byDay.has(each);
+        {week.map((each) => {
+          const busy = byDay.has(each) || eventsOn(events, each).length > 0;
           return (
             <button key={each} type="button" data-day={each} className={[each === day && 'on', each === today && 'today', target === each && 'drop'].filter(Boolean).join(' ') || undefined} aria-pressed={each === day} aria-label={dateWords(each, today)} onClick={() => onDay(each)}>
               <small>{new Date(`${each}T12:00:00`).toLocaleDateString(locale(), { weekday: 'narrow' })}</small>
@@ -97,8 +109,18 @@ function PhoneDay({ lists, boards, today, actions, day, onDay, still = null }: P
           );
         })}
       </div>
-      {entries.length > 0 && <div className="mb-allday">{entries.map(chip)}</div>}
-      <PhoneHours day={day} today={today} boxes={boxes} onOpen={(box) => { const due = timed.find((each) => `${each.collection}@${each.record.id}` === box.key); if (due) actions.openRecord(due.collection, due.record.id); }} onSwipe={(by) => onDay(addDays(day, by))} onMove={move} onTarget={setTarget} />
+      {entries.length + allDay.length > 0 && (
+        <div className="mb-allday">
+          {entries.map(chip)}
+          {allDay.map((event) => (
+            <button key={`${event.calendar}|${event.id}`} type="button" className="mb-chip ol" style={{ '--cc': outlookColor(event) } as CSSProperties} onClick={() => openOutlookEvent(event)}>
+              <i />
+              <span>{event.title || t('outlook.noTitle')}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      <PhoneHours day={day} today={today} boxes={boxes} onOpen={openBox} onSwipe={(by) => onDay(addDays(day, by))} onMove={move} onTarget={setTarget} />
     </TaskPage>
   );
 }
@@ -112,8 +134,12 @@ function PhoneDays({ lists, boards, today, actions, still = null }: Props) {
   cards.later.set(today, cards.today);
   subtasks.later.set(today, subtasks.today);
   const recordsOn = recordsByDay(actions.dueRecords(), today);
-  const busy = [...tasksOn, ...cards.later, ...subtasks.later, ...recordsOn].filter(([, on]) => on.length > 0).map(([day]) => day);
+  // Outlook's events, as far ahead as the records go: a day with only events is not a free one.
+  const events = useOutlookEvents(today, addDays(today, 62));
+  const eventDays = events.flatMap((event) => (event.lastDay < today ? [] : [event.day < today ? today : event.day]));
+  const busy = [...[...tasksOn, ...cards.later, ...subtasks.later, ...recordsOn].filter(([, on]) => on.length > 0).map(([day]) => day), ...eventDays];
   const runs = dayRuns([...new Set(busy)], today);
+  const countOn = (day: string) => (tasksOn.get(day)?.length ?? 0) + (cards.later.get(day)?.length ?? 0) + (subtasks.later.get(day)?.length ?? 0) + (recordsOn.get(day)?.length ?? 0);
 
   const item = ({ list, task }: { list: string; task: Task }) => (
     <TaskItem key={`${list}/${task.id}`} list={list} task={task} tasks={lists[list] ?? []} today={today} showDone={false} actions={actions} flat byDay />
@@ -152,9 +178,9 @@ function PhoneDays({ lists, boards, today, actions, still = null }: Props) {
         ) : (
           <Fragment key={run.day}>
             <div className="sec">
-              {dayHeading(run.day, today)}{' '}
-              <small>{(tasksOn.get(run.day)?.length ?? 0) + (cards.later.get(run.day)?.length ?? 0) + (subtasks.later.get(run.day)?.length ?? 0) + (recordsOn.get(run.day)?.length ?? 0)}</small>
+              {dayHeading(run.day, today)} {countOn(run.day) > 0 && <small>{countOn(run.day)}</small>}
             </div>
+            <EventBox day={run.day} today={today} />
             {(tasksOn.get(run.day) ?? []).map(item)}
             {(cards.later.get(run.day) ?? []).map(cardItem)}
             {(subtasks.later.get(run.day) ?? []).map(subtaskItem)}
@@ -180,6 +206,10 @@ function PhoneMonth({ lists, boards, today, actions, day, onDay, still = null }:
   const [month, setMonth] = useState(day.slice(0, 7));
   const { byDay } = datedByDay(lists, boards, today, actions.dueSubtasks(), actions.dueRecords());
   const entries = byDay.get(day) ?? [];
+  // Outlook's events: a dot under their days, and the chosen day's at the head of its list.
+  const shown = monthDays(month);
+  const events = useOutlookEvents(shown[0]! < day ? shown[0]! : day, shown.at(-1)! > day ? shown.at(-1)! : day);
+  const dayEvents = eventsOn(events, day);
   const shift = (by: number) => {
     const [y, m] = month.split('-').map(Number) as [number, number];
     const first = new Date(y, m - 1 + by, 1);
@@ -208,8 +238,8 @@ function PhoneMonth({ lists, boards, today, actions, day, onDay, still = null }:
           ))}
         </div>
         <div className="days">
-          {monthDays(month).map((each) => {
-            const busy = byDay.has(each);
+          {shown.map((each) => {
+            const busy = byDay.has(each) || eventsOn(events, each).length > 0;
             const className = [each.slice(0, 7) !== month && 'out', busy && 'busy', each === today && 'today', each === day && 'on'].filter(Boolean).join(' ');
             return (
               <button key={each} type="button" className={className || undefined} aria-pressed={each === day} aria-label={dateWords(each, today)} onClick={() => onDay(each)}>
@@ -223,8 +253,9 @@ function PhoneMonth({ lists, boards, today, actions, day, onDay, still = null }:
       <div className="sec">
         {dayHeading(day, today)} {entries.length > 0 && <small>{entries.length}</small>}
       </div>
+      <EventBox day={day} today={today} />
       {entries.map(row)}
-      {entries.length === 0 && (
+      {entries.length === 0 && dayEvents.length === 0 && (
         <>
           <p className="task-empty">{t('tasks.nothingOnDay')}</p>
           <button type="button" className="qa mb-addday" onClick={() => actions.quickAdd?.(INBOX_TASKS, null, day)}>
