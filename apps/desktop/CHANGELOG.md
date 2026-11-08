@@ -2,6 +2,13 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.28
+
+Outlook's calendar beside your work, and videos every device plays.
+
+- Settings › Calendars connects Outlook, with a work or a personal Microsoft account, apart from OneDrive. Your meetings then show at the head of Today and of each day in Upcoming, and hollow in the calendar's week and month; a click opens one in Outlook. You pick which of the account's calendars show, the same on every device.
+- Chat: a video this computer can't play, as an iPhone's HEVC on Windows, plays from a copy the Scrawl server makes of it. While the copy is being made the video says so; one with no copy says why, with Download.
+
 ## 0.1.27
 
 Notifications of cards and tasks, and Chat.
