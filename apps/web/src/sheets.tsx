@@ -37,7 +37,7 @@ export function useAdded() {
 }
 
 /** Whether something that takes the keyboard is focused: a field, or an editor. */
-const typingIn = () => document.activeElement?.matches('input, textarea, select, [contenteditable]:not([contenteditable="false"])') ?? false;
+export const typingIn = () => document.activeElement?.matches('input, textarea, select, [contenteditable]:not([contenteditable="false"])') ?? false;
 
 /** The part of the page the phone shows: the keyboard, when up, is not in it. */
 export function useViewport() {

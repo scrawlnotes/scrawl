@@ -21,6 +21,7 @@ import { hostOf, knownServers, pendingJoin } from './servers';
 import { PhoneSearch, type SearchAction, type Thing } from './Search';
 import { PhoneChatSearch } from './ChatSearch';
 import type { Hit } from './messageSearch';
+import { useAwakeWhileWriting } from './awake';
 import { ActionSheet, Empty, suppressClick, useViewport } from './sheets';
 import { LabelsPage } from './labels';
 import type { ChatLinks } from './Chat';
@@ -631,6 +632,7 @@ export function Phone(props: PhoneProps) {
   const [removingSpace, setRemovingSpace] = useState<string | null>(null);
   const view = useViewport();
   const keyboard = view.keyboard;
+  useAwakeWhileWriting();
   const [seen, setSeen] = useState(loadSeen);
   const [now, setNow] = useState(Date.now);
   /** A row held for its menu, lifted over the dimmed page while the menu is open: where it is and what it shows. */
