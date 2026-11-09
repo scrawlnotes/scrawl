@@ -185,7 +185,6 @@ import { folderLabel, setSpaceNames,
   pathOf,
   pathTip,
   QUICK,
-  seenText,
   tabOf,
   tasksOf,
   TODAY,
@@ -229,7 +228,7 @@ import { writeBack } from './calendarBack';
 import { calendarTargetName, forceScrawl, setCalendarBack, setCalendarWork, setSyncChoice } from './calendarSync';
 import { calendarWork } from './calendarWork';
 import { Help } from './Help';
-import { placeOf, StartPage } from './StartPage';
+import { StartPage } from './StartPage';
 import { type SpaceSyncView, SyncService } from './sync';
 import { reloadIntoUpdate, subscribeUpdate, updateReady } from './pwa';
 import { restartIntoUpdate, useUpdateView } from './desktopUpdate';
@@ -244,7 +243,7 @@ import { openingDrawn, openingFailed } from './opening';
 import { pendingJoin } from './servers';
 import { type FavoriteRow, Sidebar } from './Sidebar';
 import type { Exported, ExportFormat } from './exporting';
-import { type Opened, type SearchAction, SearchWindow, type Target, type Thing, thingsOf } from './Search';
+import { type SearchAction, SearchWindow, type Target, type Thing, thingsOf } from './Search';
 import { type Dated, dueLabel, type DueSubtask, FilterPage, isSubtaskRef, type SubtaskRef, type TaskActions, TaskList, TodayView } from './Tasks';
 import { Upcoming } from './Upcoming';
 import { type ChatLinks, type ChipState, ChatView } from './Chat';
@@ -2821,12 +2820,6 @@ export function App() {
     return id in tabTitles;
   };
   const openSeen = (id: string) => void (id === WELCOME_NOTE ? session.openWelcome() : session.open(id));
-  // Search's Recent with nothing typed: the start page's, without what is on screen (PLAN 4.2).
-  const opened = (): Opened[] =>
-    recent
-      .filter((seen) => seen.id !== active && stillThere(seen.id))
-      .slice(0, 10)
-      .map(({ id, at }) => ({ id, icon: iconOf(id), name: nameOf(id, tabTitles, filters), where: placeOf(id), when: seenText(at, Date.now()), run: () => openSeen(id) }));
 
   // The quick note being written, in Take a note… or in its window, has the note's format bar: it
   // works on that editor while it is open (design/quick-notes.md 3.2, 3.4).
@@ -3979,7 +3972,7 @@ export function App() {
       )}
       {/* On a phone Help is pages in Browse. */}
       {dialog?.kind === 'help' && !phone && <Help onClose={closeDialog} />}
-      {searching && !phone && <SearchWindow things={searchThings} actions={searchActions} opened={opened()} onPick={openFound} onPickMessage={openHit} onClose={() => setSearching(false)} still={still} />}
+      {searching && !phone && <SearchWindow things={searchThings} actions={searchActions} onPick={openFound} onPickMessage={openHit} onClose={() => setSearching(false)} still={still} />}
       {chipPick && !phone && (
         <SearchWindow
           things={pickThings}

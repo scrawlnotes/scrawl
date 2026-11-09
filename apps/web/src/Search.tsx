@@ -453,29 +453,17 @@ function Tabs({ tab, onTab, className, tabs = TABS }: { tab: SearchTab; onTab: (
   );
 }
 
-/** Something opened lately, for Recent under the empty box: what it is, where, when it was looked at. */
-export interface Opened {
-  id: string;
-  icon: IconName;
-  name: string;
-  where: string;
-  when: string;
-  run: () => void;
-}
-
-type Row = { kind: 'found'; found: Found<Thing> } | { kind: 'message'; hit: Hit } | { kind: 'opened'; opened: Opened } | { kind: 'past'; search: string } | { kind: 'action'; action: SearchAction; marks: Span[] };
+type Row = { kind: 'found'; found: Found<Thing> } | { kind: 'message'; hit: Hit } | { kind: 'past'; search: string } | { kind: 'action'; action: SearchAction; marks: Span[] };
 
 /**
  * The search window on a computer, near the top of the app: the box, the tabs, and under them
- * what was found, or with nothing typed what was opened last and the searches made last; the
- * actions at the foot. The arrow keys move through it, and left and right at an end of what is
- * typed change the tab; Enter opens, Esc closes; a click opens too.
+ * what was found, or with nothing typed the searches made last; the actions at the foot. Recent is
+ * not here: on a computer it is the start page's (PLAN 4.2). The arrow keys move through it, and
+ * left and right at an end of what is typed change the tab; Enter opens, Esc closes; a click opens too.
  */
-export function SearchWindow({ things, actions, opened = [], onPick, onPickMessage, onClose, still = null, placeholder }: {
+export function SearchWindow({ things, actions, onPick, onPickMessage, onClose, still = null, placeholder }: {
   things: Thing[] | null;
   actions: SearchAction[];
-  /** Recent: with nothing typed in All, what was opened last, over the searches made last (PLAN 4.2). */
-  opened?: Opened[];
   onPick: (found: Found<Thing>) => void;
   /** A message found opens: with it the window has Messages, and finds messages in All too. */
   onPickMessage?: (hit: Hit) => void;
@@ -499,12 +487,9 @@ export function SearchWindow({ things, actions, opened = [], onPick, onPickMessa
   const offered = tab === 'all' ? actionsFor(actions, query) : [];
   const messages = useMessages(query, tab, !!onPickMessage);
   const tabs = messages.messaging ? [...TABS, MESSAGES] : TABS;
-  const lately = !typed && tab === 'all' ? opened : [];
-  // One list for the arrow keys: what was found, or what was opened and the searches made last; the messages, then the actions.
+  // One list for the arrow keys: what was found, or the searches made last; the messages, then the actions.
   const rows: Row[] = [
-    ...(typed
-      ? shown.map((each): Row => ({ kind: 'found', found: each }))
-      : [...lately.map((each): Row => ({ kind: 'opened', opened: each })), ...recent.searches.map((search): Row => ({ kind: 'past', search }))]),
+    ...(typed ? shown.map((each): Row => ({ kind: 'found', found: each })) : recent.searches.map((search): Row => ({ kind: 'past', search }))),
     ...(typed ? messages.hits.map((hit): Row => ({ kind: 'message', hit })) : []),
     ...offered.map(({ action, marks }): Row => ({ kind: 'action', action, marks })),
   ];
@@ -526,7 +511,7 @@ export function SearchWindow({ things, actions, opened = [], onPick, onPickMessa
     onClose();
     action.run();
   };
-  const run = (row: Row) => (row.kind === 'found' ? pick(row.found) : row.kind === 'message' ? pickMessage(row.hit) : row.kind === 'opened' ? act(row.opened) : row.kind === 'past' ? searchAgain(row.search) : act(row.action));
+  const run = (row: Row) => (row.kind === 'found' ? pick(row.found) : row.kind === 'message' ? pickMessage(row.hit) : row.kind === 'past' ? searchAgain(row.search) : act(row.action));
   // The keyboard stays in the box while the window is open: a note opened just before it would
   // otherwise take it back, and the arrow keys would move in the note.
   useEffect(() => {
@@ -685,33 +670,8 @@ export function SearchWindow({ things, actions, opened = [], onPick, onPickMessa
             </div>
           )
         ) : (
-          (lately.length > 0 || recent.searches.length > 0 || offered.length > 0) && (
+          (recent.searches.length > 0 || offered.length > 0) && (
             <div ref={list} id="sx-list" className="sx-list" role="listbox" aria-label={t('search.title')}>
-              {lately.length > 0 && (
-                <div className="sx-head">
-                  <span>{t('search.opened')}</span>
-                </div>
-              )}
-              {lately.map((each, index) => (
-                <button
-                  key={each.id}
-                  type="button"
-                  role="option"
-                  aria-selected={index === selected}
-                  className={index === selected ? 'sx-r on' : 'sx-r'}
-                  tabIndex={-1}
-                  onMouseMove={() => index !== selected && setSelected(index)}
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => act(each)}
-                >
-                  <Trail trail={each.where ? [each.where] : []} />
-                  <Icon name={each.icon} />
-                  <span className="l1">
-                    <span className="nm">{each.name}</span>
-                  </span>
-                  <span className="kd">{each.when}</span>
-                </button>
-              ))}
               {recent.searches.length > 0 && (
                 <div className="sx-head">
                   <span>{t('search.recent')}</span>
@@ -720,8 +680,7 @@ export function SearchWindow({ things, actions, opened = [], onPick, onPickMessa
                   </button>
                 </div>
               )}
-              {recent.searches.map((search, at) => {
-                const index = lately.length + at;
+              {recent.searches.map((search, index) => {
                 return (
                 <div
                   key={search}
