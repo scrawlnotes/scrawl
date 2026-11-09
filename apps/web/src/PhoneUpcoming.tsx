@@ -38,6 +38,15 @@ export function PhoneUpcoming(props: Props) {
   return props.view === 'month' ? <PhoneMonth {...props} /> : props.view === 'day' ? <PhoneDay {...props} /> : <PhoneDays {...props} />;
 }
 
+/** Back to today, at the bottom left across from +, as a phone's calendar has it; shown only away from today. */
+function TodayButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" className="mb-today" onClick={onClick}>
+      {t('day.today')}
+    </button>
+  );
+}
+
 /** A day on a phone: its week's strip, a dot under each day that has something; the day's tasks and cards; its hours. */
 function PhoneDay({ lists, boards, today, actions, day, onDay, still = null }: Props) {
   const { byDay, records } = datedByDay(lists, boards, today, actions.dueSubtasks(), actions.dueRecords());
@@ -121,6 +130,7 @@ function PhoneDay({ lists, boards, today, actions, day, onDay, still = null }: P
         </div>
       )}
       <PhoneHours day={day} today={today} boxes={boxes} onOpen={openBox} onSwipe={(by) => onDay(addDays(day, by))} onMove={move} onTarget={setTarget} />
+      {day !== today && <TodayButton onClick={() => onDay(today)} />}
     </TaskPage>
   );
 }
@@ -263,6 +273,14 @@ function PhoneMonth({ lists, boards, today, actions, day, onDay, still = null }:
             {t('tasks.addOn', { day: dateWords(day, today) })}
           </button>
         </>
+      )}
+      {(day !== today || month !== today.slice(0, 7)) && (
+        <TodayButton
+          onClick={() => {
+            setMonth(today.slice(0, 7));
+            onDay(today);
+          }}
+        />
       )}
     </TaskPage>
   );

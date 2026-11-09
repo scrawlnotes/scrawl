@@ -519,6 +519,24 @@ html:has(.phone-app) {
 
 /* ---------- +, the messages and the tab bar ---------- */
 
+/* Back to today in Upcoming's Day and Month, across from + and level with it, as a phone's calendar
+   has it; placed by the page, so it stays while the page scrolls. */
+.mb-today {
+  position: absolute;
+  left: 16px;
+  bottom: calc(var(--ph-bar) + var(--ph-strip, 0px) + 22px);
+  z-index: 4;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--sl-line);
+  border-radius: 22px;
+  background: var(--sl-side);
+  color: var(--sl-fg);
+  font-size: 15px;
+  font-weight: 600;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.35);
+}
+
 .mb-fab {
   position: absolute;
   right: 16px;

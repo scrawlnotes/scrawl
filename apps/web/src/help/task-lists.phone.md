@@ -25,7 +25,7 @@ The **Today** tab gathers what is due today or late from every list, board and c
 - What you finished today is at the end, and opens again with a tap on its circle.
 - With Google Calendar or Outlook connected in Settings › Calendars, the day's meetings are at its head; a tap opens one where it is.
 
-**Upcoming**, beside Today, shows what is coming, day by day, as a list or a calendar, your Google and Outlook meetings with it.
+**Upcoming**, beside Today, shows what is coming, day by day, as a list or a calendar, your Google and Outlook meetings with it. Away from today in its **Day** or **Month**, **Today** at the bottom left goes back to it.
 
 ## Labels
 
