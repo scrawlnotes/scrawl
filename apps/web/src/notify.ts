@@ -135,6 +135,9 @@ async function subscribeTo(url: string) {
   const one = store.server(url);
   if (!one) return;
   const registration = await active(await navigator.serviceWorker.register('/push-sw.js', { scope: scopeOf(url) }));
+  // register() keeps the worker it has, and no page of the app is in its scope to bring a new one:
+  // without this a worker from before cards' and tasks' notices opened the app at its start for them.
+  void registration.update().catch(() => undefined);
   const key = keyBytes(await one.client.pushKey());
   let subscription = await registration.pushManager.getSubscription();
   // A server that made a new key: the old subscription does not reach it.
