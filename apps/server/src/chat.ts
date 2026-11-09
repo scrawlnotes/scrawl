@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { fold, plainText, queryWords } from '@scrawlnotes/core';
+import { fold, isAgentId, ownerOf, plainText, queryWords } from '@scrawlnotes/core';
 import { type Account, Refused } from './auth';
 import type { Blobs, Taken } from './blobs';
 import { type Db, transaction } from './db';
@@ -171,7 +171,17 @@ interface FileRow {
 }
 
 /** What a device hears on the live channel: a message as it now is, or that something else changed. */
-export type ChatEvent = { type: 'message'; chat: string; message: Message; reacted?: { by: string; emoji: string } } | { type: 'chat'; cursor: number };
+/** What a message wakes, and what its agents are told of it (design/agent-wake.md 6.3). */
+export interface ChatWake {
+  agents: { id: string; kind: 'mention' | 'reply' }[];
+  from: { id: string; name: string };
+  at: number;
+  space: { id: string; name: string } | null;
+  chat: { id: string; kind: ChatKind; name: string; message: string };
+  words: string;
+}
+
+export type ChatEvent ={ type: 'message'; chat: string; message: Message; reacted?: { by: string; emoji: string } } | { type: 'chat'; cursor: number };
 
 const MESSAGE_ID = /^[A-Za-z0-9_-]{8,64}$/;
 const HASH = /^[0-9a-f]{64}$/;
@@ -559,7 +569,7 @@ export class Chats {
     const replyTo = typeof input.replyTo === 'string' ? input.replyTo : null;
     if (replyTo !== null && this.messageRow(replyTo)?.chat_id !== chat.id) throw new Refused(404, 'no-message', 'No such message to reply to in this conversation');
     this.takeTurn(by.id);
-    const mentions = this.mentionsIn(body, chat);
+    const mentions = this.mentionsIn(body, chat, by.id);
     const roomMention = chat.kind !== 'direct' && ROOM_LINK.test(body);
     const row = transaction(this.db, () => {
       const rev = this.nextRev();
@@ -595,7 +605,7 @@ export class Chats {
     const body = typeof input.body === 'string' ? input.body : '';
     if (body.length > MAX_BODY) throw new Refused(422, 'too-long', `A message has ${MAX_BODY} characters at most`);
     if (!body.trim() && !this.filesOf([message.id]).get(message.id)?.length) throw new Refused(400, 'empty', 'A message has something in it; delete it instead');
-    const mentions = this.mentionsIn(body, chat);
+    const mentions = this.mentionsIn(body, chat, message.author_id);
     const roomMention = chat.kind !== 'direct' && ROOM_LINK.test(body);
     const row = transaction(this.db, () => {
       this.db.prepare('UPDATE messages SET body = ?, mentions_room = ?, edited_at = ?, rev = ? WHERE id = ?').run(body, roomMention ? 1 : 0, this.now(), this.nextRev(), message.id);
@@ -902,6 +912,34 @@ export class Chats {
   }
 
   /**
+   * The agents a message wakes (design/agent-wake.md 1.1): only one its author wrote themselves,
+   * not their agent, nor forwarded; their own agents it mentions, and theirs whose message it
+   * answers. With what such an agent is told: who, where, and the words.
+   */
+  wakesOf(messageId: string): ChatWake | null {
+    const row = this.messageRow(messageId);
+    if (!row || row.agent_id !== null || row.deleted_at !== null || row.forward_of !== null) return null;
+    const agents = new Map<string, 'mention' | 'reply'>();
+    for (const { account_id } of this.db.prepare('SELECT account_id FROM mentions WHERE message_id = ?').all(row.id) as { account_id: string }[]) {
+      if (isAgentId(account_id) && ownerOf(account_id) === row.author_id) agents.set(account_id, 'mention');
+    }
+    const answered = row.reply_to ? this.messageRow(row.reply_to) : undefined;
+    if (answered?.agent_id && answered.author_id === row.author_id && !agents.has(answered.agent_id)) agents.set(answered.agent_id, 'reply');
+    if (!agents.size) return null;
+    const chat = this.row(row.chat_id);
+    const others = this.listeners(chat).filter((account) => account !== row.author_id).map((account) => this.nameOf(account));
+    const space = chat.space_id ? (this.db.prepare('SELECT id, name FROM spaces WHERE id = ?').get(chat.space_id) as { id: string; name: string } | undefined) ?? null : null;
+    return {
+      agents: [...agents].map(([id, kind]) => ({ id, kind })),
+      from: { id: row.author_id, name: this.nameOf(row.author_id) },
+      at: row.created_at,
+      space: space && { id: space.id, name: space.name },
+      chat: { id: chat.id, kind: chat.kind, name: chat.kind === 'public' ? `#${chat.name}` : chat.kind === 'private' ? chat.name : others.join(', '), message: row.id },
+      words: row.body,
+    };
+  }
+
+  /**
    * A message as its notification says it to someone (design/chat.md, 6.4): who wrote it, and
    * where unless it is a direct message of two; its first 140 characters without Markdown's marks,
    * or what kind of file it is.
@@ -1145,9 +1183,11 @@ export class Chats {
   }
 
   /** Those mentioned in a message who are in its conversation. */
-  private mentionsIn(body: string, chat: ChatRow): string[] {
+  /** Those a message mentions: people in its conversation, and the author's own agents (design/agent-wake.md 6.1). */
+  private mentionsIn(body: string, chat: ChatRow, author: string): string[] {
     const named = new Set([...body.matchAll(PERSON_LINK)].map((match) => decodeURIComponent(match[1]!)));
-    return this.listeners(chat).filter((account) => named.has(account));
+    const agents = [...named].filter((id) => isAgentId(id) && ownerOf(id) === author && this.db.prepare('SELECT 1 FROM agent_identities WHERE id = ?').get(id));
+    return [...this.listeners(chat).filter((account) => named.has(account)), ...agents];
   }
 
   private writeMentions(message: string, accounts: string[]) {

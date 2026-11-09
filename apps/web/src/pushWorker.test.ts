@@ -46,6 +46,14 @@ describe('a notification clicked', () => {
     expect(app.posted).toEqual([{ type: 'open-chat', href: 'scrawl:today' }]);
   });
 
+  it('opens the message an agent could not be woken by', async () => {
+    const app = { focused: true, posted: [] as unknown[] };
+    const { click } = load([app]);
+    const message = 'scrawl:chat/https%3A%2F%2Fkaan.scrawlnotes.com/c1/m1';
+    await click({ server: 'https://kaan.scrawlnotes.com', href: message, tag: 'wake:m1' });
+    expect(app.posted).toEqual([{ type: 'open-chat', href: message }]);
+  });
+
   it('opens the app at it when it is closed', async () => {
     const { click, opened } = load([]);
     await click({ server: 'https://kaan.scrawlnotes.com', href: CARD });

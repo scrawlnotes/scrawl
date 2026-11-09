@@ -12778,6 +12778,67 @@ button.st-li:hover,
   white-space: nowrap;
 }
 
+/* An agent its owner wakes: where, under its name and client (design/agent-wake.md 4). */
+.st-li.ag-li.wakes .nm {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1px;
+}
+
+.st-li.ag-li.wakes .nm .l1 {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
+.st-li.ag-li .nm small.wk {
+  color: var(--sl-dim);
+}
+
+/* Wake…: where Scrawl sends what the person writes to an agent, and the headers it sends with it. */
+.dialog.ag-wake {
+  width: min(500px, calc(100vw - 32px));
+}
+
+.dialog.ag-wake .lb {
+  margin: 4px 2px -2px;
+  color: var(--sl-faint);
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.dialog.ag-wake input.mono,
+.dialog.ag-wake textarea {
+  font: 12px/1.6 var(--sl-font-mono);
+}
+
+.dialog.ag-wake textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  background: var(--sl-bg);
+  color: var(--sl-fg);
+  resize: vertical;
+}
+
+.dialog.ag-wake textarea:focus {
+  border-color: var(--sl-accent);
+  outline: none;
+}
+
+.dialog.ag-wake .bad,
+.dialog.ag-wake .bad:focus {
+  border-color: var(--sl-danger, #e5484d);
+}
+
+.dialog.ag-wake .dialog-actions {
+  margin-top: 6px;
+}
+
 /* An agent renamed in its row: its name in a box, Cancel and Save. */
 .st-li.ag-ren {
   gap: 8px;

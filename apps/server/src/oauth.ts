@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { isIP } from 'node:net';
+import { publicHost } from '@scrawlnotes/core';
 import { type Account, type Accounts, digestOf, Refused } from './auth';
 import { type Db, transaction } from './db';
 
@@ -58,6 +58,20 @@ export interface AgentConnection {
   seen: number;
   /** The agent's own name, once it has written; null before. */
   name: string | null;
+  /** Where its owner wakes it (design/agent-wake.md 4): the address and its headers' names; their values are never given back. */
+  wakes: WakeInfo | null;
+}
+
+export interface WakeInfo {
+  url: string;
+  host: string;
+  headers: string[];
+}
+
+/** An agent's address as the app is shown it: the headers by name only. */
+export function wakeInfoOf(url: string | null, headers: string | null): WakeInfo | null {
+  if (!url) return null;
+  return { url, host: new URL(url).host, headers: (JSON.parse(headers ?? '[]') as [string, string][]).map(([name]) => name) };
 }
 
 /** An agent's own identity: `<its account>:<its own>`, and its name. */
@@ -107,13 +121,6 @@ function redirectValid(uri: unknown): uri is string {
   } catch {
     return false;
   }
-}
-
-/** A host a client's metadata document may be fetched from: a public name, never the loopback, a local name or a bare IP. */
-function publicHost(host: string): boolean {
-  const name = host.toLowerCase();
-  if (!name || LOOPBACK.has(name) || isIP(name.replace(/^\[|\]$/g, '')) !== 0) return false;
-  return !name.endsWith('.localhost') && !name.endsWith('.local') && !name.endsWith('.internal') && name.includes('.');
 }
 
 const token = () => randomBytes(32).toString('base64url');
@@ -340,13 +347,14 @@ export class OAuth {
 
   /** The agent connections of an account that are not ended, the newest first. */
   list(account: string): AgentConnection[] {
-    return this.db
+    const rows = this.db
       .prepare(
-        `SELECT d.id, a.client_name AS client, a.created_at AS connected, d.seen_at AS seen, i.name AS name FROM agents a JOIN devices d ON d.id = a.device_id
+        `SELECT d.id, a.client_name AS client, a.created_at AS connected, d.seen_at AS seen, i.name AS name, i.wake_url, i.wake_headers FROM agents a JOIN devices d ON d.id = a.device_id
          LEFT JOIN agent_identities i ON i.account_id = d.account_id AND i.client_id = a.client_id
          WHERE d.account_id = ? AND d.revoked_at IS NULL ORDER BY a.created_at DESC`,
       )
-      .all(account) as unknown as AgentConnection[];
+      .all(account) as unknown as (Omit<AgentConnection, 'wakes'> & { wake_url: string | null; wake_headers: string | null })[];
+    return rows.map(({ wake_url, wake_headers, ...row }) => ({ ...row, wakes: wakeInfoOf(wake_url, wake_headers) }));
   }
 
   /**
@@ -376,22 +384,32 @@ export class OAuth {
   rename(by: Account, device: string, name: unknown): AgentIdentity {
     const clean = typeof name === 'string' ? name.trim().slice(0, 100) : '';
     if (!clean) throw new Refused(400, 'no-name', 'Give the agent a name');
-    const row = this.db.prepare('SELECT d.account_id, a.client_id, a.client_name FROM agents a JOIN devices d ON d.id = a.device_id WHERE a.device_id = ? AND d.revoked_at IS NULL').get(device) as
-      | { account_id: string; client_id: string; client_name: string }
-      | undefined;
-    if (!row || row.account_id !== by.id) throw new Refused(404, 'no-agent', 'No such agent connection of yours');
     return transaction(this.db, () => {
-      const agent = this.identityOf(by.id, row.client_id, row.client_name || 'Agent', clean);
+      const agent = this.agentFor(by, device, clean);
       this.db.prepare('UPDATE agent_identities SET name = ? WHERE id = ?').run(clean, agent.id);
       return { id: agent.id, name: clean };
     });
   }
 
-  /** Ends one of the account's own agent connections: its tokens stop, and the agent has to sign in again. */
-  disconnect(by: Account, device: string) {
-    const row = this.db.prepare('SELECT d.account_id FROM agents a JOIN devices d ON d.id = a.device_id WHERE a.device_id = ? AND d.revoked_at IS NULL').get(device) as { account_id: string } | undefined;
+  /** The agent of one of the account's own connections, made when it has not written yet. */
+  agentFor(by: Account, device: string, name?: string): AgentIdentity {
+    const row = this.connection(by, device);
+    return this.identityOf(by.id, row.client_id, row.client_name || 'Agent', name);
+  }
+
+  private connection(by: Account, device: string): { client_id: string; client_name: string } {
+    const row = this.db.prepare('SELECT d.account_id, a.client_id, a.client_name FROM agents a JOIN devices d ON d.id = a.device_id WHERE a.device_id = ? AND d.revoked_at IS NULL').get(device) as
+      | { account_id: string; client_id: string; client_name: string }
+      | undefined;
     if (!row || row.account_id !== by.id) throw new Refused(404, 'no-agent', 'No such agent connection of yours');
+    return row;
+  }
+
+  /** Ends one of the account's own agent connections: its tokens stop, and the agent has to sign in again; it is woken no more (design/agent-wake.md 4). */
+  disconnect(by: Account, device: string) {
+    const row = this.connection(by, device);
     this.end(device);
+    this.db.prepare('UPDATE agent_identities SET wake_url = NULL, wake_headers = NULL WHERE account_id = ? AND client_id = ?').run(by.id, row.client_id);
   }
 
   private end(device: string) {

@@ -15,6 +15,7 @@ import { OAuth } from './oauth';
 import { Push, type Sender, vapidKeys } from './push';
 import { Spaces } from './spaces';
 import { type VideoTools, Videos } from './video';
+import { type WakeSend, Wakes } from './wake';
 
 /** The server's parts on its data folder, and its app; for running it and for tests. */
 export function makeServer(
@@ -28,6 +29,8 @@ export function makeServer(
     minSyncLevel?: number;
     /** ffmpeg's, which `serve` finds; none in a test that does not give its own. */
     videoTools?: VideoTools | null;
+    /** What sends an agent's wake; a test gives its own receiver. */
+    wakeSend?: WakeSend;
   } = {},
 ) {
   const now = options.now ?? Date.now;
@@ -51,13 +54,18 @@ export function makeServer(
   // A push service takes an https address or an email as who sends.
   const subject = config.url.startsWith('https://') ? config.url : 'mailto:push@scrawlnotes.com';
   const push = new Push(db, live, chats, vapidKeys(join(config.data, 'vapid.json')), subject, config.url, options.sender, options.later);
-  chats.onSent = (chat, message) => push.sent(chat, message);
+  // An agent its owner mentions or answers wakes (design/agent-wake.md).
+  const wakes = new Wakes(db, push, chats, config.url, now, options.wakeSend, options.later);
+  chats.onSent = (chat, message) => {
+    push.sent(chat, message);
+    wakes.sent(chat, message);
+  };
   chats.onReacted = (chat, message, by, emoji) => push.reacted(chat, message, by, emoji);
   // A board or a task list written tells whoever it mentions or gives something to.
-  const notices = new Notices(db, blobs, push);
+  const notices = new Notices(db, blobs, push, wakes);
   files.onWrite = (space, path, before, after, by) => notices.written(space, path, before, after, by);
   // Each morning at nine, the work due today and tomorrow.
   const due = new Due(db, blobs, push, now);
-  const app = createApp({ config, blobs, files, accounts, spaces, live, invites, oauth, chats, push, now, ...(options.minSyncLevel !== undefined && { minSyncLevel: options.minSyncLevel }) });
-  return { db, blobs, files, accounts, spaces, live, invites, oauth, chats, push, notices, due, app };
+  const app = createApp({ config, blobs, files, accounts, spaces, live, invites, oauth, chats, push, wakes, now, ...(options.minSyncLevel !== undefined && { minSyncLevel: options.minSyncLevel }) });
+  return { db, blobs, files, accounts, spaces, live, invites, oauth, chats, push, wakes, notices, due, app };
 }

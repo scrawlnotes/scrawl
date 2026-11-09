@@ -66,6 +66,7 @@ if (command === 'backup') {
   });
   const stop = () => {
     server.due.stop();
+    server.wakes.stop();
     server.live.stop();
     // Open live connections would keep the server from closing; their devices connect again.
     for (const socket of sockets.clients) socket.terminate();

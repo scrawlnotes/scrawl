@@ -52,6 +52,7 @@ export {
   type ServerAccountInfo,
   type ServerAgent,
   ServerError,
+  type ServerWake,
   type ServerInvitation,
   type ServerLink,
   type ServerMember,

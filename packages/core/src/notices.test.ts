@@ -33,6 +33,7 @@ describe('noticesFrom', () => {
         item: { kind: 'card', id: 'card1', title: 'Export a board as CSV', key: `${was.prefix}-1`, due: null },
         in: { comment: 'cm1' },
         text: '@Mert Kaya can you check the headers?',
+        said: '[@Mert Kaya](scrawl:person/mert) can you check the headers?',
         href: 'scrawl:item/card/sp-1/Roadmap.board.json?id=card1&comment=cm1',
       },
     ]);

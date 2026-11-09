@@ -1,4 +1,4 @@
-import { type ComputerAgent, dayOf, RemoteSignedOut, type ServerAgent } from '@scrawlnotes/core';
+import { type ComputerAgent, dayOf, readWakeHeaders, RemoteSignedOut, type ServerAgent, ServerError, WAKE_HEADERS_MAX, WAKE_MASK, wakeAddressOk } from '@scrawlnotes/core';
 import { locale, type MessageKey, t } from '@scrawlnotes/i18n';
 import { version as mcpVersion } from '../../mcp/package.json';
 import { type MouseEvent, useCallback, useEffect, useState } from 'react';
@@ -103,7 +103,20 @@ export function useAgents(url: string) {
       setError(serverFailure(failure, host));
     }
   };
-  return { host, agents, error, disconnect, rename };
+  /** Where an agent is woken (design/agent-wake.md 4); what the server refuses comes back to the window that asked. */
+  const wake = async (id: string, address: string, headers: string) => {
+    await serverAccount(url).setWake(id, address, headers);
+    await load();
+  };
+  const stopWaking = async (id: string) => {
+    try {
+      await serverAccount(url).stopWake(id);
+      await load();
+    } catch (failure) {
+      setError(serverFailure(failure, host));
+    }
+  };
+  return { host, agents, error, disconnect, rename, wake, stopWaking };
 }
 
 /** Settings › Agents on a computer. */
@@ -218,6 +231,7 @@ function ServerBlock({ server, copied, onCopy, onAdd }: { server: KnownServer; c
   const a = useAgents(server.url);
   const [menu, setMenu] = useState<{ at: { x: number; y: number }; agent: ServerAgent } | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
+  const [waking, setWaking] = useState<ServerAgent | null>(null);
   const address = mcpAddress(server.url);
   const open = (event: MouseEvent, agent: ServerAgent) => {
     event.preventDefault();
@@ -278,14 +292,11 @@ function ServerBlock({ server, copied, onCopy, onAdd }: { server: KnownServer; c
             renaming === agent.id ? (
               <AgentRename key={agent.id} initial={initialOf(clientName(agent))} name={agentName(agent)} onCancel={() => setRenaming(null)} onSave={(name) => void a.rename(agent.id, name).then(() => setRenaming(null))} />
             ) : (
-              <div key={agent.id} className={`st-li one ag-li${menu?.agent.id === agent.id ? ' menu-on' : ''}`} onContextMenu={(event) => open(event, agent)}>
+              <div key={agent.id} className={`st-li one ag-li${agent.wakes ? ' wakes' : ''}${menu?.agent.id === agent.id ? ' menu-on' : ''}`} onContextMenu={(event) => open(event, agent)}>
                 <span className="who bot" aria-hidden="true">
                   {initialOf(clientName(agent))}
                 </span>
-                <span className="nm">
-                  <b>{agentName(agent)}</b>
-                  <small>{t('agents.clientOn', { client: clientName(agent), day: dayText(agent.connected) })}</small>
-                </span>
+                <AgentNames agent={agent} />
                 <span className="r">{seenText(agent.seen)}</span>
                 <button type="button" className="it-more" title={t('side.more')} aria-label={t('side.more')} onClick={(event) => open(event, agent)}>
                   ···
@@ -301,12 +312,149 @@ function ServerBlock({ server, copied, onCopy, onAdd }: { server: KnownServer; c
           at={menu.at}
           items={[
             { label: t('agents.rename'), run: () => setRenaming(menu.agent.id) },
+            { label: t('agents.wake'), run: () => setWaking(menu.agent) },
             { label: t('agents.disconnect'), danger: true, run: () => void a.disconnect(menu.agent.id) },
           ]}
           onClose={() => setMenu(null)}
         />
       )}
+      {waking && <WakeDialog agent={waking} onSave={(url, headers) => a.wake(waking.id, url, headers)} onStop={() => void a.stopWaking(waking.id)} onClose={() => setWaking(null)} />}
     </div>
+  );
+}
+
+/** An agent's name and client in its row; under them, where it is woken, when it is. */
+function AgentNames({ agent }: { agent: ServerAgent }) {
+  const names = (
+    <>
+      <b>{agentName(agent)}</b>
+      <small>{t('agents.clientOn', { client: clientName(agent), day: dayText(agent.connected) })}</small>
+    </>
+  );
+  if (!agent.wakes) return <span className="nm">{names}</span>;
+  return (
+    <span className="nm">
+      <span className="l1">{names}</span>
+      <small className="wk">{t('agents.wakesAt', { host: agent.wakes.host })}</small>
+    </span>
+  );
+}
+
+/** What a line of headers is not taken for, in the app's words. */
+function headerProblem(text: string, kept: string[]): string | null {
+  const read = readWakeHeaders(text, kept.map((name) => [name, WAKE_MASK] as const));
+  if (!('line' in read)) return null;
+  if (read.why === 'own') return t('agents.wakeOwnHeader', { line: String(read.line), name: read.name ?? '' });
+  if (read.why === 'many') return t('agents.wakeManyHeaders', { line: String(read.line), max: String(WAKE_HEADERS_MAX) });
+  if (read.why === 'again') return t('agents.wakeAgainHeader', { line: String(read.line), name: read.name ?? '' });
+  return t('agents.wakeBadHeader', { line: String(read.line) });
+}
+
+/**
+ * Wake…, after the mockup's Ajanı uyandırmak (design/agent-wake.md 4): where Scrawl sends what the
+ * person writes to the agent, and the headers sent with it, one `Name: value` a line. Opened again,
+ * the headers show by name with their values hidden: a line left so keeps its value. What is wrong
+ * is said under its field. Stop waking, on the left, when it is woken already.
+ */
+function WakeDialog({ agent, onSave, onStop, onClose }: { agent: ServerAgent; onSave: (url: string, headers: string) => Promise<void>; onStop: () => void; onClose: () => void }) {
+  const kept = agent.wakes?.headers ?? [];
+  const [address, setAddress] = useState(agent.wakes?.url ?? '');
+  const [headers, setHeaders] = useState(kept.map((name) => `${name}: ${WAKE_MASK}`).join('\n'));
+  const [problem, setProblem] = useState<{ field: 'address' | 'headers' | 'other'; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const name = agentName(agent);
+  const save = async () => {
+    if (!wakeAddressOk(address.trim())) return setProblem({ field: 'address', text: t('agents.wakeBadAddress') });
+    const wrong = headerProblem(headers, kept);
+    if (wrong) return setProblem({ field: 'headers', text: wrong });
+    setBusy(true);
+    try {
+      await onSave(address.trim(), headers);
+      onClose();
+    } catch (failure) {
+      const code = failure instanceof ServerError ? failure.code : '';
+      if (code === 'bad-wake-address') setProblem({ field: 'address', text: t('agents.wakeBadAddress') });
+      else if (code === 'bad-wake-header') setProblem({ field: 'headers', text: (failure as ServerError).message });
+      else setProblem({ field: 'other', text: serverFailure(failure, agent.wakes?.host ?? '') });
+    } finally {
+      setBusy(false);
+    }
+  };
+  const error = (field: 'address' | 'headers' | 'other') =>
+    problem?.field === field && (
+      <div className="srv-err" role="alert">
+        <Icon name="warn" />
+        <span>{problem.text}</span>
+      </div>
+    );
+  const title = t('agents.wakeTitle', { name });
+  return (
+    <Dialog label={title} className="ag-wake" onClose={onClose}>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          void save();
+        }}
+      >
+        <h2>{title}</h2>
+        <p className="confirm">{t('agents.wakeAbout', { name })}</p>
+        <label className="lb" htmlFor="ag-wake-address">
+          {t('agents.wakeAddress')}
+        </label>
+        <input
+          id="ag-wake-address"
+          className={`mono${problem?.field === 'address' ? ' bad' : ''}`}
+          value={address}
+          placeholder="https://…"
+          autoFocus
+          spellCheck={false}
+          autoComplete="off"
+          onChange={(event) => {
+            setAddress(event.target.value);
+            setProblem(null);
+          }}
+        />
+        {error('address')}
+        <label className="lb" htmlFor="ag-wake-headers">
+          {t('agents.wakeHeaders')}
+        </label>
+        <textarea
+          id="ag-wake-headers"
+          className={problem?.field === 'headers' ? 'bad' : undefined}
+          value={headers}
+          rows={3}
+          placeholder={t('agents.wakeHeadersHint')}
+          spellCheck={false}
+          autoComplete="off"
+          onChange={(event) => {
+            setHeaders(event.target.value);
+            setProblem(null);
+          }}
+        />
+        {error('headers')}
+        {error('other')}
+        <div className="dialog-actions">
+          {agent.wakes && (
+            <button
+              type="button"
+              className="left danger"
+              onClick={() => {
+                onStop();
+                onClose();
+              }}
+            >
+              {t('agents.wakeStop')}
+            </button>
+          )}
+          <button type="button" onClick={onClose}>
+            {t('dialog.cancel')}
+          </button>
+          <button type="submit" className="primary" disabled={busy || !address.trim()}>
+            {t('settings.save')}
+          </button>
+        </div>
+      </form>
+    </Dialog>
   );
 }
 
@@ -684,6 +832,7 @@ function PhoneServerAgents({ server }: { server: KnownServer }) {
                 <span className="tx">
                   <b>{agentName(agent)}</b>
                   <small>{t('agents.clientOn', { client: clientName(agent), day: dayText(agent.connected) })}</small>
+                  {agent.wakes && <small className="wk">{t('agents.wakesAt', { host: agent.wakes.host })}</small>}
                 </span>
                 <span className="ct">{seenText(agent.seen)}</span>
               </button>

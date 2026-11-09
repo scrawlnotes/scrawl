@@ -280,6 +280,12 @@ const MIGRATIONS: string[] = [
   ALTER TABLE message_files ADD COLUMN play_state TEXT;
   CREATE INDEX message_files_play ON message_files (play);
   `,
+  // Where an agent's owner wakes it (design/agent-wake.md 6.1): an https address, and the headers
+  // sent with it as JSON, [name, value][], whose values no answer gives back.
+  `
+  ALTER TABLE agent_identities ADD COLUMN wake_url TEXT;
+  ALTER TABLE agent_identities ADD COLUMN wake_headers TEXT;
+  `,
 ];
 
 export function openDb(file: string): Db {

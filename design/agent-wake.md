@@ -151,7 +151,7 @@ n8n, Zapier ya da kendi kodu: Address'e onun adresi, Headers'a istediği başlı
 - **Yollar:**
   - `PUT /api/v1/agents/:id/wake` `{ url, headers }`: hatalıysa 400 ve hangi satır olduğu.
   - `DELETE /api/v1/agents/:id/wake`.
-  - `GET /api/v1/agents`'in her satırında `wakes: { host } | null`. Başlıkların değerleri hiçbir yoldan dönmez.
+  - `GET /api/v1/agents`'in her satırında `wakes: { url, host, headers } | null`; `headers` yalnız adlar, yeniden açılan Wake… penceresi onları `Ad: ••••` diye gösterir. Başlıkların değerleri hiçbir yoldan dönmez.
   - `:id` Rename'deki gibi bağlantının kimliği.
 
 ### 6.4 Gövde

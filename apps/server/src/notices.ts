@@ -5,6 +5,7 @@ import type { Blobs } from './blobs';
 import type { Db } from './db';
 import type { Actor } from './files';
 import type { Push } from './push';
+import type { Wakes } from './wake';
 
 // A card's or a task's notifications (design/notifications.md): a board or a task list written,
 // from the app, an agent or another device, is read before and after; whoever it now mentions or
@@ -27,6 +28,8 @@ export class Notices {
     private readonly db: Db,
     private readonly blobs: Blobs,
     private readonly push: Push,
+    /** An agent's owner who mentions it or gives it something wakes it (design/agent-wake.md). */
+    private readonly wakes: Wakes | null = null,
   ) {}
 
   /** A file was written: those its change tells hear of it. */
@@ -41,6 +44,7 @@ export class Notices {
       );
       const spaceName = (this.db.prepare('SELECT name FROM spaces WHERE id = ?').get(space) as { name: string } | undefined)?.name ?? '';
       const where = [nameOf(path), spaceName].filter(Boolean).join(' · ');
+      this.wakes?.noticed({ space, spaceName, name: nameOf(path) }, notices);
       for (const notice of notices) {
         // Someone not in the space, or an agent, hears of nothing; nor of what they turned off.
         if (!members.has(notice.to) || !notifyOf(this.db, notice.to)[CHOICE_OF[notice.kind]]) continue;

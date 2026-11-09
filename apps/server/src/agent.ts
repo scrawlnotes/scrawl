@@ -24,7 +24,7 @@ function stringsOf(data: { [key: string]: unknown }): { [key: string]: string | 
 }
 
 export function agentRoutes(app: Hono<Env>, parts: Parts, addressOf: (c: Context) => string) {
-  const { config, oauth, accounts, spaces, files, blobs, live, chats } = parts;
+  const { config, oauth, accounts, spaces, files, blobs, live, chats, wakes } = parts;
   const now = parts.now;
   const host = new URL(config.url).host;
   const open = cors({ origin: '*', allowHeaders: ['Authorization', 'Content-Type', 'Accept', 'Mcp-Protocol-Version', 'Mcp-Session-Id'], allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'], exposeHeaders: ['WWW-Authenticate', 'Mcp-Session-Id'], maxAge: 86400 });
@@ -240,6 +240,20 @@ export function agentRoutes(app: Hono<Env>, parts: Parts, addressOf: (c: Context
   app.delete('/api/v1/agents/:id', (c) => {
     oauth.disconnect(c.get('account'), c.req.param('id'));
     live.end({ device: c.req.param('id') });
+    return c.body(null, 204);
+  });
+  // Where its owner wakes the agent of a connection (design/agent-wake.md 4): the headers' values never come back.
+  app.put('/api/v1/agents/:id/wake', async (c) => {
+    let body: unknown = null;
+    try {
+      body = await c.req.json();
+    } catch {
+      // Not JSON: no address, refused below.
+    }
+    return c.json(wakes.set(oauth.agentFor(c.get('account'), c.req.param('id')).id, body));
+  });
+  app.delete('/api/v1/agents/:id/wake', (c) => {
+    wakes.clear(oauth.agentFor(c.get('account'), c.req.param('id')).id);
     return c.body(null, 204);
   });
 }

@@ -16,6 +16,7 @@ import type { OAuth } from './oauth';
 import { zipInto } from './export';
 import { joinPage, type JoinFound, readyPage } from './pages';
 import type { Spaces } from './spaces';
+import type { Wakes } from './wake';
 
 // The server's API: what the sync engine asks of a remote, and what the app asks to set the
 // server up, sign in and open spaces. Every answer is JSON but a file's content; what cannot be
@@ -32,6 +33,7 @@ export interface Parts {
   oauth: OAuth;
   chats: Chats;
   push: Push;
+  wakes: Wakes;
   /** The server's clock, for what is measured against it. */
   now: () => number;
   /** The lowest sync level a device must tell to sync here; `MIN_SYNC_LEVEL` unless a test gives another. */

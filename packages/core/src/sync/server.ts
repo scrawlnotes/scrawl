@@ -300,6 +300,14 @@ export interface ServerAgent {
   seen: number;
   /** The agent's own name, which the person changes; null until it has written (design/activity.md 2.1). */
   name?: string | null;
+  /** Where the person wakes it (design/agent-wake.md 4): the address, and its headers by name; their values never come back. */
+  wakes?: ServerWake | null;
+}
+
+export interface ServerWake {
+  url: string;
+  host: string;
+  headers: string[];
 }
 
 export class ServerAccount {
@@ -445,6 +453,17 @@ export class ServerAccount {
   /** A new name for the agent of a connection; what it writes from then on carries it. */
   renameAgent(id: string, name: string): Promise<{ id: string; name: string }> {
     return this.client.json(`/agents/${encodeURIComponent(id)}`, { ...jsonBody({ name }), method: 'PATCH' });
+  }
+
+  /** Where the agent of a connection is woken: an https address and its headers, one `Name: value` a line; a value left as •••• stays as it was. */
+  setWake(id: string, url: string, headers: string): Promise<ServerWake> {
+    return this.client.json(`/agents/${encodeURIComponent(id)}/wake`, { ...jsonBody({ url, headers }), method: 'PUT' });
+  }
+
+  /** The agent of a connection is woken no more. */
+  async stopWake(id: string): Promise<void> {
+    const response = await this.client.request(`/agents/${encodeURIComponent(id)}/wake`, { method: 'DELETE' });
+    if (!response.ok) throw await errorOf(response);
   }
 
   /** Ends an agent's connection: its tokens stop, and it signs in again the next time it is used. */

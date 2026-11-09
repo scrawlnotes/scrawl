@@ -28,6 +28,8 @@ export interface Notice {
   in?: { comment: string } | 'description';
   /** A comment's words, plain: what a notification of a mention in it says under its title. */
   text?: string;
+  /** Where someone was mentioned, as written: the comment or the description; what an agent woken by it is shown (design/agent-wake.md 6.4). */
+  said?: string;
   /** What a click opens: the card or the task, at the comment. */
   href: string;
 }
@@ -143,10 +145,10 @@ function boardNotices(input: { space: string; path: string; before: string | nul
     for (const entry of card.timeline) {
       if (entry.kind !== 'comment') continue;
       for (const to of newMentions(oldComments.get(entry.id), entry.text)) {
-        out.push({ kind: 'mention', to, by: stampBy(entry) ?? worker, item, in: { comment: entry.id }, text: short(entry.text), href: href(entry.id) });
+        out.push({ kind: 'mention', to, by: stampBy(entry) ?? worker, item, in: { comment: entry.id }, text: short(entry.text), said: entry.text, href: href(entry.id) });
       }
     }
-    for (const to of newMentions(old?.description, card.description)) out.push({ kind: 'mention', to, by: worker, item, in: 'description', href: href() });
+    for (const to of newMentions(old?.description, card.description)) out.push({ kind: 'mention', to, by: worker, item, in: 'description', said: card.description, href: href() });
     for (const { to, by } of newReminders(old?.timeline, card.timeline)) out.push({ kind: 'remind', to, by: by ?? worker, item, href: href() });
   }
   return out;
@@ -165,7 +167,7 @@ function taskNotices(input: { space: string; path: string; before: string | null
       const entry = [...(task.timeline ?? [])].reverse().find((each) => each.kind === 'assign' && each.given?.id === given);
       out.push({ kind: 'assign', to: given, by: (entry && stampBy(entry)) ?? worker, item, href });
     }
-    for (const to of newMentions(old?.description, task.description)) out.push({ kind: 'mention', to, by: worker, item, in: 'description', href });
+    for (const to of newMentions(old?.description, task.description)) out.push({ kind: 'mention', to, by: worker, item, in: 'description', said: task.description, href });
     for (const { to, by } of newReminders(old?.timeline, task.timeline)) out.push({ kind: 'remind', to, by: by ?? worker, item, href });
   }
   return out;
