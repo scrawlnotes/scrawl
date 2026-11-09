@@ -4888,6 +4888,36 @@ p { margin: 0; max-width: 68ch; }
 .ol-mlead { margin: 0; padding: 0 2px 14px; color: var(--m-dim); font-size: 15px; line-height: 1.45; }
 .ol-mnote { margin: 0; padding: 10px 2px 0; color: var(--m-faint); font-size: 13.5px; line-height: 1.4; }
 .cv-box.ol.m b { font-size: 14px; }
+/* ---------- waking an agent (design/agent-wake.md) ---------- */
+.dir[data-dir="wake"] .brief .pick { flex-wrap: wrap; gap: 4px; overflow: visible; border: 0; background: none; }
+.dir[data-dir="wake"] .brief .pick button { border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); padding: 4px 12px; }
+.dir[data-dir="wake"] .brief .pick button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); }
+/* an agent's row with where it wakes under its name */
+.st-li.aw-li .nm { flex-direction: column; align-items: stretch; gap: 1px; }
+.st-li.aw-li .nm .l1 { display: flex; align-items: baseline; gap: 10px; }
+.st-li.aw-li .nm .aw-at { color: var(--m-dim); }
+.st-li.aw-li .cmenu, .st-li.ag-li .cmenu { top: auto; bottom: calc(100% - 4px); }
+/* Wake…, in the middle */
+.fp-ovl.aw-ovl { align-items: center; padding-top: 0; }
+.fp.aw-dlg { width: 500px; }
+.fp.aw-dlg .srv-what { color: var(--m-dim); }
+.fp .field.aw-addr { display: block; overflow: hidden; font: 12px/1.5 var(--m-mono); white-space: nowrap; text-overflow: ellipsis; }
+.fp .field.aw-hds { flex-direction: column; min-height: 70px; font: 12px/1.6 var(--m-mono); }
+.fp .field.aw-bad { border-color: #f0706a; }
+.fp .aw-help { margin: 12px 2px 0; color: var(--m-accent); font-size: 12.5px; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, var(--m-accent) 45%, transparent); }
+.fp .foot .aw-gap { flex: 1; }
+.fp .foot .st-btn.aw-stop { color: #f0706a; }
+.ch-pop .r .ch-f.ag + span + small { color: var(--m-faint); }
+/* phone */
+.mb-row .tx .aw-mat { color: var(--m-dim); }
+.chp-cmp .in.aw-typed { color: var(--m-fg); border-color: var(--m-accent); }
+.aw-typed .caret { display: inline-block; width: 1.5px; height: 17px; margin: 0 1px -3px; background: var(--m-accent); }
+.chp-cmp .aw-go { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 50%; background: var(--m-accent); color: var(--m-on-accent); }
+.mock .chp-cmp .aw-go svg { width: 18px; height: 18px; }
+.nf-mpop .r small { margin-left: auto; color: var(--m-faint); font-size: 13.5px; }
+.nf-mpop .sep { height: 1px; margin: 2px 14px; background: var(--m-line); }
+.nf-mpop .r .atr { display: grid; place-items: center; flex: none; width: 28px; height: 28px; color: var(--m-accent); }
+.mock .nf-mpop .r .atr svg { width: 18px; height: 18px; }
 </style>
 
 <main class="page">
@@ -6288,6 +6318,31 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-olview="sask">S: kapatırken</button>
         <button type="button" data-olview="snewapp">S: New app</button>
         <button type="button" data-olview="sphone">S: Telefon ve takvim</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="wake">
+    <div class="brief">
+      <div>
+        <span class="letter">AJANI UYANDIRMAK · 24. AŞAMA · TASLAK</span>
+        <h2>Ajan da bildirim alır</h2>
+        <p>Ajanı yalnız sahibi uyandırır: Chat'te anınca, ajanın mesajına cevap yazınca, bir kartta ya da görevde anınca veya işi ona verince sunucu yazılanı ajanın adresine gönderir. Adres Settings › Agents'ta sunucunun bloğunda, ajanın menüsündeki <b>Wake…</b> penceresinde: <b>Address</b> ve <b>Headers</b>. Claude'a özel alan yok; Claude'un task'ı da n8n de bu iki alanla bağlanır. Kaydedilen başlıkların değerleri bir daha gösterilmez. Kaydedince satırda adın altında <b>Wakes at api.anthropic.com</b>. @ listesinde kişilerden sonra yalnız senin, adresi olan ajanların, kare yüzle: Claude Code (Mac mini) ve ChatGPT'nin adresi olmadığı için listede değiller. Chat'te gönderdiğin mesajın altında yalnız sana soluk bir satır: <b>Sent to Claude</b>; ulaşılamazsa <b>Couldn't reach Claude</b> ve bildirim. Kartta ve görevde gönderilince bir şey görünmez, ajanın yorumu gelir. Ajan cevabını aynı yere yazar ve seni anar; ajanın seni anan mesajı sana bildirim verir. Telefonda Wake… yok, satırda yalnız "Wakes at …".</p>
+        <ul class="traits"><li>yalnız sahibi uyandırır</li><li>Address ve Headers</li><li>başlık değerleri gizli</li><li>@ listesinde kendi ajanın</li><li>Sent to Claude, yalnız sana</li><li>ulaşılamazsa bildirim</li><li>telefonda Wake… yok</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Uyandırma görünümü">
+        <button type="button" data-awview="awmenu">Agents: menü</button>
+        <button type="button" data-awview="awwake">Wake…</button>
+        <button type="button" data-awview="awerr">Hatalı girdi</button>
+        <button type="button" data-awview="awsaved">Yeniden açınca</button>
+        <button type="button" data-awview="awrow">Agents: Wakes at</button>
+        <button type="button" data-awview="awat">Chat: @ listesi</button>
+        <button type="button" data-awview="awsent">Chat: Sent to</button>
+        <button type="button" data-awview="awanswer">Chat: Claude'un cevabı</button>
+        <button type="button" data-awview="awfail">Ulaşılamayınca</button>
+        <button type="button" data-awview="awnotif">Ajan anınca bildirim</button>
+        <button type="button" data-awview="awphone">Telefon</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -20532,6 +20587,171 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderOl(sectionOl, b.dataset.olview);
   });
   renderOl(sectionOl, 'olset');
+
+  // Waking an agent (stage 24, design/agent-wake.md). Kaan's Claude, connected to the server through
+  // claude.ai, has an address: a Claude task's API trigger. Kaan mentions it in #dev and answers it;
+  // the server sends what he wrote there, and Claude answers in the same place, mentioning him.
+  // Wake… is in its menu in Settings › Agents; the @ list has it after the people; under Kaan's
+  // message, for him alone, Sent to Claude. Monday, Nov 9.
+  var AW_HOST = 'api.anthropic.com';
+  var AW_URL = 'https://api.anthropic.com/v1/claude_code/routines/trig_01K9mX4vQ2pT7rN8/fire';
+  var AW_AGENTS = [
+    { ini: 'C', name: 'Claude Code (Mac mini)', sub: 'Claude Code · Oct 16', r: 'Today' },
+    { ini: 'G', name: 'ChatGPT', sub: 'ChatGPT · Oct 14', r: 'Nov 6' },
+    { ini: 'C', name: 'Claude', sub: 'Claude · Oct 15', r: 'Today' }
+  ];
+  /** An agent in its server's block: its name, its client and since when, the day it was last here; with an address, where it wakes under them. Its menu: Rename, Wake…, Disconnect. */
+  function awLi(a, o) {
+    o = o || {};
+    var menu = o.menu ? '<div class="cmenu"><span>Rename</span><span class="hot">Wake…</span><i></i><span class="red">Disconnect</span></div>' : '';
+    var nm = o.wakes
+      ? '<span class="nm"><span class="l1"><b>' + a.name + '</b><small>' + a.sub + '</small></span><small class="aw-at">Wakes at ' + AW_HOST + '</small></span>'
+      : '<span class="nm"><b>' + a.name + '</b><small>' + a.sub + '</small></span>';
+    return '<div class="st-li one ag-li' + (o.wakes ? ' aw-li' : '') + (o.menu ? ' menu' : '') + '"><span class="who bot">' + a.ini + '</span>' + nm +
+      '<span class="r">' + a.r + '</span><span class="more">···</span>' + menu + '</div>';
+  }
+  /** Settings › Agents as it is: this computer, then the server with its agents; Claude is the last of them. */
+  function awPage(o) {
+    o = o || {};
+    return '<p class="st-note">An agent reaches your notes the way you do. On this computer, Claude Desktop, Claude Code, Codex, Cursor and Antigravity see the folders here. On the web and your phone, Claude, ChatGPT and Gemini reach a Scrawl server. Each one has a name of its own; what it does carries that name and yours.</p>' +
+      '<div class="st-space tight"><div class="top">' + ICON.laptop + '<b>This computer</b></div>' +
+        '<div class="st-row"><span class="fl">Command</span><span class="path">npx -y @scrawlnotes/mcp</span><span class="btn">Copy</span></div>' +
+        '<div class="st-acts"><span class="lab">Add to</span><span class="st-btn">Claude Desktop</span><span class="st-btn">Claude Code</span><span class="st-btn">Codex</span><span class="st-btn">Cursor</span><span class="st-btn">Antigravity</span></div>' +
+      '</div>' +
+      '<div class="st-space tight srv"><div class="top">' + ICON.server + '<b>' + SRV_HOST + '</b><small>kaan@outlook.com</small></div>' +
+        '<div class="st-row"><span class="fl">Address</span><span class="path">' + AG_ADDRESS + '</span><span class="btn">Copy</span></div>' +
+        '<div class="st-acts"><span class="lab">Add to</span><span class="st-btn">Claude</span><span class="st-btn">ChatGPT</span><span class="st-btn">Gemini</span><span class="st-btn">Claude Code</span><span class="st-btn">Codex</span></div>' +
+        '<p class="st-note">Each one signs in with your account on this server.</p>' +
+        '<div class="st-list">' + AW_AGENTS.map(function (a, i) { return awLi(a, { menu: o.menu && i === 2, wakes: o.wakes && i === 2 }); }).join('') + '</div>' +
+        '<p class="st-note">Connected to your account. Disconnect ends one’s access until it signs in again; what it did keeps its name.</p>' +
+      '</div>';
+  }
+  function awSettings(body, extra) {
+    return '<div class="ovl"><div class="st-dlg tall"><div class="st-head"><b>Settings</b><span class="x">×</span></div><div class="st-main"><nav class="st-nav">' +
+      row({ icon: 'person', label: 'Profile' }) + row({ icon: 'half', label: 'Appearance' }) + '<div class="it">' + CI.bell + '<span>Notifications</span></div>' +
+      '<div class="it">' + ICON.cal + '<span>Calendars</span></div>' + row({ icon: 'space', label: 'Spaces' }) + row({ icon: 'agent', label: 'Agents', on: true }) + row({ icon: 'logs', label: 'Logs' }) + row({ icon: 'info', label: 'About' }) +
+      '</nav><div class="st-body">' + body + '</div></div></div>' + (extra || '') + '</div>';
+  }
+  /**
+   * Wake…: where Scrawl sends what Kaan writes to Claude, and the headers it sends with it.
+   * o.bad: an n8n on the home network, and a header without its colon, each said where it is.
+   * o.saved: opened again; the headers' values are not shown, and Stop waking is on the left.
+   */
+  function awWake(o) {
+    o = o || {};
+    var addr = o.bad ? 'http://192.168.1.20:5678/webhook/scrawl' : AW_URL;
+    var lines = o.saved ? ['Authorization: ••••', 'anthropic-version: ••••'] : o.bad ? ['Authorization: Bearer 7f3c9a…', 'X-Scrawl secret'] : ['Authorization: Bearer sk-ant-oat01-Yq7…', 'anthropic-version: 2023-06-01'];
+    function err(t) { return '<p class="srv-err">' + ICON.warn + '<span>' + t + '</span></p>'; }
+    return '<div class="fp-ovl aw-ovl"><div class="fp aw-dlg"><h3>Wake Claude<small>' + SRV_HOST + '</small></h3>' +
+      '<p class="srv-what">When you mention Claude, answer it, or give it a card or a task, Scrawl sends this address what you wrote.</p>' +
+      '<div class="label">Address</div><div class="field aw-addr' + (o.bad ? ' aw-bad' : '') + '">' + addr + '</div>' +
+      (o.bad ? err('The address must start with https:// and be a public name') : '') +
+      '<div class="label" style="margin-top: 12px">Headers</div><div class="field aw-hds' + (o.bad ? ' aw-bad' : '') + '">' + lines.map(function (l) { return '<span>' + l + '</span>'; }).join('') + '</div>' +
+      (o.bad ? err('Line 2: a header is Name: value') : '') +
+      '<p class="aw-help">How to wake Claude, n8n and others</p>' +
+      '<div class="foot">' + (o.saved ? '<span class="st-btn aw-stop">Stop waking</span>' : '<span class="aw-gap"></span>') + '<span class="st-btn">Cancel</span><span class="st-btn go">Save</span></div></div></div>';
+  }
+  function awSetApp(page, wake) { return nfApp('today', nfToday(), '4 tasks', awSettings(page, wake)); }
+  var AW_SENT = '<div class="ch-seen aw-sent">Sent to Claude</div>';
+  var AW_FAIL = '<div class="ch-seen aw-sent">Couldn’t reach Claude</div>';
+  var AW_ASK = nfAt('Claude') + ' can you find why the drag preview is cut off and open a card for the fix?';
+  var AW_ANSWER = nfAt('Kaan') + ' the board’s column clips it: the preview is drawn inside the column, and the column hides what overflows. I opened a card for the fix, drawing the preview over the page.';
+  /** Claude's message: its face square, its name with whose it is. */
+  function awClaude(o) { return chM(o).replace('Claude Code (Laptop)', 'Claude'); }
+  /** Kaan's answer to Claude, quoting it. */
+  function awBack() {
+    return chM({ who: 'K', t: '11:52', q: ['M', '@Kaan the board’s column clips it: the preview is drawn inside the column…'], body: 'Good. The phone’s board has a preview of its own, check that one too.' })
+      .replace('<div class="ch-q"><b>Mert Kaya</b>', '<div class="ch-q"><b>Claude</b>');
+  }
+  /** #dev today: Elif's screenshot, then Kaan asks Claude; o.under is the line under it; o.answer: Claude answered and Kaan answered back. */
+  function awDev(o) {
+    o = o || {};
+    var m = '<div class="ch-day">Today</div>' +
+      chM({ who: 'M', t: '10:12', body: 'Pushed 0.2.21 to Coolify. Can someone look at the release notes?', extra: chFile('release-notes-0.2.21.pdf', '182 KB · PDF') }) +
+      chM({ who: 'E', t: '11:40', body: 'The drag preview is cut off on narrow boards:', extra: chImg(), rx: [['👀', 2]] }) +
+      chM({ who: 'E', t: '11:41', cont: true, body: 'Same on the iPad.' });
+    if (o.ask) m += chM({ who: 'K', t: '11:45', body: AW_ASK }) + (o.answer ? '' : o.under || '');
+    if (o.answer) {
+      m += awClaude({ who: 'C', ag: true, t: '11:47', body: AW_ANSWER, extra: chChip('board', 'SCR-44 Drag preview cut off on narrow boards', 'Roadmap · Todo') }) +
+        awBack() + AW_SENT;
+    }
+    return m;
+  }
+  /** The @ list: the people of #dev, then Kaan's agents that have an address, then @room. */
+  function awPop() {
+    function p(face, name, sub, hot) { return '<div class="r' + (hot ? ' hot' : '') + '">' + face + '<span>' + name + '</span>' + (sub ? '<small>' + sub + '</small>' : '') + '</div>'; }
+    return '<div class="ch-pop"><div class="cap">In #dev</div>' + p(chF('M', { sz: 'sm', on: true }), 'Mert Kaya', null, true) + p(chF('E', { sz: 'sm', on: true }), 'Elif Demir') +
+      p(chF('C', { sz: 'sm', ag: true }), 'Claude', 'Your agent') +
+      '<div class="sep"></div>' + p('<span class="atr">' + CI.people + '</span>', '@room', 'Notify everyone in #dev') + '</div>';
+  }
+  function awChat(o) {
+    return chApp(3, chList('dev'), chConv(CH_DEV_HEAD, awDev(o), { typing: '', cmp: o.cmp, over: o.pop }), '#dev · 6 people', o.over);
+  }
+  var AW_VIEWS = {
+    awmenu: function () { return awSetApp(awPage({ menu: true })); },
+    awwake: function () { return awSetApp(awPage(), awWake()); },
+    awerr: function () { return awSetApp(awPage(), awWake({ bad: true })); },
+    awsaved: function () { return awSetApp(awPage({ wakes: true }), awWake({ saved: true })); },
+    awrow: function () { return awSetApp(awPage({ wakes: true })); },
+    awat: function () { return awChat({ cmp: chCmp({ text: '@<span class="caret"></span>' }), pop: awPop() }); },
+    awsent: function () { return awChat({ ask: true, under: AW_SENT }); },
+    awanswer: function () { return awChat({ ask: true, answer: true }); },
+    awfail: function () { return awChat({ ask: true, under: AW_FAIL, over: nfToast('now', 'Claude couldn’t be woken', 'The address answered 401.') }); },
+    awnotif: function () { return nfApp('today', nfToday(), '4 tasks', nfToast('now', 'Claude · dev', '@Kaan the board’s column clips it: the preview is drawn inside the column, and the column hides what overflows.')); }
+  };
+  /** A phone's Agents, scrolled to the agents: Claude's row says where it wakes; there is no Wake… here. */
+  function awmAgents() {
+    function ag(a, wakes) {
+      return '<div class="mb-row person">' + acWho(a.ini, true) + '<span class="tx"><b>' + a.name + '</b><small>' + a.sub + '</small>' + (wakes ? '<small class="aw-mat">Wakes at ' + AW_HOST + '</small>' : '') + '</span><span class="ct">' + a.r + '</span></div>';
+    }
+    return mbPage(mbNav('Settings', [], 'Agents', 'bar'),
+      mbRow({ icon: 'plus', label: 'Add to ChatGPT', sub: 'chatgpt.com › Plugins' }) +
+      mbRow({ icon: 'plus', label: 'Add to Gemini', sub: 'gemini.google.com › Connected Apps' }) +
+      '<p class="mb-p">Added on the web, Claude and Gemini work on this phone too. Each one signs in with your account on the server.</p>' +
+      '<div class="mb-sec">Connected to your account</div>' +
+      AW_AGENTS.map(function (a, i) { return ag(a, i === 2); }).join('') +
+      '<p class="mb-p">Tap one to disconnect it; it signs in again the next time you use it.</p>');
+  }
+  function awmDev(sent) {
+    return '<div class="ch-day">Today</div>' +
+      chM({ who: 'E', t: '11:40', body: 'The drag preview is cut off on narrow boards:', extra: chImg() }) +
+      chM({ who: 'E', t: '11:41', cont: true, body: 'Same on the iPad.' }) +
+      (sent ? chM({ who: 'K', t: '11:45', body: AW_ASK }) + AW_SENT : '');
+  }
+  function awmPop() {
+    function p(face, name, sub, hot) { return '<div class="r' + (hot ? ' hot' : '') + '">' + face + '<span>' + name + '</span>' + (sub ? '<small>' + sub + '</small>' : '') + '</div>'; }
+    return '<div class="nf-mpop"><div class="cap">In #dev</div>' + p(chF('M', { sz: 'md', on: true }), 'Mert Kaya', null, true) + p(chF('E', { sz: 'md', on: true }), 'Elif Demir') +
+      p(chF('C', { sz: 'md', ag: true }), 'Claude', 'Your agent') +
+      '<div class="sep"></div>' + p('<span class="atr">' + CI.people + '</span>', '@room', 'Everyone in #dev') + '</div>';
+  }
+  function awPhone() {
+    var sheet = mbActions('agent', 'Claude', SRV_HOST + ' · connected Oct 15', [[{ icon: 'x', label: 'Disconnect', red: true }]]);
+    var typed = '<div class="chp-cmp"><span class="pl">' + ICON.plus + '</span><span class="in aw-typed">@<span class="caret"></span></span><span class="aw-go">' + CI.send + '</span></div>';
+    return [
+      mbPhone('Agents: Claude’un satırında Wakes at', awmAgents(), nfTabs('browse')),
+      mbPhone('Dokununca bugünkü gibi; Wake… bilgisayarda', awmAgents(), nfTabs('browse') + MB_DIM + sheet),
+      mbPhone('Chat’te @: kişilerden sonra Claude', chpConv(chpWith({ msgs: awmDev(false), cmp: typed })), awmPop()),
+      mbPhone('Gönderince, yalnız sana: Sent to Claude', chpConv(chpWith({ msgs: awmDev(true) })))
+    ].join('');
+  }
+  function renderAw(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (view === 'awphone') {
+      mock.className = 'mock dir-a phones four mbs';
+      mock.innerHTML = awPhone();
+    } else {
+      mock.className = 'mock dir-a wider';
+      mock.innerHTML = AW_VIEWS[view]();
+    }
+    section.querySelectorAll('.brief [data-awview]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.awview === view)); });
+  }
+  var sectionAw = document.querySelector('.dir[data-dir="wake"]');
+  sectionAw.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-awview]');
+    if (b) renderAw(sectionAw, b.dataset.awview);
+  });
+  renderAw(sectionAw, 'awmenu');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });
