@@ -59,6 +59,8 @@ export interface ChatServer {
   push: boolean;
   /** Whether its conversations were asked of the server once, reached or not: before that, one missing may only be on its way. */
   ready: boolean;
+  /** By message, whether the person's agents it woke were reached (design/agent-wake.md 3.3); not kept: gone when the page opens again. */
+  woken: { [message: string]: { [agent: string]: { name: string; ok: boolean } } };
 }
 
 export interface ChatSnapshot {
@@ -197,7 +199,7 @@ class OneServer {
     private unconfirmed = false,
   ) {
     this.client = new ChatClient({ url, token: () => serverKey(url) });
-    this.state = { url, me, chats: [], messages: {}, older: {}, pending: [], typing: {}, active: [], maxFileMb, visiting: null, push, ready: false };
+    this.state = { url, me, chats: [], messages: {}, older: {}, pending: [], typing: {}, active: [], maxFileMb, visiting: null, push, ready: false, woken: {} };
   }
 
   async start() {
@@ -305,6 +307,7 @@ class OneServer {
       if (event.reacted) store.onReacted?.(this.url, event.message, event.reacted);
     } else if (event.type === 'chat') void this.turn();
     else if (event.type === 'notice') store.onNotice?.(this.url, event);
+    else if (event.type === 'wake') this.set({ woken: { ...this.state.woken, [event.message]: { ...this.state.woken[event.message], [event.agent]: { name: event.name, ok: event.ok } } } });
     else if (event.type === 'typing') {
       const typing = { ...this.state.typing, [event.chat]: { ...this.state.typing[event.chat], [event.account]: Date.now() + TYPING_MS } };
       this.set({ typing });

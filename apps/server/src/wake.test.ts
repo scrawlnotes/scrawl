@@ -197,6 +197,37 @@ describe('in Chat', () => {
     expect(s.woken.map((each) => each.body.event.kind)).toEqual(['mention', 'reply']);
   });
 
+  it('tells Kaan on the live channel whether it went, for the line under his message', async () => {
+    const s = await start();
+    const { agent } = await claude(s);
+    s.listen(KAAN);
+    s.answers.push(202, 401);
+    const sent = await s.say(s.owner, s.general, `${personLink('Claude', agent)} look`);
+    const lost = await s.say(s.owner, s.general, `${personLink('Claude', agent)} and this`);
+    await s.settle();
+    expect(s.heard.filter((each) => each.type === 'wake')).toEqual([
+      { type: 'wake', chat: s.general, message: sent.id, agent, name: 'Claude', ok: true },
+      { type: 'wake', chat: s.general, message: lost.id, agent, name: 'Claude', ok: false },
+    ]);
+  });
+
+  it('tells Kaan of Claude’s message that mentions him, as unread, under Claude’s name, and not of one that does not', async () => {
+    const s = await start();
+    const { agent } = await claude(s);
+    const kaanAccount = { id: KAAN, email: 'kaan@example.com', name: 'Kaan Arslan', role: 'owner' as const };
+    const unread = () => s.server.chats.list(KAAN).find((chat) => chat.id === s.general)!;
+    const quiet = s.server.chats.send(kaanAccount, s.general, { id: 'm-claude-0001', body: 'Looking at it.' }, agent);
+    expect(s.server.chats.alertsFor(quiet.id)).toEqual([]);
+    expect(unread()).toMatchObject({ unread: 0, alerts: 0 });
+    const told = s.server.chats.send(kaanAccount, s.general, { id: 'm-claude-0002', body: `${personLink('Kaan Arslan', KAAN)} the lockfile is old.` }, agent);
+    expect(s.server.chats.alertsFor(told.id)).toEqual([{ account: KAAN, mention: true }]);
+    expect(unread()).toMatchObject({ unread: 1, alerts: 1 });
+    expect(s.server.chats.pushContent(told.id, KAAN)).toMatchObject({ title: 'Claude · #general', body: '@Kaan Arslan the lockfile is old.' });
+    // His own message is still not unread to him.
+    await s.say(s.owner, s.general, 'Thanks.');
+    expect(unread()).toMatchObject({ unread: 0 });
+  });
+
   it('is not woken by Mert, nor when it is not connected or has no address', async () => {
     const s = await start();
     const { agent, device } = await claude(s);

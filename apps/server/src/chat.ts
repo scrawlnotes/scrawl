@@ -899,7 +899,8 @@ export class Chats {
     const mentioned = new Set((this.db.prepare('SELECT account_id FROM mentions WHERE message_id = ?').all(row.id) as { account_id: string }[]).map((each) => each.account_id));
     const out: { account: string; mention: boolean }[] = [];
     for (const account of this.listeners(chat)) {
-      if (account === row.author_id) continue;
+      // Their own message tells no one of it, but their agent's that mentions them does (design/agent-wake.md 2).
+      if (account === row.author_id && !(row.agent_id !== null && mentioned.has(account))) continue;
       const me = this.member(chat.id, account);
       if (chat.kind === 'public' && !chat.general && !this.isIn(chat, account)) continue;
       if ((me?.read_seq ?? 0) >= row.seq) continue;
@@ -948,7 +949,7 @@ export class Chats {
     const row = this.messageRow(messageId);
     if (!row || row.deleted_at !== null) return null;
     const chat = this.row(row.chat_id);
-    const title = this.titleFor(chat, row.author_id, account);
+    const title = this.titleFor(chat, row.author_id, account, row.agent_id);
     let body = plainOf(row.body);
     if (!body) {
       const file = this.filesOf([row.id]).get(row.id)?.[0];
@@ -961,12 +962,12 @@ export class Chats {
   }
 
   /** A notification's title for someone: who did it, and where unless it is a direct message of two. */
-  private titleFor(chat: ChatRow, who: string, account: string): string {
+  private titleFor(chat: ChatRow, who: string, account: string, agent: string | null = null): string {
     const nameOf = (id: string) => {
       const found = this.db.prepare('SELECT name, email FROM accounts WHERE id = ?').get(id) as { name: string; email: string } | undefined;
       return found ? found.name || found.email : 'Someone';
     };
-    const name = nameOf(who);
+    const name = (agent && (this.db.prepare('SELECT name FROM agent_identities WHERE id = ?').get(agent) as { name: string } | undefined)?.name) || nameOf(who);
     if (chat.kind !== 'direct') return `${name} · #${chat.name}`;
     const others = this.listeners(chat).filter((each) => each !== account);
     return others.length > 1 ? `${name} · ${others.map((each) => nameOf(each).split(/\s+/)[0]).join(', ')}` : name;
@@ -1287,7 +1288,14 @@ export class Chats {
     const readSeq = me?.read_seq ?? 0;
     const notify = me?.notify ?? DEFAULT_NOTIFY[chat.kind];
     const count = (extra: string, ...args: (string | number)[]) =>
-      (this.db.prepare(`SELECT COUNT(*) AS n FROM messages m WHERE m.chat_id = ? AND m.seq > ? AND m.author_id <> ? AND m.deleted_at IS NULL ${extra}`).get(chat.id, readSeq, account, ...args) as { n: number }).n;
+      (
+        this.db
+          .prepare(
+            `SELECT COUNT(*) AS n FROM messages m WHERE m.chat_id = ? AND m.seq > ? AND m.deleted_at IS NULL
+               AND (m.author_id <> ? OR (m.agent_id IS NOT NULL AND EXISTS (SELECT 1 FROM mentions y WHERE y.message_id = m.id AND y.account_id = ?))) ${extra}`,
+          )
+          .get(chat.id, readSeq, account, account, ...args) as { n: number }
+      ).n;
     const unread = joined ? count('') : 0;
     const alerts =
       !joined || notify === 'off' || unread === 0

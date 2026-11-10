@@ -22,6 +22,7 @@ export {
   type ChatSend,
   type ChatShared,
   chatLink,
+  tellsMe,
   continues,
   itemChip,
   type ChipKind,

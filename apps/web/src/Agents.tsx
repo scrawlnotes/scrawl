@@ -10,6 +10,7 @@ import { hostOf, type KnownServer, serverAccount, useKnownServers } from './serv
 import type { SettingsValues } from './Settings';
 import { ActionSheet } from './sheets';
 import { isDesktop, openUrlOnDesktop } from './storage';
+import { setWakeable } from './wakeable';
 import { ServerIcon } from './SyncViews';
 import { dueLabel } from './Tasks';
 import { setBackground, useBackground } from './tray';
@@ -77,7 +78,9 @@ export function useAgents(url: string) {
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(async () => {
     try {
-      setAgents(await serverAccount(url).agents());
+      const agents = await serverAccount(url).agents();
+      setAgents(agents);
+      setWakeable(url, agents);
       setError(null);
     } catch (failure) {
       setAgents((now) => now ?? []);

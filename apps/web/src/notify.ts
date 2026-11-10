@@ -1,4 +1,4 @@
-import { type ChatInfo, type ChatMessage, type ChatNoticeEvent, chatLink, plainText } from '@scrawlnotes/core';
+import { type ChatInfo, type ChatMessage, type ChatNoticeEvent, chatLink, plainText, tellsMe } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
@@ -243,7 +243,8 @@ const nameIn = (chat: ChatInfo, id: string) => chat.members.find((person) => per
 
 /** Who wrote it, and where unless it is a direct message of two (design/chat.md, 6.4): as the server's pushes say it. */
 function titleOf(server: ChatServer, chat: ChatInfo, message: ChatMessage): string {
-  const author = nameIn(chat, message.author);
+  // An agent's message under its name, as its notification from the server has it.
+  const author = (message.agent && message.agentName) || nameIn(chat, message.author);
   if (chat.kind !== 'direct') return `${author} · #${chat.name}`;
   const others = chat.members.filter((person) => person.id !== server.me);
   return others.length > 1 ? `${author} · ${others.map((person) => person.name.split(/\s+/)[0]).join(', ')}` : author;
@@ -281,7 +282,7 @@ function heardNew(url: string, message: ChatMessage) {
   const tells = () => {
     const server = store.read().servers.find((each) => each.url === url);
     const chat = server?.chats.find((each) => each.id === message.chat);
-    if (!server || !chat || message.author === server.me || message.deleted) return null;
+    if (!server || !chat || !tellsMe(message, server.me) || message.deleted) return null;
     if (!chat.joined || chat.alerts === 0 || chat.readSeq >= message.seq || store.onScreen(url, chat.id)) return null;
     return { server, chat };
   };

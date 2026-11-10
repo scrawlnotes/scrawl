@@ -54,6 +54,9 @@ export interface ChatMessage {
   rev: number;
 }
 
+/** Whether a message is new to a person: not their own, unless their agent wrote it and mentions them (design/agent-wake.md 2). */
+export const tellsMe = (message: ChatMessage, me: string) => message.author !== me || (message.agent !== null && message.mentions.includes(me));
+
 export interface ChatInfo {
   id: string;
   kind: ChatKind;
@@ -134,7 +137,18 @@ export type ChatEvent =
   | { type: 'typing'; chat: string; account: string }
   | { type: 'presence'; active: string[] }
   | { type: 'presence'; account: string; active: boolean }
-  | ChatNoticeEvent;
+  | ChatNoticeEvent
+  | ChatWakeEvent;
+
+/** Whether the person's agent their message woke was reached (design/agent-wake.md 3.3): the line under it, for them alone. */
+export interface ChatWakeEvent {
+  type: 'wake';
+  chat: string;
+  message: string;
+  agent: string;
+  name: string;
+  ok: boolean;
+}
 
 /** A card or a task told this person something (design/notifications.md): what its notification says and what a click opens. */
 export interface ChatNoticeEvent {

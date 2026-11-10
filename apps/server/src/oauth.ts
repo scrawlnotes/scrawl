@@ -58,6 +58,8 @@ export interface AgentConnection {
   seen: number;
   /** The agent's own name, once it has written; null before. */
   name: string | null;
+  /** Its identity, which a mention of it names; null before it has written. */
+  agent: string | null;
   /** Where its owner wakes it (design/agent-wake.md 4): the address and its headers' names; their values are never given back. */
   wakes: WakeInfo | null;
 }
@@ -349,7 +351,7 @@ export class OAuth {
   list(account: string): AgentConnection[] {
     const rows = this.db
       .prepare(
-        `SELECT d.id, a.client_name AS client, a.created_at AS connected, d.seen_at AS seen, i.name AS name, i.wake_url, i.wake_headers FROM agents a JOIN devices d ON d.id = a.device_id
+        `SELECT d.id, a.client_name AS client, a.created_at AS connected, d.seen_at AS seen, i.name AS name, i.id AS agent, i.wake_url, i.wake_headers FROM agents a JOIN devices d ON d.id = a.device_id
          LEFT JOIN agent_identities i ON i.account_id = d.account_id AND i.client_id = a.client_id
          WHERE d.account_id = ? AND d.revoked_at IS NULL ORDER BY a.created_at DESC`,
       )

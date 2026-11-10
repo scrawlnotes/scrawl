@@ -1,6 +1,6 @@
 import type { Person } from '@scrawlnotes/core';
 import { describe, expect, it } from 'vitest';
-import { peopleChoices } from './mentionChoices';
+import { agentChoices, peopleChoices } from './mentionChoices';
 
 // Who @ offers in a description or a comment (design/notifications.md 2).
 
@@ -23,5 +23,16 @@ describe('peopleChoices', () => {
 
   it('on a server, only those in the space there, each as a mention', () => {
     expect(peopleChoices(PEOPLE, 'kaan', 'me', new Set(['kaan', 'mert']))).toEqual([{ key: 'mert', label: 'Mert Kaya', insert: '[@Mert Kaya](scrawl:person/mert)' }]);
+  });
+});
+
+describe('agentChoices', () => {
+  it('offers the person’s agents they wake, by the start of a word of the name, as a mention of the agent', () => {
+    const agents = [
+      { id: 'kaan:3f9c', name: 'Claude' },
+      { id: 'kaan:77aa', name: 'n8n flows' },
+    ];
+    expect(agentChoices(agents, 'cl', 'Your agent')).toEqual([{ key: 'kaan:3f9c', label: 'Claude', sub: 'Your agent', agent: true, insert: '[@Claude](scrawl:person/kaan%3A3f9c)' }]);
+    expect(agentChoices(agents, 'fl', 'Your agent').map((each) => each.key)).toEqual(['kaan:77aa']);
   });
 });

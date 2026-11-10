@@ -1,4 +1,4 @@
-import { type ChatFile, type ChatInfo, type ChatMessage, chatLink, continues, parseChatLink, personLink, plainText, ROOM_MENTION } from '@scrawlnotes/core';
+import { type ChatFile, type ChatInfo, type ChatMessage, chatLink, continues, parseChatLink, personLink, plainText, ROOM_MENTION, tellsMe } from '@scrawlnotes/core';
 import {
   createEditor,
   editorTakesEnter,
@@ -25,7 +25,9 @@ import { clock, measure, Recording } from './chatMedia';
 import { Attachments, ForwardDialog, type Going, isImage, NotifyBanner, NotifyBell, RecorderBar, Tray } from './ChatParts';
 import { type ChatServer, type ChatSnapshot, draftOf, keepDraft, keepOpen, lastOpen, type Pending, store } from './chatStore';
 import { ConfirmDialog, type MenuItem } from './dialogs';
+import { agentChoices } from './mentionChoices';
 import { MentionList, useMentions } from './Mentions';
+import { useWakeable } from './wakeable';
 import { Icon, type IconName } from './Icon';
 import { Face, leadOf, namesOf, others, shortDay, timeOf, titleOf } from './ChatFaces';
 import { BrowseRoomsDialog, ChatInfoDialog, type InfoTab, NewMessageDialog, NewRoomDialog } from './ChatRooms';
@@ -748,7 +750,7 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
         {messages.map((message, i) => {
           const before = messages[i - 1];
           const day = !before || new Date(before.at).toDateString() !== new Date(message.at).toDateString();
-          const isNew = newFrom !== null && message.seq === newFrom && message.author !== server.me;
+          const isNew = newFrom !== null && message.seq === newFrom && tellsMe(message, server.me);
           return (
             <div key={message.id} className="ch-item">
               {day && <div className="ch-day">{dayOf(message.at)}</div>}
@@ -789,6 +791,11 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
                 })}
               />
               {message.id === seenAt && <div className="ch-seen">{t('chat.seen')}</div>}
+              {Object.entries(server.woken[message.id] ?? {}).map(([agent, woke]) => (
+                <div key={agent} className="ch-seen">
+                  {t(woke.ok ? 'chat.sentTo' : 'chat.notReached', { name: woke.name })}
+                </div>
+              ))}
             </div>
           );
         })}
@@ -1652,11 +1659,13 @@ export function Composer({ server, chat, replyTo, nameOf, menu, links, dropping,
     window.setTimeout(() => editor.current && focusOnCapital(editor.current.view));
   };
 
-  // @: the conversation's people, and in a room @room.
+  // @: the conversation's people, the person's agents they wake, and in a room @room.
+  const agents = useWakeable(server.url);
   const mentions = useMentions(editor, (query) => [
     ...others(chat, server.me)
       .filter((person) => !chat.gone.includes(person.id) && person.name.toLowerCase().split(/\s+/).some((word) => word.startsWith(query)))
       .map((person) => ({ key: person.id, label: person.name, insert: personLink(person.name, person.id) })),
+    ...agentChoices(agents, query, t('mention.yourAgent')),
     ...(chat.kind !== 'direct' && 'room'.startsWith(query) ? [{ key: '@room', label: '@room', sub: t('chat.notifyRoom', { name: `#${chat.name}` }), insert: ROOM_MENTION }] : []),
   ]);
   const look = mentions.look;
@@ -1811,7 +1820,7 @@ export function Composer({ server, chat, replyTo, nameOf, menu, links, dropping,
                 <Icon name="people" />
               </span>
             ) : (
-              <Face id={choice.key} name={choice.label} size="sm" online={server.active.includes(choice.key)} />
+              <Face id={choice.key} name={choice.label} size="sm" online={server.active.includes(choice.key)} agent={choice.agent} />
             )
           }
         />

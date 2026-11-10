@@ -55,7 +55,7 @@ export function makeServer(
   const subject = config.url.startsWith('https://') ? config.url : 'mailto:push@scrawlnotes.com';
   const push = new Push(db, live, chats, vapidKeys(join(config.data, 'vapid.json')), subject, config.url, options.sender, options.later);
   // An agent its owner mentions or answers wakes (design/agent-wake.md).
-  const wakes = new Wakes(db, push, chats, config.url, now, options.wakeSend, options.later);
+  const wakes = new Wakes(db, push, live, chats, config.url, now, options.wakeSend, options.later);
   chats.onSent = (chat, message) => {
     push.sent(chat, message);
     wakes.sent(chat, message);

@@ -300,6 +300,8 @@ export interface ServerAgent {
   seen: number;
   /** The agent's own name, which the person changes; null until it has written (design/activity.md 2.1). */
   name?: string | null;
+  /** Its identity, which a mention of it names; null until it has written. */
+  agent?: string | null;
   /** Where the person wakes it (design/agent-wake.md 4): the address, and its headers by name; their values never come back. */
   wakes?: ServerWake | null;
 }

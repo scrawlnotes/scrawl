@@ -6,8 +6,9 @@ import { createPortal } from 'react-dom';
 import { Face } from './ChatFaces';
 import { store } from './chatStore';
 import { isPhone } from './device';
-import { type MentionChoice, peopleChoices } from './mentionChoices';
+import { agentChoices, type MentionChoice, peopleChoices } from './mentionChoices';
 import type { SpacePeople } from './People';
+import { useWakeable } from './wakeable';
 
 // The @ list (design/chat.md 3.5, design/notifications.md 2): typing @ where the cursor is lists
 // the people who can be mentioned, narrowed as the name is typed; the arrows move, Enter or Tab
@@ -139,9 +140,18 @@ function membersOf(space: string | null): Set<string> | null {
   return general ? new Set(general.members.map((person) => person.id).filter((id) => !general.gone.includes(id))) : null;
 }
 
-/** The @ list of a task's or a card's description or a card's comment, of the list or the board at `home`: the people of its space. */
+/** The server a space is on here, by its general room; null for a space on no server. */
+function serverOf(space: string | null): string | null {
+  return (space && store.read().servers.find((server) => server.chats.some((chat) => chat.general && chat.space === space))?.url) || null;
+}
+
+/**
+ * The @ list of a task's or a card's description or a card's comment, of the list or the board at
+ * `home`: the people of its space, then on a server the person's agents they wake.
+ */
 export function useSpaceMentions(editor: RefObject<ScrawlEditor | null>, team: SpacePeople | null, home: string) {
-  return useMentions(editor, (query) => (team ? peopleChoices(team.people, team.me, query, membersOf(spaceOf(home))) : []));
+  const agents = useWakeable(serverOf(spaceOf(home)));
+  return useMentions(editor, (query) => (team ? [...peopleChoices(team.people, team.me, query, membersOf(spaceOf(home))), ...agentChoices(agents, query, t('mention.yourAgent'))] : []));
 }
 
 /** That list, at the @, when it is open. */
@@ -153,7 +163,7 @@ export function SpaceMentionList({ mentions, team }: { mentions: ReturnType<type
       choices={mentions.choices}
       picked={mentions.picked}
       onChoose={mentions.choose}
-      face={(choice) => <Face id={choice.key} name={choice.label} size="sm" />}
+      face={(choice) => <Face id={choice.key} name={choice.label} size="sm" agent={choice.agent} />}
       at={mentions.caret()}
     />
   );

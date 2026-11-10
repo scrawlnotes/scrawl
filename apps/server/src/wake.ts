@@ -5,6 +5,7 @@ import { chatLink, isAgentId, type Notice, ownerOf, publicHost, readWakeHeaders,
 import { Refused } from './auth';
 import type { Chats } from './chat';
 import type { Db } from './db';
+import type { Live } from './live';
 import { type WakeInfo, wakeInfoOf } from './oauth';
 import type { Push } from './push';
 
@@ -170,11 +171,12 @@ interface Target {
   headers: [string, string][];
 }
 
-/** Where a wake came from, for the notification that says it could not be sent: what a click opens. */
+/** Where a wake came from, for the notification that says it could not be sent: what a click opens; and in Chat, the conversation. */
 interface Origin {
   href: string;
   space: string;
   item: string;
+  chat?: string;
 }
 
 /** A Retry-After in seconds or as a date, in ms from now; null when there is none. */
@@ -191,6 +193,8 @@ export class Wakes {
   constructor(
     private readonly db: Db,
     private readonly push: Push,
+    /** Where the owner hears it went, under their message in Chat. */
+    private readonly live: Live,
     private readonly chats: Chats,
     /** The server's address, which the agent is told. */
     private readonly server: string,
@@ -258,7 +262,7 @@ export class Wakes {
     const found = this.chats.wakesOf(message);
     if (!found) return;
     for (const agent of found.agents) {
-      this.wake(agent.id, { kind: agent.kind, from: found.from.id, space: found.space, chat: found.chat }, found.words, { href: chatLink(this.server, chat, message), space: found.space?.id ?? '', item: message });
+      this.wake(agent.id, { kind: agent.kind, from: found.from.id, space: found.space, chat: found.chat }, found.words, { href: chatLink(this.server, chat, message), space: found.space?.id ?? '', item: message, chat });
     }
   }
 
@@ -291,7 +295,7 @@ export class Wakes {
     let again: number | null = null;
     try {
       const answer = await this.send(target.url, target.headers, body);
-      if (answer.status >= 200 && answer.status < 300) return;
+      if (answer.status >= 200 && answer.status < 300) return this.told(target, origin, true);
       reason = `The address answered ${answer.status}.`;
       if (answer.status >= 500 || answer.status === 429) again = this.againIn(tries, answer.status === 429 ? afterOf(answer.retryAfter, this.now()) : null);
     } catch (error) {
@@ -309,7 +313,13 @@ export class Wakes {
       this.waiting.add(timer);
       return;
     }
+    this.told(target, origin, false);
     this.push.notice(target.owner, { title: `${target.name} couldn’t be woken`, body: reason, href: origin.href, tag: `wake:${origin.item}`, space: origin.space, item: origin.item });
+  }
+
+  /** The owner's devices hear whether it went, for the line under their message: Sent to Claude, or Couldn't reach Claude. */
+  private told(target: Target, origin: Origin, ok: boolean) {
+    if (origin.chat) this.live.tell([target.owner], { type: 'wake', chat: origin.chat, message: origin.item, agent: target.id, name: target.name, ok });
   }
 
   private againIn(tries: number, asked: number | null): number | null {
