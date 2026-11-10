@@ -126,11 +126,11 @@ export class GoogleReader {
 const SYNCED_FIELDS = 'id,summary,start,end,extendedProperties';
 type GoogleSyncedEvent = GoogleEvent & { extendedProperties?: { private?: Record<string, string> } };
 
-/** An event of the Scrawl calendar as Google has it, in the device's clock. */
-function syncedOf(raw: GoogleSyncedEvent): SyncedEvent {
+/** An event of the Scrawl calendar as Google has it, in the clock of `timeZone`, the device's. */
+function syncedOf(raw: GoogleSyncedEvent, timeZone: string): SyncedEvent {
   const base = readBase(raw.extendedProperties?.private?.scrawl);
-  const event = googleEventFrom({ ...raw, status: undefined, attendees: undefined }, '');
-  if (!event) return { eventId: raw.id, base, title: raw.summary ?? '', day: raw.start?.date ?? (raw.start?.dateTime ? clockFromUtc(new Date(raw.start.dateTime).toISOString()).slice(0, 10) : '') };
+  const event = googleEventFrom({ ...raw, status: undefined, attendees: undefined }, '', timeZone);
+  if (!event) return { eventId: raw.id, base, title: raw.summary ?? '', day: raw.start?.date ?? (raw.start?.dateTime ? clockFromUtc(new Date(raw.start.dateTime).toISOString(), timeZone).slice(0, 10) : '') };
   return { eventId: raw.id, base, title: event.title, day: event.day, ...(event.start && { start: event.start }), ...(event.end && { end: event.end }) };
 }
 
@@ -187,7 +187,7 @@ export class GoogleWriter implements CalendarWriter {
         ...(page ? { pageToken: page } : {}),
       });
       const answer: { items?: GoogleSyncedEvent[]; nextPageToken?: string } = await this.http.json(`${API}/calendars/${encodeURIComponent(calendar)}/events?${query}`);
-      for (const raw of answer.items ?? []) out.push(syncedOf(raw));
+      for (const raw of answer.items ?? []) out.push(syncedOf(raw, this.timeZone));
       page = answer.nextPageToken;
     }
     return out;
@@ -197,7 +197,7 @@ export class GoogleWriter implements CalendarWriter {
     const response = await this.send('GET', `${API}/calendars/${encodeURIComponent(calendar)}/events/${encodeURIComponent(eventId)}?fields=${SYNCED_FIELDS},status`, undefined, [404, 410]);
     if (!response.ok) return null;
     const raw = (await response.json()) as GoogleSyncedEvent;
-    return raw.status === 'cancelled' ? null : syncedOf(raw);
+    return raw.status === 'cancelled' ? null : syncedOf(raw, this.timeZone);
   }
 
   private body(wanted: WantedEvent) {
