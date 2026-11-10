@@ -390,7 +390,7 @@ Mockup: `design/mockups.html` › Ajanı uyandırmak · Kurulum (data-dir="wake2
 - **2. Send it this:** kutuda önce `@` yazılıp **Scrawl** seçilir (ChatGPT'nin Work hızlı başlangıcı böyle anlatıyor), sonra kişinin adıyla hazır mesaj yapıştırılır; mesajın yanında Copy: "Watch Scrawl for me. When I mention you, answer one of your messages, or give you a card or a task there, read what is there, do what I ask, and answer in the same place, writing @Kaan."
 - Altında durum: "Waiting for ChatGPT to start watching…". Pencere açıkken 3 saniyede bir ajan listesine bakar; ChatGPT abone olunca satır "ChatGPT is watching Scrawl for you. Mention it in Chat to try it." olur. (Kodda canlı kanal olayı yerine bu yapıldı: daha az parça, aynı görünüm.)
 - Düğmeler: beklerken Cancel; izlerken solda **Stop watching**, sağda **Done**.
-- **Plan sınırı:** ChatGPT, Scrawl'ın yazmasına yalnız Business, Enterprise ve Edu'da izin veriyor (Settings › Agents'taki Add to ChatGPT notu); öbür planlarda ChatGPT okur ama cevap yazamaz. Pencerenin açıklamasında ve Help'te açıkça söylenir.
+- **Plan sınırı yazılmaz** (10 Kasım): OpenAI'ın belgesi ChatGPT'nin yazmasına plan sınırı koymuyor, bir OpenAI çalışanı da yazmanın herkese açık olduğunu söyledi; eski "yalnız Business, Enterprise ve Edu" notu doğrulanmamıştı, her yerden kalktı. Gerçek deneme gösterecek.
 
 ### 12.4 Another agent penceresi
 

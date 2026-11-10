@@ -33,7 +33,7 @@ To try it, write `@Claude say hello` in a room. On claude.ai, the task's page li
 
 ## ChatGPT
 
-ChatGPT watches Scrawl for you from a Work chat, and answers through Scrawl. It needs ChatGPT to let Scrawl write, which it does on Business, Enterprise and Edu; on other plans ChatGPT can read your notes but not answer.
+ChatGPT watches Scrawl for you from a Work chat, and answers through Scrawl.
 
 1. In Scrawl, open **Settings › Agents**. Under **Answer in Scrawl**, choose **Set up…** beside **ChatGPT**. Keep this window open.
 2. Choose **Open ChatGPT**, or go to **chatgpt.com** yourself. At the top of the page, switch from **Chat** to **Work**, and start a new chat.
