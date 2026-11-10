@@ -387,8 +387,8 @@ function AnswerPart({ claude, chatgpt, others, onSetUp, onHelp }: {
       {letter}
     </span>
   );
-  const press = (label: string, run: () => void, primary = false) => (
-    <button type="button" className={primary ? 'primary' : undefined} onClick={run}>
+  const press = (label: string, run: () => void) => (
+    <button type="button" onClick={run}>
       {label}
     </button>
   );
@@ -406,10 +406,10 @@ function AnswerPart({ claude, chatgpt, others, onSetUp, onHelp }: {
       <p className="st-note">{t('agents.answerAbout')}</p>
       <div className="st-list">
         {claude
-          ? row('claude', face('C'), t('agents.claude'), claude.wakes ? t('agents.answerClaudeOn') : t('agents.answerOff'), !!claude.wakes, press(claude.wakes ? t('agents.answerChange') : t('agents.answerSetUp'), () => onSetUp('claude'), !claude.wakes))
+          ? row('claude', face('C'), t('agents.claude'), claude.wakes ? t('agents.answerClaudeOn') : t('agents.answerOff'), !!claude.wakes, press(claude.wakes ? t('agents.answerChange') : t('agents.answerSetUp'), () => onSetUp('claude')))
           : row('claude', face('C'), t('agents.claude'), t('agents.answerAddFirst', { name: t('agents.claude') }), false, null)}
         {chatgpt
-          ? row('chatgpt', face('G'), t('agents.chatgpt'), chatgpt.watches ? t('agents.answerChatgptOn') : t('agents.answerOff'), !!chatgpt.watches, press(chatgpt.watches ? t('agents.answerChange') : t('agents.answerSetUp'), () => onSetUp('chatgpt'), !chatgpt.watches))
+          ? row('chatgpt', face('G'), t('agents.chatgpt'), chatgpt.watches ? t('agents.answerChatgptOn') : t('agents.answerOff'), !!chatgpt.watches, press(chatgpt.watches ? t('agents.answerChange') : t('agents.answerSetUp'), () => onSetUp('chatgpt')))
           : row('chatgpt', face('G'), t('agents.chatgpt'), t('agents.answerAddFirst', { name: t('agents.chatgpt') }), false, null)}
         {row(
           'other',

@@ -20838,10 +20838,10 @@ p { margin: 0; max-width: 68ch; }
       ? w2Row({ ini: 'C', name: 'Claude', sub: 'Add Scrawl to Claude first' })
       : state.claude === 'on'
         ? w2Row({ ini: 'C', name: 'Claude', sub: 'On · a task on claude.ai', btn: 'Change…', on: true })
-        : w2Row({ ini: 'C', name: 'Claude', sub: 'Off', btn: 'Set up…', go: true });
+        : w2Row({ ini: 'C', name: 'Claude', sub: 'Off', btn: 'Set up…' });
     var gpt = state.gpt === 'on'
       ? w2Row({ ini: 'G', name: 'ChatGPT', sub: 'On · watching from a Work chat', btn: 'Change…', on: true })
-      : w2Row({ ini: 'G', name: 'ChatGPT', sub: 'Off', btn: 'Set up…', go: true });
+      : w2Row({ ini: 'G', name: 'ChatGPT', sub: 'Off', btn: 'Set up…' });
     var other = w2Row({ tool: true, name: 'Another agent', sub: 'n8n, Zapier or your own code', btn: 'Set up…' });
     var agents = (state.claude === 'none' ? AW_AGENTS.slice(0, 2) : AW_AGENTS).map(function (a) { return '<div class="st-li one ag-li"><span class="who bot">' + a.ini + '</span><span class="nm"><b>' + a.name + '</b><small>' + a.sub + '</small></span><span class="r">' + a.r + '</span><span class="more">···</span></div>'; }).join('');
     return '<div class="st-space tight srv"><div class="top">' + ICON.server + '<b>' + SRV_HOST + '</b><small>kaan@outlook.com</small></div>' +

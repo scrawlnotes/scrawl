@@ -366,6 +366,7 @@ Mockup: `design/mockups.html` › Ajanı uyandırmak · Kurulum (data-dir="wake2
   - **Claude:** "Off" ve **Set up…**; açıkken "On · a task on claude.ai" ve **Change…**. Claude bağlı değilse yalnız "Add Scrawl to Claude first", düğme yok: bağlantı yukarıdaki Add to'dan kurulur (kullanıcı, 10 Kasım).
   - **ChatGPT:** "Off" ve **Set up…**; açıkken "On · watching from a Work chat" ve **Change…**. Bağlı değilse yalnız "Add Scrawl to ChatGPT first", düğme yok.
   - **Another agent:** "n8n, Zapier or your own code" ve **Set up…**. Bağlı başka ajan yoksa yalnız "Connect it to Scrawl first, as an agent", düğme yok.
+- Satırlardaki düğmelerin hepsi aynı renkte; sarı yalnız pencerelerin son adımında (Turn on, Done) (kullanıcı, 10 Kasım).
 - Ajanın `···` menüsündeki Wake… kalkar.
 - Ekranda "wake" sözü geçmez. Chat'teki "Sent to Claude" ve "Couldn't reach Claude" kalır.
 
