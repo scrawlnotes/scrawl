@@ -2,7 +2,7 @@ import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from
 import { lookup } from 'node:dns/promises';
 import { request } from 'node:https';
 import { BlockList, isIP } from 'node:net';
-import { chatLink, isAgentId, type Notice, ownerOf, publicHost, readWakeHeaders, type WakeEvent, wakeAddressOk, wakeHeaderWords, wakeText } from '@scrawlnotes/core';
+import { type ChatWakeEvent, chatLink, isAgentId, type Notice, ownerOf, publicHost, readWakeHeaders, type WakeEvent, wakeAddressOk, wakeHeaderWords, type WakeState, wakeText } from '@scrawlnotes/core';
 import { CallbackRefused, type EventSubscribe, SubscriptionRefused } from '@scrawlnotes/agent';
 import { Refused } from './auth';
 import type { Chats } from './chat';
@@ -24,6 +24,10 @@ const MAX_BYTES = 4096;
 const AGAIN_MS = [60_000, 5 * 60_000];
 /** A 429's Retry-After is taken up to an hour. */
 const AFTER_MAX_MS = 60 * 60 * 1000;
+/** Reached, and neither an answer nor a tool called for this long: "No answer from Claude yet" (design/agent-wake.md 13). */
+const QUIET_MS = 10 * 60_000;
+/** A wait for an answer is forgotten after an hour. */
+const FORGET_MS = 60 * 60_000;
 
 // ---------- a request to someone else's address ----------
 
@@ -187,6 +191,18 @@ interface Woken {
 /** Where a wake goes: the agent's address, or one of its subscriptions. */
 type Route = { kind: 'hook' } | { kind: 'watch'; id: string };
 
+/** A message in Chat that reached an agent, whose answer its owner waits for: the line under it (design/agent-wake.md 13). */
+interface Waiting {
+  who: Woken;
+  origin: Origin & { chat: string };
+  since: number;
+  /** When the agent was last heard of: reached, or a tool it called. */
+  last: number;
+  working: boolean;
+  late: boolean;
+  timer: ReturnType<typeof setTimeout> | null;
+}
+
 /** Where a wake came from, for the notification that says it could not be sent: what a click opens; and in Chat, the conversation. */
 interface Origin {
   href: string;
@@ -231,6 +247,8 @@ function echoes(body: string | undefined, challenge: string): boolean {
 
 export class Wakes {
   private readonly waiting = new Set<ReturnType<typeof setTimeout>>();
+  /** By agent, the messages it was reached by and has not answered; in the process, gone with it. */
+  private readonly answers = new Map<string, Waiting[]>();
 
   constructor(
     private readonly db: Db,
@@ -361,8 +379,10 @@ export class Wakes {
     }
   }
 
-  /** A message sent: the agents it wakes, of its author's own. */
+  /** A message sent: the agents it wakes, of its author's own; or an agent's, which answers what woke it there. */
   sent(chat: string, message: string) {
+    const agent = this.chats.agentOf(message);
+    if (agent) return this.answered(agent, chat);
     const found = this.chats.wakesOf(message);
     if (!found) return;
     for (const agent of found.agents) {
@@ -370,9 +390,98 @@ export class Wakes {
     }
   }
 
+  /** Whether a message waits for an agent's answer: only then is an agent's request looked into. */
+  awaited(): boolean {
+    return this.answers.size > 0;
+  }
+
+  /** The agent called a tool: what reached it is being worked on (design/agent-wake.md 13). */
+  busy(agent: string) {
+    for (const wait of this.waitsOf(agent)) {
+      wait.last = this.now();
+      if (!wait.working) {
+        wait.working = true;
+        wait.late = false;
+        this.told(wait.who, wait.origin, 'working');
+      }
+      this.look(wait);
+    }
+  }
+
   stop() {
     for (const timer of this.waiting) clearTimeout(timer);
     this.waiting.clear();
+  }
+
+  /** An agent wrote in a conversation: what woke it there is answered, and its line goes. */
+  private answered(agent: string, chat: string) {
+    for (const wait of this.waitsOf(agent)) {
+      if (wait.origin.chat !== chat) continue;
+      this.told(wait.who, wait.origin, 'answered');
+      this.drop(wait);
+    }
+  }
+
+  /** What reached an agent is waited on, until it answers there or an hour passes. */
+  private reached(who: Woken, origin: Origin) {
+    if (!origin.chat || this.reachedBy(who.id, origin.item)) return;
+    const at = this.now();
+    const wait: Waiting = { who, origin: { ...origin, chat: origin.chat }, since: at, last: at, working: false, late: false, timer: null };
+    this.answers.set(who.id, [...this.waitsOf(who.id), wait]);
+    this.told(who, origin, 'sent');
+    this.look(wait);
+  }
+
+  /**
+   * When to look at a wait again: ten minutes after the agent was last heard of, when it says
+   * "No answer from Claude yet"; at an hour, when it is forgotten.
+   */
+  private look(wait: Waiting) {
+    if (wait.timer) {
+      clearTimeout(wait.timer);
+      this.waiting.delete(wait.timer);
+    }
+    const now = this.now();
+    const forget = wait.since + FORGET_MS - now;
+    const timer = this.later(
+      () => {
+        this.waiting.delete(timer);
+        // A fake clock's timer runs though it was cleared.
+        if (wait.timer !== timer) return;
+        wait.timer = null;
+        const at = this.now();
+        if (at - wait.since >= FORGET_MS) return this.drop(wait);
+        if (!wait.late && at - wait.last >= QUIET_MS) {
+          wait.late = true;
+          wait.working = false;
+          this.told(wait.who, wait.origin, 'late');
+        }
+        this.look(wait);
+      },
+      Math.max(0, wait.late ? forget : Math.min(wait.last + QUIET_MS - now, forget)),
+    );
+    (timer as { unref?: () => void }).unref?.();
+    this.waiting.add(timer);
+    wait.timer = timer;
+  }
+
+  private drop(wait: Waiting) {
+    if (wait.timer) {
+      clearTimeout(wait.timer);
+      this.waiting.delete(wait.timer);
+    }
+    const left = this.waitsOf(wait.who.id).filter((each) => each !== wait);
+    if (left.length) this.answers.set(wait.who.id, left);
+    else this.answers.delete(wait.who.id);
+  }
+
+  private waitsOf(agent: string): Waiting[] {
+    return this.answers.get(agent) ?? [];
+  }
+
+  /** Whether another of the agent's ways reached it already by this message: a later failure leaves its line. */
+  private reachedBy(agent: string, message: string): boolean {
+    return this.waitsOf(agent).some((wait) => wait.origin.item === message);
   }
 
   /** What an agent is told goes to each place it is woken at: its address, each of its subscriptions. */
@@ -386,6 +495,7 @@ export class Wakes {
     const payload = { text: wakeText(event, words), event };
     // One event, by one id, wherever it goes and however often it is tried.
     const eventId = `evt_${randomUUID()}`;
+    this.told(who, origin, 'sending');
     for (const route of routes) void this.attempt(agent, route, payload, eventId, origin, 0);
   }
 
@@ -415,7 +525,7 @@ export class Wakes {
     let again: number | null = null;
     try {
       const answer = await this.send(url, headers, body);
-      if (answer.status >= 200 && answer.status < 300) return this.told(who, origin, true);
+      if (answer.status >= 200 && answer.status < 300) return this.reached(who, origin);
       if (route.kind === 'watch' && answer.status === 410) {
         // The subscriber ended it on its side.
         this.db.prepare('DELETE FROM event_subscriptions WHERE id = ?').run(route.id);
@@ -439,15 +549,21 @@ export class Wakes {
       }, again);
       (timer as { unref?: () => void }).unref?.();
       this.waiting.add(timer);
+      if (!this.reachedBy(who.id, origin.item)) this.told(who, origin, 'again', this.now() + again);
       return;
     }
-    this.told(who, origin, false);
+    if (!this.reachedBy(who.id, origin.item)) this.told(who, origin, 'failed');
     this.push.notice(who.owner, { title: `Couldn’t reach ${who.name}`, body: reason, href: origin.href, tag: `wake:${origin.item}`, space: origin.space, item: origin.item });
   }
 
-  /** The owner's devices hear whether it went, for the line under their message: Sent to Claude, or Couldn't reach Claude. */
-  private told(who: Woken, origin: Origin, ok: boolean) {
-    if (origin.chat) this.live.tell([who.owner], { type: 'wake', chat: origin.chat, message: origin.item, agent: who.id, name: who.name, ok });
+  /**
+   * The owner's devices hear how it goes, for the line under their message (design/agent-wake.md 13);
+   * `ok` for an app made before `state`.
+   */
+  private told(who: Woken, origin: Origin, state: WakeState, again?: number) {
+    if (!origin.chat) return;
+    const event: ChatWakeEvent = { type: 'wake', chat: origin.chat, message: origin.item, agent: who.id, name: who.name, state, ok: state !== 'failed', ...(again !== undefined && { again }) };
+    this.live.tell([who.owner], event);
   }
 
   /** The headers a subscriber checks an event by (Standard Webhooks), signed now. */

@@ -23,6 +23,16 @@ function stringsOf(data: { [key: string]: unknown }): { [key: string]: string | 
   return Object.fromEntries(Object.entries(data).map(([key, value]) => [key, typeof value === 'string' ? value : undefined]));
 }
 
+/** Whether an MCP request's body calls a tool, alone or in a batch. */
+export function callsTool(body: string): boolean {
+  try {
+    const parsed = JSON.parse(body) as unknown;
+    return (Array.isArray(parsed) ? parsed : [parsed]).some((each) => (each as { method?: unknown } | null)?.method === 'tools/call');
+  } catch {
+    return false;
+  }
+}
+
 export function agentRoutes(app: Hono<Env>, parts: Parts, addressOf: (c: Context) => string) {
   const { config, oauth, accounts, spaces, files, blobs, live, chats, wakes } = parts;
   const now = parts.now;
@@ -227,6 +237,12 @@ export function agentRoutes(app: Hono<Env>, parts: Parts, addressOf: (c: Context
   app.all('/mcp', async (c) => {
     const auth = await gate(c.req.raw);
     if (auth instanceof Response) return auth;
+    // A tool called by an agent a message reached: the line under that message says it is at work (design/agent-wake.md 13).
+    const extra = auth.extra as { account: Account; clientId: string } | undefined;
+    if (c.req.method === 'POST' && extra && wakes.awaited()) {
+      const agent = oauth.findIdentity(extra.account.id, extra.clientId)?.id;
+      if (agent && callsTool(await c.req.raw.clone().text())) wakes.busy(agent);
+    }
     return handler.fetch(c.req.raw, { authInfo: auth });
   });
 

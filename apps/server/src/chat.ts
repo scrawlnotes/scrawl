@@ -1017,6 +1017,11 @@ export class Chats {
     return row;
   }
 
+  /** The agent that wrote a message, when one did. */
+  agentOf(messageId: string): string | null {
+    return this.messageRow(messageId)?.agent_id ?? null;
+  }
+
   private messageRow(id: string): MessageRow | undefined {
     return this.db.prepare('SELECT * FROM messages WHERE id = ?').get(id) as unknown as MessageRow | undefined;
   }

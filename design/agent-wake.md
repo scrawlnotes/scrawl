@@ -91,7 +91,7 @@ n8n, Zapier ya da kendi kodu: Address'e onun adresi, Headers'a istediği başlı
 
 - **@ listesi:** kişilerden sonra senin uyandırılabilen ajanların, yani adresi olanlar, kare yüzle. Başkasının ajanı listede yok. Chat'te, kartın ve görevin açıklamasında, kartın yorumunda.
 - **Atama:** kişi seçicide ajanlar bugünkü gibi; adresi olan ajana vermek onu uyandırır.
-- **Chat'te durum:** gönderdiğin mesajın altında yalnız sana soluk bir satır, DM'deki Seen gibi: "Sent to Claude". Gönderilemezse "Couldn't reach Claude" ve bildirim. Satır kalıcı değildir, sayfa yenilenince gider.
+- **Chat'te durum:** gönderdiğin mesajın altında yalnız sana soluk bir satır, DM'deki Seen gibi: "Sent to Claude". Gönderilemezse "Couldn't reach Claude" ve bildirim. Satır kalıcı değildir, sayfa yenilenince gider. 10 Kasım: satır gönderilirken, yeniden denerken, ajan çalışırken ve cevap gecikince de konuşur, cevap gelince kalkar (13).
 - **Kartta ve görevde:** gönderilince bir şey görünmez; ajanın yorumu gelir. Gönderilemezse bildirim.
 - **Gönderilemeyince bildirim:** "Claude couldn't be woken", altında neden: "The address answered 401.", "The address could not be reached.", "No answer in 10 seconds." Dokununca uyandıran mesaj ya da iş açılır.
 
@@ -442,3 +442,28 @@ ChatGPT'nin 1. dilimi (sunucu, 11.7) aynen kalır. 2. dilim (ekran ve metin) bu 
 6. Pencerelerde Help linki yok; Help Settings'ten açılınca Settings'e döner; Help bölümü baştan.
 7. Bildirimler kişinin sözleriyle (12.5).
 8. Telefonda yalnız durum.
+
+## 13. Mesajın altındaki satır (10 Kasım'da onaylandı)
+
+Kullanıcı ChatGPT'yi canlıda denedi: soru sordu, cevap geldi, ama "Sent to ChatGPT" çok sonra çıktı; o zamana kadar gidip gitmediği, cevap beklenip beklenmeyeceği bilinmiyordu. Satır o ana kadar boştu, çünkü sunucu yalnız ajanın tarafı "aldım" deyince söylüyordu.
+
+Satır yine yalnız sahibine, yalnız Chat'te ve sayfa yenilenene kadar. Sırayla:
+
+1. **Sending to ChatGPT…** Sunucu uyandırmaya başlayınca, hemen.
+2. **Couldn't reach ChatGPT · trying again in a minute** (ya da "in 5 minutes"): bir deneme olmadı, sunucu yeniden deneyecek. Bugün bu süre sessizdi.
+3. **Sent to ChatGPT · waiting for its answer** Ajanın tarafı aldı.
+4. **ChatGPT is working on it…** Ajan, uyandırıldıktan sonra Scrawl'ın bir aracını çağırdı (`tools/call`). Tahmin değil: sunucu görüyor.
+5. **Cevap gelince satır kalkar.** Ajan aynı konuşmaya yazdı; cevap zaten altında.
+6. **No answer from ChatGPT yet** Aldıktan sonra 10 dakika ne cevap ne araç çağrısı. Ajan sonra çalışmaya başlarsa satır yine 4 olur.
+7. **Couldn't reach ChatGPT** Denemelerin hepsi olmadı; bildirim de gider (bugünkü gibi).
+
+Kodda:
+
+- Canlı kanaldaki `wake` olayı `state` taşır (`sending`, `again`, `sent`, `working`, `late`, `answered`, `failed`), `again`'de yeniden denemenin zamanı. `ok` kalır (`failed` dışında true): eski masaüstü sürümleri onu okur.
+- Sunucu ulaştığı her mesaj ve ajan için bekleyişi bellekte tutar (sahip, konuşma, mesaj, son hareket); ajanın `/mcp`'ye `tools/call`'u "working" der, aynı konuşmaya yazdığı mesaj "answered" der ve bekleyişi siler; bir saat sonra bekleyiş unutulur. Sunucu yeniden açılırsa bekleyişler gider, satır olduğu yerde kalır.
+- Bir ajanın birden çok yolu varsa (adres ve abonelikler) biri ulaştıktan sonra öbürlerinin "again"i ve "failed"i satırı geri götürmez.
+- Kartta ve görevde satır yok; bildirim bugünkü gibi.
+
+Testler: sunucuda sırayla sending, sent, working, answered; yeniden denemede again ve zamanı; 10 dakika sessizlikte late, araç çağrısıyla yine working; ikinci yolun hatası ulaşılmış satırı bozmaz.
+
+Mockup: design/mockups.html › Answer in Scrawl › Chat: gönderiliyor, çalışıyor, yeniden deneyecek, cevap yok; Ajanı uyandırmak › Chat: Sent to.

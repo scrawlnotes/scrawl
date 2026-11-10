@@ -8,6 +8,7 @@ import type { LiveSocket } from './live';
 import { makeServer } from './server';
 import { CallbackRefused, SubscriptionRefused } from '@scrawlnotes/agent';
 import { FetchFailed, notPublic, safeFetch, type WakeSend, webhookSignature } from './wake';
+import { callsTool } from './agent';
 
 // Waking an agent (design/agent-wake.md 7): only its owner's own writing wakes it, in Chat, on a
 // card and on a task; where it is woken is set by its owner and its headers' values never come
@@ -62,7 +63,8 @@ async function start() {
     return { status: next };
   };
   const waiting: { run: () => void; ms: number }[] = [];
-  const server = makeServer(config, { wakeSend, later: (run, ms) => (waiting.push({ run, ms }), setTimeout(() => undefined, 0)) });
+  const clock = { at: Date.now() };
+  const server = makeServer(config, { now: () => clock.at, wakeSend, later: (run, ms) => (waiting.push({ run, ms }), setTimeout(() => undefined, 0)) });
   closers.push(() => {
     server.wakes.stop();
     server.push.stop();
@@ -125,7 +127,9 @@ async function start() {
     await settle();
     return due.map((each) => each.ms);
   };
-  return { server, owner, mert: mertToken, call, connect, write, general, say, woken, answers, heard, listen, settle, later, verified, callback };
+  /** The states of the line under a message, in the order Kaan heard them. */
+  const lines = (message: string) => heard.filter((each) => each.type === 'wake' && each.message === message).map((each) => each.state);
+  return { server, owner, mert: mertToken, call, connect, write, general, say, woken, answers, heard, listen, settle, later, verified, callback, clock, lines };
 }
 
 type S = Awaited<ReturnType<typeof start>>;
@@ -216,10 +220,51 @@ describe('in Chat', () => {
     const sent = await s.say(s.owner, s.general, `${personLink('Claude', agent)} look`);
     const lost = await s.say(s.owner, s.general, `${personLink('Claude', agent)} and this`);
     await s.settle();
-    expect(s.heard.filter((each) => each.type === 'wake')).toEqual([
-      { type: 'wake', chat: s.general, message: sent.id, agent, name: 'Claude', ok: true },
-      { type: 'wake', chat: s.general, message: lost.id, agent, name: 'Claude', ok: false },
+    expect(s.heard.filter((each) => each.type === 'wake' && each.message === sent.id)).toEqual([
+      { type: 'wake', chat: s.general, message: sent.id, agent, name: 'Claude', state: 'sending', ok: true },
+      { type: 'wake', chat: s.general, message: sent.id, agent, name: 'Claude', state: 'sent', ok: true },
     ]);
+    expect(s.heard.filter((each) => each.type === 'wake' && each.message === lost.id)).toEqual([
+      { type: 'wake', chat: s.general, message: lost.id, agent, name: 'Claude', state: 'sending', ok: true },
+      { type: 'wake', chat: s.general, message: lost.id, agent, name: 'Claude', state: 'failed', ok: false },
+    ]);
+  });
+
+  it('says under Kaan’s message that Claude works on it when it calls a tool, once, and takes the line away when it answers there', async () => {
+    const s = await start();
+    const { agent } = await claude(s);
+    s.listen(KAAN);
+    const asked = await s.say(s.owner, s.general, `${personLink('Claude', agent)} look`);
+    await s.settle();
+    expect(s.server.wakes.awaited()).toBe(true);
+    s.server.wakes.busy(agent);
+    s.server.wakes.busy(agent);
+    s.server.chats.send({ id: KAAN, email: 'kaan@example.com', name: 'Kaan Arslan', role: 'owner' }, s.general, { id: 'm-claude-0001', body: 'Found it.', replyTo: asked.id }, agent);
+    await s.settle();
+    expect(s.lines(asked.id)).toEqual(['sending', 'sent', 'working', 'answered']);
+    expect(s.server.wakes.awaited()).toBe(false);
+  });
+
+  it('says when Claude has not answered for ten minutes, that it works again when it calls a tool, and forgets the message after an hour', async () => {
+    const s = await start();
+    const { agent } = await claude(s);
+    s.listen(KAAN);
+    const asked = await s.say(s.owner, s.general, `${personLink('Claude', agent)} look`);
+    await s.settle();
+    s.clock.at += 10 * 60_000;
+    expect(await s.later()).toContain(600_000);
+    s.server.wakes.busy(agent);
+    expect(s.lines(asked.id)).toEqual(['sending', 'sent', 'late', 'working']);
+    s.clock.at += 60 * 60_000;
+    await s.later();
+    expect(s.server.wakes.awaited()).toBe(false);
+  });
+
+  it('knows a tool call in an MCP request, alone or in a batch', () => {
+    expect(callsTool(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'messages' } }))).toBe(true);
+    expect(callsTool(JSON.stringify([{ jsonrpc: '2.0', method: 'notifications/initialized' }, { jsonrpc: '2.0', id: 2, method: 'tools/call' }]))).toBe(true);
+    expect(callsTool(JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'events/subscribe' }))).toBe(false);
+    expect(callsTool('not json')).toBe(false);
   });
 
   it('tells Kaan of Claude’s message that mentions him, as unread, under Claude’s name, and not of one that does not', async () => {
@@ -307,6 +352,19 @@ describe('what could not be sent', () => {
     expect(s.heard.filter((each) => each.type === 'notice')).toEqual([
       expect.objectContaining({ title: 'Couldn’t reach Claude', body: 'The address answered 503.', href: `scrawl:chat/${encodeURIComponent(URL)}/${s.general}/${asked.id}` }),
     ]);
+    expect(s.lines(asked.id)).toEqual(['sending', 'again', 'again', 'failed']);
+  });
+
+  it('says when it is tried again, then that it went', async () => {
+    const s = await start();
+    const { agent } = await claude(s);
+    s.listen(KAAN);
+    s.answers.push(503);
+    const asked = await s.say(s.owner, s.general, `${personLink('Claude', agent)} look`);
+    await s.settle();
+    expect(s.heard.find((each) => each.type === 'wake' && each.state === 'again')).toMatchObject({ again: s.clock.at + 60_000, ok: true });
+    await s.later();
+    expect(s.lines(asked.id)).toEqual(['sending', 'again', 'sent']);
   });
 
   it('is not tried again on a 401 or when it took too long, and comes again when the address could not be reached', async () => {
@@ -375,6 +433,19 @@ describe('ChatGPT watching (MCP Events)', () => {
     expect((sent.body as unknown as { data: { text: string } }).data.text).toContain('> @ChatGPT look at the build');
     await s.server.wakes.subscribe(agent, { arguments: {}, url: HOOK, secret: SECRET, ttlMs: 60 * 60 * 1000 });
     expect(rows(s)).toBe(1);
+  });
+
+  it('keeps the line at sent when one of its subscriptions got it and another did not', async () => {
+    const s = await start();
+    const { agent } = s.connect(KAAN, 'https://chatgpt.com/oauth', 'ChatGPT');
+    await s.server.wakes.subscribe(agent, { arguments: {}, url: HOOK, secret: SECRET, ttlMs: null });
+    await s.server.wakes.subscribe(agent, { arguments: {}, url: `${HOOK}2`, secret: SECRET, ttlMs: null });
+    s.listen(KAAN);
+    s.answers.push(202, 400);
+    const asked = await s.say(s.owner, s.general, `${personLink('ChatGPT', agent)} look`);
+    await s.settle();
+    expect(s.woken).toHaveLength(2);
+    expect(s.lines(asked.id)).toEqual(['sending', 'sent']);
   });
 
   it('ends when the subscriber says it is gone (410), and Kaan is told in plain words', async () => {

@@ -23,7 +23,7 @@ import { locale, type MessageKey, t } from '@scrawlnotes/i18n';
 import { type DragEvent, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode, type RefObject, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { clock, measure, Recording } from './chatMedia';
 import { Attachments, ForwardDialog, type Going, isImage, NotifyBanner, NotifyBell, RecorderBar, Tray } from './ChatParts';
-import { type ChatServer, type ChatSnapshot, draftOf, keepDraft, keepOpen, lastOpen, type Pending, store } from './chatStore';
+import { type ChatServer, type ChatSnapshot, draftOf, keepDraft, keepOpen, lastOpen, type Pending, store, type Woke } from './chatStore';
 import { ConfirmDialog, type MenuItem } from './dialogs';
 import { agentChoices } from './mentionChoices';
 import { MentionList, useMentions } from './Mentions';
@@ -124,6 +124,16 @@ function quoteText(text: string, file: string | null): string {
   if (file?.startsWith('image/')) return t('chat.photo');
   if (file?.startsWith('audio/')) return t('chat.voice');
   return file ? t('chat.file') : '';
+}
+
+/** The line under the person's message for an agent it woke (design/agent-wake.md 13). */
+function wokeLine(woke: Woke): string {
+  const name = { name: woke.name };
+  if (woke.state === 'again') {
+    const n = Math.max(1, Math.round(((woke.again ?? Date.now()) - Date.now()) / 60_000));
+    return n === 1 ? t('chat.wakeAgainMinute', name) : t('chat.wakeAgainMinutes', { ...name, n: String(n) });
+  }
+  return t(woke.state === 'sending' ? 'chat.wakeSending' : woke.state === 'sent' ? 'chat.wakeSent' : woke.state === 'working' ? 'chat.wakeWorking' : woke.state === 'late' ? 'chat.wakeLate' : 'chat.notReached', name);
 }
 
 export function ChatView({ snapshot, menu, onStatus, links, goTo }: Props) {
@@ -793,7 +803,7 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
               {message.id === seenAt && <div className="ch-seen">{t('chat.seen')}</div>}
               {Object.entries(server.woken[message.id] ?? {}).map(([agent, woke]) => (
                 <div key={agent} className="ch-seen">
-                  {t(woke.ok ? 'chat.sentTo' : 'chat.notReached', { name: woke.name })}
+                  {wokeLine(woke)}
                 </div>
               ))}
             </div>

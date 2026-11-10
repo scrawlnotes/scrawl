@@ -140,13 +140,23 @@ export type ChatEvent =
   | ChatNoticeEvent
   | ChatWakeEvent;
 
-/** Whether the person's agent their message woke was reached (design/agent-wake.md 3.3): the line under it, for them alone. */
+/**
+ * How the waking of an agent by a person's message goes (design/agent-wake.md 13), the line under
+ * it for them alone: being sent, to be tried again, reached, worked on, not answered for long,
+ * answered (the line goes), or not reached at all.
+ */
+export type WakeState = 'sending' | 'again' | 'sent' | 'working' | 'late' | 'answered' | 'failed';
+
 export interface ChatWakeEvent {
   type: 'wake';
   chat: string;
   message: string;
   agent: string;
   name: string;
+  state: WakeState;
+  /** For `again`: when it is tried again, in ms. */
+  again?: number;
+  /** Not `failed`: what an app made before `state` reads. */
   ok: boolean;
 }
 

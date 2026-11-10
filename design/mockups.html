@@ -6408,6 +6408,10 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-w2view="w2change">Claude: Change…</button>
         <button type="button" data-w2view="w2none">Claude bağlı değil</button>
         <button type="button" data-w2view="w2phone">Telefon</button>
+        <button type="button" data-w2view="w2sending">Chat: gönderiliyor</button>
+        <button type="button" data-w2view="w2working">Chat: çalışıyor</button>
+        <button type="button" data-w2view="w2again">Chat: yeniden deneyecek</button>
+        <button type="button" data-w2view="w2late">Chat: cevap yok</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -20717,7 +20721,7 @@ p { margin: 0; max-width: 68ch; }
       '<div class="foot">' + (o.saved ? '<span class="st-btn aw-stop">Stop waking</span>' : '<span class="aw-gap"></span>') + '<span class="st-btn">Cancel</span><span class="st-btn go">Save</span></div></div></div>';
   }
   function awSetApp(page, wake) { return nfApp('today', nfToday(), '4 tasks', awSettings(page, wake)); }
-  var AW_SENT = '<div class="ch-seen aw-sent">Sent to Claude</div>';
+  var AW_SENT = '<div class="ch-seen aw-sent">Sent to Claude · waiting for its answer</div>';
   var AW_FAIL = '<div class="ch-seen aw-sent">Couldn’t reach Claude</div>';
   var AW_ASK = nfAt('Claude') + ' can you find why the drag preview is cut off and open a card for the fix?';
   var AW_ANSWER = nfAt('Kaan') + ' the board’s column clips it: the preview is drawn inside the column, and the column hides what overflows. I opened a card for the fix, drawing the preview over the page.';
@@ -20903,8 +20907,14 @@ p { margin: 0; max-width: 68ch; }
     w2other: function () { return w2Set({}, w2Other()); },
     w2on: function () { return w2Set({ claude: 'on', gpt: 'on' }); },
     w2change: function () { return w2Set({ claude: 'on', gpt: 'on' }, w2Claude(true)); },
-    w2none: function () { return w2Set({ claude: 'none' }); }
+    w2none: function () { return w2Set({ claude: 'none' }); },
+    // The line under Kaan's message as it goes (design/agent-wake.md 13); Sent to is in Ajanı uyandırmak.
+    w2sending: function () { return w2Line('Sending to Claude…'); },
+    w2working: function () { return w2Line('Claude is working on it…'); },
+    w2again: function () { return w2Line('Couldn’t reach Claude · trying again in a minute'); },
+    w2late: function () { return w2Line('No answer from Claude yet'); }
   };
+  function w2Line(text) { return awChat({ ask: true, under: '<div class="ch-seen aw-sent">' + text + '</div>' }); }
   /** A phone: the same part, where each stands; setting up is on a computer. */
   function w2mAgents(on) {
     function r(ini, name, sub, isOn) {

@@ -13,6 +13,7 @@ import {
   ServerAccount,
   ServerError,
   ServerLive,
+  type WakeState,
   withMessages,
 } from '@scrawlnotes/core';
 import { useSyncExternalStore } from 'react';
@@ -59,8 +60,15 @@ export interface ChatServer {
   push: boolean;
   /** Whether its conversations were asked of the server once, reached or not: before that, one missing may only be on its way. */
   ready: boolean;
-  /** By message, whether the person's agents it woke were reached (design/agent-wake.md 3.3); not kept: gone when the page opens again. */
-  woken: { [message: string]: { [agent: string]: { name: string; ok: boolean } } };
+  /** By message, how waking the person's agents it mentions goes (design/agent-wake.md 13); not kept: gone when the page opens again. */
+  woken: { [message: string]: { [agent: string]: Woke } };
+}
+
+/** The line under a message for one agent it woke: its state, and for `again` when it is tried again. */
+export interface Woke {
+  name: string;
+  state: Exclude<WakeState, 'answered'>;
+  again?: number;
 }
 
 export interface ChatSnapshot {
@@ -307,7 +315,14 @@ class OneServer {
       if (event.reacted) store.onReacted?.(this.url, event.message, event.reacted);
     } else if (event.type === 'chat') void this.turn();
     else if (event.type === 'notice') store.onNotice?.(this.url, event);
-    else if (event.type === 'wake') this.set({ woken: { ...this.state.woken, [event.message]: { ...this.state.woken[event.message], [event.agent]: { name: event.name, ok: event.ok } } } });
+    else if (event.type === 'wake') {
+      // A server before `state` says only whether it went.
+      const state = event.state ?? (event.ok ? 'sent' : 'failed');
+      const { [event.agent]: _gone, ...others } = this.state.woken[event.message] ?? {};
+      // Answered: the answer is under it, and the line goes.
+      const lines = state === 'answered' ? others : { ...others, [event.agent]: { name: event.name, state, ...(event.again !== undefined && { again: event.again }) } };
+      this.set({ woken: { ...this.state.woken, [event.message]: lines } });
+    }
     else if (event.type === 'typing') {
       const typing = { ...this.state.typing, [event.chat]: { ...this.state.typing[event.chat], [event.account]: Date.now() + TYPING_MS } };
       this.set({ typing });
