@@ -795,12 +795,13 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
                 url={server.url}
                 chipState={links.stateOf}
                 onLink={onLink}
+                seen={!phone && message.id === seenAt}
                 {...(phone && {
                   onHold: (row: HTMLElement) => !message.deleted && setLifted({ message, html: row.outerHTML, top: row.getBoundingClientRect().top }),
                   onSwipe: () => !message.deleted && setReplyTo(message),
                 })}
               />
-              {message.id === seenAt && <div className="ch-seen">{t('chat.seen')}</div>}
+              {phone && message.id === seenAt && <div className="ch-seen">{t('chat.seen')}</div>}
               {Object.entries(server.woken[message.id] ?? {}).map(([agent, woke]) => (
                 <div key={agent} className="ch-seen">
                   {wokeLine(woke)}
@@ -932,6 +933,8 @@ function MessageRow(props: {
   url: string;
   chipState: (href: string) => ChipState;
   onLink: (href: string) => void;
+  /** On a computer, read by the other of a direct message: an eye at the row's end, which takes no line of its own. */
+  seen?: boolean;
   /** On a phone: a finger resting on it lifts it; drawn to the right, it is answered. */
   onHold?: (row: HTMLElement) => void;
   onSwipe?: () => void;
@@ -967,6 +970,11 @@ function MessageRow(props: {
         </span>
       )}
       {cont ? <span className="tm">{timeOf(message.at)}</span> : <Face id={message.agent ?? message.author} name={agent ?? name} agent={!!agent} />}
+      {props.seen && (
+        <span className="ch-seenmark" role="img" title={t('chat.seen')} aria-label={t('chat.seen')}>
+          <Icon name="eye" />
+        </span>
+      )}
       <div className="bx">
         {!cont && (
           <div className="hd">

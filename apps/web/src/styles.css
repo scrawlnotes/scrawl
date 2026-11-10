@@ -17251,6 +17251,24 @@ button.ch-q {
   font-size: 11px;
 }
 
+/* Seen on a computer: in the row's right padding, level with its first line, so the text never runs under it. */
+.ch-seenmark {
+  position: absolute;
+  top: 12px;
+  right: 3px;
+  display: flex;
+  color: var(--sl-faint);
+}
+
+.ch-m.cont .ch-seenmark {
+  top: 8px;
+}
+
+.ch-seenmark .icon {
+  width: var(--icon-12);
+  height: var(--icon-12);
+}
+
 .ch-m.pending .bd {
   color: var(--sl-dim);
 }
