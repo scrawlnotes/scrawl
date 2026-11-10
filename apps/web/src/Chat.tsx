@@ -934,7 +934,7 @@ function MessageRow(props: {
   url: string;
   chipState: (href: string) => ChipState;
   onLink: (href: string) => void;
-  /** On a computer, read by the other of a direct message: an eye at the row's end, which takes no line of its own. */
+  /** On a computer, read by the other of a direct message: an eye by its time, which takes no line of its own. */
   seen?: boolean;
   /** On a phone: a finger resting on it lifts it; drawn to the right, it is answered. */
   onHold?: (row: HTMLElement) => void;
@@ -958,6 +958,12 @@ function MessageRow(props: {
     if (body.current) shape(body.current, props.chipState);
   }, [html, props.chipState, props.editing]);
   const fold = useFold(body, html, !!props.onHold);
+  // By its time: after it in the heading, or where a following message's time shows, which takes its place on hover.
+  const seen = props.seen && (
+    <span className="ch-seenmark" role="img" title={t('chat.seen')} aria-label={t('chat.seen')}>
+      <Icon name="eye" />
+    </span>
+  );
   return (
     <div
       className={`ch-m${cont ? ' cont' : ''}${props.reacting ? ' hold' : ''}${props.flash ? ' flash' : ''}`}
@@ -971,11 +977,7 @@ function MessageRow(props: {
         </span>
       )}
       {cont ? <span className="tm">{timeOf(message.at)}</span> : <Face id={message.agent ?? message.author} name={agent ?? name} agent={!!agent} />}
-      {props.seen && (
-        <span className="ch-seenmark" role="img" title={t('chat.seen')} aria-label={t('chat.seen')}>
-          <Icon name="eye" />
-        </span>
-      )}
+      {cont && seen}
       <div className="bx">
         {!cont && (
           <div className="hd">
@@ -984,6 +986,7 @@ function MessageRow(props: {
               {agent && <span className="of"> · {name}</span>}
             </b>
             <span className="t">{timeOf(message.at)}</span>
+            {seen}
           </div>
         )}
         {forwarded && (

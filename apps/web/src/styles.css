@@ -17251,17 +17251,23 @@ button.ch-q {
   font-size: 11px;
 }
 
-/* Seen on a computer: in the row's right padding, level with its first line, so the text never runs under it. */
+/* Seen on a computer: after the heading's time; on a message without a heading, where its time shows on hover. */
 .ch-seenmark {
-  position: absolute;
-  top: 12px;
-  right: 3px;
   display: flex;
+  align-self: center;
   color: var(--sl-faint);
 }
 
 .ch-m.cont .ch-seenmark {
+  position: absolute;
   top: 8px;
+  left: 20px;
+  justify-content: flex-end;
+  width: 36px;
+}
+
+.ch-m.cont:hover .ch-seenmark {
+  display: none;
 }
 
 .ch-seenmark .icon {
