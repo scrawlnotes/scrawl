@@ -282,7 +282,7 @@ function heardNew(url: string, message: ChatMessage) {
   const tells = () => {
     const server = store.read().servers.find((each) => each.url === url);
     const chat = server?.chats.find((each) => each.id === message.chat);
-    if (!server || !chat || !tellsMe(message, server.me) || message.deleted) return null;
+    if (!server || !chat || !tellsMe(message, server.me, chat) || message.deleted) return null;
     if (!chat.joined || chat.alerts === 0 || chat.readSeq >= message.seq || store.onScreen(url, chat.id)) return null;
     return { server, chat };
   };

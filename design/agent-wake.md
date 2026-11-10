@@ -469,3 +469,79 @@ Testler: sunucuda sırayla sending, sent, working, answered; yeniden denemede ag
 Mockup: design/mockups.html › Answer in Scrawl › Chat: gönderiliyor, çalışıyor, yeniden deneyecek, cevap yok; Ajanı uyandırmak › Chat: Sent to.
 
 Log (10 Kasım): Eren'in ChatGPT'si "couldn't activate its event subscription" dedi; sunucu ChatGPT'nin sorup sormadığını yazmıyordu. Artık ajanın `events/*` istekleri (`MCP events/list: ChatGPT of Eren`) ve izlemenin sonucu (`Watching Scrawl: …, at chatgpt.com` ya da `Not watching Scrawl: …: challenge_failed`) Coolify log'unda. Help'te "ChatGPT says it couldn't start watching Scrawl": yalnız Work sohbeti ve masaüstünde Work + Cloud izler; şirket ChatGPT'sinde yöneticinin plugin ve olayla başlayan iş ayarları; saatlik kontrol aynı şey değil.
+
+## 14. Ajanla DM (10 Kasım'da onaylandı)
+
+Kullanıcı sordu: "bu agentlarım chat ekranında dm olarak da görünebilirler mi?" Bugün görünmüyorlar. Chat'te DM yalnız insanlar arasında; ajan yalnız anıldığı yerde, kartta ya da görevde cevap veriyor. Slack'teki app DM'i gibi her ajanın senin için bir DM'i olur.
+
+### 14.1 Kullanıcı gözüyle
+
+1. ChatGPT'yi Settings › Agents › Answer in Scrawl'da kurdun. Chat'te Direct messages altında, kişilerin arasında **ChatGPT** belirir: kare yüz, GPT. Sıra son mesaja göre, kişilerle karışık.
+2. Açınca boşsa giriş: "This is your direct message with ChatGPT. Write here and it answers here; only you see it." Altında nereden cevap verdiği: "It answers from a Work chat in ChatGPT." (Claude için "from a task on claude.ai").
+3. Yazdığın her mesaj ajanı uyandırır; `@` gerekmez. Mesajın altındaki satır odalardaki gibi: Sending…, Sent · waiting for its answer, working on it…, cevap gelince kalkar.
+4. Ajanın cevabı aynı DM'e gelir ve bir kişinin DM'i gibi okunmamış sayılır, bildirim gelir; bildirimin başlığı ajanın adı ("ChatGPT").
+5. DM'i yalnız sen görürsün. Başkasının ajanına DM açılmaz, senin ajanınla olan DM'i başkası göremez.
+6. Konuşmanın hafızası DM'in kendisi: Claude her uyandığında yeni başlar, DM'deki önceki mesajları okuyarak devam eder.
+7. Odada anmak, mesajına cevap yazmak, kartta ve görevde iş vermek olduğu gibi kalır.
+
+### 14.2 Cevap vermeyen ajan
+
+- Cevap vermeye kurulmamış bir ajan (örneğin bilgisayardaki Claude Code) listede kendiliğinden görünmez.
+- Ama sana yazabilir: `send_message` ile `to: "me"` onun seninle DM'idir. Claude Code bir işi bitirince "0.2.40 is live" diye yazarsa DM listede belirir, bildirim gelir.
+- Böyle bir DM'de yazma kutusunun yerinde tek cümle: "Claude Code doesn't answer you here. Set it up in Settings › Agents." Settings › Agents bir link: Settings'i o bölümde açar.
+- Kurulu ajanı Stop watching ya da Turn off ile kapatırsan, ya da Disconnect edersen, DM geçmişiyle kalır; kutunun yerinde aynı cümle.
+
+### 14.3 Ekranda
+
+- **Liste:** Direct messages'ta ajanın kare yüzü (ChatGPT için GPT), adı. Kişilerdeki yeşil nokta (Active) yok.
+- **Başlık:** kare yüz, adı, altında "Your agent". Sağda arama, bildirim ve Info, kişi DM'indeki gibi.
+- **Kutu:** "Message ChatGPT".
+- **Seen yok:** ajan "okumaz".
+- **Telefon:** Chat sekmesinde Direct altında aynı satır; DM aynı sayfa.
+- **New message:** değişmez; ajan DM'i oradan açılmaz, kendiliğinden vardır.
+
+### 14.4 Ajan gözüyle
+
+- Uyandırma yeni bir tür taşır: `kind: "message"`. `text`: "Kaan Arslan wrote to you in your direct message with them on the Scrawl server …: > … Read the conversation with `messages` (in: "<id>"), do what Kaan asks, and answer there with `send_message` (to: "me")." `@` istemez, DM zaten haber verir.
+- `send_message` ile `to: "me"`: ajanın sahibiyle DM'i, yoksa açılır. Rehbere (guide.ts) bir satır: "To tell the person you work for something, write to "me": your direct message with them."
+- `messages` listesinde DM'in adı "Kaan Arslan and ChatGPT". Ajan sahibinin her şeyini okuduğu gibi bunu da okur.
+- Ajanın kendi mesajı hiçbir ajanı uyandırmaz: döngü yok.
+
+### 14.5 Kodda
+
+- **Veri:** `chats` tablosuna `agent_id TEXT` (ajanın kimliği, `agent_identities.id`). DM `kind = 'direct'`, `direct_key = 'agent:' || agent_id` (ajan başına bir tane), `chat_members`'ta yalnız sahibi.
+- **Açılış:** `Chats.agentDirect(owner, agent)` aynı DM'i döndürür, yoksa açar. Çağıranlar: Wakes.set (adres kaydedilince), Wakes.subscribe (ChatGPT izlemeye başlayınca), `send_message` "me".
+- **ChatInfo:** `agent?: { id: string; name: string }`; ad kimliğin bugünkü adı, Rename'i izler.
+- **Uyandırma:** Wakes.sent: mesajın sohbeti bir ajan DM'iyse ve yazan sahibinin kendisiyse (ajan değil, ileti değil) ajan `kind: "message"` ile uyanır. Satır ve bekleyiş 13'teki gibi; ajanın o DM'e yazdığı mesaj "answered".
+- **Okunmamış ve bildirim:** ajanın kendi DM'indeki mesajı sahibine başkasınınki gibi sayılır: sunucudaki unread sorgusu, alertsFor ve core `tellsMe` (sohbeti de alır). Bildirimin başlığı ajanın adı.
+- **Web:** ChatList'te ajan DM'i satırı (kare Face, faceText), başlık, giriş, kutu yerine cümle (ajan wakeable.ts'te yoksa). Telefon aynı bileşenleri kullanır.
+- **Ajan paketi:** `findConversation` "me"yi kendi DM'ine çözer (AgentChat'e `mine()`); `wakeText` `message` türünü yazar.
+
+### 14.6 Güvenlik
+
+- DM'in tek üyesi sahibi; başkası açamaz, okuyamaz (bugünkü üyelik kontrolü).
+- Ajan sahibi adına yazar; "me" yalnız çağıran kimliğin kendi DM'i. Bir ajan başka bir ajanın DM'ine "me" ile yazamaz.
+- Uyandırma yalnız sahibinin kendi mesajıyla; ajan mesajı uyandırmaz.
+
+### 14.7 Testler
+
+- Sunucu: Claude kurulunca ve ChatGPT izlemeye başlayınca DM açılır, ikinci kez açılmaz; sahibin DM'deki mesajı ajanı `message` türüyle uyandırır, `@` olmadan; ajanın DM'e yazdığı mesaj sahibine okunmamış ve bildirim, satır "answered"; başka biri DM'i göremez; Mert'in ajanı yok sayılır.
+- Ajan: `send_message` "me" DM'i açar ve yazar; Mert'in bağlamında "me" Kaan'ınkine gitmez.
+- Core: `tellsMe` ajan DM'inde ajanın mesajı için true.
+- Web: listede kare yüz ve ad; kurulmamış ajanın DM'inde kutu yerine cümle.
+
+### 14.8 Dilim ve yayın
+
+Tek dilim: sunucu, core, ajan paketi ve web birlikte. Sonra sunucu 0.2.41, web ve masaüstü yayını.
+
+### 14.9 Kararlar (10 Kasım'da onaylandı)
+
+1. Cevap veren ajanların DM'i kurulunca kendiliğinden Direct messages'ta, kişilerle karışık, kare yüzle.
+2. DM'e yazılan her mesaj ajanı uyandırır, `@` gerekmez; cevap aynı DM'e, satır odalardaki gibi.
+3. Ajanın DM'deki mesajı bir kişinin DM'i gibi okunmamış ve bildirim; başlık ajanın adı.
+4. DM'i yalnız sahibi görür.
+5. Cevap vermeyen ajan sana `to: "me"` ile yazabilir; o DM'de kutunun yerinde Settings › Agents'a giden cümle.
+6. Kapatılan ya da Disconnect edilen ajanın DM'i geçmişiyle kalır, kutunun yerinde aynı cümle.
+7. Telefonda aynı.
+
+Mockup: design/mockups.html › Ajanla DM.

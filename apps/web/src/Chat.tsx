@@ -27,7 +27,7 @@ import { type ChatServer, type ChatSnapshot, draftOf, keepDraft, keepOpen, lastO
 import { ConfirmDialog, type MenuItem } from './dialogs';
 import { agentChoices } from './mentionChoices';
 import { MentionList, useMentions } from './Mentions';
-import { useWakeable } from './wakeable';
+import { useWakeable, wakeableKnown } from './wakeable';
 import { Icon, type IconName } from './Icon';
 import { Face, leadOf, namesOf, others, shortDay, timeOf, titleOf } from './ChatFaces';
 import { BrowseRoomsDialog, ChatInfoDialog, type InfoTab, NewMessageDialog, NewRoomDialog } from './ChatRooms';
@@ -67,6 +67,8 @@ export interface ChatLinks {
   say: (text: string) => void;
   /** Invite people: the settings of the space, where its invite is; Spaces when none is named. */
   invite: (space: string | null) => void;
+  /** Settings › Agents, where an agent is set up to answer. */
+  agents: () => void;
 }
 
 interface Props {
@@ -662,9 +664,15 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
   const otherActive = chat.kind === 'direct' && people.length === 1 && server.active.includes(people[0]!.id);
   const goneAll = chat.kind === 'direct' && people.length > 0 && people.every((person) => chat.gone.includes(person.id));
 
+  // A direct message with an agent of theirs that does not answer has, for the box to write in, where to set it up (design/agent-wake.md 14).
+  const answering = useWakeable(server.url);
+  const deaf = !!chat.agent && wakeableKnown(server.url) && !answering.some((each) => each.id === chat.agent!.id);
+
   const lead =
     chat.kind === 'direct' ? (
-      people.length === 1 ? (
+      chat.agent ? (
+        <Face id={chat.agent.id} name={chat.agent.name} size="md" agent />
+      ) : people.length === 1 ? (
         <Face id={people[0]!.id} name={people[0]!.name} size="md" online={otherActive} />
       ) : (
         <span className="ch-faces">
@@ -707,7 +715,7 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
           </button>
           <button type="button" className="chp-mid" onClick={phone.onInfo}>
             <b>{chat.kind === 'private' ? titleOf(chat, server.me) : chat.kind === 'direct' ? titleOf(chat, server.me) : `# ${chat.name}`}</b>
-            <small className={otherActive ? 'act' : ''}>{chat.kind === 'direct' ? (otherActive ? t('chat.active') : people.length > 1 ? t('count.people', { count: chat.members.length }) : '') : chat.kind === 'private' ? t('count.people', { count: chat.members.length }) : ''}</small>
+            <small className={otherActive ? 'act' : ''}>{chat.agent ? t('chat.yourAgent') : chat.kind === 'direct' ? (otherActive ? t('chat.active') : people.length > 1 ? t('count.people', { count: chat.members.length }) : '') : chat.kind === 'private' ? t('count.people', { count: chat.members.length }) : ''}</small>
           </button>
           <button type="button" className="mb-ib" aria-label={t('chat.info')} title={t('chat.info')} onClick={phone.onInfo}>
             <Icon name="info" />
@@ -720,7 +728,7 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
         </button>
         {lead}
         <b>{titleOf(chat, server.me)}</b>
-        {chat.kind === 'direct' ? otherActive && <span className="tp act">{t('chat.active')}</span> : chat.topic && <span className="tp">{chat.topic}</span>}
+        {chat.agent ? <span className="tp">{t('chat.yourAgent')}</span> : chat.kind === 'direct' ? otherActive && <span className="tp act">{t('chat.active')}</span> : chat.topic && <span className="tp">{chat.topic}</span>}
         <span className="acts">
           {chat.kind === 'private' && (
             <button type="button" className="ppl" title={chat.members.map((person) => person.name).join(', ')} onClick={() => setInfo('people')}>
@@ -761,7 +769,7 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
         {messages.map((message, i) => {
           const before = messages[i - 1];
           const day = !before || new Date(before.at).toDateString() !== new Date(message.at).toDateString();
-          const isNew = newFrom !== null && message.seq === newFrom && tellsMe(message, server.me);
+          const isNew = newFrom !== null && message.seq === newFrom && tellsMe(message, server.me, chat);
           return (
             <div key={message.id} className="ch-item">
               {day && <div className="ch-day">{dayOf(message.at)}</div>}
@@ -827,6 +835,14 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
         </div>
       ) : goneAll ? (
         <p className="ch-closed">{t('chat.goneNote', { name: titleOf(chat, server.me) })}</p>
+      ) : deaf ? (
+        <p className="ch-closed agent">
+          {t('chat.agentNoAnswer', { name: chat.agent!.name })}{' '}
+          <button type="button" className="lk" onClick={links.agents}>
+            {t('chat.agentNoAnswerLink')}
+          </button>
+          .
+        </p>
       ) : (
         <Composer
           key={`${server.url} ${chat.id}`}
@@ -913,6 +929,10 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
 }
 
 /** A message on its row: a face, a name and a time over the first of a run, its quote, its words, its reactions; its buttons when the pointer is on it. */
+/** Seen's eye, as HTML: it goes inside the message's own text. */
+const seenMark = () =>
+  `<span class="ch-seenmark" role="img" title="${t('chat.seen')}" aria-label="${t('chat.seen')}"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.4-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.4 6.5-9.5 6.5S2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/></svg></span>`;
+
 function MessageRow(props: {
   message: ChatMessage;
   cont: boolean;
@@ -934,7 +954,7 @@ function MessageRow(props: {
   url: string;
   chipState: (href: string) => ChipState;
   onLink: (href: string) => void;
-  /** On a computer, read by the other of a direct message: an eye by its time, which takes no line of its own. */
+  /** On a computer, read by the other of a direct message: an eye at the end of its text, which takes no line of its own. */
   seen?: boolean;
   /** On a phone: a finger resting on it lifts it; drawn to the right, it is answered. */
   onHold?: (row: HTMLElement) => void;
@@ -947,23 +967,21 @@ function MessageRow(props: {
   // An agent's message is the agent's, with its person after it: "Claude Code (Laptop) · Kaan".
   const agent = message.agent ? message.agentName || t('chat.agent') : null;
   const html = useMemo(() => {
-    const body = messageHtml(message.body);
-    if (!message.edited) return body;
-    const mark = `<span class="ch-ed">${t('chat.edited')}</span>`;
-    return /<\/p>\s*$/.test(body) ? body.replace(/<\/p>\s*$/, ` ${mark}</p>`) : `${body}${mark}`;
-  }, [message.body, message.edited]);
+    let body = messageHtml(message.body);
+    if (message.edited) {
+      const mark = `<span class="ch-ed">${t('chat.edited')}</span>`;
+      body = /<\/p>\s*$/.test(body) ? body.replace(/<\/p>\s*$/, ` ${mark}</p>`) : `${body}${mark}`;
+    }
+    // Seen: always at the end of the text, inside its last block (a paragraph, a list's last item), so it takes no line.
+    if (props.seen) body = body.replace(/(\s*(?:<\/(?:p|li|ul|ol|blockquote|pre|code|div|h[1-6]|td|tr|tbody|table)>\s*)*)$/, `${seenMark()}$1`);
+    return body;
+  }, [message.body, message.edited, props.seen]);
   const forwarded = message.forwarded;
   const body = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (body.current) shape(body.current, props.chipState);
   }, [html, props.chipState, props.editing]);
   const fold = useFold(body, html, !!props.onHold);
-  // By its time: after it in the heading, or where a following message's time shows, which takes its place on hover.
-  const seen = props.seen && (
-    <span className="ch-seenmark" role="img" title={t('chat.seen')} aria-label={t('chat.seen')}>
-      <Icon name="eye" />
-    </span>
-  );
   return (
     <div
       className={`ch-m${cont ? ' cont' : ''}${props.reacting ? ' hold' : ''}${props.flash ? ' flash' : ''}`}
@@ -977,7 +995,6 @@ function MessageRow(props: {
         </span>
       )}
       {cont ? <span className="tm">{timeOf(message.at)}</span> : <Face id={message.agent ?? message.author} name={agent ?? name} agent={!!agent} />}
-      {cont && seen}
       <div className="bx">
         {!cont && (
           <div className="hd">
@@ -986,7 +1003,6 @@ function MessageRow(props: {
               {agent && <span className="of"> · {name}</span>}
             </b>
             <span className="t">{timeOf(message.at)}</span>
-            {seen}
           </div>
         )}
         {forwarded && (
@@ -1014,6 +1030,8 @@ function MessageRow(props: {
           )
         )}
         {!message.deleted && message.files.length > 0 && <Attachments url={props.url} files={message.files} />}
+        {/* shortcut: a message of files alone has no text to end, so its eye takes a line under them; rare, give it a place on the files if it bothers */}
+        {props.seen && message.body.trim() === '' && <div className="ch-seenline" dangerouslySetInnerHTML={{ __html: seenMark() }} />}
         {message.reactions.length > 0 && (
           <div className="ch-rx">
             {message.reactions.map((reaction) => (

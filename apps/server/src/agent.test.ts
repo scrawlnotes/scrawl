@@ -503,6 +503,13 @@ describe('messages', () => {
     expect(mine).toMatchObject({ unread: 1, last: { body: 'Also, the changelog needs a date.', agentName: 'Test agent' } });
     expect((await call_('messages', { in: 'Mert' })).data).toMatchObject({ in: 'Mert Kaya', messages: [{ from: 'Test agent · Kaan Arslan', text: 'Also, the changelog needs a date.' }] });
     expect((await call_('send_message', { to: 'Nobody', text: 'Hello' })).error).toBe(true);
+
+    // "me" is the agent's direct message with Kaan, opened by writing to it; it tells him (design/agent-wake.md 14), and Mert has none.
+    expect((await call_('send_message', { to: 'me', text: 'The release notes are in Releases/0.3.' })).data).toMatchObject({ sent: { in: 'Kaan Arslan and Test agent' } });
+    const ours = ((await call(kaan, 'GET', '/chat')).chats as { kind: string; unread: number; alerts: number; agent?: { name: string } }[]).find((chat) => chat.agent)!;
+    expect(ours).toMatchObject({ kind: 'direct', unread: 1, alerts: 1, agent: { name: 'Test agent' } });
+    expect((await call_('messages', { in: 'me' })).data).toMatchObject({ in: 'Kaan Arslan and Test agent', messages: [{ text: 'The release notes are in Releases/0.3.' }] });
+    expect(((await call(mert, 'GET', '/chat')).chats as { agent?: unknown }[]).some((chat) => chat.agent)).toBe(false);
     await client.close();
   });
 });

@@ -70,7 +70,8 @@ export function wakeHeaderWords(problem: WakeHeaderProblem): string {
 
 /** What an agent is woken by, and where: what the server sends its address, as fields. */
 export interface WakeEvent {
-  kind: 'mention' | 'reply' | 'assign';
+  /** `message`: written in the person's direct message with the agent (design/agent-wake.md 14). */
+  kind: 'mention' | 'reply' | 'assign' | 'message';
   /** The Scrawl server's address. */
   server: string;
   agent: { id: string; name: string };
@@ -118,6 +119,10 @@ export function wakeText(event: WakeEvent, words = ''): string {
   const space = event.space ? `, space: "${event.space.name}"` : '';
   const inSpace = event.space ? ` (space ${event.space.name})` : '';
   const quote = words.trim() ? `\n\n${quoted(words)}\n\n` : '\n\n';
+  if (event.chat && event.kind === 'message') {
+    // Their direct message with the agent tells them of what it writes there: no @ (design/agent-wake.md 14).
+    return `${from} wrote to you in your direct message with them ${on}:${quote}Read the conversation with \`messages\` (in: "me"), do what ${first} asks, and answer there with \`send_message\` (to: "me").`;
+  }
   if (event.chat) {
     const chat = event.chat;
     const room = chat.kind !== 'direct';

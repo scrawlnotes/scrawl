@@ -145,7 +145,7 @@ export function agentRoutes(app: Hono<Env>, parts: Parts, addressOf: (c: Context
    * The person's conversations, for an agent (design/chat.md, 9): as the person sees them, read
    * without marking anything read, written as the person with the agent's identity on each message.
    */
-  const chatOf = (account: Account): AgentChat => {
+  const chatOf = (account: Account, self: () => string): AgentChat => {
     /** Everyone the person shares a space with, and themselves. */
     const people = () => {
       const found = new Map<string, string>([[account.id, account.name || account.email]]);
@@ -156,7 +156,7 @@ export function agentRoutes(app: Hono<Env>, parts: Parts, addressOf: (c: Context
       const others = chat.members.filter((person) => person.id !== account.id);
       return {
         id: chat.id,
-        name: chat.kind === 'public' ? `#${chat.name}` : chat.kind === 'private' ? chat.name : others.map((person) => person.name).join(', ') || account.name,
+        name: chat.kind === 'public' ? `#${chat.name}` : chat.kind === 'private' ? chat.name : chat.agent ? `${account.name || account.email} and ${chat.agent.name}` : others.map((person) => person.name).join(', ') || account.name,
         kind: chat.kind,
         space: chat.space ? { id: chat.space, name: chat.spaceName } : null,
         people: chat.kind === 'direct' ? others : chat.members,
@@ -188,6 +188,7 @@ export function agentRoutes(app: Hono<Env>, parts: Parts, addressOf: (c: Context
       search: async (query) => chats.search(account.id, query).messages.map(message(people())),
       send: async (chat, body, replyTo, agent) => message(people())(chats.send(account, chat, { id: `m-${randomUUID()}`, body, replyTo }, agent)),
       direct: async (people) => conversation(chats.direct(account, people)),
+      mine: async () => conversation(chats.agentDirect(account.id, self())),
       people: async () => [...people()].filter(([id]) => id !== account.id).map(([id, name]) => ({ id, name })),
     };
   };
@@ -219,7 +220,7 @@ export function agentRoutes(app: Hono<Env>, parts: Parts, addressOf: (c: Context
         const identity = make ? oauth.identity(account.id, clientId, name) : oauth.findIdentity(account.id, clientId);
         return identity && { ...identity, client: name, ...(account.name && { owner: account.name }) };
       },
-      chat: chatOf(account),
+      chat: chatOf(account, () => oauth.identity(account.id, clientId, clientName || 'Agent').id),
       // What wakes this agent, subscribed to by its own connection, as ChatGPT does (design/agent-wake.md 11).
       events: {
         subscribe: (input) => wakes.subscribe(oauth.identity(account.id, clientId, clientName || 'Agent').id, input),

@@ -16693,6 +16693,24 @@ button.st-li:hover,
   border-radius: 4px;
 }
 
+.ch-face.xl.ag {
+  border-radius: 14px;
+}
+
+/* An agent that does not answer: where to set it up, in place of the box to write in (design/agent-wake.md 14). */
+.ch-closed.agent .lk {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--sl-accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ch-closed.agent .lk:hover {
+  text-decoration: underline;
+}
+
 .ch-m .hd .of {
   color: var(--sl-faint);
   font-weight: 400;
@@ -17251,23 +17269,16 @@ button.ch-q {
   font-size: 11px;
 }
 
-/* Seen on a computer: after the heading's time; on a message without a heading, where its time shows on hover. */
+/* Seen on a computer: always at the end of the message's text, as edited is. */
 .ch-seenmark {
-  display: flex;
-  align-self: center;
+  display: inline-flex;
+  margin-left: 6px;
+  vertical-align: -2px;
   color: var(--sl-faint);
 }
 
-.ch-m.cont .ch-seenmark {
-  position: absolute;
-  top: 8px;
-  left: 20px;
-  justify-content: flex-end;
-  width: 36px;
-}
-
-.ch-m.cont:hover .ch-seenmark {
-  display: none;
+.ch-seenline .ch-seenmark {
+  margin-left: 0;
 }
 
 .ch-seenmark .icon {

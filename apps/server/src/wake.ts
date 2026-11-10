@@ -296,6 +296,8 @@ export class Wakes {
     }
     const saved = JSON.stringify(headers);
     this.db.prepare('UPDATE agent_identities SET wake_url = ?, wake_headers = ?, wake_kind = ? WHERE id = ?').run(url, saved, kind, agent);
+    // An agent that answers has its direct message with its person (design/agent-wake.md 14).
+    this.chats.agentDirect(ownerOf(agent), agent);
     return wakeInfoOf(url, saved, kind)!;
   }
 
@@ -356,6 +358,7 @@ export class Wakes {
     this.db
       .prepare('DELETE FROM event_subscriptions WHERE agent_id = ? AND id NOT IN (SELECT id FROM event_subscriptions WHERE agent_id = ? ORDER BY created_at DESC LIMIT ?)')
       .run(agent, agent, WATCHES);
+    this.chats.agentDirect(ownerOf(agent), agent);
     return { id, refreshBefore: new Date(until).toISOString() };
   }
 

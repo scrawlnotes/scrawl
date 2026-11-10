@@ -99,6 +99,8 @@ export interface ChatInfo {
   reads: { [account: string]: number } | null;
   /** Whether this person changes the room's name and topic and archives it: whoever opened it, and its space's managers. */
   manage: boolean;
+  /** A direct message with one of this person's agents (design/agent-wake.md 14): that agent, by its name now. */
+  agent?: { id: string; name: string };
 }
 
 /** A conversation's files and links, the latest first, for its Info window (design/chat.md, 8.1). */
@@ -123,6 +125,8 @@ interface ChatRow {
   topic: string;
   general: number;
   direct_key: string | null;
+  /** A direct message with an agent of its one person: that agent. */
+  agent_id: string | null;
   created_by: string;
   created_at: number;
   archived_at: number | null;
@@ -173,7 +177,7 @@ interface FileRow {
 /** What a device hears on the live channel: a message as it now is, or that something else changed. */
 /** What a message wakes, and what its agents are told of it (design/agent-wake.md 6.3). */
 export interface ChatWake {
-  agents: { id: string; kind: 'mention' | 'reply' }[];
+  agents: { id: string; kind: 'mention' | 'reply' | 'message' }[];
   from: { id: string; name: string };
   at: number;
   space: { id: string; name: string } | null;
@@ -509,6 +513,26 @@ export class Chats {
     });
     this.changed(chat);
     return this.info(chat, by.id);
+  }
+
+  /**
+   * A person's direct message with one of their own agents (design/agent-wake.md 14): theirs alone,
+   * made once. What they write there wakes the agent; what it writes there tells them.
+   */
+  agentDirect(owner: string, agent: string): ChatInfo {
+    if (!isAgentId(agent) || ownerOf(agent) !== owner) throw new Refused(403, 'not-yours', 'A direct message is with an agent of your own');
+    const key = `agent:${agent}`;
+    const there = this.db.prepare('SELECT * FROM chats WHERE direct_key = ?').get(key) as unknown as ChatRow | undefined;
+    if (there) return this.info(there, owner);
+    const chat = transaction(this.db, () => {
+      const id = newId();
+      const rev = this.nextRev();
+      this.db.prepare("INSERT INTO chats (id, kind, direct_key, agent_id, created_by, created_at, rev) VALUES (?, 'direct', ?, ?, ?, ?, ?)").run(id, key, agent, owner, this.now(), rev);
+      this.enter(id, owner, owner, rev);
+      return this.row(id);
+    });
+    this.changed(chat);
+    return this.info(chat, owner);
   }
 
   /** Someone taken out of a space or off the server leaves the rooms of the spaces they are no longer in, so a way back does not bring them back. */
@@ -899,8 +923,8 @@ export class Chats {
     const mentioned = new Set((this.db.prepare('SELECT account_id FROM mentions WHERE message_id = ?').all(row.id) as { account_id: string }[]).map((each) => each.account_id));
     const out: { account: string; mention: boolean }[] = [];
     for (const account of this.listeners(chat)) {
-      // Their own message tells no one of it, but their agent's that mentions them does (design/agent-wake.md 2).
-      if (account === row.author_id && !(row.agent_id !== null && mentioned.has(account))) continue;
+      // Their own message tells no one of it, but their agent's that mentions them does (design/agent-wake.md 2), and every one in their direct message with it (14).
+      if (account === row.author_id && !(row.agent_id !== null && (mentioned.has(account) || chat.agent_id !== null))) continue;
       const me = this.member(chat.id, account);
       if (chat.kind === 'public' && !chat.general && !this.isIn(chat, account)) continue;
       if ((me?.read_seq ?? 0) >= row.seq) continue;
@@ -920,14 +944,16 @@ export class Chats {
   wakesOf(messageId: string): ChatWake | null {
     const row = this.messageRow(messageId);
     if (!row || row.agent_id !== null || row.deleted_at !== null || row.forward_of !== null) return null;
-    const agents = new Map<string, 'mention' | 'reply'>();
+    const agents = new Map<string, 'mention' | 'reply' | 'message'>();
     for (const { account_id } of this.db.prepare('SELECT account_id FROM mentions WHERE message_id = ?').all(row.id) as { account_id: string }[]) {
       if (isAgentId(account_id) && ownerOf(account_id) === row.author_id) agents.set(account_id, 'mention');
     }
     const answered = row.reply_to ? this.messageRow(row.reply_to) : undefined;
     if (answered?.agent_id && answered.author_id === row.author_id && !agents.has(answered.agent_id)) agents.set(answered.agent_id, 'reply');
-    if (!agents.size) return null;
     const chat = this.row(row.chat_id);
+    // In their direct message with an agent, every message of the person wakes it (design/agent-wake.md 14).
+    if (chat.agent_id && ownerOf(chat.agent_id) === row.author_id) agents.set(chat.agent_id, 'message');
+    if (!agents.size) return null;
     const others = this.listeners(chat).filter((account) => account !== row.author_id).map((account) => this.nameOf(account));
     const space = chat.space_id ? (this.db.prepare('SELECT id, name FROM spaces WHERE id = ?').get(chat.space_id) as { id: string; name: string } | undefined) ?? null : null;
     return {
@@ -1096,7 +1122,8 @@ export class Chats {
   private checkWrite(chat: ChatRow, account: string) {
     if (!this.isIn(chat, account)) throw new Refused(403, 'not-member', 'Join the room to write in it');
     if (chat.archived_at !== null) throw new Refused(410, 'archived', 'This room is archived');
-    if (chat.kind === 'direct') {
+    // A direct message with one's agent has no one else in it to be gone (design/agent-wake.md 14).
+    if (chat.kind === 'direct' && !chat.agent_id) {
       const others = this.listeners(chat).filter((each) => each !== account);
       const here = others.filter((each) => this.db.prepare('SELECT 1 FROM accounts WHERE id = ? AND disabled_at IS NULL').get(each));
       if (!here.length) throw new Refused(410, 'gone', 'They are no longer on this server');
@@ -1292,14 +1319,16 @@ export class Chats {
     const joined = this.isIn(chat, account);
     const readSeq = me?.read_seq ?? 0;
     const notify = me?.notify ?? DEFAULT_NOTIFY[chat.kind];
+    // An agent's message tells its person when it mentions them; in their direct message with it, every one (design/agent-wake.md 14).
+    const agentTells = chat.agent_id ? 'm.agent_id IS NOT NULL' : '(m.agent_id IS NOT NULL AND EXISTS (SELECT 1 FROM mentions y WHERE y.message_id = m.id AND y.account_id = ?))';
     const count = (extra: string, ...args: (string | number)[]) =>
       (
         this.db
           .prepare(
             `SELECT COUNT(*) AS n FROM messages m WHERE m.chat_id = ? AND m.seq > ? AND m.deleted_at IS NULL
-               AND (m.author_id <> ? OR (m.agent_id IS NOT NULL AND EXISTS (SELECT 1 FROM mentions y WHERE y.message_id = m.id AND y.account_id = ?))) ${extra}`,
+               AND (m.author_id <> ? OR ${agentTells}) ${extra}`,
           )
-          .get(chat.id, readSeq, account, account, ...args) as { n: number }
+          .get(chat.id, readSeq, account, ...(chat.agent_id ? [] : [account]), ...args) as { n: number }
       ).n;
     const unread = joined ? count('') : 0;
     const alerts =
@@ -1337,6 +1366,7 @@ export class Chats {
       alerts,
       reads,
       manage: chat.kind !== 'direct' && (chat.created_by === account || this.managesSpace(chat.space_id!, account)),
+      ...(chat.agent_id && { agent: { id: chat.agent_id, name: (this.db.prepare('SELECT name FROM agent_identities WHERE id = ?').get(chat.agent_id) as { name: string } | undefined)?.name ?? 'Agent' } }),
     };
   }
 }

@@ -55,7 +55,7 @@ export interface ChatMessage {
 }
 
 /** Whether a message is new to a person: not their own, unless their agent wrote it and mentions them (design/agent-wake.md 2). */
-export const tellsMe = (message: ChatMessage, me: string) => message.author !== me || (message.agent !== null && message.mentions.includes(me));
+export const tellsMe = (message: ChatMessage, me: string, chat?: Pick<ChatInfo, 'agent'>) => message.author !== me || (message.agent !== null && (!!chat?.agent || message.mentions.includes(me)));
 
 export interface ChatInfo {
   id: string;
@@ -81,6 +81,8 @@ export interface ChatInfo {
   reads: { [account: string]: number } | null;
   /** Whether this person changes the room and archives it: whoever opened it and its space's managers; a server from before says nothing. */
   manage?: boolean;
+  /** A direct message with one of this person's agents (design/agent-wake.md 14): that agent, by its name now. */
+  agent?: { id: string; name: string };
 }
 
 /** A conversation's files and links, the latest first, for its Info window (design/chat.md, 8.1). */

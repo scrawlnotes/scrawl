@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyChatChanges, type ChatInfo, type ChatMessage, chatLink, continues, itemChip, itemLink, mentionAt, mentioned, parseChatLink, parseItemLink, personLink, plainText, withMessages } from './chat';
+import { applyChatChanges, type ChatInfo, type ChatMessage, chatLink, continues, itemChip, itemLink, mentionAt, mentioned, parseChatLink, parseItemLink, personLink, plainText, tellsMe, withMessages } from './chat';
 
 // What the app works out of messages (design/chat.md): mentions, plain text, runs under one
 // face, and what changed put into what is kept.
@@ -69,6 +69,17 @@ describe('a message as plain text', () => {
     expect(plainText('**Pushed** `0.2.21` to [Coolify](https://coolify.io), _see_ [@Mert](scrawl:person/m)')).toBe('Pushed 0.2.21 to Coolify, see @Mert');
     expect(plainText('> quoted\n- one\n- two\n\n```ts\nconst a = 1;\n```')).toBe('quoted one two const a = 1;');
     expect(plainText('2 \\* 3')).toBe('2 * 3');
+  });
+});
+
+describe('what tells the person', () => {
+  it('is someone else’s message, and of their agent’s one that mentions them, or any in their direct message with it', () => {
+    expect(tellsMe(message({ author: 'mert' }), 'kaan')).toBe(true);
+    expect(tellsMe(message({}), 'kaan')).toBe(false);
+    expect(tellsMe(message({ agent: 'kaan:c1' }), 'kaan')).toBe(false);
+    expect(tellsMe(message({ agent: 'kaan:c1', mentions: ['kaan'] }), 'kaan')).toBe(true);
+    expect(tellsMe(message({ agent: 'kaan:c1' }), 'kaan', { agent: { id: 'kaan:c1', name: 'Claude' } })).toBe(true);
+    expect(tellsMe(message({}), 'kaan', { agent: { id: 'kaan:c1', name: 'Claude' } })).toBe(false);
   });
 });
 

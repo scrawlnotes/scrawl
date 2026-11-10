@@ -55,6 +55,8 @@ export interface AgentChat {
   send(chat: string, body: string, replyTo: string | null, agent: string | null): Promise<AgentMessage>;
   /** The direct message with these people, opened when there is none. */
   direct(people: string[]): Promise<AgentConversation>;
+  /** Your direct message with the person you work for, opened when there is none (design/agent-wake.md 14). */
+  mine(): Promise<AgentConversation>;
   /** Everyone the person shares a space with. */
   people(): Promise<{ id: string; name: string }[]>;
 }
@@ -139,6 +141,9 @@ function findConversation(conversations: AgentConversation[], ref: string, space
   return found[0] ?? null;
 }
 
+/** Whether a conversation named is "me": your direct message with the person you work for. */
+const isMe = (ref: string | undefined) => ref?.trim().toLowerCase() === 'me';
+
 /** The person `ref` names among those the person shares a space with, by full or first name; `"me"` is the person. */
 async function personOf(agent: Agent, chat: AgentChat, ref: string): Promise<{ id: string; name: string }> {
   if (ref.trim().toLowerCase() === 'me') {
@@ -179,7 +184,7 @@ export async function messagesTool(agent: Agent, args: MessagesArgs) {
     const shown = conversations.filter((each) => !each.archived).sort((a, b) => (b.last ?? 0) - (a.last ?? 0));
     return { data: { conversations: shown.map((each) => conversationOut(agent, each)) } };
   }
-  const where = args.in?.trim() ? findConversation(conversations, args.in, args.space) : null;
+  const where = args.in?.trim() ? (isMe(args.in) ? await chat.mine() : findConversation(conversations, args.in, args.space)) : null;
   if (args.in?.trim() && !where) throw new Refusal(`No conversation "${args.in.trim()}"`, { conversations: conversations.map((each) => ({ name: each.name, ...(each.space && { space: each.space.name }) })) });
   if (!searching) {
     const { messages, more } = await chat.messages(where!.id, { ...(since !== undefined && { since }), limit });
@@ -214,7 +219,7 @@ export async function sendMessageTool(agent: Agent, args: SendMessageArgs, clien
   const text = args.text?.trim() ?? '';
   if (!text) throw new Refusal('A message needs its words: `text`');
   const conversations = await chat.conversations();
-  let where = findConversation(conversations, args.to, args.space);
+  let where = isMe(args.to) ? await chat.mine() : findConversation(conversations, args.to, args.space);
   if (!where) {
     const person = await personOf(agent, chat, args.to).catch(() => null);
     if (!person) throw new Refusal(`No room or person "${args.to.trim()}"`, { conversations: conversations.filter((each) => !each.archived).map((each) => each.name) });

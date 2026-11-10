@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { Face, namesOf, others, shortDay, titleOf } from './ChatFaces';
 import type { ChatServer } from './chatStore';
 import { Icon, type IconName } from './Icon';
+import { useWakeable } from './wakeable';
 
 // A conversation's start, and Chat with little in it (design/chat.md 25; design/mockups.html,
 // Messaging, Boş and Telefon boş): a conversation opens on what it is and what to do first, as
@@ -52,6 +53,7 @@ export function ChatIntro({ server, chat, phone = false, onInvite, onTopic, onAd
   onAddPeople: () => void;
 }) {
   const people = others(chat, server.me);
+  const answering = useWakeable(server.url);
   let lead: ReactNode;
   let title: string;
   let text: string;
@@ -59,7 +61,13 @@ export function ChatIntro({ server, chat, phone = false, onInvite, onTopic, onAd
   const acts: { icon: IconName; label: string; run: () => void }[] = [];
   if (chat.kind === 'direct') {
     title = titleOf(chat, server.me);
-    if (people.length === 1) {
+    if (chat.agent) {
+      // Their direct message with one of their agents (design/agent-wake.md 14): where it answers from, when it does.
+      lead = <Face id={chat.agent.id} name={chat.agent.name} size="xl" agent />;
+      text = t('chat.introAgent', { name: chat.agent.name });
+      const how = answering.find((each) => each.id === chat.agent!.id);
+      if (how) small = how.how === 'claude' ? t('chat.agentAnswersClaude') : how.how === 'chatgpt' ? t('chat.agentAnswersChatgpt') : t('chat.agentAnswersAt', { host: how.host });
+    } else if (people.length === 1) {
       const person = people[0]!;
       lead = <Face id={person.id} name={person.name} size="xl" />;
       text = t('chat.introDirect', { name: person.name });

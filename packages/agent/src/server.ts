@@ -82,7 +82,7 @@ export function buildServer(agent: Agent): McpServer {
         description:
           'The conversations of the Scrawl server: rooms and direct messages, as the person sees them. With nothing given, every conversation with how many messages the person has not read. With `in`, a conversation’s latest messages (`limit`, 30 when left out), or the first ones since a day (`since`). With `query`, `from` or `has`, the messages found, the newest first, everywhere or in `in` only. Each message has who wrote it, when, its Markdown, what it answers and its files’ names, types and sizes. Reading marks nothing read.',
         inputSchema: z.object({
-          in: z.string().optional().describe('A conversation: a room by name (#dev or dev), a person for your direct message with them, or its id.'),
+          in: z.string().optional().describe('A conversation: a room by name (#dev or dev), a person for your direct message with them, "me" for yours with the person you work for, or its id.'),
           space: z.string().optional().describe('The space of the room `in` names, when more than one space has a room by that name.'),
           query: z.string().optional().describe('Words to find: each where a word starts, with or without accents.'),
           from: z.string().optional().describe('Who wrote it, by name; "me" for the person.'),
@@ -102,7 +102,7 @@ export function buildServer(agent: Agent): McpServer {
         description:
           'Writes a message, as you, in a room or to a person: their direct message, opened when there is none. Markdown; @Name mentions someone in the conversation and @room everyone in a room. `replyTo` answers a message, quoting it. Words only: no files. Write when something is done that someone waits for, or to ask what you cannot find out; see the guide’s Messages.',
         inputSchema: z.object({
-          to: z.string().describe('A room by name (#dev or dev), a person by name, or a conversation’s id.'),
+          to: z.string().describe('A room by name (#dev or dev), a person by name, "me" for your direct message with the person you work for, or a conversation’s id.'),
           text: z.string().describe('The message, Markdown.'),
           replyTo: z.string().optional().describe('The id of the message it answers, from messages.'),
           space: z.string().optional().describe('The space of the room `to` names, when more than one space has a room by that name.'),

@@ -1943,6 +1943,7 @@ export function App() {
       say: (text) => setShown({ text }),
       // Invite people: a space's settings, where its invite link is; on a phone Settings › Spaces.
       invite: (space) => setDialog({ kind: 'settings', section: 'spaces', ...(space && spaces.some((each) => each.id === space) && { space }) }),
+      agents: () => setDialog({ kind: 'settings', section: 'agents' }),
     }),
     [spaces, titles, tasks, boards, collections, phone, chat.servers],
   );

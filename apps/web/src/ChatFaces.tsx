@@ -24,6 +24,7 @@ export function namesOf(server: ChatServer): (id: string) => string {
 /** What a conversation is called in the list and over it: a room's name, or the others in a direct message. */
 export function titleOf(chat: ChatInfo, me: string): string {
   if (chat.kind !== 'direct') return chat.name;
+  if (chat.agent) return chat.agent.name;
   const others = chat.members.filter((person) => person.id !== me);
   if (others.length === 1) return others[0]!.name;
   return others.map((person) => person.name.split(/\s+/)[0]).join(', ');
@@ -68,6 +69,7 @@ export function leadOf(chat: ChatInfo, server: ChatServer): ReactNode {
   const people = others(chat, server.me);
   if (chat.kind === 'private') return <Icon name="lock" />;
   if (chat.kind !== 'direct') return <span className="hs">#</span>;
+  if (chat.agent) return <Face id={chat.agent.id} name={chat.agent.name} size="sm" agent />;
   if (people.length === 1) return <Face id={people[0]!.id} name={people[0]!.name} size="sm" online={server.active.includes(people[0]!.id)} />;
   return (
     <span className="ch-faces">

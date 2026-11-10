@@ -8,6 +8,9 @@ import { serverAccount } from './servers';
 export interface WakeableAgent {
   id: string;
   name: string;
+  /** Where it answers from: a Claude task, ChatGPT watching, or an address. */
+  how: 'claude' | 'chatgpt' | 'other';
+  host: string;
 }
 
 const NONE: WakeableAgent[] = [];
@@ -17,11 +20,18 @@ const listeners = new Set<() => void>();
 
 /** A server's agent connections as Settings › Agents reads them: those with an address, by their identity, each once. */
 export function setWakeable(url: string, agents: ServerAgent[]) {
-  const found = new Map<string, string>();
-  for (const agent of agents) if ((agent.wakes || agent.watches) && agent.agent) found.set(agent.agent, agent.name || agent.client);
-  known.set(url, [...found].map(([id, name]) => ({ id, name })));
+  const found = new Map<string, WakeableAgent>();
+  for (const agent of agents) {
+    if (!(agent.wakes || agent.watches) || !agent.agent) continue;
+    const how = agent.watches ? 'chatgpt' : agent.wakes?.kind === 'claude' ? 'claude' : 'other';
+    found.set(agent.agent, { id: agent.agent, name: agent.name || agent.client, how, host: agent.watches?.host ?? agent.wakes?.host ?? '' });
+  }
+  known.set(url, [...found.values()]);
   for (const listener of listeners) listener();
 }
+
+/** Whether the server said which agents answer: until it has, none is taken as not answering. */
+export const wakeableKnown = (url: string) => known.has(url);
 
 /** The agents the person wakes on a server; none for no server, and none until the server has said. */
 export function useWakeable(url: string | null): WakeableAgent[] {

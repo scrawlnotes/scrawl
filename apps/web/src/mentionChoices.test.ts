@@ -29,8 +29,8 @@ describe('peopleChoices', () => {
 describe('agentChoices', () => {
   it('offers the person’s agents they wake, by the start of a word of the name, as a mention of the agent', () => {
     const agents = [
-      { id: 'kaan:3f9c', name: 'Claude' },
-      { id: 'kaan:77aa', name: 'n8n flows' },
+      { id: 'kaan:3f9c', name: 'Claude', how: 'claude' as const, host: 'api.anthropic.com' },
+      { id: 'kaan:77aa', name: 'n8n flows', how: 'other' as const, host: 'n8n.example.com' },
     ];
     expect(agentChoices(agents, 'cl', 'Your agent')).toEqual([{ key: 'kaan:3f9c', label: 'Claude', sub: 'Your agent', agent: true, insert: '[@Claude](scrawl:person/kaan%3A3f9c)' }]);
     expect(agentChoices(agents, 'fl', 'Your agent').map((each) => each.key)).toEqual(['kaan:77aa']);

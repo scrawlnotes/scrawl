@@ -4918,6 +4918,16 @@ p { margin: 0; max-width: 68ch; }
 .nf-mpop .sep { height: 1px; margin: 2px 14px; background: var(--m-line); }
 .nf-mpop .r .atr { display: grid; place-items: center; flex: none; width: 28px; height: 28px; color: var(--m-accent); }
 .mock .nf-mpop .r .atr svg { width: 18px; height: 18px; }
+/* ---------- an agent's own direct message (design/agent-wake.md 14) ---------- */
+.dir[data-dir="agentdm"] .brief .pick { flex-wrap: wrap; gap: 4px; overflow: visible; border: 0; background: none; }
+.dir[data-dir="agentdm"] .brief .pick button { border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); padding: 4px 12px; }
+.dir[data-dir="agentdm"] .brief .pick button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); }
+.ch-f .gpt { font-size: .78em; letter-spacing: -.02em; }
+.ch-intro .big.face .ch-f.ag { border-radius: 14px; }
+.adm-note { flex: none; margin: 0 16px 14px; padding: 12px 14px; border: 1px solid var(--m-line); border-radius: 8px; color: var(--m-dim); font-size: 13px; }
+.adm-note .lk { color: var(--m-accent); }
+.chp-note { flex: none; margin: 0 12px 12px; padding: 12px 14px; border-radius: 12px; background: var(--m-side); color: var(--m-dim); font-size: 14px; line-height: 1.4; }
+.chp-note .lk { color: var(--m-accent); }
 /* ---------- answering in Scrawl, set up so it can be understood (design/agent-wake.md 12) ---------- */
 .dir[data-dir="wake2"] .brief .pick { flex-wrap: wrap; gap: 4px; overflow: visible; border: 0; background: none; }
 .dir[data-dir="wake2"] .brief .pick button { border: 1px solid var(--rule); border-radius: 6px; background: var(--panel); padding: 4px 12px; }
@@ -6412,6 +6422,25 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-w2view="w2working">Chat: çalışıyor</button>
         <button type="button" data-w2view="w2again">Chat: yeniden deneyecek</button>
         <button type="button" data-w2view="w2late">Chat: cevap yok</button>
+      </span>
+    </div>
+    <div class="scroller"><div class="mock dir-a"></div></div>
+  </section>
+
+  <section class="dir" data-dir="agentdm">
+    <div class="brief">
+      <div>
+        <span class="letter">AJANI UYANDIRMAK · AJANLA DM · ONAYLANDI</span>
+        <h2>Ajanın kendi DM'i</h2>
+        <p>Cevap vermeye kurulan ajan Chat'te Direct messages altında kişilerin arasında belirir: kare yüz, adı. DM'e yazdığın her mesaj onu uyandırır, <b>@</b> gerekmez; cevabı aynı DM'e gelir, bir kişinin DM'i gibi bildirim olur. DM'i yalnız sen görürsün. Cevap vermeyen bir ajan (Claude Code gibi) sana yazabilir; o DM'de kutunun yerinde Settings › Agents'a giden bir cümle (design/agent-wake.md 14).</p>
+        <ul class="traits"><li>kurulunca kendiliğinden</li><li>@ gerekmez</li><li>cevap aynı DM'de</li><li>bildirim ajanın adıyla</li><li>yalnız sen</li><li>cevap vermeyende cümle</li></ul>
+      </div>
+      <span class="pick" role="group" aria-label="Ajanla DM görünümü">
+        <button type="button" data-admview="admintro">Boş DM</button>
+        <button type="button" data-admview="admwork">Yazınca: çalışıyor</button>
+        <button type="button" data-admview="admanswer">Cevap geldi</button>
+        <button type="button" data-admview="admcc">Cevap vermeyen ajan</button>
+        <button type="button" data-admview="admphone">Telefon</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -20946,6 +20975,81 @@ p { margin: 0; max-width: 68ch; }
     if (b) renderW2(sectionW2, b.dataset.w2view);
   });
   renderW2(sectionW2, 'w2off');
+
+  // An agent's own direct message (design/agent-wake.md 14): ChatGPT and Claude under Direct
+  // messages among the people, a square face; what you write wakes it, it answers there.
+  var ADM_GPT = '<span class="gpt">GPT</span>';
+  /** The conversations with Kaan's agents among the direct messages, the latest first. */
+  function admList(on, o) {
+    o = o || {};
+    function grp(name, dm) { return '<div class="ch-grp' + (dm ? ' dm' : '') + '">' + name + '<span class="gadd">+</span></div>'; }
+    function c(id, lead, name, x) {
+      x = x || {};
+      var un = x.n && on !== id;
+      return '<div class="ch-c' + (on === id ? ' on' : '') + (un ? ' un' : '') + '">' + lead + '<span class="nm">' + name + '</span>' + (un ? '<span class="n">' + x.n + '</span>' : '') + '</div>';
+    }
+    var cc = o.cc ? c('cc', chF('C', { sz: 'sm', ag: true }), 'Claude Code', { n: o.ccNew ? 1 : 0 }) : '';
+    return '<div class="ch-list"><div class="ch-find">' + ICON.find + '<span>Search messages</span></div>' +
+      grp('Scrawl') + c('design', CH_HASH, 'design') + c('dev', CH_HASH, 'dev') + c('general', CH_HASH, 'general') +
+      grp('Direct messages', true) + cc + c('gpt', chF(ADM_GPT, { sz: 'sm', ag: true }), 'ChatGPT', { n: o.gptNew ? 1 : 0 }) +
+      c('elif', chF('E', { sz: 'sm', on: true }), 'Elif Demir') + c('claude', chF('C', { sz: 'sm', ag: true }), 'Claude') + c('mert', chF('M', { sz: 'sm', on: true }), 'Mert Kaya') + '</div>';
+  }
+  /** An agent's message, its square face and its name alone. */
+  function admM(o, face, name) { return chM(o).replace('Claude Code (Laptop)<span class="of"> · Kaan</span>', name); }
+  function admHead(face, name) { return chHead({ lead: chF(face, { sz: 'sm', ag: true }), name: name, sub: 'Your agent' }); }
+  var ADM_INTRO = chIntro({ lead: chF(ADM_GPT, { ag: true }), face: true, title: 'ChatGPT', text: 'This is your direct message with ChatGPT. Write here and it answers here; only you see it.', small: 'It answers from a Work chat in ChatGPT.' });
+  var ADM_ASK = 'Which cards on the Roadmap are due this week? Put them in order of what to do first.';
+  var ADM_ANSWER = 'Three are due this week. Do them in this order:<ol><li><b>ROA-385</b> Try waking with a real Claude task (Wed): it is the last of stage 24.</li><li><b>ROA-379</b> Google Calendar, slice 4 (Thu): its test plan is ready.</li><li><b>ROA-362</b> Try Help on a phone (Fri): ten minutes.</li></ol>';
+  function admGpt(state) {
+    var msgs = ADM_INTRO + '<div class="ch-day">Today</div>' + chM({ who: 'K', t: '15:46', body: ADM_ASK });
+    if (state === 'work') msgs += '<div class="ch-seen aw-sent">ChatGPT is working on it…</div>';
+    if (state === 'answer') msgs += admM({ who: ADM_GPT, ag: true, t: '15:47', body: ADM_ANSWER }, ADM_GPT, 'ChatGPT');
+    return chConv(admHead(ADM_GPT, 'ChatGPT'), msgs, { typing: '', ph: 'Message ChatGPT' });
+  }
+  function admCc() {
+    var msgs = '<div class="ch-day">Today</div>' +
+      admM({ who: 'C', ag: true, t: '16:08', body: 'Server 0.2.40 is live: the line under a message says how waking an agent goes, and the log says whether ChatGPT got as far as watching. Desktop 0.1.30 is on GitHub.' }, 'C', 'Claude Code');
+    var note = '<div class="adm-note">Claude Code doesn’t answer you here. Set it up in <span class="lk">Settings › Agents</span>.</div>';
+    return chConv(admHead('C', 'Claude Code'), msgs, { typing: '', cmp: note });
+  }
+  var ADM_VIEWS = {
+    admintro: function () { return chApp(1, admList('gpt'), chConv(admHead(ADM_GPT, 'ChatGPT'), ADM_INTRO, { typing: '', ph: 'Message ChatGPT' }), 'ChatGPT · your agent'); },
+    admwork: function () { return chApp(1, admList('gpt'), admGpt('work'), 'ChatGPT · your agent'); },
+    admanswer: function () { return chApp(2, admList('general', { gptNew: true }), chConv(chHead({ lead: CH_HASH, name: 'general', sub: 'Everything Scrawl', ppl: 6 }), '<div class="ch-day">Today</div>' + chM({ who: 'M', t: '15:30', body: 'The office is closed on Friday.' }), { typing: '' }), '#general · 6 people',
+      nfToast('now', 'ChatGPT', 'Three are due this week. Do them in this order: ROA-385 Try waking with a real Claude task…')); },
+    admcc: function () { return chApp(1, admList('cc', { cc: true }), admCc(), 'Claude Code · your agent'); }
+  };
+  function admPhone() {
+    function row(face, ag, name, last, t, n) {
+      return '<div class="chp-c">' + chF(face, { sz: 'lg', ag: ag, on: !ag }) + '<span class="tx"><b' + (n ? ' class="un"' : '') + '>' + name + '</b><small>' + last + '</small></span><span class="rt"><small' + (n ? ' class="hot"' : '') + '>' + t + '</small>' + (n ? '<em>1</em>' : '') + '</span></div>';
+    }
+    var list = mbPage(mbHead('Chat', null, true) + '<div class="mb-searchbar">' + ICON.find + 'Search messages</div>',
+      '<div class="mb-sec">Scrawl</div>' + chpC({ name: 'design', last: 'Elif: New icons for the tab bar', t: '10:05' }) + chpC({ name: 'general', last: 'Mert: The office is closed on Friday', t: '15:30' }) +
+      '<div class="mb-sec">Direct</div>' + row(ADM_GPT, true, 'ChatGPT', 'Three are due this week. Do them in this order…', '15:47', true) +
+      row('E', false, 'Elif Demir', 'Sure, sending one now', '11:49') + row('C', true, 'Claude', 'You: Check the drag preview on the phone too', '11:52') + row('M', false, 'Mert Kaya', 'You: Merged, thanks', '9:30'));
+    var dm = chpConv({ title: 'ChatGPT', sub: 'Your agent', msgs: '<div class="ch-day">Today</div>' + chM({ who: 'K', t: '15:46', body: ADM_ASK }) + admM({ who: ADM_GPT, ag: true, t: '15:47', body: ADM_ANSWER }, ADM_GPT, 'ChatGPT'), ph: 'Message ChatGPT' });
+    var cc = chpConv({ title: 'Claude Code', sub: 'Your agent', msgs: '<div class="ch-day">Today</div>' + admM({ who: 'C', ag: true, t: '16:08', body: 'Server 0.2.40 is live. Desktop 0.1.30 is on GitHub.' }, 'C', 'Claude Code'),
+      cmp: '<div class="chp-note">Claude Code doesn’t answer you here. Set it up in <span class="lk">Settings › Agents</span>.</div>' });
+    return mbPhone('Chat: ajanlar Direct altında', list, chTabs(1) + MB_FAB) + mbPhone('ChatGPT ile DM', dm) + mbPhone('Cevap vermeyen ajan', cc);
+  }
+  function renderAdm(section, view) {
+    var mock = section.querySelector('.mock');
+    mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
+    if (view === 'admphone') {
+      mock.className = 'mock dir-a phones four mbs';
+      mock.innerHTML = admPhone();
+    } else {
+      mock.className = 'mock dir-a wider';
+      mock.innerHTML = ADM_VIEWS[view]();
+    }
+    section.querySelectorAll('.brief [data-admview]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.admview === view)); });
+  }
+  var sectionAdm = document.querySelector('.dir[data-dir="agentdm"]');
+  sectionAdm.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-admview]');
+    if (b) renderAdm(sectionAdm, b.dataset.admview);
+  });
+  renderAdm(sectionAdm, 'admintro');
 
   document.querySelectorAll('.controls [data-mode]').forEach(function (b) {
     b.addEventListener('click', function () { setMode(b.dataset.mode); });

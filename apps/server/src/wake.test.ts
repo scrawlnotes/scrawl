@@ -513,3 +513,44 @@ describe('safeFetch', () => {
     expect(notPublic('2606:4700::1111')).toBe(false);
   });
 });
+
+describe('a direct message with the agent (design/agent-wake.md 14)', () => {
+  const kaanAccount = { id: KAAN, email: 'kaan@example.com', name: 'Kaan Arslan', role: 'owner' as const };
+  const dms = (s: S, account: string) => s.server.chats.list(account).filter((chat) => chat.agent);
+
+  it('is made once when Claude is set up, and what Kaan writes there wakes Claude without @; its answer there tells him', async () => {
+    const s = await start();
+    const { device, agent } = await claude(s);
+    expect((await s.call(s.owner, 'PUT', `/agents/${device}/wake`, { url: CLAUDE_URL, headers: HEADERS })).status).toBe(200);
+    expect(dms(s, KAAN)).toHaveLength(1);
+    const dm = dms(s, KAAN)[0]!;
+    expect(dm).toMatchObject({ kind: 'direct', agent: { id: agent, name: 'Claude' }, members: [expect.objectContaining({ id: KAAN })], unread: 0 });
+    s.listen(KAAN);
+    const asked = await s.say(s.owner, dm.id, 'Which cards are due this week?');
+    await s.settle();
+    expect(s.woken).toHaveLength(1);
+    expect(s.woken[0]!.body.event).toMatchObject({ kind: 'message', chat: { id: dm.id, kind: 'direct', message: asked.id } });
+    expect(s.woken[0]!.body.text).toContain('Kaan Arslan wrote to you in your direct message with them');
+    expect(s.woken[0]!.body.text).toContain('answer there with `send_message` (to: "me")');
+    // Claude answers there: unread for Kaan, who is told under Claude's name, and the line under his message goes.
+    const answer = s.server.chats.send(kaanAccount, dm.id, { id: 'm-claude-dm-01', body: 'Three: ROA-385, ROA-379 and ROA-362.' }, agent);
+    await s.settle();
+    expect(dms(s, KAAN)[0]).toMatchObject({ unread: 1, alerts: 1 });
+    expect(s.server.chats.alertsFor(answer.id)).toEqual([{ account: KAAN, mention: false }]);
+    expect(s.server.chats.pushContent(answer.id, KAAN)).toMatchObject({ title: 'Claude', body: 'Three: ROA-385, ROA-379 and ROA-362.' });
+    expect(s.lines(asked.id)).toEqual(['sending', 'sent', 'answered']);
+    // What Claude writes wakes nothing.
+    expect(s.woken).toHaveLength(1);
+  });
+
+  it('is made when ChatGPT starts watching, is Kaan’s alone, and is never made with someone else’s agent', async () => {
+    const s = await start();
+    const { agent } = s.connect(KAAN, 'https://chatgpt.com/oauth', 'ChatGPT');
+    await s.server.wakes.subscribe(agent, { arguments: {}, url: 'https://chatgpt.com/backend-api/mcp/events/abc', secret: `whsec_${Buffer.alloc(32, 9).toString('base64')}`, ttlMs: null });
+    const dm = dms(s, KAAN)[0]!;
+    expect(dm).toMatchObject({ agent: { id: agent, name: 'ChatGPT' } });
+    expect(dms(s, MERT)).toEqual([]);
+    expect(() => s.server.chats.one(MERT, dm.id)).toThrow();
+    expect(() => s.server.chats.agentDirect(MERT, agent)).toThrow();
+  });
+});

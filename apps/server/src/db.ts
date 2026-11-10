@@ -303,6 +303,10 @@ const MIGRATIONS: string[] = [
   CREATE INDEX event_subscriptions_agent ON event_subscriptions (agent_id);
   ALTER TABLE agent_identities ADD COLUMN wake_kind TEXT;
   `,
+  // A person's direct message with one of their agents (design/agent-wake.md 14): the agent it is with.
+  `
+  ALTER TABLE chats ADD COLUMN agent_id TEXT;
+  `,
 ];
 
 export function openDb(file: string): Db {

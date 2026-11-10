@@ -15,7 +15,7 @@ export const WAKE_EVENT = {
     type: 'object',
     properties: {
       text: { type: 'string', description: 'Who wrote what to you and where, and the tools to read it and answer in the same place.' },
-      event: { type: 'object', description: 'The same as fields: kind (mention, reply or assign), server, agent, from, at, space, and chat, card or task.' },
+      event: { type: 'object', description: 'The same as fields: kind (mention, reply, assign, or message: written in your direct message with them), server, agent, from, at, space, and chat, card or task.' },
     },
     required: ['text', 'event'],
   },
