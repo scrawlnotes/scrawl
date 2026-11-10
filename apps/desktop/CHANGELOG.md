@@ -2,6 +2,18 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.30
+
+Agents that answer in Scrawl.
+
+- Settings › Agents › Answer in Scrawl sets up Claude, ChatGPT or another agent to answer you in Scrawl: mention it in Chat, answer one of its messages, or give it a card or a task, and it does the work and answers where you wrote. Claude answers from a task on claude.ai, ChatGPT from a Work chat; each window says its steps.
+- The line under your message says how it goes: being sent, sent and waiting for its answer, working on it, no answer yet, or not reached; it goes when the answer comes.
+- In Chat and in a card's or a task's description, @ lists your own agents that answer, after the people. An agent's message that mentions you tells you, under its name.
+- ChatGPT's face says GPT.
+- Search with nothing typed has your last searches and the actions; what you opened last is on the start page.
+- Seen in a direct message is an eye by your message's time.
+- Help has Agents that answer in Scrawl, with the steps on claude.ai and chatgpt.com.
+
 ## 0.1.29
 
 Google Calendar beside Outlook, and your work in your calendar.
