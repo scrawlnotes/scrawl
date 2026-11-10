@@ -304,12 +304,16 @@ export interface ServerAgent {
   agent?: string | null;
   /** Where the person wakes it (design/agent-wake.md 4): the address, and its headers by name; their values never come back. */
   wakes?: ServerWake | null;
+  /** Where a subscription of its own sends what wakes it, as ChatGPT's (design/agent-wake.md 11); null for none. */
+  watches?: { host: string } | null;
 }
 
 export interface ServerWake {
   url: string;
   host: string;
   headers: string[];
+  /** A Claude task's, set up by its URL and token, or another agent's address (design/agent-wake.md 12). */
+  kind?: 'claude' | 'other';
 }
 
 export class ServerAccount {
@@ -458,8 +462,8 @@ export class ServerAccount {
   }
 
   /** Where the agent of a connection is woken: an https address and its headers, one `Name: value` a line; a value left as •••• stays as it was. */
-  setWake(id: string, url: string, headers: string): Promise<ServerWake> {
-    return this.client.json(`/agents/${encodeURIComponent(id)}/wake`, { ...jsonBody({ url, headers }), method: 'PUT' });
+  setWake(id: string, input: { url: string; headers: string } | { claude: { url: string; token: string } }): Promise<ServerWake> {
+    return this.client.json(`/agents/${encodeURIComponent(id)}/wake`, { ...jsonBody(input), method: 'PUT' });
   }
 
   /** The agent of a connection is woken no more. */

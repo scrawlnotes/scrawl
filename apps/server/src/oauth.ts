@@ -60,6 +60,8 @@ export interface AgentConnection {
   name: string | null;
   /** Its identity, which a mention of it names; null before it has written. */
   agent: string | null;
+  /** Where a subscription of its own sends what wakes it, as ChatGPT's (design/agent-wake.md 11); null for none. */
+  watches: { host: string } | null;
   /** Where its owner wakes it (design/agent-wake.md 4): the address and its headers' names; their values are never given back. */
   wakes: WakeInfo | null;
 }
@@ -68,12 +70,14 @@ export interface WakeInfo {
   url: string;
   host: string;
   headers: string[];
+  /** A Claude task's, set up by its URL and token (design/agent-wake.md 12.2), or another agent's. */
+  kind: 'claude' | 'other';
 }
 
 /** An agent's address as the app is shown it: the headers by name only. */
-export function wakeInfoOf(url: string | null, headers: string | null): WakeInfo | null {
+export function wakeInfoOf(url: string | null, headers: string | null, kind: string | null): WakeInfo | null {
   if (!url) return null;
-  return { url, host: new URL(url).host, headers: (JSON.parse(headers ?? '[]') as [string, string][]).map(([name]) => name) };
+  return { url, host: new URL(url).host, headers: (JSON.parse(headers ?? '[]') as [string, string][]).map(([name]) => name), kind: kind === 'claude' ? 'claude' : 'other' };
 }
 
 /** An agent's own identity: `<its account>:<its own>`, and its name. */
@@ -351,12 +355,14 @@ export class OAuth {
   list(account: string): AgentConnection[] {
     const rows = this.db
       .prepare(
-        `SELECT d.id, a.client_name AS client, a.created_at AS connected, d.seen_at AS seen, i.name AS name, i.id AS agent, i.wake_url, i.wake_headers FROM agents a JOIN devices d ON d.id = a.device_id
+        `SELECT d.id, a.client_name AS client, a.created_at AS connected, d.seen_at AS seen, i.name AS name, i.id AS agent, i.wake_url, i.wake_headers, i.wake_kind,
+           (SELECT s.url FROM event_subscriptions s WHERE s.agent_id = i.id AND s.expires_at > ? ORDER BY s.created_at DESC LIMIT 1) AS watch_url
+         FROM agents a JOIN devices d ON d.id = a.device_id
          LEFT JOIN agent_identities i ON i.account_id = d.account_id AND i.client_id = a.client_id
          WHERE d.account_id = ? AND d.revoked_at IS NULL ORDER BY a.created_at DESC`,
       )
-      .all(account) as unknown as (Omit<AgentConnection, 'wakes'> & { wake_url: string | null; wake_headers: string | null })[];
-    return rows.map(({ wake_url, wake_headers, ...row }) => ({ ...row, wakes: wakeInfoOf(wake_url, wake_headers) }));
+      .all(this.now(), account) as unknown as (Omit<AgentConnection, 'wakes' | 'watches'> & { wake_url: string | null; wake_headers: string | null; wake_kind: string | null; watch_url: string | null })[];
+    return rows.map(({ wake_url, wake_headers, wake_kind, watch_url, ...row }) => ({ ...row, wakes: wakeInfoOf(wake_url, wake_headers, wake_kind), watches: watch_url ? { host: new URL(watch_url).host } : null }));
   }
 
   /**
@@ -411,7 +417,8 @@ export class OAuth {
   disconnect(by: Account, device: string) {
     const row = this.connection(by, device);
     this.end(device);
-    this.db.prepare('UPDATE agent_identities SET wake_url = NULL, wake_headers = NULL WHERE account_id = ? AND client_id = ?').run(by.id, row.client_id);
+    this.db.prepare('UPDATE agent_identities SET wake_url = NULL, wake_headers = NULL, wake_kind = NULL WHERE account_id = ? AND client_id = ?').run(by.id, row.client_id);
+    this.db.prepare('DELETE FROM event_subscriptions WHERE agent_id IN (SELECT id FROM agent_identities WHERE account_id = ? AND client_id = ?)').run(by.id, row.client_id);
   }
 
   private end(device: string) {

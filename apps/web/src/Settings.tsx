@@ -90,8 +90,8 @@ export interface SettingsValues {
   computerAgents?: () => Promise<ComputerAgent[]>;
   /** A new name for one of the person's agents on a computer. */
   onRenameComputerAgent?: (id: string, name: string) => Promise<void>;
-  /** Opens Help at a page, at a heading of it when one is given: Wake…'s steps. */
-  onHelp?: (page: string, heading?: string) => void;
+  /** Opens Help at a page, at a heading of it when one is given; closed, it goes back to Settings at `back`. */
+  onHelp?: (page: string, heading?: string, back?: Section) => void;
   /** Opens another section of the settings: Profile, from where a name is asked for; Spaces with Add space open, from Agents. */
   onSection?: (section: Section, options?: { adding?: boolean }) => void;
   /** Spaces opens with Add space open: asked for from Agents, to connect a server. */

@@ -6,7 +6,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { Config } from './config';
 import type { LiveSocket } from './live';
 import { makeServer } from './server';
-import { FetchFailed, notPublic, safeFetch, type WakeSend } from './wake';
+import { CallbackRefused, SubscriptionRefused } from '@scrawlnotes/agent';
+import { FetchFailed, notPublic, safeFetch, type WakeSend, webhookSignature } from './wake';
 
 // Waking an agent (design/agent-wake.md 7): only its owner's own writing wakes it, in Chat, on a
 // card and on a task; where it is woken is set by its owner and its headers' values never come
@@ -35,6 +36,8 @@ interface Woken {
   url: string;
   headers: [string, string][];
   body: { text: string; event: WakeEvent };
+  /** The body as sent, which a signature is over. */
+  raw: string;
 }
 
 async function start() {
@@ -43,8 +46,16 @@ async function start() {
   const woken: Woken[] = [];
   /** What the receiver answers next, in order; then 202. */
   const answers: (number | 'down' | 'slow')[] = [];
+  /** Verifications a subscriber's callback was sent, and whether it gives the challenge back. */
+  const verified: string[] = [];
+  const callback = { echoes: true };
   const wakeSend: WakeSend = async (url, headers, body) => {
-    woken.push({ url, headers, body: JSON.parse(body) as Woken['body'] });
+    const parsed = JSON.parse(body) as { type?: string; challenge?: string };
+    if (parsed.type === 'verification') {
+      verified.push(url);
+      return { status: 200, body: JSON.stringify({ challenge: callback.echoes ? parsed.challenge : 'something else' }) };
+    }
+    woken.push({ url, headers, body: JSON.parse(body) as Woken['body'], raw: body });
     const next = answers.shift() ?? 202;
     if (next === 'down') throw new FetchFailed('unreachable', 'connect ECONNREFUSED');
     if (next === 'slow') throw new FetchFailed('timeout', 'No answer in 10 seconds');
@@ -114,7 +125,7 @@ async function start() {
     await settle();
     return due.map((each) => each.ms);
   };
-  return { server, owner, mert: mertToken, call, connect, write, general, say, woken, answers, heard, listen, settle, later };
+  return { server, owner, mert: mertToken, call, connect, write, general, say, woken, answers, heard, listen, settle, later, verified, callback };
 }
 
 type S = Awaited<ReturnType<typeof start>>;
@@ -136,9 +147,9 @@ describe('the address', () => {
     const s = await start();
     const { device } = s.connect(KAAN);
     const set = await s.call(s.owner, 'PUT', `/agents/${device}/wake`, { url: CLAUDE_URL, headers: HEADERS });
-    expect(set.body).toEqual({ url: CLAUDE_URL, host: 'api.anthropic.com', headers: ['Authorization', 'anthropic-version'] });
+    expect(set.body).toEqual({ url: CLAUDE_URL, host: 'api.anthropic.com', headers: ['Authorization', 'anthropic-version'], kind: 'other' });
     const listed = await s.call(s.owner, 'GET', '/agents');
-    expect(listed.body).toEqual([expect.objectContaining({ id: device, wakes: { url: CLAUDE_URL, host: 'api.anthropic.com', headers: ['Authorization', 'anthropic-version'] } })]);
+    expect(listed.body).toEqual([expect.objectContaining({ id: device, wakes: { url: CLAUDE_URL, host: 'api.anthropic.com', headers: ['Authorization', 'anthropic-version'], kind: 'other' }, watches: null })]);
     expect(listed.text).not.toContain('secret');
     // Saved again as the window shows it, values hidden: they stay.
     await s.call(s.owner, 'PUT', `/agents/${device}/wake`, { url: CLAUDE_URL, headers: `Authorization: ${WAKE_MASK}\nanthropic-version: ${WAKE_MASK}` });
@@ -294,7 +305,7 @@ describe('what could not be sent', () => {
     expect(await s.later()).toEqual([300_000]);
     expect(s.woken).toHaveLength(3);
     expect(s.heard.filter((each) => each.type === 'notice')).toEqual([
-      expect.objectContaining({ title: 'Claude couldn’t be woken', body: 'The address answered 503.', href: `scrawl:chat/${encodeURIComponent(URL)}/${s.general}/${asked.id}` }),
+      expect.objectContaining({ title: 'Couldn’t reach Claude', body: 'The address answered 503.', href: `scrawl:chat/${encodeURIComponent(URL)}/${s.general}/${asked.id}` }),
     ]);
   });
 
@@ -307,12 +318,100 @@ describe('what could not be sent', () => {
     await s.say(s.owner, s.general, `${personLink('Claude', agent)} two`);
     await s.say(s.owner, s.general, `${personLink('Claude', agent)} three`);
     await s.settle();
-    expect(s.heard.filter((each) => each.type === 'notice').map((each) => each.body)).toEqual(['The address answered 401.', 'No answer in 10 seconds.']);
+    expect(s.heard.filter((each) => each.type === 'notice').map((each) => each.body)).toEqual(['The address answered 401.', 'Claude didn’t answer in 10 seconds.']);
     expect(s.woken).toHaveLength(3);
     // The one not reached, a minute later; beside it the two notifications wait a minute for Kaan's other devices.
     expect(await s.later()).toEqual([60_000, 60_000, 60_000]);
     expect(s.woken).toHaveLength(4);
     expect(s.heard.filter((each) => each.type === 'notice')).toHaveLength(2);
+  });
+});
+
+describe('a Claude task', () => {
+  it('is set up by its URL and token, the headers written here, and says in plain words when its token is refused', async () => {
+    const s = await start();
+    const { device, agent } = s.connect(KAAN);
+    const put = (body: unknown) => s.call(s.owner, 'PUT', `/agents/${device}/wake`, body);
+    expect((await put({ claude: { url: 'https://n8n.example.com/hook', token: 'sk-ant-oat01-x' } })).body).toMatchObject({ error: { code: 'bad-claude-url' } });
+    expect((await put({ claude: { url: CLAUDE_URL, token: '' } })).body).toMatchObject({ error: { code: 'no-token' } });
+    expect((await put({ claude: { url: CLAUDE_URL, token: 'Bearer sk-ant-oat01-secret' } })).body).toEqual({ url: CLAUDE_URL, host: 'api.anthropic.com', headers: ['Authorization', 'anthropic-version', 'anthropic-beta'], kind: 'claude' });
+    // Saved again without a token, as Change… does: the one there stays.
+    expect((await put({ claude: { url: CLAUDE_URL, token: '' } })).status).toBe(200);
+    s.listen(KAAN);
+    s.answers.push(401);
+    await s.say(s.owner, s.general, `${personLink('Claude', agent)} look`);
+    await s.settle();
+    expect(s.woken[0]!.headers).toEqual([
+      ['Authorization', 'Bearer sk-ant-oat01-secret'],
+      ['anthropic-version', '2023-06-01'],
+      ['anthropic-beta', 'experimental-cc-routine-2026-04-01'],
+    ]);
+    expect(s.heard.filter((each) => each.type === 'notice')).toEqual([expect.objectContaining({ title: 'Couldn’t reach Claude', body: 'Claude didn’t accept the token. Set it up again in Settings › Agents.' })]);
+  });
+});
+
+describe('ChatGPT watching (MCP Events)', () => {
+  const SECRET = `whsec_${Buffer.alloc(32, 9).toString('base64')}`;
+  const HOOK = 'https://chatgpt.com/backend-api/mcp/events/abc';
+  const rows = (s: S) => (s.server.db.prepare('SELECT COUNT(*) AS n FROM event_subscriptions').get() as { n: number }).n;
+
+  it('subscribes once the callback gives the challenge back, and gets each wake signed; the same again renews it', async () => {
+    const s = await start();
+    const { device, agent } = s.connect(KAAN, 'https://chatgpt.com/oauth', 'ChatGPT');
+    const made = await s.server.wakes.subscribe(agent, { arguments: {}, url: HOOK, secret: SECRET, ttlMs: null });
+    expect(s.verified).toEqual([HOOK]);
+    const lasts = Date.parse(made.refreshBefore) - Date.now();
+    expect(lasts).toBeGreaterThan(6 * 24 * 60 * 60 * 1000);
+    expect(lasts).toBeLessThanOrEqual(7 * 24 * 60 * 60 * 1000);
+    expect((await s.call(s.owner, 'GET', '/agents')).body).toEqual([expect.objectContaining({ id: device, agent, wakes: null, watches: { host: 'chatgpt.com' } })]);
+    const asked = await s.say(s.owner, s.general, `${personLink('ChatGPT', agent)} look at the build`);
+    await s.settle();
+    const sent = s.woken[0]!;
+    const header = Object.fromEntries(sent.headers) as { [name: string]: string };
+    expect(sent.url).toBe(HOOK);
+    expect(header['webhook-signature']).toBe(webhookSignature(SECRET, header['webhook-id']!, Number(header['webhook-timestamp']), sent.raw));
+    expect(header['x-mcp-subscription-id']).toBe(made.id);
+    expect(sent.body).toMatchObject({ eventId: header['webhook-id'], name: 'wake', cursor: null, data: { event: { kind: 'mention', agent: { id: agent, name: 'ChatGPT' }, chat: { message: asked.id } } } });
+    expect((sent.body as unknown as { data: { text: string } }).data.text).toContain('> @ChatGPT look at the build');
+    await s.server.wakes.subscribe(agent, { arguments: {}, url: HOOK, secret: SECRET, ttlMs: 60 * 60 * 1000 });
+    expect(rows(s)).toBe(1);
+  });
+
+  it('ends when the subscriber says it is gone (410), and Kaan is told in plain words', async () => {
+    const s = await start();
+    const { agent } = s.connect(KAAN, 'https://chatgpt.com/oauth', 'ChatGPT');
+    await s.server.wakes.subscribe(agent, { arguments: {}, url: HOOK, secret: SECRET, ttlMs: null });
+    s.listen(KAAN);
+    s.answers.push(410);
+    await s.say(s.owner, s.general, `${personLink('ChatGPT', agent)} look`);
+    await s.settle();
+    expect(rows(s)).toBe(0);
+    expect(s.heard.filter((each) => each.type === 'notice')).toEqual([expect.objectContaining({ title: 'Couldn’t reach ChatGPT', body: 'ChatGPT stopped watching Scrawl. Set it up again in Settings › Agents.' })]);
+  });
+
+  it('refuses a callback that does not give the challenge back, a wrong secret, a callback on a home network, and arguments', async () => {
+    const s = await start();
+    const { agent } = s.connect(KAAN, 'https://chatgpt.com/oauth', 'ChatGPT');
+    const subscribe = (input: object) => s.server.wakes.subscribe(agent, { arguments: {}, url: HOOK, secret: SECRET, ttlMs: null, ...input });
+    s.callback.echoes = false;
+    await expect(subscribe({})).rejects.toMatchObject({ reason: 'challenge_failed' });
+    await expect(subscribe({})).rejects.toBeInstanceOf(CallbackRefused);
+    s.callback.echoes = true;
+    await expect(subscribe({ secret: 'whsec_c2hvcnQ=' })).rejects.toBeInstanceOf(SubscriptionRefused);
+    await expect(subscribe({ url: 'https://192.168.1.20/hook' })).rejects.toBeInstanceOf(SubscriptionRefused);
+    await expect(subscribe({ arguments: { space: 'Acme' } })).rejects.toBeInstanceOf(SubscriptionRefused);
+    expect(rows(s)).toBe(0);
+  });
+
+  it('ends with Stop watching and with Disconnect', async () => {
+    const s = await start();
+    const { device, agent } = s.connect(KAAN, 'https://chatgpt.com/oauth', 'ChatGPT');
+    await s.server.wakes.subscribe(agent, { arguments: {}, url: HOOK, secret: SECRET, ttlMs: null });
+    expect((await s.call(s.owner, 'DELETE', `/agents/${device}/wake`)).status).toBe(204);
+    expect(rows(s)).toBe(0);
+    await s.server.wakes.subscribe(agent, { arguments: {}, url: HOOK, secret: SECRET, ttlMs: null });
+    await s.call(s.owner, 'DELETE', `/agents/${device}`);
+    expect(rows(s)).toBe(0);
   });
 });
 

@@ -93,6 +93,7 @@ export const HELP: HelpTopic[] = [
   { id: 'working-together', label: 'help.together' },
   { id: 'chat', label: 'help.chat' },
   { id: 'ai-agents', label: 'help.agents' },
+  { id: 'agents-answer', label: 'help.agentsAnswer' },
   {
     id: 'server',
     label: 'help.server',

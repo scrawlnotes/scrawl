@@ -18,7 +18,7 @@ const listeners = new Set<() => void>();
 /** A server's agent connections as Settings › Agents reads them: those with an address, by their identity, each once. */
 export function setWakeable(url: string, agents: ServerAgent[]) {
   const found = new Map<string, string>();
-  for (const agent of agents) if (agent.wakes && agent.agent) found.set(agent.agent, agent.name || agent.client);
+  for (const agent of agents) if ((agent.wakes || agent.watches) && agent.agent) found.set(agent.agent, agent.name || agent.client);
   known.set(url, [...found].map(([id, name]) => ({ id, name })));
   for (const listener of listeners) listener();
 }

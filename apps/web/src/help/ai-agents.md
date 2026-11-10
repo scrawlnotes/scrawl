@@ -21,7 +21,7 @@ An agent reaches your notes where you can.
 - **Press a button:** "Approve Ayşe's taxi expense." or "Count the Rail stock as 12."
 - **Tidy up:** "Move last year's project notes into an Archive folder." Links to them keep working.
 
-To make an app of your own with it, see [Building an app with an agent](apps-building).
+To make an app of your own with it, see [Building an app with an agent](apps-building). To have it answer you in Chat and on cards, see [Agents that answer in Scrawl](agents-answer).
 
 ## Its own name
 

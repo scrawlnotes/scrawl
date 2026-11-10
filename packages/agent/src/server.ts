@@ -2,6 +2,7 @@ import { McpServer, type ServerContext } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 import { cardsTool, commentTool, MAX_ITEMS, saveCardTool } from './cards';
 import { messagesTool, sendMessageTool } from './chat';
+import { serveEvents } from './events';
 import { BRIEF, GUIDE } from './guide';
 import { readTool, searchTool, spacesTool, treeTool } from './read';
 import { dueRecordsTool, recordsTool, saveRecordTool } from './records';
@@ -435,6 +436,9 @@ export function buildServer(agent: Agent): McpServer {
     },
     (args, ctx) => writing(ctx, () => saveTaskTool(agent, client(ctx), args)),
   );
+
+  // What wakes the agent, where the door has it: a Scrawl server's subscriptions (design/agent-wake.md 11).
+  if (agent.events) serveEvents(server, agent.events);
 
   return server;
 }

@@ -338,11 +338,6 @@ html:has(.phone-app) {
   white-space: nowrap;
 }
 
-/* Where an agent is woken, under its client (design/agent-wake.md 4). */
-.mb-row .tx small.wk {
-  color: var(--sl-dim);
-}
-
 .mb-row .tx small .dot {
   display: inline-block;
   width: 7px;

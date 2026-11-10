@@ -1,5 +1,6 @@
 export { cardsTool, commentTool, saveCardTool } from './cards';
 export { type AgentChat, type AgentConversation, type AgentMessage, messagesTool, sendMessageTool } from './chat';
+export { type AgentEvents, CallbackRefused, type EventSubscribe, SubscriptionRefused, WAKE_EVENT } from './events';
 export { GUIDE } from './guide';
 export { Refusal, cleanPath, closedReason } from './paths';
 export { hashOf, readTool, searchTool, spacesTool, treeTool } from './read';

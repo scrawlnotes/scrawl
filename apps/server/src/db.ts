@@ -286,6 +286,23 @@ const MIGRATIONS: string[] = [
   ALTER TABLE agent_identities ADD COLUMN wake_url TEXT;
   ALTER TABLE agent_identities ADD COLUMN wake_headers TEXT;
   `,
+  // What an agent is woken by besides an address (design/agent-wake.md 11, 12): a subscription its
+  // own MCP connection makes, as ChatGPT does, to the `wake` event, with where to send it and the
+  // secret to sign it with, until it ends; and whether the address is a Claude task's.
+  `
+  CREATE TABLE event_subscriptions (
+    id TEXT PRIMARY KEY,
+    agent_id TEXT NOT NULL REFERENCES agent_identities (id),
+    name TEXT NOT NULL,
+    arguments TEXT NOT NULL,
+    url TEXT NOT NULL,
+    secret TEXT NOT NULL,
+    expires_at INTEGER NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX event_subscriptions_agent ON event_subscriptions (agent_id);
+  ALTER TABLE agent_identities ADD COLUMN wake_kind TEXT;
+  `,
 ];
 
 export function openDb(file: string): Db {

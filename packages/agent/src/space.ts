@@ -1,3 +1,4 @@
+import type { AgentEvents } from './events';
 import {
   type Actor,
   type AgentRow,
@@ -78,6 +79,8 @@ export interface Agent {
   self?: (client: Client, make?: boolean) => Promise<AgentRow | null>;
   /** The person's conversations, on a Scrawl server (design/chat.md, 9); a computer has none. */
   chat?: AgentChat;
+  /** Subscriptions to what wakes the agent, on a Scrawl server (design/agent-wake.md 11); a computer has none. */
+  events?: AgentEvents;
 }
 
 /** The client that is calling, as it names itself: "Claude Code", "Claude", "ChatGPT", "Cursor". */

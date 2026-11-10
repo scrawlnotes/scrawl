@@ -210,6 +210,11 @@ export function agentRoutes(app: Hono<Env>, parts: Parts, addressOf: (c: Context
         return identity && { ...identity, client: name, ...(account.name && { owner: account.name }) };
       },
       chat: chatOf(account),
+      // What wakes this agent, subscribed to by its own connection, as ChatGPT does (design/agent-wake.md 11).
+      events: {
+        subscribe: (input) => wakes.subscribe(oauth.identity(account.id, clientId, clientName || 'Agent').id, input),
+        unsubscribe: async (input) => wakes.unsubscribe(oauth.identity(account.id, clientId, clientName || 'Agent').id, input),
+      },
     };
   };
 

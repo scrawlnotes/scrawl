@@ -294,7 +294,7 @@ type OpenDialog =
   // What a new filter or a label's view picks, saved as a filter by a name; `from` is its tab.
   | { kind: 'saveFilter'; choices: FilterChoices; from: string }
   | { kind: 'settings'; section?: SettingsSection; space?: string | null }
-  | { kind: 'help'; page?: string; heading?: string }
+  | { kind: 'help'; page?: string; heading?: string; back?: SettingsSection }
   | null;
 
 /**
@@ -3186,7 +3186,8 @@ export function App() {
     onPersonActive: (space, person, active) => session.setPersonActive(space, person, active),
     computerAgents: () => session.computerAgents(),
     onRenameComputerAgent: (id, name) => session.renameComputerAgent(id, name),
-    onHelp: (page, heading) => setDialog({ kind: 'help', page, ...(heading && { heading }) }),
+    // Help opened from Settings goes back to it when closed (design/agent-wake.md 12.5).
+    onHelp: (page, heading, back) => setDialog({ kind: 'help', page, ...(heading && { heading }), ...(back && { back }) }),
     onChangeSpaceFolder: isDesktop ? (id, ask) => void changeSpaceFolder(id, ask) : undefined,
     initialSpace: dialog?.kind === 'settings' ? dialog.space : undefined,
     addingAs: sync.adding,
@@ -3972,7 +3973,7 @@ export function App() {
         />
       )}
       {/* On a phone Help is pages in Browse. */}
-      {dialog?.kind === 'help' && !phone && <Help onClose={closeDialog} page={dialog.page} heading={dialog.heading} />}
+      {dialog?.kind === 'help' && !phone && <Help onClose={() => (dialog.back ? setDialog({ kind: 'settings', section: dialog.back }) : closeDialog())} page={dialog.page} heading={dialog.heading} />}
       {searching && !phone && <SearchWindow things={searchThings} actions={searchActions} onPick={openFound} onPickMessage={openHit} onClose={() => setSearching(false)} still={still} />}
       {chipPick && !phone && (
         <SearchWindow
