@@ -123,7 +123,7 @@ export function useAgents(url: string) {
 }
 
 /** Settings › Agents on a computer. */
-export function Agents(values: Pick<SettingsValues, 'spaceName' | 'spaces' | 'folder' | 'onSection' | 'computerAgents' | 'onRenameComputerAgent'>) {
+export function Agents(values: Pick<SettingsValues, 'spaceName' | 'spaces' | 'folder' | 'onSection' | 'computerAgents' | 'onRenameComputerAgent' | 'onHelp'>) {
   const servers = useKnownServers();
   const background = useBackground();
   const [copied, copy] = useCopy();
@@ -207,6 +207,7 @@ export function Agents(values: Pick<SettingsValues, 'spaceName' | 'spaces' | 'fo
             server={server}
             copied={copied}
             onCopy={copy}
+            onHelp={values.onHelp}
             onAdd={(to) => {
               if (to === 'cursor') openLink(cursorLink(server.url));
               else if (to === 'antigravity') setAntigravity({ server });
@@ -230,7 +231,7 @@ type Terminal = 'claude-code' | 'codex';
 type ServerAddTo = AddTo | Terminal | 'cursor' | 'antigravity';
 
 /** A server this device is signed in to: its address, where to add it, and the agents connected to the account. */
-function ServerBlock({ server, copied, onCopy, onAdd }: { server: KnownServer; copied: string | null; onCopy: (key: string, text: string) => void; onAdd: (to: ServerAddTo) => void }) {
+function ServerBlock({ server, copied, onCopy, onAdd, onHelp }: { server: KnownServer; copied: string | null; onCopy: (key: string, text: string) => void; onAdd: (to: ServerAddTo) => void; onHelp?: SettingsValues['onHelp'] }) {
   const a = useAgents(server.url);
   const [menu, setMenu] = useState<{ at: { x: number; y: number }; agent: ServerAgent } | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -321,7 +322,15 @@ function ServerBlock({ server, copied, onCopy, onAdd }: { server: KnownServer; c
           onClose={() => setMenu(null)}
         />
       )}
-      {waking && <WakeDialog agent={waking} onSave={(url, headers) => a.wake(waking.id, url, headers)} onStop={() => void a.stopWaking(waking.id)} onClose={() => setWaking(null)} />}
+      {waking && (
+        <WakeDialog
+          agent={waking}
+          onSave={(url, headers) => a.wake(waking.id, url, headers)}
+          onStop={() => void a.stopWaking(waking.id)}
+          onClose={() => setWaking(null)}
+          {...(onHelp && { onHelp: () => onHelp('working-together', WAKE_HELP) })}
+        />
+      )}
     </div>
   );
 }
@@ -343,6 +352,9 @@ function AgentNames({ agent }: { agent: ServerAgent }) {
   );
 }
 
+/** The part of Help Wake… sends to: Working together's, with the steps for Claude and for others. */
+const WAKE_HELP = 'Wake an agent';
+
 /** What a line of headers is not taken for, in the app's words. */
 function headerProblem(text: string, kept: string[]): string | null {
   const read = readWakeHeaders(text, kept.map((name) => [name, WAKE_MASK] as const));
@@ -359,7 +371,7 @@ function headerProblem(text: string, kept: string[]): string | null {
  * the headers show by name with their values hidden: a line left so keeps its value. What is wrong
  * is said under its field. Stop waking, on the left, when it is woken already.
  */
-function WakeDialog({ agent, onSave, onStop, onClose }: { agent: ServerAgent; onSave: (url: string, headers: string) => Promise<void>; onStop: () => void; onClose: () => void }) {
+function WakeDialog({ agent, onSave, onStop, onClose, onHelp }: { agent: ServerAgent; onSave: (url: string, headers: string) => Promise<void>; onStop: () => void; onClose: () => void; onHelp?: () => void }) {
   const kept = agent.wakes?.headers ?? [];
   const [address, setAddress] = useState(agent.wakes?.url ?? '');
   const [headers, setHeaders] = useState(kept.map((name) => `${name}: ${WAKE_MASK}`).join('\n'));
@@ -436,6 +448,11 @@ function WakeDialog({ agent, onSave, onStop, onClose }: { agent: ServerAgent; on
         />
         {error('headers')}
         {error('other')}
+        {onHelp && (
+          <button type="button" className="ag-help" onClick={onHelp}>
+            {t('agents.wakeHelp')}
+          </button>
+        )}
         <div className="dialog-actions">
           {agent.wakes && (
             <button

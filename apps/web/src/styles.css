@@ -12839,6 +12839,17 @@ button.st-li:hover,
   margin-top: 6px;
 }
 
+.dialog.ag-wake .ag-help {
+  align-self: flex-start;
+  margin: 4px 2px 0;
+  padding: 0;
+  color: var(--sl-accent);
+  font-size: 12.5px;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--sl-accent) 45%, transparent);
+  text-underline-offset: 3px;
+}
+
 /* An agent renamed in its row: its name in a box, Cancel and Save. */
 .st-li.ag-ren {
   gap: 8px;

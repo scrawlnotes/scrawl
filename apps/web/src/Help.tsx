@@ -113,7 +113,7 @@ function HelpNav({ page, onPage }: { page: string; onPage: (id: string) => void 
 }
 
 /** A page: its topic over it, the note, Previous and Next at its foot; its headings beside it. */
-function HelpPageView({ page, onPage }: { page: string; onPage: (id: string) => void }) {
+function HelpPageView({ page, onPage, heading }: { page: string; onPage: (id: string) => void; heading?: string | undefined }) {
   const box = useRef<HTMLDivElement>(null);
   const host = useRef<HTMLDivElement>(null);
   const { viewer, headings } = useHelpNote(host, page, false, onPage);
@@ -148,6 +148,14 @@ function HelpPageView({ page, onPage }: { page: string; onPage: (id: string) => 
     const scroller = box.current!;
     scroller.scrollTo({ top: scroller.scrollTop + topOf(heading) - scroller.getBoundingClientRect().top - 16, behavior: 'smooth' });
   };
+  // Opened at a heading, as Wake… opens its steps: there, once the page is read.
+  const wentTo = useRef(false);
+  useEffect(() => {
+    const found = heading && !wentTo.current ? headings.find((each) => each.text === heading) : undefined;
+    if (!found || !viewer.current) return;
+    wentTo.current = true;
+    window.requestAnimationFrame(() => goTo(found));
+  }, [headings, heading]);
 
   return (
     <>
@@ -190,11 +198,11 @@ function HelpPageView({ page, onPage }: { page: string; onPage: (id: string) => 
  * the middle, its headings on the right. In a narrow window the topics are a list and a page is
  * its own, with a way back, as the settings are.
  */
-export function Help({ onClose }: { onClose: () => void }) {
+export function Help({ onClose, page: start, heading }: { onClose: () => void; page?: string | undefined; heading?: string | undefined }) {
   const narrow = useNarrow();
-  const [page, setPage] = useState(HELP_START);
-  // In a narrow window it opens on the list, as the settings do.
-  const [listing, setListing] = useState(true);
+  const [page, setPage] = useState(start ?? HELP_START);
+  // In a narrow window it opens on the list, as the settings do; opened at a page, on it.
+  const [listing, setListing] = useState(!start);
   const box = useRef<HTMLElement>(null);
   useEffect(() => {
     box.current?.focus();
@@ -232,7 +240,7 @@ export function Help({ onClose }: { onClose: () => void }) {
         </div>
         <div className={narrow ? 'help-main narrow' : 'help-main'}>
           {(!narrow || showList) && <HelpNav page={page} onPage={open} />}
-          {!showList && <HelpPageView page={page} onPage={open} />}
+          {!showList && <HelpPageView page={page} onPage={open} heading={page === start ? heading : undefined} />}
         </div>
       </section>
     </div>

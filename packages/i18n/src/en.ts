@@ -354,6 +354,7 @@ export const en = {
   'agents.wakeHeaders': 'Headers',
   'agents.wakeHeadersHint': 'Name: value',
   'agents.wakeStop': 'Stop waking',
+  'agents.wakeHelp': 'How to wake Claude, n8n and others',
   'agents.wakeBadAddress': 'The address must start with https:// and be a public name',
   'agents.wakeBadHeader': 'Line {line}: a header is Name: value',
   'agents.wakeOwnHeader': 'Line {line}: Scrawl writes {name} itself',
