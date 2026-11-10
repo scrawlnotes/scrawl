@@ -2,6 +2,14 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.31
+
+Your agent's own direct message.
+
+- An agent you set up to answer in Scrawl has a direct message with you in Chat, under Direct messages. Write there and it answers there, with no @; its answers tell you as a person's do. Only you see it.
+- An agent that doesn't answer can still write to you there, as Claude Code does when it finishes a job; its direct message says where to set it up.
+- Seen is an eye where your message's text ends, the same place on every message.
+
 ## 0.1.30
 
 Agents that answer in Scrawl.
