@@ -467,3 +467,5 @@ Kodda:
 Testler: sunucuda sırayla sending, sent, working, answered; yeniden denemede again ve zamanı; 10 dakika sessizlikte late, araç çağrısıyla yine working; ikinci yolun hatası ulaşılmış satırı bozmaz.
 
 Mockup: design/mockups.html › Answer in Scrawl › Chat: gönderiliyor, çalışıyor, yeniden deneyecek, cevap yok; Ajanı uyandırmak › Chat: Sent to.
+
+Log (10 Kasım): Eren'in ChatGPT'si "couldn't activate its event subscription" dedi; sunucu ChatGPT'nin sorup sormadığını yazmıyordu. Artık ajanın `events/*` istekleri (`MCP events/list: ChatGPT of Eren`) ve izlemenin sonucu (`Watching Scrawl: …, at chatgpt.com` ya da `Not watching Scrawl: …: challenge_failed`) Coolify log'unda. Help'te "ChatGPT says it couldn't start watching Scrawl": yalnız Work sohbeti ve masaüstünde Work + Cloud izler; şirket ChatGPT'sinde yöneticinin plugin ve olayla başlayan iş ayarları; saatlik kontrol aynı şey değil.

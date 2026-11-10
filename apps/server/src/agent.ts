@@ -23,13 +23,13 @@ function stringsOf(data: { [key: string]: unknown }): { [key: string]: string | 
   return Object.fromEntries(Object.entries(data).map(([key, value]) => [key, typeof value === 'string' ? value : undefined]));
 }
 
-/** Whether an MCP request's body calls a tool, alone or in a batch. */
-export function callsTool(body: string): boolean {
+/** The JSON-RPC methods an MCP request's body asks, alone or in a batch. */
+export function methodsOf(body: string): string[] {
   try {
     const parsed = JSON.parse(body) as unknown;
-    return (Array.isArray(parsed) ? parsed : [parsed]).some((each) => (each as { method?: unknown } | null)?.method === 'tools/call');
+    return (Array.isArray(parsed) ? parsed : [parsed]).map((each) => (each as { method?: unknown } | null)?.method).filter((method): method is string => typeof method === 'string');
   } catch {
-    return false;
+    return [];
   }
 }
 
@@ -237,11 +237,17 @@ export function agentRoutes(app: Hono<Env>, parts: Parts, addressOf: (c: Context
   app.all('/mcp', async (c) => {
     const auth = await gate(c.req.raw);
     if (auth instanceof Response) return auth;
-    // A tool called by an agent a message reached: the line under that message says it is at work (design/agent-wake.md 13).
-    const extra = auth.extra as { account: Account; clientId: string } | undefined;
-    if (c.req.method === 'POST' && extra && wakes.awaited()) {
-      const agent = oauth.findIdentity(extra.account.id, extra.clientId)?.id;
-      if (agent && callsTool(await c.req.raw.clone().text())) wakes.busy(agent);
+    const extra = auth.extra as { account: Account; clientId: string; clientName: string } | undefined;
+    if (c.req.method === 'POST' && extra) {
+      const methods = methodsOf(await c.req.raw.clone().text());
+      // What an agent asks of events goes in the log: whether ChatGPT got as far as watching (design/agent-wake.md 11).
+      const events = methods.filter((method) => method.startsWith('events/'));
+      if (events.length) console.log(`MCP ${events.join(', ')}: ${extra.clientName || 'An agent'} of ${extra.account.name || 'someone'}`);
+      // A tool called by an agent a message reached: the line under that message says it is at work (design/agent-wake.md 13).
+      if (methods.includes('tools/call') && wakes.awaited()) {
+        const agent = oauth.findIdentity(extra.account.id, extra.clientId)?.id;
+        if (agent) wakes.busy(agent);
+      }
     }
     return handler.fetch(c.req.raw, { authInfo: auth });
   });

@@ -313,6 +313,24 @@ export class Wakes {
    * same subscription again is renewed; an agent keeps its five newest.
    */
   async subscribe(agent: string, input: EventSubscribe): Promise<{ id: string; refreshBefore: string }> {
+    // In the log, whether an agent got as far as watching and why not: neither its person nor we see it otherwise.
+    const who = `${this.identityName(agent)} of ${this.accountName(ownerOf(agent))}`;
+    const at = URL.canParse(input.url) ? new URL(input.url).host : 'a wrong address';
+    try {
+      const made = await this.watch(agent, input);
+      console.log(`Watching Scrawl: ${who}, at ${at}`);
+      return made;
+    } catch (error) {
+      console.warn(`Not watching Scrawl: ${who}, at ${at}: ${error instanceof CallbackRefused ? error.reason : error instanceof Error ? error.message : String(error)}`);
+      throw error;
+    }
+  }
+
+  private identityName(agent: string): string {
+    return (this.db.prepare('SELECT name FROM agent_identities WHERE id = ?').get(agent) as { name: string } | undefined)?.name ?? 'An agent';
+  }
+
+  private async watch(agent: string, input: EventSubscribe): Promise<{ id: string; refreshBefore: string }> {
     if (Object.keys(input.arguments).length > 0) throw new SubscriptionRefused('wake takes no arguments');
     if (!wakeAddressOk(input.url)) throw new SubscriptionRefused('The callback must be an https address with a public name');
     if (!secretOk(input.secret)) throw new SubscriptionRefused('The secret must start with whsec_ and hold 24 to 64 bytes');

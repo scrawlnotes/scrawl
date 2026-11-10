@@ -2,13 +2,13 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { addCard, addComment, addTask, newBoard, personLink, serializeBoard, serializeList, ServerAccount, SYNC_LEVEL, updateCard, updateTask, type WakeEvent, WAKE_MASK } from '@scrawlnotes/core';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Config } from './config';
 import type { LiveSocket } from './live';
 import { makeServer } from './server';
 import { CallbackRefused, SubscriptionRefused } from '@scrawlnotes/agent';
 import { FetchFailed, notPublic, safeFetch, type WakeSend, webhookSignature } from './wake';
-import { callsTool } from './agent';
+import { methodsOf } from './agent';
 
 // Waking an agent (design/agent-wake.md 7): only its owner's own writing wakes it, in Chat, on a
 // card and on a task; where it is woken is set by its owner and its headers' values never come
@@ -25,8 +25,17 @@ const CLAUDE_URL = 'https://api.anthropic.com/v1/claude_code/routines/trig_01/fi
 const HEADERS = 'Authorization: Bearer sk-ant-oat01-secret\nanthropic-version: 2023-06-01';
 const closers: (() => void)[] = [];
 
+// What the server logs of watching, kept here to be looked at.
+const logged: string[] = [];
+beforeEach(() => {
+  logged.length = 0;
+  vi.spyOn(console, 'log').mockImplementation((line: string) => void logged.push(line));
+  vi.spyOn(console, 'warn').mockImplementation((line: string) => void logged.push(line));
+});
+
 afterEach(() => {
   for (const close of closers.splice(0)) close();
+  vi.restoreAllMocks();
 });
 
 const at = (minute: number) => () => new Date(Date.UTC(2026, 10, 9, 9, minute));
@@ -260,11 +269,11 @@ describe('in Chat', () => {
     expect(s.server.wakes.awaited()).toBe(false);
   });
 
-  it('knows a tool call in an MCP request, alone or in a batch', () => {
-    expect(callsTool(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'messages' } }))).toBe(true);
-    expect(callsTool(JSON.stringify([{ jsonrpc: '2.0', method: 'notifications/initialized' }, { jsonrpc: '2.0', id: 2, method: 'tools/call' }]))).toBe(true);
-    expect(callsTool(JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'events/subscribe' }))).toBe(false);
-    expect(callsTool('not json')).toBe(false);
+  it('reads the methods of an MCP request, alone or in a batch', () => {
+    expect(methodsOf(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'messages' } }))).toEqual(['tools/call']);
+    expect(methodsOf(JSON.stringify([{ jsonrpc: '2.0', method: 'notifications/initialized' }, { jsonrpc: '2.0', id: 2, method: 'tools/call' }]))).toEqual(['notifications/initialized', 'tools/call']);
+    expect(methodsOf(JSON.stringify({ jsonrpc: '2.0', id: 3, result: {} }))).toEqual([]);
+    expect(methodsOf('not json')).toEqual([]);
   });
 
   it('tells Kaan of Claude’s message that mentions him, as unread, under Claude’s name, and not of one that does not', async () => {
@@ -418,6 +427,7 @@ describe('ChatGPT watching (MCP Events)', () => {
     const { device, agent } = s.connect(KAAN, 'https://chatgpt.com/oauth', 'ChatGPT');
     const made = await s.server.wakes.subscribe(agent, { arguments: {}, url: HOOK, secret: SECRET, ttlMs: null });
     expect(s.verified).toEqual([HOOK]);
+    expect(logged).toEqual(['Watching Scrawl: ChatGPT of Kaan Arslan, at chatgpt.com']);
     const lasts = Date.parse(made.refreshBefore) - Date.now();
     expect(lasts).toBeGreaterThan(6 * 24 * 60 * 60 * 1000);
     expect(lasts).toBeLessThanOrEqual(7 * 24 * 60 * 60 * 1000);
@@ -466,6 +476,8 @@ describe('ChatGPT watching (MCP Events)', () => {
     const subscribe = (input: object) => s.server.wakes.subscribe(agent, { arguments: {}, url: HOOK, secret: SECRET, ttlMs: null, ...input });
     s.callback.echoes = false;
     await expect(subscribe({})).rejects.toMatchObject({ reason: 'challenge_failed' });
+    // The log says who did not get as far as watching, where, and why.
+    expect(logged).toContain('Not watching Scrawl: ChatGPT of Kaan Arslan, at chatgpt.com: challenge_failed');
     await expect(subscribe({})).rejects.toBeInstanceOf(CallbackRefused);
     s.callback.echoes = true;
     await expect(subscribe({ secret: 'whsec_c2hvcnQ=' })).rejects.toBeInstanceOf(SubscriptionRefused);
