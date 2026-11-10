@@ -543,6 +543,16 @@ describe('a direct message with the agent (design/agent-wake.md 14)', () => {
     expect(s.woken).toHaveLength(1);
   });
 
+  it('is made, when the server starts, for an agent set up before there were any', async () => {
+    const s = await start();
+    const { agent } = s.connect(KAAN);
+    s.server.db.prepare('UPDATE agent_identities SET wake_url = ?, wake_headers = ? WHERE id = ?').run(CLAUDE_URL, '[]', agent);
+    expect(dms(s, KAAN)).toEqual([]);
+    s.server.wakes.directs();
+    s.server.wakes.directs();
+    expect(dms(s, KAAN).map((chat) => chat.agent)).toEqual([{ id: agent, name: 'Claude' }]);
+  });
+
   it('is made when ChatGPT starts watching, is Kaan’s alone, and is never made with someone else’s agent', async () => {
     const s = await start();
     const { agent } = s.connect(KAAN, 'https://chatgpt.com/oauth', 'ChatGPT');

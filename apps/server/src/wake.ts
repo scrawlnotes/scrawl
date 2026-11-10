@@ -411,6 +411,12 @@ export class Wakes {
     }
   }
 
+  /** Each agent that answers has its direct message with its person, one set up before there were any too (design/agent-wake.md 14). */
+  directs() {
+    const rows = this.db.prepare('SELECT id FROM agent_identities WHERE wake_url IS NOT NULL UNION SELECT agent_id FROM event_subscriptions WHERE expires_at > ?').all(this.now()) as { id: string }[];
+    for (const { id } of rows) this.chats.agentDirect(ownerOf(id), id);
+  }
+
   /** Whether a message waits for an agent's answer: only then is an agent's request looked into. */
   awaited(): boolean {
     return this.answers.size > 0;
