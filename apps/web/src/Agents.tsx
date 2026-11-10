@@ -317,7 +317,7 @@ function ServerBlock({ server, copied, onCopy, onAdd, onHelp }: { server: KnownS
         </div>
       )}
       {a.agents && <p className="st-note">{a.agents.length > 0 ? t('agents.connectedAbout') : t('agents.noneConnected')}</p>}
-      {a.agents && <AnswerPart claude={claude} chatgpt={chatgpt} others={others} onSetUp={setSetup} onAdd={onAdd} {...(onHelp && { onHelp: () => onHelp('agents-answer', undefined, 'agents') })} />}
+      {a.agents && <AnswerPart claude={claude} chatgpt={chatgpt} others={others} onSetUp={setSetup} {...(onHelp && { onHelp: () => onHelp('agents-answer', undefined, 'agents') })} />}
       {menu && (
         <ContextMenu
           at={menu.at}
@@ -360,13 +360,13 @@ function otherAgents(agents: ServerAgent[] | null): ServerAgent[] {
 /**
  * Answer in Scrawl, under the agents connected (design/agent-wake.md 12.1): what it is in a
  * sentence, then Claude, ChatGPT and another agent, each with where it stands and what to press.
+ * One not connected has no button: it is connected above, with Add to.
  */
-function AnswerPart({ claude, chatgpt, others, onSetUp, onAdd, onHelp }: {
+function AnswerPart({ claude, chatgpt, others, onSetUp, onHelp }: {
   claude: ServerAgent | undefined;
   chatgpt: ServerAgent | undefined;
   others: ServerAgent[];
   onSetUp: (which: 'claude' | 'chatgpt' | 'other') => void;
-  onAdd: (to: ServerAddTo) => void;
   onHelp?: () => void;
 }) {
   const row = (key: string, face: ReactNode, name: string, sub: string, on: boolean, button: ReactNode) => (
@@ -387,8 +387,8 @@ function AnswerPart({ claude, chatgpt, others, onSetUp, onAdd, onHelp }: {
       {letter}
     </span>
   );
-  const press = (label: string, run: () => void, primary = false, disabled = false) => (
-    <button type="button" className={primary ? 'primary' : undefined} disabled={disabled} onClick={run}>
+  const press = (label: string, run: () => void, primary = false) => (
+    <button type="button" className={primary ? 'primary' : undefined} onClick={run}>
       {label}
     </button>
   );
@@ -407,10 +407,10 @@ function AnswerPart({ claude, chatgpt, others, onSetUp, onAdd, onHelp }: {
       <div className="st-list">
         {claude
           ? row('claude', face('C'), t('agents.claude'), claude.wakes ? t('agents.answerClaudeOn') : t('agents.answerOff'), !!claude.wakes, press(claude.wakes ? t('agents.answerChange') : t('agents.answerSetUp'), () => onSetUp('claude'), !claude.wakes))
-          : row('claude', face('C'), t('agents.claude'), t('agents.answerAddFirst', { name: t('agents.claude') }), false, press(t('agents.addClaudeTitle'), () => onAdd('claude')))}
+          : row('claude', face('C'), t('agents.claude'), t('agents.answerAddFirst', { name: t('agents.claude') }), false, null)}
         {chatgpt
           ? row('chatgpt', face('G'), t('agents.chatgpt'), chatgpt.watches ? t('agents.answerChatgptOn') : t('agents.answerOff'), !!chatgpt.watches, press(chatgpt.watches ? t('agents.answerChange') : t('agents.answerSetUp'), () => onSetUp('chatgpt'), !chatgpt.watches))
-          : row('chatgpt', face('G'), t('agents.chatgpt'), t('agents.answerAddFirst', { name: t('agents.chatgpt') }), false, press(t('agents.addChatgptTitle'), () => onAdd('chatgpt')))}
+          : row('chatgpt', face('G'), t('agents.chatgpt'), t('agents.answerAddFirst', { name: t('agents.chatgpt') }), false, null)}
         {row(
           'other',
           <span className="who tool" aria-hidden="true">
@@ -419,7 +419,7 @@ function AnswerPart({ claude, chatgpt, others, onSetUp, onAdd, onHelp }: {
           t('agents.answerOther'),
           woken.length > 0 ? t('agents.answerOtherOn', { names: woken.map(agentName).join(', ') }) : others.length > 0 ? t('agents.answerOtherSub') : t('agents.answerOtherNone'),
           woken.length > 0,
-          press(woken.length > 0 ? t('agents.answerChange') : t('agents.answerSetUp'), () => onSetUp('other'), false, others.length === 0),
+          others.length > 0 && press(woken.length > 0 ? t('agents.answerChange') : t('agents.answerSetUp'), () => onSetUp('other')),
         )}
       </div>
     </div>

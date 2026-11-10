@@ -20829,13 +20829,13 @@ p { margin: 0; max-width: 68ch; }
   function w2Row(o) {
     return '<div class="st-li w2-li' + (o.on ? ' on' : '') + '">' + (o.tool ? W2_TOOL : '<span class="who bot">' + o.ini + '</span>') +
       '<span class="nm"><b>' + o.name + '</b><small>' + (o.on ? '<i class="w2-dot"></i>' : '') + o.sub + '</small></span>' +
-      '<span class="st-btn' + (o.go ? ' go' : '') + '">' + o.btn + '</span></div>';
+      (o.btn ? '<span class="st-btn' + (o.go ? ' go' : '') + '">' + o.btn + '</span>' : '') + '</div>';
   }
   /** The server's block, scrolled to it: its address, where to add an agent, then Answer in Scrawl, then the agents connected. */
   function w2Page(state) {
     state = state || {};
     var claude = state.claude === 'none'
-      ? w2Row({ ini: 'C', name: 'Claude', sub: 'Add Scrawl to Claude first', btn: 'Add to Claude' })
+      ? w2Row({ ini: 'C', name: 'Claude', sub: 'Add Scrawl to Claude first' })
       : state.claude === 'on'
         ? w2Row({ ini: 'C', name: 'Claude', sub: 'On · a task on claude.ai', btn: 'Change…', on: true })
         : w2Row({ ini: 'C', name: 'Claude', sub: 'Off', btn: 'Set up…', go: true });
