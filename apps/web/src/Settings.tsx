@@ -23,7 +23,7 @@ import { store as chatStore } from './chatStore';
 import { type PictureCut, setMyPicture, usePicture } from './pictures';
 import { PictureCrop } from './PictureCrop';
 import { ActionSheet } from './sheets';
-import { PictureOr } from './ChatFaces';
+import { faceText, PictureOr } from './ChatFaces';
 import { notifySnapshot, sendTest, turnOff, turnOn, useNotify } from './notify';
 import type { CalendarState } from './calendarAccount';
 import { CALENDAR_ACCOUNTS, useCalendarAccounts } from './calendars';
@@ -1365,7 +1365,7 @@ function SpaceAgents({ people, onActive }: { people: Person[]; onActive: (person
           return (
             <div key={agent.id} className={`st-li one${agent.active ? '' : ' off'}${menu?.id === agent.id ? ' menu-on' : ''}`} {...(agent.active && { onContextMenu: (event: MouseEvent) => open(event, agent.id) })}>
               <span className="who bot" aria-hidden="true">
-                {(agent.agent?.client ?? agent.name ?? '?').slice(0, 1).toUpperCase()}
+                {faceText(agent.agent?.client ?? agent.name)}
               </span>
               <span className="nm">
                 <b>{agent.name ?? agent.agent?.client ?? t('agents.unnamedAgent')}</b>

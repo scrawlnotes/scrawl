@@ -23489,3 +23489,9 @@ svg.sign.small {
     display: none;
   }
 }
+
+/* ChatGPT's face says GPT: three letters in a face sized for one. */
+.face-gpt {
+  font-size: 0.78em;
+  letter-spacing: -0.02em;
+}

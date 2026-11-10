@@ -2,7 +2,7 @@ import { type Card, isAgent, isAgentId, ownerName, ownerOf, type Person, type Pe
 import { locale, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { PictureOr } from './ChatFaces';
+import { faceText, PictureOr } from './ChatFaces';
 import { pageBox, pageWindow } from './device';
 
 // Giving a task or a card to someone, after the Assign and Card assign views of
@@ -40,13 +40,13 @@ export function assigneeLabel(ref: PersonRef, people: Person[] = []): string {
 }
 
 /** The letter someone shows by: a person's initial, an agent's client's; `?` for one without a name. */
-export const initialOf = (ref: PersonRef, people: Person[] = []) => (rowOf(ref.id, people)?.agent?.client ?? refName(ref, people) ?? '?').slice(0, 1).toUpperCase();
+export const initialOf = (ref: PersonRef, people: Person[] = []) => faceText(rowOf(ref.id, people)?.agent?.client ?? refName(ref, people));
 
 /** A round initial: of a person, or `?` for one without a name; an agent's is a square. */
 export function Who({ id, name, agent = false }: { id?: string; name: string | undefined; agent?: boolean }) {
   return (
     <span className={agent ? 'who bot' : 'who'} aria-hidden="true">
-      <PictureOr id={agent ? undefined : id}>{name ? name.slice(0, 1).toUpperCase() : '?'}</PictureOr>
+      <PictureOr id={agent ? undefined : id}>{faceText(name)}</PictureOr>
     </span>
   );
 }

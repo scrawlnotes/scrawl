@@ -42,10 +42,17 @@ export function hueOf(id: string): number {
 export function Face({ id, name, size = 'md', online = false, agent = false }: { id: string; name: string; size?: 'sm' | 'xs' | 'md' | 'lg' | 'xl'; online?: boolean; agent?: boolean }) {
   return (
     <span className={`ch-face ${size} ${agent ? 'ag' : `h${hueOf(id)}`}`} aria-hidden="true">
-      <PictureOr id={agent ? undefined : id}>{(name.trim()[0] ?? '?').toUpperCase()}</PictureOr>
+      <PictureOr id={agent ? undefined : id}>{faceText(name)}</PictureOr>
       {online && <i />}
     </span>
   );
+}
+
+/** What a face shows: a name's first letter; ChatGPT's is GPT, its C being Claude's too. */
+export function faceText(name: string | null | undefined): ReactNode {
+  const shown = (name ?? '').trim();
+  if (/^chatgpt\b/i.test(shown)) return <span className="face-gpt">GPT</span>;
+  return (shown[0] ?? '?').toUpperCase();
 }
 
 /** A person's picture, filling the round it is in, once it is read; what is given, their initial, until then and without one. */

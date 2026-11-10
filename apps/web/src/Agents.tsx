@@ -2,6 +2,7 @@ import { type ComputerAgent, dayOf, readWakeHeaders, RemoteSignedOut, type Serve
 import { locale, type MessageKey, t } from '@scrawlnotes/i18n';
 import { version as mcpVersion } from '../../mcp/package.json';
 import { type MouseEvent, type ReactNode, useCallback, useEffect, useState } from 'react';
+import { faceText } from './ChatFaces';
 import { ContextMenu, Dialog } from './dialogs';
 import { Icon } from './Icon';
 import { writeClipboard } from './Keys';
@@ -56,8 +57,8 @@ const clientName = (agent: ServerAgent) => agent.client || t('agents.unnamedAgen
 /** What an agent is called: its own name once it has one, else its client's. */
 const agentName = (agent: ServerAgent) => agent.name || clientName(agent);
 
-/** An agent's square: its client's first letter. */
-const initialOf = (client: string) => (client.trim() || '?').slice(0, 1).toUpperCase();
+/** An agent's square: its client's first letter, or GPT. */
+const initialOf = (client: string) => faceText(client);
 
 /** Copies on click, and says Copied for a moment where it was clicked. */
 function useCopy(): [copied: string | null, copy: (key: string, text: string) => void] {
@@ -382,7 +383,7 @@ function AnswerPart({ claude, chatgpt, others, onSetUp, onHelp }: {
       {button}
     </div>
   );
-  const face = (letter: string) => (
+  const face = (letter: ReactNode) => (
     <span className="who bot" aria-hidden="true">
       {letter}
     </span>
@@ -409,8 +410,8 @@ function AnswerPart({ claude, chatgpt, others, onSetUp, onHelp }: {
           ? row('claude', face('C'), t('agents.claude'), claude.wakes ? t('agents.answerClaudeOn') : t('agents.answerOff'), !!claude.wakes, press(claude.wakes ? t('agents.answerChange') : t('agents.answerSetUp'), () => onSetUp('claude')))
           : row('claude', face('C'), t('agents.claude'), t('agents.answerAddFirst', { name: t('agents.claude') }), false, null)}
         {chatgpt
-          ? row('chatgpt', face('G'), t('agents.chatgpt'), chatgpt.watches ? t('agents.answerChatgptOn') : t('agents.answerOff'), !!chatgpt.watches, press(chatgpt.watches ? t('agents.answerChange') : t('agents.answerSetUp'), () => onSetUp('chatgpt')))
-          : row('chatgpt', face('G'), t('agents.chatgpt'), t('agents.answerAddFirst', { name: t('agents.chatgpt') }), false, null)}
+          ? row('chatgpt', face(faceText(t('agents.chatgpt'))), t('agents.chatgpt'), chatgpt.watches ? t('agents.answerChatgptOn') : t('agents.answerOff'), !!chatgpt.watches, press(chatgpt.watches ? t('agents.answerChange') : t('agents.answerSetUp'), () => onSetUp('chatgpt')))
+          : row('chatgpt', face(faceText(t('agents.chatgpt'))), t('agents.chatgpt'), t('agents.answerAddFirst', { name: t('agents.chatgpt') }), false, null)}
         {row(
           'other',
           <span className="who tool" aria-hidden="true">
@@ -850,7 +851,7 @@ function ComputerAgents({ load, onRename }: { load: () => Promise<ComputerAgent[
 }
 
 /** An agent's row while it is renamed: its name in a box, Cancel and Save; Enter saves, Esc goes back. */
-function AgentRename({ initial, name, onSave, onCancel }: { initial: string; name: string; onSave: (name: string) => void; onCancel: () => void }) {
+function AgentRename({ initial, name, onSave, onCancel }: { initial: ReactNode; name: string; onSave: (name: string) => void; onCancel: () => void }) {
   const [typed, setTyped] = useState(name);
   const save = () => {
     const clean = typed.trim();
@@ -1078,7 +1079,7 @@ function AntigravityDialog({ server, onClose }: { server?: KnownServer; onClose:
 function PhoneAnswer({ agents }: { agents: ServerAgent[] }) {
   const claude = clientAgent(agents, 'claude');
   const chatgpt = clientAgent(agents, 'chatgpt');
-  const row = (key: string, letter: string, name: string, sub: string) => (
+  const row = (key: string, letter: ReactNode, name: string, sub: string) => (
     <div key={key} className="mb-row person">
       <span className="who bot" aria-hidden="true">
         {letter}
@@ -1096,7 +1097,7 @@ function PhoneAnswer({ agents }: { agents: ServerAgent[] }) {
       </div>
       <div className="mb-list">
         {row('claude', 'C', t('agents.claude'), claude?.wakes ? t('agents.answerClaudeOn') : t('agents.answerOff'))}
-        {row('chatgpt', 'G', t('agents.chatgpt'), chatgpt?.watches ? t('agents.answerChatgptOn') : t('agents.answerOff'))}
+        {row('chatgpt', faceText(t('agents.chatgpt')), t('agents.chatgpt'), chatgpt?.watches ? t('agents.answerChatgptOn') : t('agents.answerOff'))}
       </div>
       <p className="mb-p">{t('agents.answerPhoneNote')}</p>
     </>
