@@ -57,6 +57,21 @@ describe('titleOf', () => {
     expect(titleOf('\\# not a heading')).toBe('# not a heading');
   });
 
+  it('takes the first sentence of a line of text, cut at a word to 40 characters', () => {
+    expect(titleOf('Talked budget with Lena. She wants the numbers by Friday')).toBe('Talked budget with Lena');
+    expect(titleOf('Is v1.2 out? Ask Mert')).toBe('Is v1.2 out?');
+    expect(titleOf('Talked with Lena about the budget, she wants the numbers by Friday')).toBe(
+      'Talked with Lena about the budget, she…',
+    );
+    expect(titleOf('Talked with Lena about the budget, numbers')).toBe('Talked with Lena about the budget…');
+    expect(titleOf('x'.repeat(50))).toBe(`${'x'.repeat(40)}…`);
+  });
+
+  it('keeps a heading whole', () => {
+    const heading = 'A heading that is longer than forty characters. And more';
+    expect(titleOf(`# ${heading}\nbody`)).toBe(heading);
+  });
+
   it('falls back to untitled', () => {
     expect(titleOf('  \n')).toBe('untitled');
   });

@@ -164,9 +164,13 @@ const isKeys = (entry: Entry) => entry.kind === 'file' && entry.name.endsWith(KE
 // Dot and underscore names hold app state and attachments, not notes.
 const isHidden = (name: string) => name.startsWith('.') || name.startsWith('_');
 
+const TITLE_MAX = 40;
+
 /**
  * A note is named after its first line of text, like an unsaved editor tab. Markdown syntax
- * is left out of the name.
+ * is left out of the name. A heading is the name as it is; a line of text gives its first
+ * sentence, cut at a word to TITLE_MAX characters, so a note begun with a paragraph is not
+ * named by all of it.
  */
 export function titleOf(text: string): string {
   const line = text.split('\n').find((l) => l.trim() !== '') ?? '';
@@ -176,7 +180,13 @@ export function titleOf(text: string): string {
     // A backslash-escaped character is literal text; keep it out of the mark stripping below.
     .replace(/\\([!-/:-@[-`{-~])|\*\*|__|~~|[*_`]/g, '$1')
     .trim();
-  return title || t('note.untitled');
+  if (!title) return t('note.untitled');
+  if (/^\s*#{1,6}\s/.test(line)) return title;
+  const sentence = (title.match(/^.+?[.!?…](?=\s|$)/)?.[0] ?? title).replace(/\.$/, '');
+  if (sentence.length <= TITLE_MAX) return sentence;
+  const cut = sentence.slice(0, TITLE_MAX + 1);
+  const space = cut.lastIndexOf(' ');
+  return `${(space > 0 ? cut.slice(0, space) : cut.slice(0, TITLE_MAX)).replace(/[\s,;:–-]+$/, '')}…`;
 }
 
 // Names given by `createScratchNote`: a note that has not been named by the user yet.
