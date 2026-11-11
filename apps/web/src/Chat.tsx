@@ -954,7 +954,7 @@ function MessageRow(props: {
   url: string;
   chipState: (href: string) => ChipState;
   onLink: (href: string) => void;
-  /** On a computer, read by the other of a direct message: an eye at the end of its text, which takes no line of its own. */
+  /** On a computer, read by the other of a direct message: an eye before its text, which takes no line of its own. */
   seen?: boolean;
   /** On a phone: a finger resting on it lifts it; drawn to the right, it is answered. */
   onHold?: (row: HTMLElement) => void;
@@ -972,8 +972,8 @@ function MessageRow(props: {
       const mark = `<span class="ch-ed">${t('chat.edited')}</span>`;
       body = /<\/p>\s*$/.test(body) ? body.replace(/<\/p>\s*$/, ` ${mark}</p>`) : `${body}${mark}`;
     }
-    // Seen: always at the end of the text, inside its last block (a paragraph, a list's last item), so it takes no line.
-    if (props.seen) body = body.replace(/(\s*(?:<\/(?:p|li|ul|ol|blockquote|pre|code|div|h[1-6]|td|tr|tbody|table)>\s*)*)$/, `${seenMark()}$1`);
+    // Seen: always before the text, inside its first block (a paragraph, a list's first item), so it takes no line.
+    if (props.seen) body = body.replace(/^((?:\s*<(?:p|li|ul|ol|blockquote|pre|code|div|h[1-6]|table|tbody|tr|td)(?:\s[^>]*)?>)*\s*)/, `$1${seenMark()}`);
     return body;
   }, [message.body, message.edited, props.seen]);
   const forwarded = message.forwarded;
@@ -1029,9 +1029,9 @@ function MessageRow(props: {
             </>
           )
         )}
-        {!message.deleted && message.files.length > 0 && <Attachments url={props.url} files={message.files} />}
-        {/* shortcut: a message of files alone has no text to end, so its eye takes a line under them; rare, give it a place on the files if it bothers */}
+        {/* shortcut: a message of files alone has no text to start, so its eye takes a line over them; rare, give it a place on the files if it bothers */}
         {props.seen && message.body.trim() === '' && <div className="ch-seenline" dangerouslySetInnerHTML={{ __html: seenMark() }} />}
+        {!message.deleted && message.files.length > 0 && <Attachments url={props.url} files={message.files} />}
         {message.reactions.length > 0 && (
           <div className="ch-rx">
             {message.reactions.map((reaction) => (
