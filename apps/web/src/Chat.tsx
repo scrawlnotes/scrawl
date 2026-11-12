@@ -22,7 +22,7 @@ import {
 import { locale, type MessageKey, t } from '@scrawlnotes/i18n';
 import { type DragEvent, type KeyboardEvent, memo, type MouseEvent, type PointerEvent, type ReactNode, type RefObject, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { clock, measure, Recording } from './chatMedia';
-import { Attachments, ForwardDialog, type Going, isImage, NotifyBanner, NotifyBell, RecorderBar, Tray } from './ChatParts';
+import { Attachments, copyImage, ForwardDialog, type Going, isImage, NotifyBanner, NotifyBell, RecorderBar, saveChatFile, Tray } from './ChatParts';
 import { type ChatServer, type ChatSnapshot, draftOf, keepDraft, keepOpen, lastOpen, type Pending, store, type Woke } from './chatStore';
 import { ConfirmDialog, type MenuItem } from './dialogs';
 import { agentChoices } from './mentionChoices';
@@ -109,6 +109,22 @@ function copy(text: string, markdown?: string): Promise<void> {
 const QUICK = ['👍', '❤️', '😂', '🎉', '👀', '✅'];
 
 /** A day as the conversation divides it: Today, Yesterday, a weekday this week, else the date. */
+/** Messages by their day, in order, each day keyed by itself. */
+function daysOf(messages: ChatMessage[]): { key: string; messages: ChatMessage[] }[] {
+  const days: { key: string; messages: ChatMessage[] }[] = [];
+  for (const message of messages) {
+    const key = new Date(message.at).toDateString();
+    if (days.at(-1)?.key === key) days.at(-1)!.messages.push(message);
+    else days.push({ key, messages: [message] });
+  }
+  return days;
+}
+
+/** A message's day and time in full, as its time shows when the pointer is on it: Tuesday, November 11, 2026, 11:05 PM. */
+function fullTime(at: number): string {
+  return new Date(at).toLocaleString(locale(), { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
 function dayOf(at: number): string {
   const day = new Date(at);
   const today = new Date();
@@ -490,7 +506,7 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
   const [reacting, setReacting] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   // On a phone: a message held, lifted over the dimmed page as it showed.
-  const [lifted, setLifted] = useState<{ message: ChatMessage; html: string; top: number } | null>(null);
+  const [lifted, setLifted] = useState<{ message: ChatMessage; html: string; top: number; image?: ChatFile } | null>(null);
   // Files dragged over the conversation go in the box to write in.
   const [dropping, setDropping] = useState(false);
   const addFiles = useRef<((files: File[]) => void) | null>(null);
@@ -559,7 +575,7 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
       const line = box.querySelector<HTMLElement>('.ch-new');
       // At the New line it is not at the end, before a scroll says so: the box's first resize would take it there.
       atEnd.current = !line;
-      if (line) box.scrollTop = Math.max(0, line.offsetTop - 80);
+      if (line) box.scrollTop = Math.max(0, box.scrollTop + line.getBoundingClientRect().top - box.getBoundingClientRect().top - 80);
       else box.scrollTop = box.scrollHeight;
       return;
     }
@@ -745,7 +761,26 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
     const back = `[${t('chat.fromLink', { where, name: nameOf(message.author), day: shortDay(message.at) })}](${chatLink(server.url, chat.id, message.id)})`;
     return { title: first.slice(0, 200), description: message.body.trim() ? `${message.body.trim()}\n\n${back}` : back, from: `${where} · ${nameOf(message.author)}` };
   };
-  const messageMenu = (event: MouseEvent, message: ChatMessage) => menu(event, actionsOf(message));
+  const messageMenu = (event: MouseEvent, message: ChatMessage) => {
+    const image = imageAt(message, event.target);
+    if (!image) return menu(event, actionsOf(message));
+    // On a photo, what is done with it first, as Slack's: Copy image, Download; then what is done with the message.
+    const [first, ...rest] = actionsOf(message);
+    menu(event, [...imageActions(image), { label: t('chat.download'), icon: 'download', run: () => void saveChatFile(server.url, image) }, { ...first!, apart: true }, ...rest]);
+  };
+  /** The photo of a message under the pointer or the finger, if one is. */
+  const imageAt = (message: ChatMessage, target: EventTarget | null) => {
+    const hash = target instanceof Element ? target.closest<HTMLElement>('[data-hash]')?.dataset.hash : undefined;
+    return message.files.find((file) => isImage(file) && file.hash === hash);
+  };
+  /** A message's one photo: held anywhere on it, a phone offers it too. */
+  const onlyImage = (message: ChatMessage) => {
+    const images = message.files.filter(isImage);
+    return images.length === 1 ? images[0] : undefined;
+  };
+  const imageActions = (image: ChatFile): MenuItem[] => [
+    { label: t('chat.copyImage'), icon: 'copy', run: () => void copyImage(server.url, image).catch(() => links.say(t('chat.imageNotCopied'))) },
+  ];
   /** What is done with a message: Edit for whoever wrote it, Copy text, To task and To card, Delete. */
   const actionsOf = (message: ChatMessage): MenuItem[] => {
     const items: MenuItem[] = [];
@@ -891,60 +926,67 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
             onAddPeople={() => (phone ? phone.onInfo() : setInfo('people'))}
           />
         ) : null}
-        {shown.map((message, i) => {
+        {daysOf(shown).map((group) => (
+          // A day's messages under its day, which stays over them as they are scrolled, as Slack's.
           // The first drawn has its day over it: the page that comes above it then does not move it.
-          const before = i > 0 ? shown[i - 1] : undefined;
-          const day = !before || new Date(before.at).toDateString() !== new Date(message.at).toDateString();
-          const isNew = newFrom !== null && message.seq === newFrom && tellsMe(message, server.me, chat);
-          return (
-            <div key={message.id} className="ch-item">
-              {day && <div className="ch-day">{dayOf(message.at)}</div>}
-              {isNew && (
-                <div className="ch-new">
-                  <span>{t('chat.new')}</span>
-                </div>
-              )}
-              <MessageRow
-                message={message}
-                cont={!day && !isNew && continues(before, message)}
-                quoted={message.replyTo ? messages.find((each) => each.id === message.replyTo!.id) : undefined}
-                nameOf={nameOf}
-                me={server.me}
-                editing={editing === message.id}
-                reacting={reacting === message.id}
-                flash={flash === message.id}
-                onEdit={async (body) => {
-                  setEditing(null);
-                  if (body.trim() && body !== message.body) await one?.edit(message.id, body).catch(() => undefined);
-                }}
-                onCancelEdit={() => setEditing(null)}
-                onReply={() => setReplyTo(message)}
-                onReact={(emoji) => {
-                  setReacting(null);
-                  react(message, emoji);
-                }}
-                onReacting={(on) => setReacting(on ? message.id : null)}
-                onForward={() => setForwarding(message)}
-                onMenu={(event) => acts.current.messageMenu(event, message)}
-                onJump={(id) => void jump(id)}
-                url={server.url}
-                chipState={links.stateOf}
-                onLink={(href) => acts.current.onLink(href)}
-                seen={!phone && message.id === seenAt}
-                {...(phone && {
-                  onHold: (row: HTMLElement) => !message.deleted && setLifted({ message, html: row.outerHTML, top: row.getBoundingClientRect().top }),
-                  onSwipe: () => !message.deleted && setReplyTo(message),
-                })}
-              />
-              {phone && message.id === seenAt && <div className="ch-seen">{t('chat.seen')}</div>}
-              {Object.entries(server.woken[message.id] ?? {}).map(([agent, woke]) => (
-                <div key={agent} className="ch-seen">
-                  {wokeLine(woke)}
-                </div>
-              ))}
+          <section key={group.key} className="ch-dayg">
+            <div className="ch-day">
+              <span>{dayOf(group.messages[0]!.at)}</span>
             </div>
-          );
-        })}
+            {group.messages.map((message, i) => {
+              const before = i > 0 ? group.messages[i - 1] : undefined;
+              const day = i === 0;
+              const isNew = newFrom !== null && message.seq === newFrom && tellsMe(message, server.me, chat);
+              return (
+                <div key={message.id} className="ch-item">
+                  {isNew && (
+                    <div className="ch-new">
+                      <span>{t('chat.new')}</span>
+                    </div>
+                  )}
+                  <MessageRow
+                    message={message}
+                    cont={!day && !isNew && continues(before, message)}
+                    quoted={message.replyTo ? messages.find((each) => each.id === message.replyTo!.id) : undefined}
+                    nameOf={nameOf}
+                    me={server.me}
+                    editing={editing === message.id}
+                    reacting={reacting === message.id}
+                    flash={flash === message.id}
+                    onEdit={async (body) => {
+                      setEditing(null);
+                      if (body.trim() && body !== message.body) await one?.edit(message.id, body).catch(() => undefined);
+                    }}
+                    onCancelEdit={() => setEditing(null)}
+                    onReply={() => setReplyTo(message)}
+                    onReact={(emoji) => {
+                      setReacting(null);
+                      react(message, emoji);
+                    }}
+                    onReacting={(on) => setReacting(on ? message.id : null)}
+                    onForward={() => setForwarding(message)}
+                    onMenu={(event) => acts.current.messageMenu(event, message)}
+                    onJump={(id) => void jump(id)}
+                    url={server.url}
+                    chipState={links.stateOf}
+                    onLink={(href) => acts.current.onLink(href)}
+                    seen={!phone && message.id === seenAt}
+                    {...(phone && {
+                      onHold: (row: HTMLElement, target: EventTarget | null) => !message.deleted && setLifted({ message, html: row.outerHTML, top: row.getBoundingClientRect().top, image: imageAt(message, target) ?? onlyImage(message) }),
+                      onSwipe: () => !message.deleted && setReplyTo(message),
+                    })}
+                  />
+                  {phone && message.id === seenAt && <div className="ch-seen">{t('chat.seen')}</div>}
+                  {Object.entries(server.woken[message.id] ?? {}).map(([agent, woke]) => (
+                    <div key={agent} className="ch-seen">
+                      {wokeLine(woke)}
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </section>
+        ))}
         {end === messages.length && pending.map((each) => (
           <PendingRow key={each.id} url={server.url} pending={each} me={server.me} nameOf={nameOf} after={messages.at(-1)} replied={each.replyTo ? messages.find((message) => message.id === each.replyTo) : undefined} phone={!!phone} />
         ))}
@@ -992,6 +1034,7 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
           actions={[
             { label: t('chat.reply'), icon: 'reply', run: () => setReplyTo(lifted.message) },
             { label: t('chat.forward'), icon: 'forward', run: () => setForwarding(lifted.message) },
+            ...(lifted.image ? imageActions(lifted.image) : []),
             ...actionsOf(lifted.message),
           ]}
           onReact={(emoji) => {
@@ -1083,7 +1126,7 @@ const MessageRow = memo(function MessageRow(props: {
   /** On a computer, read by the other of a direct message: an eye before its text, which takes no line of its own. */
   seen?: boolean;
   /** On a phone: a finger resting on it lifts it; drawn to the right, it is answered. */
-  onHold?: (row: HTMLElement) => void;
+  onHold?: (row: HTMLElement, target: EventTarget | null) => void;
   onSwipe?: () => void;
 }) {
   const { message, cont, nameOf, me } = props;  const press = usePress(props.onHold, props.onSwipe);
@@ -1119,7 +1162,7 @@ const MessageRow = memo(function MessageRow(props: {
           <Icon name="reply" />
         </span>
       )}
-      {cont ? <span className="tm">{timeOf(message.at)}</span> : <Face id={message.agent ?? message.author} name={agent ?? name} agent={!!agent} />}
+      {cont ? <span className="tm" title={fullTime(message.at)}>{timeOf(message.at)}</span> : <Face id={message.agent ?? message.author} name={agent ?? name} agent={!!agent} />}
       <div className="bx">
         {!cont && (
           <div className="hd">
@@ -1127,7 +1170,7 @@ const MessageRow = memo(function MessageRow(props: {
               {agent ?? name}
               {agent && <span className="of"> · {name}</span>}
             </b>
-            <span className="t">{timeOf(message.at)}</span>
+            <span className="t" title={fullTime(message.at)}>{timeOf(message.at)}</span>
           </div>
         )}
         {forwarded && (
@@ -1217,9 +1260,9 @@ const SWIPE = 56;
  * right pulls it along, and past a little answers it (`onSwipe`). A finger moving up or down is
  * scrolling. Without `onHold`, nothing.
  */
-function usePress(onHold?: (row: HTMLElement) => void, onSwipe?: () => void) {
+function usePress(onHold?: (row: HTMLElement, target: EventTarget | null) => void, onSwipe?: () => void) {
   const [pulled, setPulled] = useState(0);
-  const at = useRef<{ x: number; y: number; timer: number; fired: boolean; swiping: boolean; row: HTMLElement } | null>(null);
+  const at = useRef<{ x: number; y: number; timer: number; fired: boolean; swiping: boolean; row: HTMLElement; target: EventTarget | null } | null>(null);
   const end = () => {
     if (at.current) window.clearTimeout(at.current.timer);
     at.current = null;
@@ -1239,11 +1282,12 @@ function usePress(onHold?: (row: HTMLElement) => void, onSwipe?: () => void) {
           fired: false,
           swiping: false,
           row,
+          target: event.target,
           timer: window.setTimeout(() => {
             if (!at.current) return;
             at.current.fired = true;
             navigator.vibrate?.(8);
-            onHold(row);
+            onHold(row, event.target);
           }, HOLD_MS),
         };
       },
@@ -1275,7 +1319,7 @@ function usePress(onHold?: (row: HTMLElement) => void, onSwipe?: () => void) {
       onPointerCancel: end,
       onContextMenu: (event: MouseEvent<HTMLDivElement>) => {
         event.preventDefault();
-        if (!at.current?.fired) onHold(event.currentTarget);
+        if (!at.current?.fired) onHold(event.currentTarget, event.target);
         end();
       },
     },

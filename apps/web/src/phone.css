@@ -9385,6 +9385,16 @@ body > .mb-lifted {
   font-size: 13px;
 }
 
+.chat-conv.phone .ch-day > span {
+  font-size: 13px;
+}
+
+.chat-conv.phone .ch-dayg::before {
+  top: 24px;
+  right: 14px;
+  left: 14px;
+}
+
 .chat-conv.phone .ch-q {
   font-size: 14px;
 }

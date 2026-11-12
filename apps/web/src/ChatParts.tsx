@@ -73,7 +73,7 @@ function ImageThumb({ url, file, one, more, onOpen }: { url: string; file: ChatF
   const ratio = file.width && file.height ? file.width / file.height : 4 / 3;
   const style = one ? ({ '--r': ratio, aspectRatio: String(ratio) } as CSSProperties) : undefined;
   return (
-    <button type="button" className="ch-img" style={style} title={file.name} aria-label={file.name || t('chat.photo')} onClick={onOpen}>
+    <button type="button" className="ch-img" data-hash={file.hash} style={style} title={file.name} aria-label={file.name || t('chat.photo')} onClick={onOpen}>
       {shown ? <img src={shown} alt="" draggable={false} /> : <span className="ch-wait" />}
       {more > 0 && <span className="more">+{more}</span>}
     </button>
@@ -200,7 +200,7 @@ export function Lightbox({ url, images, at, onClose, onShow }: { url: string; im
             {t('chat.showInChat')}
           </button>
         )}
-        <button type="button" onClick={() => void save(url, file)}>
+        <button type="button" onClick={() => void saveChatFile(url, file)}>
           <Icon name="download" />
           {t('chat.download')}
         </button>
@@ -287,7 +287,7 @@ function VideoBox({ url, file }: { url: string; file: ChatFile }) {
         {dim}
         <span className="why">
           {file.codec && file.codec !== 'h264' ? t('chat.cantPlayCodec', { codec: CODECS[file.codec] ?? file.codec.toUpperCase() }) : t('chat.cantPlay')}
-          <button type="button" onClick={() => void save(url, file)}>
+          <button type="button" onClick={() => void saveChatFile(url, file)}>
             <Icon name="download" />
             {t('chat.download')}
           </button>
@@ -424,7 +424,7 @@ export function AudioPlayer({ url, file }: { url: string; file: ChatFile }) {
 }
 
 /** Saves a file of a message where the person says. */
-async function save(url: string, file: ChatFile) {
+export async function saveChatFile(url: string, file: ChatFile) {
   const blob = await store
     .server(url)
     ?.fileBlob(file.hash, file.type)
@@ -434,11 +434,31 @@ async function save(url: string, file: ChatFile) {
   await saveFile(file.name || `file.${extension}`, blob, extension);
 }
 
+/**
+ * A photo onto the clipboard, to paste anywhere. As PNG: a browser puts no other picture there. The
+ * picture is given as it comes, so the click that asked for it still counts as the person's.
+ */
+export async function copyImage(url: string, file: ChatFile) {
+  const png = (async () => {
+    const blob = await store.server(url)?.fileBlob(file.hash, file.type);
+    if (!blob) throw new Error('no file');
+    if (blob.type === 'image/png') return blob;
+    const picture = await createImageBitmap(blob);
+    const canvas = document.createElement('canvas');
+    canvas.width = picture.width;
+    canvas.height = picture.height;
+    canvas.getContext('2d')!.drawImage(picture, 0, 0);
+    picture.close();
+    return new Promise<Blob>((done, fail) => canvas.toBlob((made) => (made ? done(made) : fail(new Error('no png'))), 'image/png'));
+  })();
+  await navigator.clipboard.write([new ClipboardItem({ 'image/png': png })]);
+}
+
 /** Any other file: its name, size and kind. Open shows it where the browser shows it, else saves it. */
 export function FileRow({ url, file }: { url: string; file: ChatFile }) {
   const viewable = !isDesktop && (file.type === 'application/pdf' || file.type.startsWith('text/'));
   const open = async () => {
-    if (!viewable) return void save(url, file);
+    if (!viewable) return void saveChatFile(url, file);
     const address = await store
       .server(url)
       ?.fileUrl(file.hash, file.type)
@@ -456,7 +476,7 @@ export function FileRow({ url, file }: { url: string; file: ChatFile }) {
           <small>{[sizeText(file.size), kindText(file.name, file.type)].filter(Boolean).join(' · ')}</small>
         </span>
       </button>
-      <button type="button" className="dl" title={t('chat.download')} aria-label={t('chat.download')} onClick={() => void save(url, file)}>
+      <button type="button" className="dl" title={t('chat.download')} aria-label={t('chat.download')} onClick={() => void saveChatFile(url, file)}>
         <Icon name="download" />
       </button>
     </div>
