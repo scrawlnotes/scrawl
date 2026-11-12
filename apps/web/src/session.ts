@@ -1872,8 +1872,17 @@ export class Session {
     this.timer = window.setTimeout(this.flush, SAVE_DELAY_MS);
   }
 
-  /** Writes every unsaved note to the vault; keys files waiting to be written are queued too. */
-  flush = async () => {
+  /** The save running now, or the last one: saves go one at a time. */
+  private saving: Promise<void> = Promise.resolve();
+
+  /**
+   * Writes every unsaved note to the vault; keys files waiting to be written are queued too. One
+   * save at a time: one that started while another was writing took that write for another
+   * program's, and put the note's own earlier text beside it as a conflict copy.
+   */
+  flush = (): Promise<void> => (this.saving = this.saving.then(this.save, this.save));
+
+  private save = async () => {
     this.flushKeys();
     window.clearTimeout(this.timer);
     const writes = [...this.pending];
