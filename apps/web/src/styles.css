@@ -20311,7 +20311,8 @@ button.ch-person {
   font: 600 14px/1.45 var(--sl-font-ui);
 }
 
-.qn-ctitle:has(+ .qn-cbody[hidden]) {
+/* A class, not :has(+ …): a :has over the next sibling made every element put in anywhere restyle the page, 30 ms with a long chat. */
+.qn-ctitle.alone {
   margin-bottom: 0;
 }
 

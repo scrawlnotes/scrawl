@@ -604,6 +604,9 @@ export function App() {
   const [viewStatus, setViewStatus] = useState<string[] | null>(null);
   // Messaging on the servers signed in to that have it (design/chat.md): Chat shows when one does.
   const chat = useChat();
+  // Read by Chat's links as they are used: the links do not change, nor every message drawn again, as a chat updates.
+  const chatNow = useRef(chat);
+  chatNow.current = chat;
   useEffect(() => {
     chatStore.start();
     startNotifications();
@@ -1867,7 +1870,7 @@ export function App() {
     const item = parseItemLink(href);
     if (!item) return 'gone';
     // A space of a server one is in has its rooms in Chat, though it is not on this device.
-    if (!spaces.some((each) => each.id === item.space)) return chat.servers.some((server) => server.chats.some((each) => each.space === item.space)) ? 'notHere' : 'noAccess';
+    if (!spaces.some((each) => each.id === item.space)) return chatNow.current.servers.some((server) => server.chats.some((each) => each.space === item.space)) ? 'notHere' : 'noAccess';
     const path = inSpace(item.space, item.path);
     const holding = <T,>(all: Record<string, T>, has: (value: T) => boolean) =>
       all[path] !== undefined && has(all[path]) ? path : Object.keys(all).find((each) => spaceOf(each) === item.space && has(all[each]!));
@@ -1924,12 +1927,14 @@ export function App() {
   useEffect(() => {
     if (taskSheet) tellOpened(taskSheet.list, taskSheet.id);
   }, [taskSheet?.list, taskSheet?.id]);
+  // The spaces with rooms in Chat: a chip's state changes with them, not with every message.
+  const chatSpaces = [...new Set(chat.servers.flatMap((server) => server.chats.map((each) => each.space)))].sort().join(' ');
   const chatLinks = useMemo<ChatLinks>(
     () => ({
       open: (href) => {
         const target = chipTarget(href);
         if (typeof target === 'function') return target();
-        const space = chat.servers.flatMap((server) => server.chats).find((each) => each.space === parseItemLink(href)?.space)?.spaceName ?? '';
+        const space = chatNow.current.servers.flatMap((server) => server.chats).find((each) => each.space === parseItemLink(href)?.space)?.spaceName ?? '';
         setShown({ text: target === 'notHere' ? t('chat.notHereText', { space }) : target === 'noAccess' ? t('chat.noAccessText') : t('chat.goneText') });
       },
       stateOf: (href) => {
@@ -1945,7 +1950,7 @@ export function App() {
       invite: (space) => setDialog({ kind: 'settings', section: 'spaces', ...(space && spaces.some((each) => each.id === space) && { space }) }),
       agents: () => setDialog({ kind: 'settings', section: 'agents' }),
     }),
-    [spaces, titles, tasks, boards, collections, phone, chat.servers],
+    [spaces, titles, tasks, boards, collections, phone, chatSpaces],
   );
   /** What the search offers to pick from for a chip: what is in the spaces of the conversation's server. */
   const pickThings = useMemo(() => {

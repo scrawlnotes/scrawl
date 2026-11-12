@@ -247,7 +247,7 @@ function QuickCard({ path, text, spans, pinned, away, dragging, draggable, place
       onDragEnd={onDragEnd}
     >
       {title && (
-        <b className="qn-ctitle">
+        <b className={body === '' ? 'qn-ctitle alone' : 'qn-ctitle'}>
           <Marked text={title} spans={spans.title} />
         </b>
       )}
