@@ -497,23 +497,34 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
   const atEnd = useRef(true);
   const placed = useRef(false);
   const lastSeq = messages.at(-1)?.seq ?? 0;
-  // Only the end is drawn: the last page, or from a little before the New line. Scrolled up, a page more of what
-  // is kept here; then of the server's. A device keeps 500 a conversation, and all drawn at once stutter on a phone.
-  const [fromSeq, setFromSeq] = useState<number | null>(null);
-  const fromNow = useRef(fromSeq);
-  fromNow.current = fromSeq;
+  // Only a part is drawn, three pages at most (a device keeps 500 a conversation, and all drawn stutter on a
+  // phone): from `from` to `to`, its end while `to` is null. Opened, the last page, or a page from a little before
+  // the New line; scrolled, a page more that way, and past three the farthest page is let go.
+  const [win, setWin] = useState<{ from: number; to: number | null } | null>(null);
+  const winNow = useRef(win);
+  winNow.current = win;
   let start = Math.max(0, messages.length - PAGE);
-  if (fromSeq !== null) start = Math.max(0, messages.findIndex((message) => message.seq >= fromSeq));
-  else if (newFrom !== null) {
+  let end = messages.length;
+  if (win) {
+    start = Math.max(0, messages.findIndex((message) => message.seq >= win.from));
+    const after = win.to === null ? -1 : messages.findIndex((message) => message.seq > win.to!);
+    if (after >= 0) end = after;
+  } else if (newFrom !== null) {
     const at = messages.findIndex((message) => message.seq >= newFrom);
-    if (at >= 0) start = Math.min(start, Math.max(0, at - 5));
+    if (at >= 0 && at - 5 < start) {
+      start = Math.max(0, at - 5);
+      end = Math.min(messages.length, start + PAGE);
+    }
   }
-  // Kept from the first messages here: what comes after is drawn under it, what is drawn stays.
-  const firstShown = messages[start];
-  if (fromSeq === null && firstShown) setFromSeq(firstShown.seq);
-  const shown = messages.slice(start);
-  // The height before more was put above, to keep what is read where it was.
-  const grown = useRef<number | null>(null);
+  // At the end, what comes is drawn under it and the top is let go: many come at once after a time away.
+  if (end === messages.length && atEnd.current && end - start > CAP) start = end - CAP;
+  if (messages.length) {
+    const want = { from: messages[start]!.seq, to: end === messages.length ? null : messages[end - 1]!.seq };
+    if (!win || win.from !== want.from || win.to !== want.to) setWin(want);
+  }
+  const shown = messages.slice(start, end);
+  // The message read at the top of the conversation as the part drawn changes, and where it was: it stays there.
+  const anchor = useRef<{ id: string; top: number } | null>(null);
   const loading = useRef(false);
 
   useEffect(() => {
@@ -537,11 +548,17 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
     const box = scroller.current;
     const sent = pending.length > sentCount.current;
     sentCount.current = pending.length;
-    if (sent) atEnd.current = true;
+    if (sent) {
+      atEnd.current = true;
+      // Written away from the end, the conversation goes back to it, as the message shows there.
+      if (winNow.current && winNow.current.to !== null) live();
+    }
     if (!box || !messages.length || aiming.current) return;
     if (!placed.current) {
       placed.current = true;
       const line = box.querySelector<HTMLElement>('.ch-new');
+      // At the New line it is not at the end, before a scroll says so: the box's first resize would take it there.
+      atEnd.current = !line;
       if (line) box.scrollTop = Math.max(0, line.offsetTop - 80);
       else box.scrollTop = box.scrollHeight;
       return;
@@ -550,7 +567,7 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
     // Any message changed, not only one more: a reaction or an edit on the last makes it longer. The
     // New line too: put in on coming back, over what came meanwhile, it pushed the last message under the box.
     // And the line under one's message of the agent it woke (design/agent-wake.md 13), else it shows under the box.
-  }, [messages, pending.length, lastSeq, newFrom, server.woken]);
+  }, [messages, pending.length, lastSeq, newFrom, server.woken, win]);
 
   // Made smaller (a phone's keyboard, the box written in growing) or longer (a picture come in): still at the end if it was,
   // else what was right over the box to write in stays there, as a keyboard coming up pushes the conversation up.
@@ -580,7 +597,8 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
   const readNow = () => {
     const box = scroller.current;
     if (!box || !lastSeq || !chat.joined || document.visibilityState !== 'visible' || !document.hasFocus()) return;
-    if (box.scrollHeight - box.scrollTop - box.clientHeight < 40) one?.read(chat.id, lastSeq);
+    // The foot of what is drawn is the conversation's end only when the end is drawn.
+    if (winNow.current?.to === null && box.scrollHeight - box.scrollTop - box.clientHeight < 40) one?.read(chat.id, lastSeq);
   };
   useEffect(() => {
     readNow();
@@ -596,40 +614,70 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
     const box = scroller.current;
     if (!box) return;
     // A scroll that comes while it is being made smaller is not the reader's: the resize above keeps it.
-    if (box.clientHeight === height.current) atEnd.current = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+    const foot = box.scrollHeight - box.scrollTop - box.clientHeight;
+    if (box.clientHeight === height.current) atEnd.current = winNow.current?.to === null && foot < 40;
     readNow();
-    if (box.scrollTop < box.clientHeight) more();
+    if (box.scrollTop < box.clientHeight) page(-1);
+    else if (foot < box.clientHeight) page(1);
   };
-  /** A page more above what is drawn: of what is here, else asked of the server once, then drawn. */
-  const more = () => {
+  /** Draws what comes from `from` to `to` of the list as it now is, the message read staying where it is. */
+  const draw = (list: ChatMessage[], from: number, to: number) => {
+    const box = scroller.current!;
+    const top = box.getBoundingClientRect().top;
+    const row = [...box.querySelectorAll<HTMLElement>('.ch-m')].find((each) => each.getBoundingClientRect().bottom > top);
+    if (row?.dataset.id) anchor.current = { id: row.dataset.id, top: row.getBoundingClientRect().top - top };
+    const next = { from: list[from]!.seq, to: to >= list.length ? null : list[to - 1]!.seq };
+    winNow.current = next;
+    setWin(next);
+  };
+  /**
+   * A page more up (-1) or down (1) of what is here, the farthest let go past three; up past what is here, the
+   * server's page before it, asked once at a time and drawn as it comes.
+   */
+  const page = (way: -1 | 1) => {
     const box = scroller.current;
+    const now = winNow.current;
     // As the store has it now: called again as the server's page comes, before it is drawn.
     const list = one?.state.messages[chat.id] ?? messages;
-    if (!box || grown.current !== null || loading.current || !list.length) return;
-    const first = list.findIndex((message) => message.seq >= (fromNow.current ?? 0));
-    if (first > 0) {
-      grown.current = box.scrollHeight;
-      fromNow.current = list[Math.max(0, first - PAGE)]!.seq;
-      setFromSeq(fromNow.current);
-    } else if (one && one.state.older[chat.id] !== false && list[0]!.seq > 1) {
-      loading.current = true;
-      void one
-        .older(chat.id)
-        .then(
-          () => {
-            loading.current = false;
-            more();
-          },
-          () => (loading.current = false),
-        );
+    if (!box || !now || anchor.current || loading.current || jumping.current || !list.length) return;
+    const from = list.findIndex((message) => message.seq >= now.from);
+    const after = now.to === null ? -1 : list.findIndex((message) => message.seq > now.to!);
+    const to = after < 0 ? list.length : after;
+    if (from < 0) return;
+    if (way > 0) {
+      if (to === list.length) return;
+      const until = Math.min(list.length, to + PAGE);
+      return draw(list, Math.max(from, until - CAP), until);
     }
+    if (from > 0) {
+      const since = Math.max(0, from - PAGE);
+      return draw(list, since, Math.min(to, since + CAP));
+    }
+    if (!one || one.state.older[chat.id] === false || list[0]!.seq <= 1) return;
+    loading.current = true;
+    void one.older(chat.id).then(
+      () => {
+        loading.current = false;
+        page(-1);
+      },
+      () => (loading.current = false),
+    );
   };
-  // The page put above goes over what is read now, which stays where it was.
+  /** The end drawn, as a message of one's own is written. */
+  const live = () => {
+    const list = one?.state.messages[chat.id] ?? messages;
+    if (!list.length) return;
+    const next = { from: list[Math.max(0, list.length - PAGE)]!.seq, to: null };
+    winNow.current = next;
+    setWin(next);
+  };
   useLayoutEffect(() => {
     const box = scroller.current;
-    if (box && grown.current !== null) box.scrollTop += box.scrollHeight - grown.current;
-    grown.current = null;
-  }, [fromSeq]);
+    const was = anchor.current;
+    anchor.current = null;
+    const row = was && box?.querySelector<HTMLElement>(`[data-id="${CSS.escape(was.id)}"]`);
+    if (box && was && row) box.scrollTop += row.getBoundingClientRect().top - box.getBoundingClientRect().top - was.top;
+  }, [win]);
 
   /**
    * Brings a quoted message into sight and marks it a moment; one not here yet is asked for with
@@ -637,6 +685,16 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
    * coming in from the side then, and a smooth scroll in it does not move.
    */
   const jump = async (id: string, smooth = true) => {
+    jumping.current = true;
+    try {
+      await aim(id, smooth);
+    } finally {
+      // The scroll it makes is not the reader's: it puts no page more on either side.
+      requestAnimationFrame(() => requestAnimationFrame(() => (jumping.current = false)));
+    }
+  };
+  const jumping = useRef(false);
+  const aim = async (id: string, smooth: boolean) => {
     let row = scroller.current?.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`);
     if (!row && one) {
       let seq = one.state.messages[chat.id]?.find((message) => message.id === id)?.seq;
@@ -649,12 +707,17 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
           return;
         }
       }
-      // Drawn from a little before it on: what is between comes too, as scrolling up to it would bring it. Drawn
-      // first, its sight would be near the top, where more is put above it while it is scrolled to.
+      // Drawn around it, from a little before: drawn first, it would be near the top, where more is put while it is scrolled to.
       const list = one.state.messages[chat.id] ?? [];
       const at = list.findIndex((message) => message.id === id);
-      const from = at >= 0 ? list[Math.max(0, at - 20)]!.seq : seq;
-      if (from !== undefined && from < (fromNow.current ?? Infinity)) setFromSeq((fromNow.current = from));
+      if (seq !== undefined && at >= 0) {
+        const since = Math.max(0, at - 20);
+        const next = { from: list[since]!.seq, to: since + CAP >= list.length ? null : list[since + CAP - 1]!.seq };
+        winNow.current = next;
+        setWin(next);
+        // What is drawn is another part: a smooth scroll would only pass over what is not there.
+        smooth = false;
+      }
       // Drawn in a frame or a few, as many messages come with it.
       for (let frame = 0; !row && frame < 10; frame++) {
         await new Promise((resolve) => requestAnimationFrame(resolve));
@@ -667,7 +730,7 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
     const rowAt = row.getBoundingClientRect();
     const top = box.scrollTop + rowAt.top - box.getBoundingClientRect().top - (box.clientHeight - rowAt.height) / 2;
     // Away from the end, new messages do not take the reader there; a message at the end, as a notification's, leaves it there.
-    atEnd.current = box.scrollHeight - top - box.clientHeight < 40;
+    atEnd.current = winNow.current?.to === null && box.scrollHeight - top - box.clientHeight < 40;
     box.scrollTo({ top, behavior: smooth ? 'smooth' : 'auto' });
     setFlash(id);
     window.setTimeout(() => setFlash(null), 1600);
@@ -829,7 +892,8 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
           />
         ) : null}
         {shown.map((message, i) => {
-          const before = messages[start + i - 1];
+          // The first drawn has its day over it: the page that comes above it then does not move it.
+          const before = i > 0 ? shown[i - 1] : undefined;
           const day = !before || new Date(before.at).toDateString() !== new Date(message.at).toDateString();
           const isNew = newFrom !== null && message.seq === newFrom && tellsMe(message, server.me, chat);
           return (
@@ -881,7 +945,7 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
             </div>
           );
         })}
-        {pending.map((each) => (
+        {end === messages.length && pending.map((each) => (
           <PendingRow key={each.id} url={server.url} pending={each} me={server.me} nameOf={nameOf} after={messages.at(-1)} replied={each.replyTo ? messages.find((message) => message.id === each.replyTo) : undefined} phone={!!phone} />
         ))}
       </div>
@@ -1141,6 +1205,8 @@ function sameRow(was: Record<string, unknown>, now: Record<string, unknown>): bo
 
 /** How many messages are drawn at first, and added at a time as the conversation is scrolled up. */
 const PAGE = 60;
+/** How many are drawn at most: past it, what is farthest from what is read is let go. */
+const CAP = 3 * PAGE;
 
 /** How long a finger rests on a message before it lifts, and how far it is drawn to answer it. */
 const HOLD_MS = 450;
