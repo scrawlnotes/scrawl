@@ -2,6 +2,17 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.32
+
+Chat that scrolls smoothly, and a message's day in sight.
+
+- A long conversation scrolls smoothly: only part of it is drawn, and more comes as you scroll, from where you are.
+- A day's name stays at the top as you scroll its messages. With the pointer on a message's time, you see its day and time in full.
+- A photo right-clicked has Copy image and Download.
+- Seen's eye is before your message's text, in the same place on every message.
+- A note with no name is named by its first sentence, not its whole first line.
+- A note you type no longer gets conflict copies of its own earlier text.
+
 ## 0.1.31
 
 Your agent's own direct message.

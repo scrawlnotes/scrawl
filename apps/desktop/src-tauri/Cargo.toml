@@ -1,6 +1,6 @@
 [package]
 name = "scrawl"
-version = "0.1.31"
+version = "0.1.32"
 description = "Scrawl desktop app"
 license = "MIT"
 edition = "2021"
