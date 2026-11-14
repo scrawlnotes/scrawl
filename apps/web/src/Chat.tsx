@@ -1155,7 +1155,8 @@ const MessageRow = memo(function MessageRow(props: {
       className={`ch-m${cont ? ' cont' : ''}${props.reacting ? ' hold' : ''}${props.flash ? ' flash' : ''}`}
       data-id={message.id}
       style={press.style}
-      {...(props.onHold ? press.handlers : { onContextMenu: message.deleted ? undefined : (event: MouseEvent) => (event.preventDefault(), props.onMenu(event)) })}
+      // While edited, a held finger moves the caret and selects, as in any text box.
+      {...(props.editing ? {} : props.onHold ? press.handlers : { onContextMenu: message.deleted ? undefined : (event: MouseEvent) => (event.preventDefault(), props.onMenu(event)) })}
     >
       {press.pulled > 0 && (
         <span className="chp-swipe" style={{ opacity: Math.min(1, press.pulled / SWIPE) }}>
