@@ -246,12 +246,19 @@ describe('in Chat', () => {
     const asked = await s.say(s.owner, s.general, `${personLink('Claude', agent)} look`);
     await s.settle();
     expect(s.server.wakes.awaited()).toBe(true);
+    s.clock.at += 42_000;
     s.server.wakes.busy(agent);
     s.server.wakes.busy(agent);
     s.server.chats.send({ id: KAAN, email: 'kaan@example.com', name: 'Kaan Arslan', role: 'owner' }, s.general, { id: 'm-claude-0001', body: 'Found it.', replyTo: asked.id }, agent);
     await s.settle();
     expect(s.lines(asked.id)).toEqual(['sending', 'sent', 'working', 'answered']);
     expect(s.server.wakes.awaited()).toBe(false);
+    // In the log, where the time went: the send, the agent starting, its answer.
+    expect(logged).toEqual([
+      'Wake sent: Claude of Kaan Arslan, hook, try 1, answered 202 in 0 ms',
+      'Agent started: Claude of Kaan Arslan, 42 s after it was reached',
+      'Agent answered: Claude of Kaan Arslan, 42 s after it was reached',
+    ]);
   });
 
   it('says when Claude has not answered for ten minutes, that it works again when it calls a tool, and forgets the message after an hour', async () => {

@@ -328,6 +328,16 @@ export class Wakes {
     }
   }
 
+  /** An agent as the log names it: "ChatGPT of Eren". */
+  private whoOf(who: Woken): string {
+    return `${who.name} of ${this.accountName(who.owner)}`;
+  }
+
+  /** How long since a moment, as the log says it: "42 s". */
+  private after(since: number): string {
+    return `${Math.round((this.now() - since) / 1000)} s`;
+  }
+
   private identityName(agent: string): string {
     return (this.db.prepare('SELECT name FROM agent_identities WHERE id = ?').get(agent) as { name: string } | undefined)?.name ?? 'An agent';
   }
@@ -427,6 +437,8 @@ export class Wakes {
     for (const wait of this.waitsOf(agent)) {
       wait.last = this.now();
       if (!wait.working) {
+        // In the log, how long the agent took to start: the wait before it is the agent's side.
+        console.log(`Agent started: ${this.whoOf(wait.who)}, ${this.after(wait.since)} after it was reached`);
         wait.working = true;
         wait.late = false;
         this.told(wait.who, wait.origin, 'working');
@@ -444,6 +456,7 @@ export class Wakes {
   private answered(agent: string, chat: string) {
     for (const wait of this.waitsOf(agent)) {
       if (wait.origin.chat !== chat) continue;
+      console.log(`Agent answered: ${this.whoOf(wait.who)}, ${this.after(wait.since)} after it was reached`);
       this.told(wait.who, wait.origin, 'answered');
       this.drop(wait);
     }
@@ -550,8 +563,10 @@ export class Wakes {
     }
     let reason: string;
     let again: number | null = null;
+    const started = this.now();
     try {
       const answer = await this.send(url, headers, body);
+      console.log(`Wake sent: ${this.whoOf(who)}, ${route.kind}, try ${tries + 1}, answered ${answer.status} in ${this.now() - started} ms`);
       if (answer.status >= 200 && answer.status < 300) return this.reached(who, origin);
       if (route.kind === 'watch' && answer.status === 410) {
         // The subscriber ended it on its side.
@@ -565,6 +580,7 @@ export class Wakes {
       }
     } catch (error) {
       const why = error instanceof FetchFailed ? error.why : 'unreachable';
+      console.warn(`Wake not sent: ${this.whoOf(who)}, ${route.kind}, try ${tries + 1}, ${why} after ${this.now() - started} ms`);
       // Not answered in time, it may have started the work: a Claude task does not see a second one is the same, and would do it twice.
       reason = why === 'timeout' ? `${who.name} didn’t answer in 10 seconds.` : `${who.name} couldn’t be reached.`;
       if (why === 'unreachable') again = this.againIn(tries, null);
