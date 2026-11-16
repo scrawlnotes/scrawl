@@ -558,6 +558,16 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
     });
   }, [target?.at]);
 
+  // Opened at the New line, it is kept there as the box takes its size (an app still laying itself out), until
+  // the reader scrolls: kept by its foot, what came under the line stayed under the box. Where it is from the box's top.
+  const atLine = useRef<number | null>(null);
+  const toLine = (box: HTMLElement, line: HTMLElement) => {
+    box.scrollTop = Math.max(0, box.scrollTop + line.getBoundingClientRect().top - box.getBoundingClientRect().top - 80);
+    atLine.current = line.getBoundingClientRect().top - box.getBoundingClientRect().top;
+    // What is new all in sight: the end, and what comes next is shown too.
+    atEnd.current = winNow.current?.to === null && box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+  };
+
   // On opening: at the line before what is new, else at the end. After that, at the end while it was there, and after a message of one's own.
   const sentCount = useRef(pending.length);
   useLayoutEffect(() => {
@@ -566,6 +576,7 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
     sentCount.current = pending.length;
     if (sent) {
       atEnd.current = true;
+      atLine.current = null;
       // Written away from the end, the conversation goes back to it, as the message shows there.
       if (winNow.current && winNow.current.to !== null) live();
     }
@@ -573,17 +584,19 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
     if (!placed.current) {
       placed.current = true;
       const line = box.querySelector<HTMLElement>('.ch-new');
-      // At the New line it is not at the end, before a scroll says so: the box's first resize would take it there.
-      atEnd.current = !line;
-      if (line) box.scrollTop = Math.max(0, box.scrollTop + line.getBoundingClientRect().top - box.getBoundingClientRect().top - 80);
-      else box.scrollTop = box.scrollHeight;
+      if (line) toLine(box, line);
+      else {
+        atEnd.current = true;
+        box.scrollTop = box.scrollHeight;
+      }
       return;
     }
     if (atEnd.current) box.scrollTop = box.scrollHeight;
     // Any message changed, not only one more: a reaction or an edit on the last makes it longer. The
     // New line too: put in on coming back, over what came meanwhile, it pushed the last message under the box.
-    // And the line under one's message of the agent it woke (design/agent-wake.md 13), else it shows under the box.
-  }, [messages, pending.length, lastSeq, newFrom, server.woken, win]);
+    // And the line under one's message of the agent it woke (design/agent-wake.md 13), and Seen under one's
+    // last on a phone, else they show under the box.
+  }, [messages, pending.length, lastSeq, newFrom, server.woken, win, chat.reads]);
 
   // Made smaller (a phone's keyboard, the box written in growing) or longer (a picture come in): still at the end if it was,
   // else what was right over the box to write in stays there, as a keyboard coming up pushes the conversation up.
@@ -595,7 +608,15 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
       const was = height.current;
       height.current = box.clientHeight;
       if (!placed.current || aiming.current) return;
-      if (atEnd.current) box.scrollTop = box.scrollHeight;
+      // At the end before the change, by where it was, not only by the last scroll: an iPhone's keyboard coming
+      // up could leave that saying otherwise, and the end went under it. Made taller, the browser has pulled it up already.
+      const wasEnd = was > 0 && winNow.current?.to === null && box.scrollHeight - box.scrollTop - Math.max(was, box.clientHeight) < 40;
+      const line = atLine.current !== null && box.querySelector<HTMLElement>('.ch-new');
+      if (atEnd.current || wasEnd) {
+        atEnd.current = true;
+        box.scrollTop = box.scrollHeight;
+        // Kept at the New line only as the box grows: a keyboard coming up keeps what is over the box to write in.
+      } else if (line && box.clientHeight >= was) toLine(box, line);
       else if (was) box.scrollTop += was - box.clientHeight;
     };
     const watch = new ResizeObserver(keep);
@@ -631,7 +652,12 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
     if (!box) return;
     // A scroll that comes while it is being made smaller is not the reader's: the resize above keeps it.
     const foot = box.scrollHeight - box.scrollTop - box.clientHeight;
-    if (box.clientHeight === height.current) atEnd.current = winNow.current?.to === null && foot < 40;
+    if (box.clientHeight === height.current) {
+      atEnd.current = winNow.current?.to === null && foot < 40;
+      // Scrolled by the reader: the New line moved. A page drawn above keeps it where it is.
+      const line = atLine.current !== null && box.querySelector<HTMLElement>('.ch-new');
+      if (!line || Math.abs(line.getBoundingClientRect().top - box.getBoundingClientRect().top - atLine.current!) > 1) atLine.current = null;
+    }
     readNow();
     if (box.scrollTop < box.clientHeight) page(-1);
     else if (foot < box.clientHeight) page(1);
@@ -747,6 +773,7 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
     const top = box.scrollTop + rowAt.top - box.getBoundingClientRect().top - (box.clientHeight - rowAt.height) / 2;
     // Away from the end, new messages do not take the reader there; a message at the end, as a notification's, leaves it there.
     atEnd.current = winNow.current?.to === null && box.scrollHeight - top - box.clientHeight < 40;
+    atLine.current = null;
     box.scrollTo({ top, behavior: smooth ? 'smooth' : 'auto' });
     setFlash(id);
     window.setTimeout(() => setFlash(null), 1600);
