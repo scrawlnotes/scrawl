@@ -109,11 +109,13 @@ export class GoogleReader {
         singleEvents: 'true',
         orderBy: 'startTime',
         maxResults: '2500',
-        fields: 'items(id,status,summary,htmlLink,start,end,attendees(self,responseStatus)),nextPageToken',
+        fields: 'items(id,status,summary,htmlLink,start,end,attendees(self,responseStatus),extendedProperties/private/scrawl),nextPageToken',
         ...(page ? { pageToken: page } : {}),
       });
-      const answer: { items?: GoogleEvent[]; nextPageToken?: string } = await this.http.json(`${API}/calendars/${encodeURIComponent(calendar)}/events?${query}`);
+      const answer: { items?: GoogleSyncedEvent[]; nextPageToken?: string } = await this.http.json(`${API}/calendars/${encodeURIComponent(calendar)}/events?${query}`);
       for (const raw of answer.items ?? []) {
+        // Scrawl's own, in its "Scrawl" calendar: the work is in Scrawl already, also before the choice that names that calendar is read.
+        if (raw.extendedProperties?.private?.scrawl) continue;
         const event = googleEventFrom(raw, calendar, timeZone);
         if (event) out.push(event);
       }

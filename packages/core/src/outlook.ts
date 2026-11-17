@@ -161,12 +161,15 @@ export class OutlookReader {
       startDateTime: startOf(from),
       endDateTime: startOf(addDays(to, 1)),
       $select: 'id,subject,isAllDay,isCancelled,webLink,start,end',
+      $expand: SYNCED_EXPAND,
       $top: '200',
     });
     let url: string | undefined = `${GRAPH}/me/calendars/${encodeURIComponent(calendar)}/calendarView?${query}`;
     while (url) {
-      const page: { value?: GraphEvent[]; '@odata.nextLink'?: string } = await this.graph.json(url, { headers: { Prefer: 'outlook.timezone="UTC"' } });
+      const page: { value?: OutlookSyncedEvent[]; '@odata.nextLink'?: string } = await this.graph.json(url, { headers: { Prefer: 'outlook.timezone="UTC"' } });
       for (const raw of page.value ?? []) {
+        // Scrawl's own, in its "Scrawl" calendar: the work is in Scrawl already, also before the choice that names that calendar is read.
+        if (raw.singleValueExtendedProperties?.some((each) => each.value)) continue;
         const event = eventFrom(raw, calendar);
         if (event) out.push(event);
       }

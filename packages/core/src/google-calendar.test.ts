@@ -84,7 +84,13 @@ describe('Reading Google', () => {
     // Each page by its token: the first without one, the second with the first's.
     const pages: Record<string, unknown> = {
       '': { items: [pilates, { id: 'b', status: 'cancelled' }], nextPageToken: 'next' },
-      next: { items: [{ id: 'c', summary: 'Yoga', start: { date: '2026-11-10' }, end: { date: '2026-11-11' } }] },
+      next: {
+        items: [
+          { id: 'c', summary: 'Yoga', start: { date: '2026-11-10' }, end: { date: '2026-11-11' } },
+          // Scrawl's own task, in a calendar not yet known to be its "Scrawl" calendar.
+          { id: 's', summary: 'Pay rent', start: { date: '2026-11-12' }, end: { date: '2026-11-13' }, extendedProperties: { private: { scrawl: '{"v":1}' } } },
+        ],
+      },
     };
     const asked: string[] = [];
     const reader = new GoogleReader({

@@ -97,7 +97,13 @@ describe('Reading Outlook', () => {
         value: [{ id: 'a', subject: 'Standup', start: { dateTime: '2026-11-09T06:30:00' }, end: { dateTime: '2026-11-09T07:00:00' } }],
         '@odata.nextLink': `${view}/next`,
       },
-      [`${view}/next`]: { value: [{ id: 'b', subject: 'Gone', isCancelled: true, start: { dateTime: '2026-11-09T08:00:00' }, end: { dateTime: '2026-11-09T09:00:00' } }] },
+      [`${view}/next`]: {
+        value: [
+          { id: 'b', subject: 'Gone', isCancelled: true, start: { dateTime: '2026-11-09T08:00:00' }, end: { dateTime: '2026-11-09T09:00:00' } },
+          // Scrawl's own task, in a calendar not yet known to be its "Scrawl" calendar.
+          { id: 's', subject: 'Pay rent', isAllDay: true, start: { dateTime: '2026-11-12T00:00:00' }, end: { dateTime: '2026-11-13T00:00:00' }, singleValueExtendedProperties: [{ value: '{"v":1}' }] },
+        ],
+      },
     });
     const events = await reader.events('cal', '2026-11-09', '2026-11-15');
     expect(events.map((e) => e.id)).toEqual(['a']);
