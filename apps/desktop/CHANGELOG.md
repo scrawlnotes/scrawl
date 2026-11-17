@@ -2,6 +2,19 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.33
+
+A task on any day, and your calendars as in Todoist.
+
+- Today and a list's Add task open the whole add box: its date, list, priority, labels and record.
+- A day written in a new task's name, such as "Dentist fri", "Pay rent dec 1" or "in 2 weeks", is its date and leaves the name as it is added. To keep those words, pick another date or press × on the date.
+- The date window has a box at its top to type a day in, Later this week and This weekend, and the months one under the other from this week.
+- Settings › Calendars: Google asks once, as you connect, to read your calendars and to write a calendar of its own named Scrawl. Each account says how it stands, syncing, when it synced, or what keeps it, with the button that puts it right; its ··· has Resync and Disconnect. An eye beside each calendar shows or hides it.
+- When your tasks cannot reach your calendar, the status bar and the sync window say so.
+- Your tasks no longer show twice for a moment, once more from the Scrawl calendar.
+- A task edited in Upcoming's day window stays inside it, its name the window's width.
+- Chat stays at its end as the box you write in grows or shrinks.
+
 ## 0.1.32
 
 Chat that scrolls smoothly, and a message's day in sight.
