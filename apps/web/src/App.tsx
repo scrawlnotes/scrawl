@@ -3786,6 +3786,7 @@ export function App() {
               onSignIn={signInFor}
               onUpdate={() => syncService.updateApp()}
               onOpenCopy={(path) => void session.open(path)}
+              onCalendars={() => setDialog({ kind: 'settings', section: 'calendars' })}
             />
           </footer>
         </main>

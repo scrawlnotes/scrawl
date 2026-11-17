@@ -8,7 +8,7 @@ import { isDesktop } from './storage';
 // the code is turned into a key, and the key renewed, by app.scrawlnotes.com's Worker
 // (design/cloud.md 10.6); the desktop asks Google itself, with the desktop registration.
 
-/** Reading; writing the "Scrawl" calendar is asked for when syncing first goes to Google (design/outlook-calendar.md 12). */
+/** Reading, and writing the "Scrawl" calendar alone: all asked for as the account is connected, as Todoist does. */
 const SCOPES = ['calendar.calendarlist.readonly', 'calendar.events.readonly'].map((scope) => `https://www.googleapis.com/auth/${scope}`).join(' ');
 const WRITE = 'https://www.googleapis.com/auth/calendar.app.created';
 const AUTHORIZE = 'https://accounts.google.com/o/oauth2/v2/auth';
@@ -61,11 +61,12 @@ const store = calendarAccount({
   desktopRedirect: (port) => `http://127.0.0.1:${port}`,
   tokens: async (form) => readTokenAnswer(await (isDesktop ? fromShell : fromWorker)(form)),
   // Google gives the lasting key only when it asks for consent.
-  connect: { prompt: 'consent' },
+  connect: { prompt: 'consent', scope: `${SCOPES} ${WRITE}` },
   renew: (email) => ({ prompt: 'consent', ...(email ? { login_hint: email } : {}) }),
   renewsByLeaving: false,
   reader: (token) => new GoogleReader({ token }),
   writer: (token, timeZone) => new GoogleWriter({ token }, timeZone),
+  // For an account connected before writing was asked for with reading, or one whose writing was left unticked:
   // Google adds it to what was granted before; a key from then on has both.
   write: { scope: WRITE, extra: (email) => ({ scope: `${SCOPES} ${WRITE}`, include_granted_scopes: 'true', prompt: 'consent', ...(email ? { login_hint: email } : {}) }) },
   fake: !isDesktop && import.meta.env.DEV && import.meta.env.VITE_GOOGLE !== 'real' ? fakeGoogle() : null,

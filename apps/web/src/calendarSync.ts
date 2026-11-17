@@ -15,7 +15,9 @@ import {
 } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { useSyncExternalStore } from 'react';
+import { accountLine, type AccountLine } from './calendarLine';
 import { google } from './google';
+import { isDesktop } from './storage';
 import { outlook } from './outlook';
 
 // Scrawl's work into the "Scrawl" calendar of the account it goes to (design/outlook-calendar.md
@@ -39,12 +41,13 @@ export type SyncStatus = 'off' | 'syncing' | 'done' | 'signin' | 'permission' | 
 interface SyncState {
   status: SyncStatus;
   error: string | null;
-  /** The events Scrawl keeps in the calendar after the last turn. */
+  /** The events Scrawl keeps in the calendar after the last turn, and when that turn ended. */
   count: number;
+  at: number | null;
   rows: SyncRows;
 }
 
-let state: SyncState = { status: 'off', error: null, count: 0, rows: { apps: [], collections: false } };
+let state: SyncState = { status: 'off', error: null, count: 0, at: null, rows: { apps: [], collections: false } };
 const listeners = new Set<() => void>();
 const set = (next: Partial<SyncState>) => {
   state = { ...state, ...next };
@@ -169,7 +172,7 @@ async function turn(): Promise<void> {
     }
     for (const event of plan.remove) await writer.remove(calendar, event.eventId);
     writeSeen(to, calendar, seenAfter(plan, events, seen, gone));
-    set({ status: 'done', count: events.filter((event) => event.base).length + plan.create.length - plan.remove.length });
+    set({ status: 'done', count: events.filter((event) => event.base).length + plan.create.length - plan.remove.length, at: Date.now() });
   } catch (error) {
     if (error instanceof RemoteSignedOut) set({ status: 'signin' });
     else if (error instanceof GraphError && error.status === 403 && /insufficient/i.test(error.code)) set({ status: 'permission' });
@@ -178,8 +181,8 @@ async function turn(): Promise<void> {
   }
 }
 
-/** Runs a turn, one at a time; one asked for while another runs follows it. */
-function run(): Promise<void> {
+/** Runs a turn, one at a time; one asked for while another runs follows it: Resync too. */
+export function run(): Promise<void> {
   if (running) {
     again = true;
     return running;
@@ -259,4 +262,18 @@ const subscribe = (listener: () => void) => {
 
 export function useCalendarSync(): SyncState {
   return useSyncExternalStore(subscribe, () => state);
+}
+
+/**
+ * The calendar tasks sync to, as the sync window and the status bar tell it beside the spaces: its
+ * name and how it stands; null while tasks do not sync here.
+ */
+export function useCalendarSyncLine(): { name: string; line: AccountLine } | null {
+  const sync = useCalendarSync();
+  const accounts = { google: google.use(), outlook: outlook.use() };
+  const to = choice.sync ? syncTarget() : null;
+  const account = to ? accounts[to] : null;
+  if (!to || !account?.account) return null;
+  const where = t(isDesktop ? 'calendars.onThisComputer' : 'calendars.inThisBrowser');
+  return { name: t(to === 'google' ? 'calendars.google' : 'calendars.outlook'), line: accountLine({ status: account.status, error: account.error, where, target: true, canWrite: STORES[to].canWrite(), sync }) };
 }

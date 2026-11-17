@@ -12,6 +12,7 @@ import { hostOf } from './servers';
 import { isDesktop } from './storage';
 import { clockTime } from './text';
 import { ago, percent, shortOf } from './syncWords';
+import { useCalendarSyncLine } from './calendarSync';
 
 export { ago, percent, shortOf, stripOf, syncedWhen } from './syncWords';
 
@@ -949,6 +950,8 @@ export interface SyncStatusProps {
   /** Goes over to a newer version, for a space a newer one synced; false when none is found. */
   onUpdate: () => Promise<boolean>;
   onOpenCopy: (path: string) => void;
+  /** Opens Settings › Calendars, from the calendar tasks sync to. */
+  onCalendars: () => void;
 }
 
 /**
@@ -958,7 +961,8 @@ export interface SyncStatusProps {
  * said beside it even while another one syncs: one place by its name, which signs in; several
  * by how many, which opens the panel. Nothing while not connected.
  */
-export function SyncStatus({ sync, onSyncNow, onSettings, onSignIn, onUpdate, onOpenCopy }: SyncStatusProps) {
+export function SyncStatus({ sync, onSyncNow, onSettings, onSignIn, onUpdate, onOpenCopy, onCalendars }: SyncStatusProps) {
+  const calendar = useCalendarSyncLine();
   useTicking(sync.all.length > 0);
   const narrow = useNarrow();
   const [copy, setCopy] = useState<string | null>(null);
@@ -996,8 +1000,15 @@ export function SyncStatus({ sync, onSyncNow, onSettings, onSignIn, onUpdate, on
   };
   const close = useCallback(() => setOpen(null), []);
 
+  // The calendar tasks sync to cannot be written: said here as a space's sign-in is, with no space synced too.
+  const calendarWarning = calendar?.line.tone === 'bad' && (
+    <button type="button" className="sign-in" onClick={onCalendars}>
+      <Icon name="calendar" />
+      {calendar.name}: {calendar.line.text}
+    </button>
+  );
   const shown = standing(sync.all);
-  if (!shown) return null;
+  if (!shown) return calendarWarning || null;
   const { phase, syncedAt, turn } = shown;
   // The spaces waiting for a sign-in, by where: a server's address, or '' for OneDrive. Said
   // apart only while sync itself speaks of something else.
@@ -1039,6 +1050,7 @@ export function SyncStatus({ sync, onSyncNow, onSettings, onSignIn, onUpdate, on
           {asking === 'many' ? t('sync.signInPlaces', { count: waiting.size }) : signInAsk(asking)}
         </button>
       )}
+      {calendarWarning}
       <span ref={item} className={`sync-st ${phase}`}>
         <button
           type="button"
@@ -1079,6 +1091,11 @@ export function SyncStatus({ sync, onSyncNow, onSettings, onSignIn, onUpdate, on
               onSignIn(unit);
             }}
             onUpdate={onUpdate}
+            calendar={calendar}
+            onCalendars={() => {
+              close();
+              onCalendars();
+            }}
           />,
           document.body,
         )}
@@ -1403,6 +1420,9 @@ interface PanelProps {
   onSettings: (space?: string | null) => void;
   onSignIn: (sync: SpaceSyncView) => void;
   onUpdate: () => Promise<boolean>;
+  /** The calendar tasks sync to, on its own row under the spaces. */
+  calendar: ReturnType<typeof useCalendarSyncLine>;
+  onCalendars: () => void;
 }
 
 /**
@@ -1412,7 +1432,7 @@ interface PanelProps {
  * and why. It only tells. A space may hold thousands of files: one tab shows at a time, and
  * only the rows in sight are drawn.
  */
-function SyncPanel({ sync: whole, narrow, anchor, kept, onEnter, onLeave, onClose, onSyncNow, onSettings, onSignIn, onUpdate }: PanelProps) {
+function SyncPanel({ sync: whole, narrow, anchor, kept, onEnter, onLeave, onClose, onSyncNow, onSettings, onSignIn, onUpdate, calendar, onCalendars }: PanelProps) {
   const box = useRef<HTMLElement>(null);
   // With more than one space, each is a row on top. Under them every space is told in one list,
   // whatever turn goes on where; one space alone when it is chosen, or when it cannot go on.
@@ -1552,6 +1572,18 @@ function SyncPanel({ sync: whole, narrow, anchor, kept, onEnter, onLeave, onClos
               </span>
             </button>
           ))}
+        </div>
+      )}
+      {calendar && (
+        <div className="sp-spaces sp-cal">
+          <button type="button" className="sp-sp" onClick={onCalendars}>
+            <Icon name="calendar" />
+            <span className="nm">{calendar.name}</span>
+            <span className={calendar.line.tone === 'bad' ? 'r bad' : 'r'}>
+              {calendar.line.tone === 'busy' && <span className="spin" aria-hidden="true" />}
+              {calendar.line.text}
+            </span>
+          </button>
         </div>
       )}
       <div className="sp-head">

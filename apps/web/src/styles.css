@@ -3644,6 +3644,26 @@ textarea.tt-edit {
   padding: 7px 0;
 }
 
+/* The window is narrow: a row's buttons come over the end of its name on hover, not in a column
+   beside it, and a row being edited keeps inside the window's edges. */
+.day-window .task:not(.editing) {
+  position: relative;
+  grid-template-columns: 18px minmax(0, 1fr);
+}
+
+.day-window .task:not(.editing) .task-actions {
+  position: absolute;
+  top: 6px;
+  right: 0;
+  padding-left: 22px;
+  background: linear-gradient(to right, transparent, var(--sl-side) 18px);
+}
+
+.day-window .task.editing {
+  margin: 6px 0;
+  padding: 9px 10px 10px;
+}
+
 .day-window .qa {
   padding: 6px 0 4px;
 }
@@ -12875,6 +12895,119 @@ button.st-li:hover,
   width: 10px;
   height: 10px;
   border-radius: 50%;
+}
+
+/* Accounts with Add account at its end, as Todoist's: the label's words stay as they are, the
+   button as buttons are. */
+.st-label.ol-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.st-label.ol-head .st-btn {
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.st-label.ol-head .st-btn .icon {
+  width: var(--icon-12);
+  height: var(--icon-12);
+}
+
+/* How an account stands, under its address: turning while it syncs, ticked once it did, red with
+   what keeps it. */
+.ol-account .nm small.ol-line {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ol-line.ok .icon {
+  flex: none;
+  width: var(--icon-11);
+  height: var(--icon-11);
+  color: var(--sl-ok, #3fb950);
+}
+
+.ol-account .nm small.ol-line.bad {
+  color: var(--sl-p1);
+}
+
+/* Each account's calendars under its address when there are more; a calendar's eye shows or hides it. */
+.ol-of {
+  padding: 8px 12px 2px;
+  color: var(--sl-faint);
+  font-size: 11.5px;
+}
+
+.ol-cal.hidden .nm,
+.ol-cal.hidden .ol-dot {
+  opacity: 0.45;
+}
+
+div.ol-cal {
+  cursor: default;
+}
+
+.ol-eye {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin: -6px -6px -6px 0;
+  border-radius: 5px;
+  color: var(--sl-dim);
+}
+
+.ol-eye:hover:not(:disabled) {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+.ol-eye[aria-pressed='false'] {
+  color: var(--sl-faint);
+}
+
+.ol-eye .icon {
+  width: var(--icon-14);
+  height: var(--icon-14);
+}
+
+/* A menu that opens under its button: the chevron turned down. */
+.ol-down {
+  display: inline-flex;
+  transform: rotate(90deg);
+}
+
+/* The calendar the work goes to: its name after a bar, a menu when there is more than one account. */
+.ol-target {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--sl-dim);
+  font-size: 12px;
+}
+
+.ol-target:disabled {
+  cursor: default;
+}
+
+.ol-target:hover:not(:disabled) {
+  color: var(--sl-fg);
+}
+
+.ol-target i {
+  width: 3px;
+  height: 13px;
+  border-radius: 2px;
+  background: var(--sl-accent);
+}
+
+.ol-target .icon {
+  width: var(--icon-11);
+  height: var(--icon-11);
 }
 
 .ag-none {

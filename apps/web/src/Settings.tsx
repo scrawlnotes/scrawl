@@ -27,7 +27,8 @@ import { faceText, PictureOr } from './ChatFaces';
 import { notifySnapshot, sendTest, turnOff, turnOn, useNotify } from './notify';
 import type { CalendarState } from './calendarAccount';
 import { CALENDAR_ACCOUNTS, useCalendarAccounts } from './calendars';
-import { removeScrawlCalendar, syncTarget, useCalendarSync } from './calendarSync';
+import { removeScrawlCalendar, run as runCalendarSync, syncTarget, useCalendarSync } from './calendarSync';
+import { accountLine } from './calendarLine';
 
 export type Section = 'profile' | 'appearance' | 'general' | 'notifications' | 'calendars' | 'spaces' | 'agents' | 'language' | 'logs' | 'about';
 
@@ -466,39 +467,128 @@ function NotifyAbout({ url }: { url: string }) {
 }
 
 /**
- * Calendars (design/outlook-calendar.md 2.1 and 11.1): Connect Google Calendar and Connect Outlook
- * Calendar. Once one is connected on this device, Show events in Scrawl for both at the top, then
- * each account with its calendars under it, those shown at first on till turned off; the button of
- * the one not connected stays under them. The choice is the personal space's.
+ * Settings › Calendars, after Todoist's: before an account is connected, a sentence and a button for
+ * each. Then Accounts, each account a row with its address and how it stands (syncing, synced, or
+ * what keeps it, with the button that puts it right) and its ••• (Resync, Disconnect); Add account
+ * while one is not connected. Then Show events in Scrawl with each account's calendars, an eye on
+ * each, and Sync. Accounts are a list, so that more than one of a kind can come later.
  */
 function Calendars({ calendarChoice: choice, onChooseCalendars: onChoose }: Pick<SettingsValues, 'calendarChoice' | 'onChooseCalendars'>) {
   const accounts = useCalendarAccounts();
+  const sync = useCalendarSync();
+  useTicking(sync.at !== null);
+  const [menu, setMenu] = useState<{ at: { x: number; y: number }; items: MenuItem[] } | null>(null);
   const store = (account: CalendarState) => CALENDAR_ACCOUNTS.find((each) => each.id === account.id)!;
   const connected = accounts.filter((account) => account.status !== 'off' && account.account);
+  const unconnected = accounts.filter((account) => !connected.includes(account));
   const show = (id: string, on: boolean) => onChoose({ ...choice, show: { ...choice.show, [id]: on } });
-  const connect = (account: CalendarState) => (
-    <Fragment key={account.id}>
-      <div className="st-acts ol-connect">
-        <button type="button" className="primary" disabled={account.connecting} onClick={() => void store(account).connect()}>
-          <Icon name="calendar" />
-          {t(account.connecting ? 'outlook.connecting' : `${account.id}.connect`)}
-        </button>
-        <small>{t(`${account.id}.accountKind`)}</small>
-      </div>
-      {account.error && <p className="st-note st-bad">{account.error}</p>}
-    </Fragment>
-  );
-  const unconnected = accounts.filter((account) => !connected.includes(account)).map(connect);
+  const to = syncTarget(choice) ?? connected[0]?.id ?? null;
+  const where = t(isDesktop ? 'calendars.onThisComputer' : 'calendars.inThisBrowser');
+  const errors = accounts.filter((account) => account.error && account.status === 'off').map((account) => (
+    <p key={account.id} className="st-note st-bad">
+      {account.error}
+    </p>
+  ));
+  const under = (event: MouseEvent<HTMLElement>) => {
+    const box = event.currentTarget.getBoundingClientRect();
+    return { x: box.right - 180, y: box.bottom + 4 };
+  };
+
   if (connected.length === 0) {
     return (
       <>
         <p className="st-lead">{t(isPhone() ? 'calendars.leadPhone' : 'calendars.lead')}</p>
-        {unconnected}
+        <div className="st-acts ol-connect">
+          {accounts.map((account) => (
+            <button key={account.id} type="button" className="primary" disabled={account.connecting} onClick={() => void store(account).connect()}>
+              <Icon name="calendar" />
+              {t(account.connecting ? 'outlook.connecting' : `${account.id}.connect`)}
+            </button>
+          ))}
+        </div>
+        {errors}
       </>
     );
   }
+
   return (
     <>
+      <div className="st-label ol-head">
+        <span>{t('calendars.accounts')}</span>
+        {unconnected.length > 0 && !isPhone() && (
+          <button
+            type="button"
+            className="st-btn"
+            aria-haspopup="menu"
+            onClick={(event) =>
+              setMenu({ at: under(event), items: unconnected.map((account) => ({ label: t(`calendars.${account.id}`), icon: 'calendar', run: () => void store(account).connect() })) })
+            }
+          >
+            <Icon name="plus" />
+            {t('calendars.addAccount')}
+            <span className="ol-down">
+              <Icon name="chevron" />
+            </span>
+          </button>
+        )}
+      </div>
+      <div className="st-list ol-account">
+        {connected.map((account) => {
+          const { email } = account.account!;
+          const target = choice.sync && account.id === to;
+          const line = accountLine({ status: account.status, error: account.error, where, target, canWrite: store(account).canWrite(), sync });
+          const fix = line.fix === 'allow' ? () => void store(account).connect(true) : line.fix === 'signin' ? () => void store(account).connect() : null;
+          return (
+            <div key={account.id} className="st-li">
+              <Icon name="calendar" />
+              <span className="nm">
+                <b>{email}</b>
+                <small className={`ol-line ${line.tone}`}>
+                  {line.tone === 'busy' && <span className="spin" aria-hidden="true" />}
+                  {line.tone === 'ok' && <Icon name="check" />}
+                  {line.text}
+                </small>
+              </span>
+              {fix && (
+                <button type="button" className="st-btn go" disabled={account.connecting} onClick={fix}>
+                  {t(line.fix === 'allow' ? 'calendars.allow' : 'outlook.signIn')}
+                </button>
+              )}
+              {!isPhone() && (
+                <button
+                  type="button"
+                  className="it-more"
+                  title={t('calendars.accountMenu', { email })}
+                  aria-label={t('calendars.accountMenu', { email })}
+                  aria-haspopup="menu"
+                  onClick={(event) =>
+                    setMenu({
+                      at: under(event),
+                      items: [
+                        ...(target ? [{ label: t('calendars.resync'), icon: 'restore' as const, run: () => void runCalendarSync() }] : []),
+                        { label: t('outlook.disconnect'), icon: 'trash', danger: true, run: () => void store(account).disconnect() },
+                      ],
+                    })
+                  }
+                >
+                  ···
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {isPhone() && unconnected.length > 0 && (
+        <div className="st-acts ol-connect">
+          {unconnected.map((account) => (
+            <button key={account.id} type="button" className="primary" disabled={account.connecting} onClick={() => void store(account).connect()}>
+              <Icon name="calendar" />
+              {t(account.connecting ? 'outlook.connecting' : `${account.id}.connect`)}
+            </button>
+          ))}
+        </div>
+      )}
+      {errors}
       <div className="st-space">
         <label className="st-check">
           <input type="checkbox" checked={choice.events} onChange={(event) => onChoose({ ...choice, events: event.target.checked })} />
@@ -509,86 +599,85 @@ function Calendars({ calendarChoice: choice, onChooseCalendars: onChoose }: Pick
           </span>
         </label>
       </div>
-      {connected.map((account) => {
-        const { name, email } = account.account!;
-        const signIn = account.status === 'signin';
-        // An account named by its address, as Google's often is, does not say it twice.
-        const where = name === email ? t(isDesktop ? 'calendars.onThisComputer' : 'calendars.inThisBrowser') : t(isDesktop ? 'outlook.onComputer' : 'outlook.inBrowser', { email });
-        const sub = signIn ? t('outlook.signedOut', { email }) : isPhone() ? (name === email ? null : email) : where;
-        return (
-          <Fragment key={account.id}>
-            <span className="st-label">{t(`${account.id}.title`)}</span>
-            <div className="st-list ol-account">
-              <div className="st-li">
-                <Icon name="calendar" />
-                <span className="nm">
-                  <b>{name}</b>
-                  {sub && <small className={signIn ? 'st-bad' : undefined}>{sub}</small>}
-                </span>
-                {signIn && (
-                  <button type="button" className="st-btn go" disabled={account.connecting} onClick={() => void store(account).connect()}>
-                    {t('outlook.signIn')}
+      {connected.map((account) =>
+        account.calendars === null ? (
+          <p key={account.id} className="st-note ol-cals-wait">
+            {t('outlook.reading')}
+          </p>
+        ) : (
+          <div key={account.id} className={`st-list ol-cals${choice.events ? '' : ' off'}`}>
+            {connected.length > 1 && <div className="ol-of">{account.account!.email}</div>}
+            {account.calendars.filter((calendar) => calendar.id !== choice.calendar).map((calendar) => {
+              const on = isShown(choice, calendar);
+              const name = (
+                <>
+                  <i className="ol-dot" style={{ background: calendar.color }} />
+                  <span className="nm">
+                    <b>{calendar.name}</b>
+                    {!calendar.own && <small>{t('outlook.sharedWithYou')}</small>}
+                  </span>
+                </>
+              );
+              // On a phone a row is tapped; on a computer its eye shows or hides it, as Todoist's.
+              return isPhone() ? (
+                <label key={calendar.id} className="st-li ol-cal">
+                  {name}
+                  <input type="checkbox" checked={on} disabled={!choice.events} onChange={(event) => show(calendar.id, event.target.checked)} />
+                  {on && <Icon name="check" />}
+                </label>
+              ) : (
+                <div key={calendar.id} className={`st-li ol-cal${on ? '' : ' hidden'}`}>
+                  {name}
+                  <button
+                    type="button"
+                    className="ol-eye"
+                    aria-pressed={on}
+                    disabled={!choice.events}
+                    title={t(on ? 'calendars.hideCalendar' : 'calendars.showCalendar', { name: calendar.name })}
+                    aria-label={t(on ? 'calendars.hideCalendar' : 'calendars.showCalendar', { name: calendar.name })}
+                    onClick={() => show(calendar.id, !on)}
+                  >
+                    <Icon name={on ? 'eye' : 'eyeOff'} />
                   </button>
-                )}
-                {!isPhone() && (
-                  <button type="button" className="st-btn" onClick={() => void store(account).disconnect()}>
-                    {t('outlook.disconnect')}
-                  </button>
-                )}
-              </div>
-            </div>
-            {account.calendars === null ? (
-              <p className="st-note ol-cals-wait">{t('outlook.reading')}</p>
-            ) : (
-              <div className={`st-list ol-cals${choice.events ? '' : ' off'}`}>
-                {account.calendars.filter((calendar) => calendar.id !== choice.calendar).map((calendar) => {
-                  const on = isShown(choice, calendar);
-                  return (
-                    <label key={calendar.id} className="st-li ol-cal">
-                      <i className="ol-dot" style={{ background: calendar.color }} />
-                      <span className="nm">
-                        <b>{calendar.name}</b>
-                        {!calendar.own && <small>{t('outlook.sharedWithYou')}</small>}
-                      </span>
-                      <input type="checkbox" checked={on} disabled={!choice.events} onChange={(event) => show(calendar.id, event.target.checked)} />
-                      {isPhone() && on && <Icon name="check" />}
-                    </label>
-                  );
-                })}
-              </div>
-            )}
-            {isPhone() && (
-              <div className="st-list ol-disconnect">
-                <button type="button" className="st-li" onClick={() => void store(account).disconnect()}>
-                  {t('outlook.disconnect')}
-                </button>
-              </div>
-            )}
-          </Fragment>
-        );
-      })}
-      {unconnected}
+                </div>
+              );
+            })}
+          </div>
+        ),
+      )}
+      {isPhone() &&
+        connected.map((account) => (
+          <div key={account.id} className="st-list ol-disconnect">
+            <button type="button" className="st-li" onClick={() => void store(account).disconnect()}>
+              {t('outlook.disconnect')}
+              {connected.length > 1 && <small>{account.account!.email}</small>}
+            </button>
+          </div>
+        ))}
       <SyncPart choice={choice} onChoose={onChoose} accounts={connected} />
       <p className="st-note">{t('outlook.eachDevice')}</p>
+      {menu && <ContextMenu at={menu.at} items={menu.items} onClose={() => setMenu(null)} />}
     </>
   );
 }
 
 /**
- * Calendars' Sync part (design/outlook-calendar.md 12): Sync tasks to calendar; with both accounts
- * connected, Sync to; on, What goes, row by row. Turning it off, or to the other account, first
- * says what is removed. Google lets Scrawl write once it asks once more.
+ * Calendars' Sync part (design/outlook-calendar.md 12): Sync tasks to calendar; on, the calendar the
+ * work goes to, chosen when more than one account is connected, and What goes, row by row. Turning
+ * it off, or to another account, first says what is removed. How the sync stands is said on the
+ * account's row.
  */
 function SyncPart({ choice, onChoose, accounts }: { choice: CalendarChoice; onChoose: (choice: CalendarChoice) => void; accounts: CalendarState[] }) {
   const sync = useCalendarSync();
   const [asking, setAsking] = useState<{ title: string; message: string; action: string; run: () => Promise<void> } | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const store = (id: CalendarProviderId) => CALENDAR_ACCOUNTS.find((each) => each.id === id)!;
   const to = syncTarget(choice) ?? accounts[0]?.id ?? null;
   const target = accounts.find((each) => each.id === to);
   if (!to || !target?.account) return null;
   const whereOf = (id: CalendarProviderId) => t(id === 'google' ? 'calendars.google' : 'calendars.outlook');
   const where = whereOf(to);
-  /** Writing to Google needs its leave once: asked as syncing goes there. */
+  /** An account connected before writing was asked for with reading lets Scrawl write as syncing goes there. */
   const allowIfNeeded = (id: CalendarProviderId) => {
     if (!store(id).canWrite()) void store(id).connect(true);
   };
@@ -598,7 +687,7 @@ function SyncPart({ choice, onChoose, accounts }: { choice: CalendarChoice; onCh
       allowIfNeeded(to);
     } else if (choice.calendar) {
       setAsking({
-        title: t('calendars.stopTitle', { where }),
+        title: t('calendars.stopTitle'),
         message: t('calendars.stopWhat', { where, count: sync.count }),
         action: t('calendars.remove'),
         run: async () => {
@@ -634,7 +723,7 @@ function SyncPart({ choice, onChoose, accounts }: { choice: CalendarChoice; onCh
       </label>
     );
   };
-  const needsLeave = choice.sync && sync.status === 'permission';
+  const many = accounts.length > 1;
   return (
     <>
       <span className="st-label">{t('calendars.sync')}</span>
@@ -644,37 +733,36 @@ function SyncPart({ choice, onChoose, accounts }: { choice: CalendarChoice; onCh
           <PhoneSwitch on={choice.sync} />
           <span>
             {t('calendars.syncTasks')}
-            <small>
-              {t('calendars.syncWhat', { where })}
-              {to === 'google' && !store('google').canWrite() && <> {t('calendars.syncAsk')}</>}
-            </small>
+            <small>{t('calendars.syncWhat', { where })}</small>
           </span>
         </label>
       </div>
-      {needsLeave && (
-        <div className="st-acts">
-          <button type="button" className="primary" disabled={target.connecting} onClick={() => void store(to).connect(true)}>
-            {t('calendars.allow')}
-          </button>
-        </div>
-      )}
-      {choice.sync && sync.status === 'failed' && sync.error && <p className="st-note st-bad">{t('calendars.syncFailed', { where, error: sync.error })}</p>}
-      {choice.sync && accounts.length > 1 && (
-        <>
-          <span className="st-label">{t('calendars.syncTo')}</span>
-          <div className="st-list ol-cals">
-            {accounts.map((account) => (
-              <label key={account.id} className="st-li ol-cal">
-                <span className="nm">
-                  <b>{t(`${account.id}.title`)}</b>
-                  <small>{account.account?.email}</small>
+      {choice.sync && (
+        <div className="st-list ol-cals">
+          <div className="st-li ol-cal">
+            <span className="nm">
+              <b>{t('calendars.taskCalendar')}</b>
+            </span>
+            <button
+              type="button"
+              className="ol-target"
+              disabled={!many}
+              aria-haspopup={many ? 'menu' : undefined}
+              onClick={(event) => {
+                const box = event.currentTarget.getBoundingClientRect();
+                setMenu({ x: box.right - 220, y: box.bottom + 4 });
+              }}
+            >
+              <i />
+              {t('calendars.scrawlIn', { email: target.account.email })}
+              {many && (
+                <span className="ol-down">
+                  <Icon name="chevron" />
                 </span>
-                <input type="radio" name="sync-to" checked={account.id === to} onChange={() => moveTo(account)} />
-                {isPhone() && account.id === to && <Icon name="check" />}
-              </label>
-            ))}
+              )}
+            </button>
           </div>
-        </>
+        </div>
       )}
       {choice.sync && (
         <>
@@ -686,6 +774,13 @@ function SyncPart({ choice, onChoose, accounts }: { choice: CalendarChoice; onCh
             {sync.rows.collections && rowOf('collections', t('calendars.collections'), t('calendars.collectionsWhat'), 'collections')}
           </div>
         </>
+      )}
+      {menu && (
+        <ContextMenu
+          at={menu}
+          items={accounts.map((account) => ({ label: t('calendars.scrawlIn', { email: account.account!.email }), icon: account.id === to ? 'check' : 'calendar', run: () => moveTo(account) }))}
+          onClose={() => setMenu(null)}
+        />
       )}
       {asking && (
         <ConfirmDialog
