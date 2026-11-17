@@ -2,6 +2,7 @@ import { locale, type MessageKey, t } from '@scrawlnotes/i18n';
 import {
   aboutName,
   APP_TEMPLATES,
+  type NewTask,
   linesBlocks,
   linkedRecords,
   type AppFile,
@@ -900,6 +901,11 @@ export function App() {
     return allPlaces((path, section) => path === list && here === section).filter((place) => spaceOf(place.list) === spaceOf(list));
   };
   /** Every list, at its top level and in each of its sections. */
+  // A task added from a computer's add box, where it went said.
+  const addTask = (target: string, task: NewTask) => {
+    session.addTask(target, task);
+    setNotice(t('phone.addedTo', { name: task.title.trim(), place: listLabel(target) }));
+  };
   const allPlaces = (isHere: (list: string, section: string | null) => boolean = () => false): TaskPlaceChoice[] =>
     Object.keys(tasks).flatMap((path) => [
       {
@@ -3018,7 +3024,7 @@ export function App() {
         fieldsAsked={collectionFields}
       />
     )}
-    {!phone && active === TODAY && <TodayView lists={myTasks} boards={myBoards} today={today} actions={taskActions} still={still} />}
+    {!phone && active === TODAY && <TodayView lists={myTasks} boards={myBoards} today={today} actions={taskActions} still={still} places={allPlaces()} onAdd={addTask} />}
     {!phone && active === CHAT && <ChatView snapshot={chat} menu={openMenu} onStatus={setViewStatus} links={chatLinks} goTo={chatGoTo} />}
     {!phone && active === UPCOMING && (
       <Upcoming
@@ -3027,10 +3033,7 @@ export function App() {
         today={today}
         actions={taskActions}
         places={allPlaces()}
-        onAdd={(target, task) => {
-          session.addTask(target, task);
-          setNotice(t('phone.addedTo', { name: task.title.trim(), place: listLabel(target) }));
-        }}
+        onAdd={addTask}
         onStatus={setViewStatus}
         still={still}
       />

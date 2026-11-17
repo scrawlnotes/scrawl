@@ -210,6 +210,21 @@ const shapes = {
       <path d="M4 10h16M8.5 3.5v4M15.5 3.5v4M8 15h8M13.5 12.8L16 15l-2.5 2.2" />
     </>
   ),
+  // Later this week: the week's sheet with a day marked in its second half.
+  laterWeek: (
+    <>
+      <rect x="4" y="5.5" width="16" height="14.5" rx="2" />
+      <path d="M4 10h16M8.5 3.5v4M15.5 3.5v4" />
+      <rect x="13" y="13" width="3.5" height="3.5" rx="0.6" />
+    </>
+  ),
+  // This weekend: a sofa.
+  weekend: (
+    <>
+      <path d="M5.5 11V8.5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2V11" />
+      <path d="M3.5 13a1.75 1.75 0 0 1 3.5 0v1.5h10V13a1.75 1.75 0 0 1 3.5 0v4.5h-17zM5.5 17.5v2M18.5 17.5v2" />
+    </>
+  ),
   noDate: (
     <>
       <circle cx="12" cy="12" r="8.5" />

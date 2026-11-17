@@ -1696,15 +1696,7 @@ function SectionBlock({ list, section, top, item, actions, drag, dropInto, addin
         <>
           {top.map(item)}
           {composing ? (
-            <Composer
-              placeholder={t('tasks.name')}
-              labelsAt={list}
-              start={adding.start}
-              people={adding.people}
-              today={adding.today}
-              onAdd={(title, labels, kept) => adding.add({ title, section: section.id, ...kept, ...(labels.length > 0 && { labels }) })}
-              onClose={() => setComposing(false)}
-            />
+            adding.box(section.id, section.id, () => setComposing(false))
           ) : phone ? (
             // On a phone a task is typed above the keyboard, this section chosen.
             actions.quickAdd && (
@@ -1727,9 +1719,9 @@ function SectionBlock({ list, section, top, item, actions, drag, dropInto, addin
 /** How a list's add rows add a task, and what it starts with while the list is filtered. */
 interface Adding {
   start?: TaskStart;
-  people: SpacePeople | null;
-  today: string;
   add: (input: NewTask) => void;
+  /** The add box, as Todoist's: in this list and `section`, with what a filtered list starts with. */
+  box: (section: string | null, key: string | number, onClose: () => void) => ReactNode;
 }
 
 /**
@@ -1799,11 +1791,26 @@ export function TaskList({ list, tasks, sections, today, actions, places, reveal
   const clear = () => choose(NO_CHOICES);
   const adding: Adding = {
     start: picks ? filteredStart(asked, today, team) : undefined,
-    people: team,
-    today,
     add: (input) => {
       actions.add(list, input);
       if (picks && !taskMatches(asked, asAdded(input), today, team?.me)) actions.notify?.(t('filter.hidden', { list: listName(list) }), { label: t('filter.clearFilter'), run: clear });
+    },
+    box: (section, key, onClose) => {
+      const start = adding.start;
+      return (
+        <TaskComposer
+          key={key}
+          start={{ due: start?.due ?? null, list, section, priority: start?.priority, labels: start?.labels, assignee: start?.assignee }}
+          today={today}
+          places={places ?? []}
+          recordChoices={actions.recordChoices}
+          recordName={actions.recordTitle}
+          menu={actions.menu}
+          description={actions.description}
+          onAdd={(target, task) => (target === list ? adding.add(task) : actions.add(target, task))}
+          onClose={onClose}
+        />
+      );
     },
   };
   // The status bar says how many of the open tasks show.
@@ -1991,20 +1998,7 @@ export function TaskList({ list, tasks, sections, today, actions, places, reveal
           </button>
         </p>
       )}
-      {placing > 0 && places && (
-        <TaskComposer
-          key={`placing:${placing}`}
-          start={{ due: adding.start?.due ?? null, list, section: null, priority: adding.start?.priority, labels: adding.start?.labels }}
-          today={today}
-          places={places}
-          recordChoices={actions.recordChoices}
-          recordName={actions.recordTitle}
-          menu={actions.menu}
-          description={actions.description}
-          onAdd={(target, task) => (target === list ? adding.add(task) : actions.add(target, task))}
-          onClose={() => setPlacing(0)}
-        />
-      )}
+      {placing > 0 && adding.box(null, `placing:${placing}`, () => setPlacing(0))}
       <div
         ref={rows}
         className="rows"
@@ -2014,15 +2008,7 @@ export function TaskList({ list, tasks, sections, today, actions, places, reveal
       >
         {sectionTasks(whole, null).filter(shown).map(item)}
         {composing ? (
-          <Composer
-            placeholder={t('tasks.name')}
-            labelsAt={list}
-            start={adding.start}
-            people={team}
-            today={today}
-            onAdd={(title, labels, kept) => adding.add({ title, ...kept, ...(labels.length > 0 && { labels }) })}
-            onClose={() => setComposing(false)}
-          />
+          adding.box(null, 'end', () => setComposing(false))
         ) : !isPhone() ? (
           // The tasks in no section end with their own add row, as each section does.
           <button type="button" className="qa" onClick={() => setComposing(true)}>
@@ -2375,8 +2361,11 @@ export function splitDueCards(boards: Record<string, Board>, today: string) {
 }
 
 /** Today: what is due today and what is late, from every task list and every board. */
-export function TodayView({ lists, boards, today, actions, bare, adding, still = null }: {
+export function TodayView({ lists, boards, today, actions, bare, adding, still = null, places, onAdd }: {
   lists: Record<string, Task[]>;
+  /** On a computer: where a task added here can go, and how it is added, from the add box. */
+  places?: TaskPlaceChoice[];
+  onAdd?: (list: string, task: NewTask) => void;
   /** The spaces still read as the app opens, said under the tasks read so far. */
   still?: string | null;
   boards: Record<string, Board>;
@@ -2388,6 +2377,8 @@ export function TodayView({ lists, boards, today, actions, bare, adding, still =
   adding?: number;
 }) {
   const [showDone, setShowDone] = useState(false);
+  // The add box, as Todoist's Today opens it: in Inbox, due today; the count tells one opening from the next.
+  const [composing, setComposing] = useState(0);
   const item = ({ list, task }: { list: string; task: Task }) => (
     <TaskItem key={`${list}/${task.id}`} list={list} task={task} tasks={lists[list] ?? []} today={today} showDone={false} actions={actions} flat />
   );
@@ -2447,7 +2438,7 @@ export function TodayView({ lists, boards, today, actions, bare, adding, still =
     <TaskPage
       title={t('tasks.today')}
       detail={toDate(today).toLocaleDateString(locale(), { weekday: 'short', month: 'short', day: 'numeric' })}
-      onAdd={(title) => actions.add(INBOX_TASKS, { title, due: today })}
+      {...(places && onAdd ? { onAddClick: () => setComposing(composing + 1) } : { onAdd: (title: string) => actions.add(INBOX_TASKS, { title, due: today }) })}
       bare={bare}
       adding={adding}
       footer={
@@ -2497,6 +2488,26 @@ export function TodayView({ lists, boards, today, actions, bare, adding, still =
           />
         ) : (
           <p className="task-empty">{t('tasks.nothingToday')}</p>
+        ))}
+      {places &&
+        onAdd &&
+        (composing > 0 ? (
+          <TaskComposer
+            key={composing}
+            start={{ due: today, list: INBOX_TASKS, section: null }}
+            today={today}
+            places={places}
+            recordChoices={actions.recordChoices}
+            recordName={actions.recordTitle}
+            menu={actions.menu}
+            description={actions.description}
+            onAdd={onAdd}
+            onClose={() => setComposing(0)}
+          />
+        ) : (
+          <button type="button" className="qa" onClick={() => setComposing(1)}>
+            {t('tasks.addRow')}
+          </button>
         ))}
     </TaskPage>
   );

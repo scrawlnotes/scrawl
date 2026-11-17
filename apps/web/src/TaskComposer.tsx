@@ -1,11 +1,14 @@
 import {
   addDays,
+  dayInText,
+  dayOfWords,
   listName,
   type NewTask,
   type Priority,
   type Record as CollectionRecord,
   spaceOf,
   type TaskRecord,
+  withoutDay,
 } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactElement, type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -16,7 +19,7 @@ import { AttachButton, type DescriptionHost, DescriptionField } from './Descript
 import { LabelDot, LabelPop, useAtLabels } from './labels';
 import { Icon, type IconName } from './Icon';
 import { listLabel, spaceLabel } from './items';
-import { MonthGrid, useMonth } from './MonthGrid';
+import { MonthDays, monthOf, WeekInitials } from './MonthGrid';
 import { priorityItems } from './PhoneTasks';
 import { nextWeek, RecordPicker, TitleField, toDate } from './Tasks';
 
@@ -85,9 +88,11 @@ export function useAway(pop: RefObject<HTMLElement | null>, anchor: HTMLElement,
 }
 
 /**
- * A day, picked under the button that opened it, after the Add, date view of the Upcoming
- * mockups: Today, Tomorrow, Next week and No date, each with its day, then the month to pick any
- * other. What is set is lit; nothing is when `current` is left out, as for moving many at once.
+ * A day, picked under the button that opened it, after Todoist's: a box to type it in ("dec 3",
+ * "fri"), the day set in it and chosen, so that typing replaces it; then the quick days, each with
+ * its day, Later this week only while two days on is before Saturday and This weekend only on a
+ * weekday; then the months one under the other, scrolled through, the one at the top named above
+ * them. What is set is lit; nothing is when `current` is left out, as for moving many at once.
  */
 export function DatePop({ anchor, current, today, onPick, onClose }: {
   anchor: HTMLElement;
@@ -97,13 +102,13 @@ export function DatePop({ anchor, current, today, onPick, onClose }: {
   onClose: () => void;
 }) {
   const pop = useRef<HTMLDivElement>(null);
-  const place = usePopPlace(anchor, 264, 390);
-  const [month, setMonth] = useMonth(current ?? today);
+  const place = usePopPlace(anchor, 280, 520);
+  const [first] = useState(() => (current ? shortDay(current, today) : ''));
+  const [typed, setTyped] = useState(first);
   useAway(pop, anchor, onClose);
-  // The keyboard comes with it, to the day set or else Today.
-  useEffect(() => {
-    pop.current?.querySelector<HTMLElement>('.opt.on, .g .on, .opt')?.focus();
-  }, []);
+  // What is typed is read once it is not what the box opened with: "Nov 16", set and gone by, is not next year's.
+  const changed = typed.trim() !== first;
+  const found = changed ? dayOfWords(typed, today) : null;
   const quick = (icon: IconName, label: string, day: string | null, side: string) => (
     <button type="button" className={day === current ? 'opt on' : 'opt'} aria-pressed={day === current} onClick={() => onPick(day)}>
       <Icon name={icon} />
@@ -112,6 +117,9 @@ export function DatePop({ anchor, current, today, onPick, onClose }: {
     </button>
   );
   const tomorrow = addDays(today, 1);
+  const later = addDays(today, 2);
+  const day = toDate(today).getDay();
+  const saturday = addDays(today, 6 - day);
   const monday = nextWeek(today);
   return createPortal(
     <div
@@ -127,15 +135,102 @@ export function DatePop({ anchor, current, today, onPick, onClose }: {
         onClose();
       }}
     >
-      {quick('sun', t('day.today'), today, weekday(today))}
-      {quick('rise', t('day.tomorrow'), tomorrow, weekday(tomorrow))}
-      {quick('week', t('tasks.nextWeek'), monday, dateWords(monday, today))}
-      {quick('noDate', t('tasks.noDate'), null, '')}
-      <div className="mini-cal">
-        <MonthGrid month={month} onMonth={setMonth} today={today} current={current ?? null} onPick={onPick} />
+      <input
+        className="day-type"
+        autoFocus
+        value={typed}
+        placeholder={t('tasks.typeDate')}
+        aria-label={t('tasks.typeDate')}
+        onFocus={(event) => event.currentTarget.select()}
+        onChange={(event) => setTyped(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter') return;
+          event.preventDefault();
+          if (found) onPick(found);
+          else if (!changed) onClose();
+        }}
+      />
+      {found && (
+        <button type="button" className="opt found" onClick={() => onPick(found)}>
+          <Icon name="calendar" />
+          <span>{dateWords(found, today)}</span>
+          <small>↵</small>
+        </button>
+      )}
+      <div className="quick">
+        {current !== today && quick('sun', t('day.today'), today, weekday(today))}
+        {quick('rise', t('day.tomorrow'), tomorrow, weekday(tomorrow))}
+        {day >= 1 && day <= 3 && quick('laterWeek', t('tasks.laterThisWeek'), later, weekday(later))}
+        {day >= 1 && day <= 5 && quick('weekend', t('tasks.thisWeekend'), saturday, weekday(saturday))}
+        {quick('week', t('tasks.nextWeek'), monday, dateWords(monday, today))}
+        {quick('noDate', t('tasks.noDate'), null, '')}
       </div>
+      <MonthScroll today={today} current={current ?? null} onPick={onPick} />
     </div>,
     document.body,
+  );
+}
+
+/** A day as the date box shows it: `Nov 17`, with its year when it is not this year's. */
+const shortDay = (day: string, today: string) =>
+  toDate(day).toLocaleDateString(locale(), { month: 'short', day: 'numeric', ...(day.slice(0, 4) !== today.slice(0, 4) && { year: 'numeric' }) });
+
+/**
+ * The months from this one, or from the day set when it went by, a year on and past the day set:
+ * one under the other, scrolled through. Above them the one at the top, with ‹ and › to the one
+ * before and after it and the dot back to this month; it opens at the day set's.
+ */
+function MonthScroll({ today, current, onPick }: { today: string; current: string | null; onPick: (day: string) => void }) {
+  const box = useRef<HTMLDivElement>(null);
+  const first = monthOf(current && current < today ? current : today);
+  const index = (day: string) => {
+    const month = monthOf(day);
+    return (month.getFullYear() - first.getFullYear()) * 12 + month.getMonth() - first.getMonth();
+  };
+  const months = Array.from({ length: Math.max(13, current ? index(current) + 3 : 0) }, (_, i) => new Date(first.getFullYear(), first.getMonth() + i, 1));
+  const [top, setTop] = useState(() => (current ? index(current) : 0));
+  const go = (i: number, smooth = true) => {
+    const month = box.current?.children[i] as HTMLElement | undefined;
+    if (month) box.current!.scrollTo({ top: month.offsetTop, behavior: smooth ? 'smooth' : 'auto' });
+  };
+  useLayoutEffect(() => go(top, false), []);
+  // The month named is the last that starts at the top or above it.
+  const onScroll = () => {
+    const children = [...(box.current?.children ?? [])] as HTMLElement[];
+    const at = box.current!.scrollTop + 8;
+    setTop(Math.max(0, children.filter((month) => month.offsetTop <= at).length - 1));
+  };
+  const year = today.slice(0, 4);
+  return (
+    <div className="mini-cal">
+      <div className="mh">
+        {months[top]!.toLocaleDateString(locale(), { month: 'short', year: 'numeric' })}
+        <span>
+          <button type="button" aria-label={t('phone.previousMonth')} title={t('phone.previousMonth')} disabled={top === 0} onClick={() => go(top - 1)}>
+            <Icon name="back" />
+          </button>
+          <button type="button" aria-label={t('day.today')} title={t('day.today')} onClick={() => go(index(today))}>
+            <span className="dot" />
+          </button>
+          <button type="button" aria-label={t('phone.nextMonth')} title={t('phone.nextMonth')} disabled={top === months.length - 1} onClick={() => go(top + 1)}>
+            <Icon name="chevron" />
+          </button>
+        </span>
+      </div>
+      <WeekInitials />
+      <div ref={box} className="mini-scroll" onScroll={onScroll}>
+        {months.map((month, i) => (
+          <div key={i}>
+            {i > 0 && (
+              <div className="ml">
+                {month.toLocaleDateString(locale(), { month: 'short', ...(String(month.getFullYear()) !== year && { year: 'numeric' }) })}
+              </div>
+            )}
+            <MonthDays month={month} today={today} current={current} onPick={onPick} />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -242,13 +337,16 @@ export interface ComposerStart {
   /** In a filtered list, what a new task starts with so that it shows there. */
   priority?: Priority;
   labels?: string[];
+  assignee?: NewTask['assignee'];
 }
 
 /**
  * A new task, typed where it will show: its name and description, its date, priority, labels and
  * record as chips with Attach after them, the list it goes in, Cancel and Add task. Add task, or Enter
  * in the name or the description, adds it and keeps the row with the same date and list for the next
- * one; Ctrl+Enter is a new line in the description. `@` in the name puts a label on it. A record is one of the list's space, as a
+ * one; Ctrl+Enter is a new line in the description. `@` in the name puts a label on it, and a day
+ * written in it ("Dentist fri") is its date, lit in the name and gone from it as it is added; the
+ * date picked, or the chip's ×, leaves those words as they are. A record is one of the list's space, as a
  * task's links do not reach another space.
  */
 export function TaskComposer({ start, today, places, recordChoices, recordName, menu, description: host, onAdd, onClose }: {
@@ -272,6 +370,12 @@ export function TaskComposer({ start, today, places, recordChoices, recordName, 
   const [record, setRecord] = useState<TaskRecord | null>(null);
   const [labels, setLabels] = useState<string[]>(start.labels ?? []);
   const [place, setPlace] = useState({ list: start.list, section: start.section });
+  const [assignee, setAssignee] = useState(start.assignee);
+  // The words of a day in the name that are to stay words: the date was picked or taken off.
+  const [kept, setKept] = useState<string | null>(null);
+  const inName = dayInText(title, today);
+  const named = inName && title.slice(inName.from, inName.to).toLowerCase() !== kept ? inName : null;
+  const day = named ? named.day : due;
   const [open, setOpen] = useState<{ kind: 'date' | 'place' | 'record' | 'labels'; anchor: HTMLElement } | null>(null);
   const titleField = useRef<HTMLTextAreaElement>(null);
   const labelsChip = useRef<HTMLElement | null>(null);
@@ -287,8 +391,11 @@ export function TaskComposer({ start, today, places, recordChoices, recordName, 
   };
   const add = () => {
     if (!title.trim()) return;
-    onAdd(place.list, { title, description: description.trim() || undefined, section: place.section, due, priority, record, ...(labels.length > 0 && { labels }) });
+    // A name that is only a day ("Tomorrow") stays as it is.
+    const name = (named && withoutDay(title, named)) || title;
+    onAdd(place.list, { title: name, description: description.trim() || undefined, section: place.section, due: day, priority, record, ...(labels.length > 0 && { labels }), ...(assignee && { assignee }) });
     setTitle('');
+    setKept(null);
     setDescription('');
     setLabels(start.labels ?? []);
     setAdded((n) => n + 1);
@@ -306,6 +413,11 @@ export function TaskComposer({ start, today, places, recordChoices, recordName, 
   };
   // Pressing a button at the foot leaves the keyboard in the name.
   const keepTyping = (event: MouseEvent) => event.preventDefault();
+  // A day picked, or none, over one written in the name: its words stay words.
+  const setDay = (picked: string | null) => {
+    if (named) setKept(title.slice(named.from, named.to).toLowerCase());
+    setDue(picked);
+  };
 
   return (
     <div
@@ -318,21 +430,30 @@ export function TaskComposer({ start, today, places, recordChoices, recordName, 
     >
       <div className="r1">
         <span className="cb" />
-        <TitleField
-          ref={titleField}
-          className="tt-edit"
-          aria-label={t('tasks.name')}
-          placeholder={t('tasks.name')}
-          autoFocus
-          value={title}
-          onChange={setTitle}
-          onSelect={at.track}
-          onKeyDown={(event) => {
-            if (at.keyDown(event) || event.key !== 'Enter') return;
-            event.preventDefault();
-            add();
-          }}
-        />
+        <div className="tt-wrap">
+          {named && (
+            <div className="tt-mark" aria-hidden>
+              {title.slice(0, named.from)}
+              <mark>{title.slice(named.from, named.to)}</mark>
+              {title.slice(named.to)}
+            </div>
+          )}
+          <TitleField
+            ref={titleField}
+            className="tt-edit"
+            aria-label={t('tasks.name')}
+            placeholder={t('tasks.name')}
+            autoFocus
+            value={title}
+            onChange={setTitle}
+            onSelect={at.track}
+            onKeyDown={(event) => {
+              if (at.keyDown(event) || event.key !== 'Enter') return;
+              event.preventDefault();
+              add();
+            }}
+          />
+        </div>
       </div>
       {at.list}
       <DescriptionField
@@ -346,16 +467,23 @@ export function TaskComposer({ start, today, places, recordChoices, recordName, 
         attacher={attacher}
       />
       <div className="chips">
-        <button
-          type="button"
-          className={['chip', due && 'on', due && due < today && 'late'].filter(Boolean).join(' ')}
-          aria-haspopup="dialog"
-          aria-expanded={open?.kind === 'date'}
-          onClick={(event) => toggle('date', event.currentTarget)}
-        >
-          <Icon name="calendar" />
-          {due ? chipDay(due, today) : t('tasks.date')}
-        </button>
+        <span className="chip-pair">
+          <button
+            type="button"
+            className={['chip', day && 'on', day && day < today && 'late'].filter(Boolean).join(' ')}
+            aria-haspopup="dialog"
+            aria-expanded={open?.kind === 'date'}
+            onClick={(event) => toggle('date', event.currentTarget)}
+          >
+            <Icon name="calendar" />
+            {day ? chipDay(day, today) : t('tasks.date')}
+          </button>
+          {day && (
+            <button type="button" className="x" title={t('tasks.removeDate')} aria-label={t('tasks.removeDate')} onMouseDown={keepTyping} onClick={() => setDay(null)}>
+              <Icon name="close" />
+            </button>
+          )}
+        </span>
         <button type="button" className={priority === 4 ? 'chip' : `chip on p${priority}`} aria-haspopup="menu" onClick={priorityMenu}>
           <Icon name="flag" />
           {priority === 4 ? t('tasks.priority') : t('tasks.priorityShort', { n: priority })}
@@ -385,6 +513,17 @@ export function TaskComposer({ start, today, places, recordChoices, recordName, 
           <Icon name="collection" />
           <span>{record ? recordName(record) : t('tasks.record')}</span>
         </button>
+        {assignee && (
+          <span className="chip-pair">
+            <span className="chip on">
+              <Icon name="person" />
+              <span>{assignee.name ?? t('card.someone')}</span>
+            </span>
+            <button type="button" className="x" title={t('tasks.takeOffStart', { what: assignee.name ?? t('card.someone') })} aria-label={t('tasks.takeOffStart', { what: assignee.name ?? t('card.someone') })} onMouseDown={keepTyping} onClick={() => setAssignee(undefined)}>
+              <Icon name="close" />
+            </button>
+          </span>
+        )}
         <AttachButton className="chip ic" iconOnly onFiles={(files) => attacher.current?.(files)} />
       </div>
       <div className="foot">
@@ -412,10 +551,10 @@ export function TaskComposer({ start, today, places, recordChoices, recordName, 
       {open?.kind === 'date' && (
         <DatePop
           anchor={open.anchor}
-          current={due}
+          current={day}
           today={today}
-          onPick={(day) => {
-            setDue(day);
+          onPick={(picked) => {
+            setDay(picked);
             shut();
           }}
           onClose={shut}

@@ -3679,6 +3679,67 @@ textarea.tt-edit {
   outline: none;
 }
 
+/* A day written in the name, lit behind its words: the same text, laid under the field. */
+.task-composer .tt-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.task-composer .tt-wrap textarea {
+  position: relative;
+}
+
+.task-composer .tt-mark {
+  position: absolute;
+  inset: 0;
+  color: transparent;
+  font-size: 13.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+
+.task-composer .tt-mark mark {
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--sl-accent) 26%, transparent);
+  color: transparent;
+}
+
+/* A chip with its × to take it off, inside its border. */
+.task-composer .chip-pair {
+  position: relative;
+  display: inline-flex;
+}
+
+.task-composer .chip-pair .chip {
+  padding-right: 22px;
+}
+
+.task-composer .chip-pair .x {
+  position: absolute;
+  top: 50%;
+  right: 3px;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  color: var(--sl-dim);
+  transform: translateY(-50%);
+}
+
+.task-composer .chip-pair .x:hover {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+.task-composer .chip-pair .x .icon {
+  width: var(--icon-11);
+  height: var(--icon-11);
+}
+
 .task-composer .desc-field {
   min-height: 0;
   margin: 2px 0 7px;
@@ -3865,6 +3926,60 @@ textarea.tt-edit {
   margin-left: auto;
   color: var(--sl-faint);
   font-size: 11.5px;
+}
+
+/* The day typed: the box at the top, and the day it is read as under it. */
+.day-pop .day-type {
+  box-sizing: border-box;
+  width: 100%;
+  margin-bottom: 4px;
+  padding: 5px 7px 8px;
+  border: 0;
+  border-bottom: 1px solid var(--sl-line);
+  background: none;
+  color: var(--sl-fg);
+  font: inherit;
+  outline: none;
+}
+
+.day-pop .day-type::placeholder {
+  color: var(--sl-faint);
+}
+
+.day-pop .opt.found {
+  margin-bottom: 4px;
+  background: var(--sl-sel);
+}
+
+/* The months one under the other, scrolled through; each after the first named above it. */
+.mini-scroll {
+  position: relative;
+  max-height: 196px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.mini-scroll .ml {
+  margin: 6px 0 3px;
+  padding: 0 5px 3px;
+  border-bottom: 1px solid var(--sl-line);
+  font-weight: 600;
+}
+
+.mini-cal .mh button:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+.mini-cal .mh button:disabled:hover {
+  background: none;
+}
+
+.mini-cal .mh .dot {
+  width: 6px;
+  height: 6px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
 }
 
 .mini-cal {

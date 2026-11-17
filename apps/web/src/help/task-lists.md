@@ -6,6 +6,8 @@ A task list is what you have to do, in a folder beside that work's notes. A fold
 
 Press **+** beside the tabs and pick **Task list**, then add tasks at the end of the list or of a section. A task has a title, a description, a date, a priority from 1 to 4, labels, and in a space shared with others who it is given to.
 
+A day written in a new task's name, such as `Dentist fri`, `Pay rent dec 1` or `in 2 weeks`, becomes its date and leaves the name as it is added. To keep those words in the name, pick another date or press × on the date. In the date window, type a day in the box at the top, or pick one from the months below.
+
 Click a task to change it. The bar under it has **Date**, **Priority**, **Labels**, **Given to**, **Record** and **Attach**. In a task's description, `@` mentions someone in the space; with a Scrawl server they are told. See [Working together](working-together).
 
 - **Subtasks:** drag a task to the right, under another, to make it a subtask, up to four levels.
@@ -19,7 +21,7 @@ Click a task to change it. The bar under it has **Date**, **Priority**, **Labels
 
 ## Today and Upcoming
 
-**Today**, at the top of the sidebar, gathers what is due today or late from every list, board and collection, in every space. Tasks added in Today go to the Inbox.
+**Today**, at the top of the sidebar, gathers what is due today or late from every list, board and collection, in every space. A task added in Today starts in the Inbox, due today; its date and list can be changed before it is added.
 
 - Late ones are under **Overdue**. **Reschedule** gives them all a new day at once.
 - What you finished today is at the end, and opens again with a tick.

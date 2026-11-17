@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Icon } from './Icon';
 
 /** The first day of the month a day is in. */
-const monthOf = (day: string) => {
+export const monthOf = (day: string) => {
   const [y, m] = day.split('-').map(Number) as [number, number];
   return new Date(y, m - 1, 1);
 };
@@ -25,10 +25,7 @@ export function MonthGrid({ month, onMonth, today, current, onPick }: {
   current: string | null;
   onPick: (day: string) => void;
 }) {
-  const blanks = (month.getDay() + 6) % 7;
-  const length = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
   const shift = (by: number) => onMonth(new Date(month.getFullYear(), month.getMonth() + by, 1));
-  const initials = Array.from({ length: 7 }, (_, i) => new Date(2024, 0, 1 + i).toLocaleDateString(locale(), { weekday: 'narrow' }));
   return (
     <>
       <div className="mh">
@@ -42,25 +39,43 @@ export function MonthGrid({ month, onMonth, today, current, onPick }: {
           </button>
         </span>
       </div>
-      <div className="g">
-        {initials.map((initial, i) => (
-          <span key={`w${i}`} className="w">
-            {initial}
-          </span>
-        ))}
-        {Array.from({ length: blanks }, (_, i) => (
-          <span key={`b${i}`} />
-        ))}
-        {Array.from({ length }, (_, i) => {
-          const day = dayOf(new Date(month.getFullYear(), month.getMonth(), i + 1));
-          const classes = [day < today && 'past', day === today && 'today', day === current && 'on'].filter(Boolean).join(' ');
-          return (
-            <button key={day} type="button" className={classes || undefined} aria-pressed={day === current} onClick={() => onPick(day)}>
-              {i + 1}
-            </button>
-          );
-        })}
-      </div>
+      <WeekInitials />
+      <MonthDays month={month} today={today} current={current} onPick={onPick} />
     </>
+  );
+}
+
+/** The days of the week, Monday first, as a month's columns. */
+export function WeekInitials() {
+  return (
+    <div className="g">
+      {Array.from({ length: 7 }, (_, i) => (
+        <span key={i} className="w">
+          {new Date(2024, 0, 1 + i).toLocaleDateString(locale(), { weekday: 'narrow' })}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** A month's days under the week's columns: those before today faint, today in the accent, the one set filled. */
+export function MonthDays({ month, today, current, onPick }: { month: Date; today: string; current: string | null; onPick: (day: string) => void }) {
+  const blanks = (month.getDay() + 6) % 7;
+  const length = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+  return (
+    <div className="g">
+      {Array.from({ length: blanks }, (_, i) => (
+        <span key={`b${i}`} />
+      ))}
+      {Array.from({ length }, (_, i) => {
+        const day = dayOf(new Date(month.getFullYear(), month.getMonth(), i + 1));
+        const classes = [day < today && 'past', day === today && 'today', day === current && 'on'].filter(Boolean).join(' ');
+        return (
+          <button key={day} type="button" className={classes || undefined} aria-pressed={day === current} onClick={() => onPick(day)}>
+            {i + 1}
+          </button>
+        );
+      })}
+    </div>
   );
 }
