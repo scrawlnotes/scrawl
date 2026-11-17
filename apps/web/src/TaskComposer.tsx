@@ -176,29 +176,39 @@ const shortDay = (day: string, today: string) =>
   toDate(day).toLocaleDateString(locale(), { month: 'short', day: 'numeric', ...(day.slice(0, 4) !== today.slice(0, 4) && { year: 'numeric' }) });
 
 /**
- * The months from this one, or from the day set when it went by, a year on and past the day set:
+ * The months from this week, or from the day set's when it went by, a year on and past the day set:
  * one under the other, scrolled through. Above them the one at the top, with ‹ and › to the one
  * before and after it and the dot back to this month; it opens at the day set's.
  */
 function MonthScroll({ today, current, onPick }: { today: string; current: string | null; onPick: (day: string) => void }) {
   const box = useRef<HTMLDivElement>(null);
-  const first = monthOf(current && current < today ? current : today);
+  const from = current && current < today ? current : today;
+  const first = monthOf(from);
+  // The first month starts at the week of the first day shown.
+  const week = addDays(from, -((toDate(from).getDay() + 6) % 7));
   const index = (day: string) => {
     const month = monthOf(day);
     return (month.getFullYear() - first.getFullYear()) * 12 + month.getMonth() - first.getMonth();
   };
   const months = Array.from({ length: Math.max(13, current ? index(current) + 3 : 0) }, (_, i) => new Date(first.getFullYear(), first.getMonth() + i, 1));
   const [top, setTop] = useState(() => (current ? index(current) : 0));
+  // A month's days, under its name: gone to, its name goes up out of sight, as it is said above.
+  const daysOf = () => [...(box.current?.querySelectorAll<HTMLElement>(':scope > div > .g') ?? [])];
   const go = (i: number, smooth = true) => {
-    const month = box.current?.children[i] as HTMLElement | undefined;
-    if (month) box.current!.scrollTo({ top: month.offsetTop, behavior: smooth ? 'smooth' : 'auto' });
+    const days = daysOf()[i];
+    if (days) box.current!.scrollTo({ top: days.offsetTop, behavior: smooth ? 'smooth' : 'auto' });
   };
-  useLayoutEffect(() => go(top, false), []);
-  // The month named is the last that starts at the top or above it.
+  // It opens at the day set's month, the day itself in sight.
+  useLayoutEffect(() => {
+    go(top, false);
+    const scroll = box.current!;
+    const on = scroll.querySelector<HTMLElement>('button.on');
+    if (on && on.offsetTop + on.offsetHeight > scroll.scrollTop + scroll.clientHeight) scroll.scrollTop = on.offsetTop + on.offsetHeight - scroll.clientHeight;
+  }, []);
+  // The month named is the last whose days start at the top or above it.
   const onScroll = () => {
-    const children = [...(box.current?.children ?? [])] as HTMLElement[];
     const at = box.current!.scrollTop + 8;
-    setTop(Math.max(0, children.filter((month) => month.offsetTop <= at).length - 1));
+    setTop(Math.max(0, daysOf().filter((days) => days.offsetTop <= at).length - 1));
   };
   const year = today.slice(0, 4);
   return (
@@ -226,7 +236,7 @@ function MonthScroll({ today, current, onPick }: { today: string; current: strin
                 {month.toLocaleDateString(locale(), { month: 'short', ...(String(month.getFullYear()) !== year && { year: 'numeric' }) })}
               </div>
             )}
-            <MonthDays month={month} today={today} current={current} onPick={onPick} />
+            <MonthDays month={month} today={today} current={current} week={i === 0 ? week : undefined} onPick={onPick} />
           </div>
         ))}
       </div>

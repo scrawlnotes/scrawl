@@ -3954,9 +3954,38 @@ textarea.tt-edit {
 /* The months one under the other, scrolled through; each after the first named above it. */
 .mini-scroll {
   position: relative;
+  flex: 0 1 auto;
+  min-height: 80px;
   max-height: 196px;
   overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+/* No bar beside the months, which would make their columns narrower than the weekdays'. */
+.mini-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* With little room the months take less of it; the window itself scrolls only when even that does not fit. */
+.day-pop {
+  display: flex;
+  flex-direction: column;
+}
+
+.day-pop > * {
+  flex: none;
+}
+
+.day-pop > .mini-cal {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.day-pop .mini-cal > :not(.mini-scroll) {
+  flex: none;
 }
 
 .mini-scroll .ml {

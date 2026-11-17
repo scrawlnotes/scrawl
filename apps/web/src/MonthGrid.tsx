@@ -58,16 +58,21 @@ export function WeekInitials() {
   );
 }
 
-/** A month's days under the week's columns: those before today faint, today in the accent, the one set filled. */
-export function MonthDays({ month, today, current, onPick }: { month: Date; today: string; current: string | null; onPick: (day: string) => void }) {
-  const blanks = (month.getDay() + 6) % 7;
+/**
+ * A month's days under the week's columns: those before today faint, today in the accent, the one
+ * set filled. With `week`, a Monday, the weeks before it are left out, as Todoist starts at this week.
+ */
+export function MonthDays({ month, today, current, week, onPick }: { month: Date; today: string; current: string | null; week?: string; onPick: (day: string) => void }) {
   const length = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+  const skip = week && week > dayOf(month) ? Number(week.slice(8)) - 1 : 0;
+  const blanks = skip ? 0 : (month.getDay() + 6) % 7;
   return (
     <div className="g">
       {Array.from({ length: blanks }, (_, i) => (
         <span key={`b${i}`} />
       ))}
-      {Array.from({ length }, (_, i) => {
+      {Array.from({ length: length - skip }, (_, n) => {
+        const i = n + skip;
         const day = dayOf(new Date(month.getFullYear(), month.getMonth(), i + 1));
         const classes = [day < today && 'past', day === today && 'today', day === current && 'on'].filter(Boolean).join(' ');
         return (
