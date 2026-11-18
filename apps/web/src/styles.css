@@ -17564,10 +17564,10 @@ button.ch-q {
   font-size: 11px;
 }
 
-/* Seen on a computer: always before the message's text. */
+/* Seen on a computer: always after the message's text. */
 .ch-seenmark {
   display: inline-flex;
-  margin-right: 6px;
+  margin-left: 6px;
   vertical-align: -2px;
   color: var(--sl-faint);
 }
