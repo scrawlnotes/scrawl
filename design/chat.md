@@ -728,3 +728,15 @@ Video ölçülürken sayfaya görünmeden konur ve sessizce bir an oynatılır. 
 - **ffmpeg'siz sunucu:** video "hazırlanıyor" görünmez; çözemeyen bilgisayar hemen nedeni ve Download'u gösterir.
 - **Oynarken kopya gelirse:** oynayan video kesilmez; kopya bir sonraki oynatmada kullanılır.
 - **Durum adları:** `play_state` `converting`, `same`, `ready`, `failed`; uygulamaya `preparing` ve `play` olarak gider.
+
+## 28. Dosyalar mesajın içinde gider (18 Kasım)
+
+Kaan iPhone'da LTE'deyken bir resim ekleyip yazı yazdı. Yazı gitti, resim gitmedi. Sunucunun kaydında 15:58:11'de yüklemenin bağlantısı yarıda kopmuş (`ECONNRESET`). Eskiden dosya, seçildiği anda kutunun üstündeki tepside yükleniyordu. Yüklenemeyen dosya tepside "!" ile kalıyor, Send yalnız yazıyı gönderiyordu. Yeniden deneme yoktu. Artık WhatsApp'taki gibi:
+
+- **Kutuda:** seçilen dosya yazma kutusunun içinde, yazının üstünde durur; telefonda da kartın içinde. Burada yükleme yok, × ile çıkarılır. Send hemen basılır.
+- **Send'den sonra:** mesaj konuşmaya hemen düşer. Resimler balonun içinde göründükleri gibi durur, soluk ve üstlerinde ne kadarının gittiğini gösteren bir halka. Öbür dosyalar adıyla ve yüzdesiyle görünür.
+- **Birlikte gider:** mesaj, dosyalarının hepsi sunucuya ulaşınca gönderilir. Yazı dosyasız gitmez. Dosyası yüklenen bir mesaj, ondan sonra yazılanları bekletmez.
+- **Yeniden dener:** sunucuya ulaşmayan dosya 2 sn, 5 sn, 15 sn, 30 sn ve 60 sn sonra yeniden gönderilir; cihaz yeniden internete bağlanınca beklemeden. Hepsi düşerse mesajda "Not sent" ile Retry ve Delete çıkar. Retry, gitmiş dosyaları yeniden göndermez.
+- **Uygulama kapanırsa:** gönderilmemiş dosyalar cihazda (Cache Storage, `scrawl-chat-files` içinde `<sunucu>/unsent/<anahtar>`) durur. Uygulama açılınca mesaj resmiyle görünür ve gönderilmeye devam eder. Mesaj gidince ya da silinince cihazdakiler silinir.
+- **Kod:** `chatStore.ts` `Pending.uploads` (`Upload`: ad, tür, boyut, ne kadar gittiği, ölçüsü, cihazdaki resmi, sunucudaki `ChatFile`), `send(..., blobs)`, `carry` (ölçer, küçük resmi ve dosyayı gönderir, yeniden dener), `forget`. `ChatParts.tsx` `Tray` (yalnız seçilenler) ve `Uploads` (balondaki resimler ve halka). Sesli mesaj eskisi gibi önce yüklenir.
+- **Denendi:** Claude'un tarayıcısında, yerel sunucuyla: ilk üç yükleme düşürüldü, mesaj iki resmiyle gitti; altı yüklemenin hepsi düşürüldü, Not sent çıktı, Retry ile gitti; yükleme sürerken sayfa yenilendi, resim cihazdan okunup gitti; telefon görünümünde resim kartın içinde.

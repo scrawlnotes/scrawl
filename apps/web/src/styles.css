@@ -18983,11 +18983,11 @@ button.ch-video img {
 }
 
 .ch-going-file.failed {
-  border-color: color-mix(in srgb, var(--sl-danger) 60%, var(--sl-line));
+  border-color: color-mix(in srgb, var(--sl-p1) 60%, var(--sl-line));
 }
 
 .ch-going-file.failed .tx small {
-  color: var(--sl-danger);
+  color: var(--sl-p1);
 }
 
 .ch-going-file .prog {
@@ -19006,22 +19006,62 @@ button.ch-video img {
   transition: width 0.2s;
 }
 
-.ch-going-file.pic:not(.failed):has(.prog) img {
-  opacity: 0.55;
+/* a message's files while they go, inside it as WhatsApp's: soft, with a ring of how far */
+.ch-uploads .ch-img:has(.up) img {
+  opacity: 0.6;
 }
 
-.ch-going-file .no {
+.ch-uploads .up {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
-  background: rgb(0 0 0 / 0.5);
-  color: var(--sl-danger);
 }
 
-.ch-going-file .no .icon {
-  width: 20px;
-  height: 20px;
+.ch-uploads .up svg:not(.icon) {
+  width: 40px;
+  height: 40px;
+  padding: 4px;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.45);
+  transform: rotate(-90deg);
+}
+
+.ch-uploads .up.wait svg:not(.icon) {
+  animation: ch-spin 0.9s linear infinite;
+}
+
+.ch-uploads .up circle {
+  fill: none;
+  stroke-width: 3;
+}
+
+.ch-uploads .up .bg {
+  stroke: rgb(255 255 255 / 0.25);
+}
+
+.ch-uploads .up .fg {
+  stroke: #fff;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.2s;
+}
+
+.ch-uploads .up.no {
+  background: rgb(0 0 0 / 0.35);
+  color: var(--sl-p1);
+}
+
+.ch-uploads .up.no .icon {
+  width: 22px;
+  height: 22px;
+}
+
+.ch-uploads .ch-img .vd {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #fff;
 }
 
 .ch-going-file .x {

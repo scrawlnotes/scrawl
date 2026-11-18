@@ -22,7 +22,7 @@ import {
 import { locale, type MessageKey, t } from '@scrawlnotes/i18n';
 import { type DragEvent, type KeyboardEvent, memo, type MouseEvent, type PointerEvent, type ReactNode, type RefObject, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { clock, measure, Recording } from './chatMedia';
-import { Attachments, copyImage, ForwardDialog, type Going, isImage, NotifyBanner, NotifyBell, RecorderBar, saveChatFile, Tray } from './ChatParts';
+import { Attachments, copyImage, ForwardDialog, type Going, isImage, NotifyBanner, NotifyBell, RecorderBar, saveChatFile, Tray, Uploads } from './ChatParts';
 import { type ChatServer, type ChatSnapshot, draftOf, keepDraft, keepOpen, lastOpen, type Pending, store, type Woke } from './chatStore';
 import { ConfirmDialog, type MenuItem } from './dialogs';
 import { agentChoices } from './mentionChoices';
@@ -37,7 +37,7 @@ import { type Hit, type HitFilters, useMessageSearch } from './messageSearch';
 import { hostOf } from './servers';
 import { suppressClick } from './sheets';
 import { ITEM_DRAG_TYPE } from './Sidebar';
-import { clipboardFilesOnDesktop, isDesktop } from './storage';
+import { clipboardFilesOnDesktop, isDesktop, openUrlOnDesktop } from './storage';
 import { isPhone } from './device';
 
 // Chat (design/chat.md, 8.1; design/mockups.html, Messaging): one tab, the conversations of every
@@ -1446,6 +1446,12 @@ function onBodyClick(event: MouseEvent, onLink: (href: string) => void) {
     event.preventDefault();
     return onLink(link.dataset.href ?? '');
   }
+  // The desktop window opens no new window for target="_blank": a web address opens in the browser, as a note's does.
+  const web = at.closest<HTMLAnchorElement>('a[href]');
+  if (web && isDesktop) {
+    event.preventDefault();
+    return void openUrlOnDesktop(web.href).catch(() => undefined);
+  }
   const button = at.closest<HTMLElement>('[data-act]');
   const box = button?.closest<HTMLElement>('.msg-codebox');
   if (!button || !box) return;
@@ -1501,6 +1507,7 @@ function PendingRow({ url, pending, me, nameOf, after, replied, phone }: { url: 
         )}
         {/* What waited on this device from before files went in messages has none. */}
         {(pending.files ?? []).length > 0 && <Attachments url={url} files={pending.files} />}
+        {pending.uploads && <Uploads uploads={pending.uploads} failed={!!pending.failed} />}
         {pending.failed ? (
           <div className="ch-fail">
             <Icon name="warn" />
@@ -1718,12 +1725,11 @@ export function Composer({ server, chat, replyTo, nameOf, menu, links, dropping,
 
   const change = (key: string, patch: Partial<Going>) => setGoing((was) => was.map((each) => (each.key === key ? { ...each, ...patch } : each)));
   const letGo = (each: Going) => {
-    if (!each.file && !each.failed) each.stop.abort();
     if (each.preview) URL.revokeObjectURL(each.preview);
   };
   useEffect(() => () => goingNow.current.forEach(letGo), []);
 
-  /** Files for the message: each measured, its small picture sent, then itself, with how far it went. */
+  /** Files for the message, in the box until Send: they go with it, uploaded as it is shown (design/chat.md 28). */
   const add = (files: File[]) => {
     if (!one || !files.length) return;
     const room = MAX_FILES - goingNow.current.length;
@@ -1735,30 +1741,10 @@ export function Composer({ server, chat, replyTo, nameOf, menu, links, dropping,
         links.say(t('chat.tooLarge', { size: limitText(limit) }));
         continue;
       }
-      const each: Going = { key: crypto.randomUUID(), name: file.name || 'file', type: file.type, size: file.size, sent: 0, preview: isImage(file) ? URL.createObjectURL(file) : null, stop: new AbortController() };
+      const each: Going = { key: crypto.randomUUID(), name: file.name || 'file', type: file.type, size: file.size, preview: isImage(file) ? URL.createObjectURL(file) : null, blob: file };
       added.push(each);
-      void (async () => {
-        try {
-          const measured = await measure(file);
-          if (measured.thumb && !each.preview) change(each.key, { preview: URL.createObjectURL(measured.thumb) });
-          const thumb = measured.thumb ? (await one.upload(measured.thumb, () => undefined, each.stop.signal)).hash : undefined;
-          const sent = await one.upload(file, (count) => change(each.key, { sent: count }), each.stop.signal);
-          const done: ChatFile = {
-            hash: sent.hash,
-            name: each.name,
-            type: file.type || 'application/octet-stream',
-            size: sent.size,
-            ...(measured.width && { width: measured.width }),
-            ...(measured.height && { height: measured.height }),
-            ...(measured.duration !== undefined && Number.isFinite(measured.duration) && { duration: measured.duration }),
-            ...(thumb && { thumb }),
-          };
-          change(each.key, { sent: file.size, file: done });
-        } catch (error) {
-          if (each.stop.signal.aborted) return;
-          change(each.key, { failed: error instanceof Error && error.message === 'too-large' && limit !== null ? t('chat.tooLarge', { size: limitText(limit) }) : t('chat.notUploaded') });
-        }
-      })();
+      // A video's picture, for the box.
+      if (!each.preview) void measure(file).then((measured) => measured.thumb && change(each.key, { preview: URL.createObjectURL(measured.thumb) }));
     }
     if (added.length) setGoing((was) => [...was, ...added]);
     editor.current?.view.focus();
@@ -1969,10 +1955,8 @@ export function Composer({ server, chat, replyTo, nameOf, menu, links, dropping,
     view.focus();
   };
 
-  // What is uploaded goes with the words; what is still on its way holds Send, what failed stays in the tray.
-  const ready = going.filter((each) => each.file);
-  const uploading = going.some((each) => !each.file && !each.failed);
-  const canSend = !uploading && (text.trim() !== '' || ready.length > 0) && (!fresh || fresh.make !== null);
+  // The files go with the words, uploaded once the message is in the conversation.
+  const canSend = (text.trim() !== '' || going.length > 0) && (!fresh || fresh.make !== null);
   const open = focused || text.trim() !== '' || going.length > 0 || replyTo !== null;
 
   const send = () => {
@@ -1980,12 +1964,12 @@ export function Composer({ server, chat, replyTo, nameOf, menu, links, dropping,
     const body = view?.state.doc.toString() ?? '';
     if (!view || !canSend || !one) return;
     const deliver = (to: ChatInfo) => {
-      one.send(to.id, body.trim() ? body : '', replyTo?.id ?? null, ready.map((each) => each.file!));
+      one.send(to.id, body.trim() ? body : '', replyTo?.id ?? null, [], going.map((each) => each.blob));
       view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: '' } });
       keepDraft(server.url, draftKey, '');
       setText('');
-      ready.forEach(letGo);
-      setGoing((was) => was.filter((each) => !each.file));
+      going.forEach(letGo);
+      setGoing([]);
       onCancelReply();
       fresh?.onSent(to);
     };
@@ -2096,7 +2080,7 @@ export function Composer({ server, chat, replyTo, nameOf, menu, links, dropping,
           ))}
         </div>
       )}
-      <Tray going={going} onRemove={remove} />
+      {!phone && <Tray going={going} onRemove={remove} />}
       {phone ? (
         // A pill with + and the microphone; in use, the words over +, Aa, @ and Send; emoji are on the keyboard.
         <div
@@ -2105,6 +2089,7 @@ export function Composer({ server, chat, replyTo, nameOf, menu, links, dropping,
           onMouseDown={(event) => !open && !(event.target as Element).closest('button') && event.preventDefault()}
           onClick={(event) => !open && !(event.target as Element).closest('button') && editor.current && focusOnCapital(editor.current.view)}
         >
+          <Tray going={going} onRemove={remove} />
           {!open && !hold && (
             <button type="button" className="pl" aria-label={t('chat.add')} onMouseDown={(event) => event.preventDefault()} onClick={plusMenu}>
               <Icon name="plus" />

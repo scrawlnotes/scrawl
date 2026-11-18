@@ -2,7 +2,7 @@ import { type ChatFile, type ChatInfo, type ChatMessage, type ChatNotify, plainT
 import { t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { clock, kindText, MAX_RECORDING_S, Recording, sizeText } from './chatMedia';
-import { type ChatServer, store } from './chatStore';
+import { type ChatServer, store, type Upload } from './chatStore';
 import { Dialog } from './dialogs';
 import { Icon } from './Icon';
 import { FIT, kept, placeOf, TAP_ZOOM, type Zoom, zoomedAt } from './photoZoom';
@@ -485,29 +485,25 @@ export function FileRow({ url, file }: { url: string; file: ChatFile }) {
 
 // ---------- writing ----------
 
-/** A file on its way into a message: how far it went, then what it is on the server; or why it did not go. */
+/** A file chosen for the message, in the box until Send. */
 export interface Going {
   key: string;
   name: string;
   type: string;
   size: number;
-  sent: number;
-  /** A picture of it, from this device, for the tray. */
+  /** A picture of it, from this device, for the box. */
   preview: string | null;
-  file?: ChatFile;
-  failed?: string;
-  stop: AbortController;
+  blob: File;
 }
 
-/** The files on their way, over the box to write in: each with its picture or icon, how far it went, and ×. */
+/** The files chosen, in the box to write in over the words: each with its picture or icon, and ×. */
 export function Tray({ going, onRemove }: { going: Going[]; onRemove: (key: string) => void }) {
   if (!going.length) return null;
   return (
     <div className="ch-tray">
       {going.map((each) => {
-        const part = Math.round((each.sent / Math.max(1, each.size)) * 100);
         return (
-          <div key={each.key} className={`ch-going-file${each.failed ? ' failed' : ''}${each.preview ? ' pic' : ''}`} title={each.failed ?? each.name}>
+          <div key={each.key} className={`ch-going-file${each.preview ? ' pic' : ''}`} title={each.name}>
             {each.preview ? (
               <img src={each.preview} alt="" />
             ) : (
@@ -518,22 +514,12 @@ export function Tray({ going, onRemove }: { going: Going[]; onRemove: (key: stri
             {!each.preview && (
               <span className="tx">
                 <b>{each.name}</b>
-                <small>{each.failed ?? (each.file ? sizeText(each.size) : `${part}%`)}</small>
-              </span>
-            )}
-            {!each.file && !each.failed && (
-              <span className="prog">
-                <span style={{ width: `${part}%` }} />
+                <small>{sizeText(each.size)}</small>
               </span>
             )}
             {isVideo(each) && each.preview && (
               <span className="vd">
                 <Icon name="playFill" />
-              </span>
-            )}
-            {each.failed && each.preview && (
-              <span className="no">
-                <Icon name="warn" />
               </span>
             )}
             <button type="button" className="x" aria-label={t('chat.removeFile')} title={t('chat.removeFile')} onClick={() => onRemove(each.key)}>
@@ -543,6 +529,72 @@ export function Tray({ going, onRemove }: { going: Going[]; onRemove: (key: stri
         );
       })}
     </div>
+  );
+}
+
+/**
+ * The files of a message written here, inside it as WhatsApp's while they go: each picture as it
+ * will be, soft, with a ring of how far it went; another file with its name and how far. Not sent:
+ * the warning, the message's Retry under it.
+ */
+export function Uploads({ uploads, failed }: { uploads: Upload[]; failed: boolean }) {
+  const pictures = uploads.filter((each) => each.preview);
+  const grid = pictures.slice(0, 4);
+  const part = (each: Upload) => (each.file ? 1 : each.sent / Math.max(1, each.size));
+  return (
+    <div className="ch-files ch-uploads">
+      {grid.length > 0 && (
+        <div className={`ch-imgs n${grid.length}`}>
+          {grid.map((each, i) => {
+            const ratio = each.width && each.height ? each.width / each.height : 4 / 3;
+            const more = i === 3 ? pictures.length - 4 : 0;
+            return (
+              <span key={each.key} className="ch-img" style={grid.length === 1 ? ({ '--r': ratio, aspectRatio: String(ratio) } as CSSProperties) : undefined}>
+                <img src={each.preview} alt="" draggable={false} />
+                {isVideo(each) && !failed && each.file && (
+                  <span className="vd">
+                    <Icon name="playFill" />
+                  </span>
+                )}
+                {failed ? <span className="up no"><Icon name="warn" /></span> : !each.file && <Ring part={part(each)} />}
+                {more > 0 && <span className="more">+{more}</span>}
+              </span>
+            );
+          })}
+        </div>
+      )}
+      {uploads
+        .filter((each) => !each.preview)
+        .map((each) => (
+          <div key={each.key} className={`ch-going-file${failed ? ' failed' : ''}`} title={each.name}>
+            <span className="fi">
+              <Icon name={isAudio(each) ? 'audio' : isVideo(each) ? 'playFill' : 'file'} />
+            </span>
+            <span className="tx">
+              <b>{each.name}</b>
+              <small>{each.file || failed ? sizeText(each.size) : `${Math.round(part(each) * 100)}%`}</small>
+            </span>
+            {!each.file && !failed && (
+              <span className="prog">
+                <span style={{ width: `${Math.round(part(each) * 100)}%` }} />
+              </span>
+            )}
+          </div>
+        ))}
+    </div>
+  );
+}
+
+/** How far a picture went, as a ring over it; turning while nothing has gone yet. */
+function Ring({ part }: { part: number }) {
+  const round = 2 * Math.PI * 16;
+  return (
+    <span className={`up${part === 0 ? ' wait' : ''}`}>
+      <svg viewBox="0 0 40 40" aria-hidden="true">
+        <circle cx="20" cy="20" r="16" className="bg" />
+        <circle cx="20" cy="20" r="16" className="fg" strokeDasharray={round} strokeDashoffset={round * (1 - Math.max(part, 0.08))} />
+      </svg>
+    </span>
   );
 }
 

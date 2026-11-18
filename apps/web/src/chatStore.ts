@@ -17,6 +17,7 @@ import {
   withMessages,
 } from '@scrawlnotes/core';
 import { useSyncExternalStore } from 'react';
+import { measure } from './chatMedia';
 import { knownServers, onServersChanged, serverKey } from './servers';
 
 // Messaging on this device (design/chat.md, 11.5): for every server it is signed in to that has
@@ -33,10 +34,46 @@ export interface Pending {
   replyTo: string | null;
   /** Its files, uploaded before it was written. */
   files: ChatFile[];
+  /** Its files from this device, sent to the server before it, as WhatsApp's: it goes once they are there. */
+  uploads?: Upload[];
   at: number;
   /** Why the server would not take it; unset while it waits to be sent. */
   failed?: string;
 }
+
+/** A file of a message written here, on its way to the server: how far it went, then what it is there. */
+export interface Upload {
+  key: string;
+  name: string;
+  type: string;
+  size: number;
+  sent: number;
+  width?: number;
+  height?: number;
+  /** Its picture on this device, while the message is not sent. */
+  preview?: string;
+  file?: ChatFile;
+}
+
+/** How long a file that did not reach the server waits before it is sent again; after the last, the message says Not sent with Retry. */
+const UPLOAD_AGAIN_MS = [2000, 5000, 15_000, 30_000, 60_000];
+
+/** Where a file not uploaded yet is kept on the device, so that a message closed with the app goes when it opens again. */
+const unsentAddress = (url: string, key: string) => `${url}/unsent/${key}`;
+
+/** Waits, or less once the device is back online. */
+const waitOrOnline = (ms: number, stop: AbortSignal) =>
+  new Promise<void>((done) => {
+    const end = () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('online', end);
+      stop.removeEventListener('abort', end);
+      done();
+    };
+    const timer = window.setTimeout(end, ms);
+    window.addEventListener('online', end);
+    stop.addEventListener('abort', end);
+  });
 
 /** One server's messaging, as the screens read it. */
 export interface ChatServer {
@@ -214,7 +251,10 @@ class OneServer {
     const kept = await readKept(this.url);
     if (kept && kept.me === this.state.me) {
       this.cursor = kept.cursor;
-      this.set({ chats: kept.chats, messages: kept.messages, pending: kept.pending.filter((each) => !each.failed) });
+      // A picture's address does not outlive the page: it is made again from the file kept on the device.
+      const pending = kept.pending.filter((each) => !each.failed).map((each) => (each.uploads ? { ...each, uploads: each.uploads.map(({ preview: _, ...upload }) => upload) } : each));
+      this.set({ chats: kept.chats, messages: kept.messages, pending });
+      for (const each of pending) for (const upload of each.uploads ?? []) if (!upload.file && isPicture(upload.type)) void this.unsent(upload.key).then((blob) => blob && this.changeUpload(each.id, upload.key, { preview: URL.createObjectURL(blob) }));
     }
     this.live = new ServerLive({
       url: this.url,
@@ -340,6 +380,7 @@ class OneServer {
     const byChat = { ...this.state.messages };
     for (const message of messages) byChat[message.chat] = withMessages(byChat[message.chat] ?? [], [message]);
     const sent = new Set(messages.map((message) => message.id));
+    this.state.pending.filter((each) => sent.has(each.id)).forEach((each) => this.forget(each));
     this.set({ messages: byChat, pending: this.state.pending.filter((each) => !sent.has(each.id)) });
   }
 
@@ -363,10 +404,105 @@ class OneServer {
   }
 
   /** Writes a message: shown at once, sent now or when the server is reached. */
-  send(chat: string, body: string, replyTo: string | null, files: ChatFile[] = []) {
-    const pending: Pending = { id: newMessageId(), chat, body, replyTo, files, at: Date.now() };
+  send(chat: string, body: string, replyTo: string | null, files: ChatFile[] = [], blobs: File[] = []) {
+    const uploads = blobs.map((blob): Upload => {
+      const key = crypto.randomUUID();
+      this.blobs.set(key, blob);
+      void caches
+        .open(FILES)
+        .then((cache) => cache.put(unsentAddress(this.url, key), new Response(blob)))
+        .catch(() => undefined);
+      const type = blob.type || 'application/octet-stream';
+      return { key, name: blob.name || 'file', type, size: blob.size, sent: 0, ...(isPicture(type) && { preview: URL.createObjectURL(blob) }) };
+    });
+    const pending: Pending = { id: newMessageId(), chat, body, replyTo, files, ...(uploads.length && { uploads }), at: Date.now() };
     this.set({ pending: [...this.state.pending, pending] });
     void this.flush();
+  }
+
+  /** The files of messages written here, while they are not on the server; kept on the device too. */
+  private blobs = new Map<string, Blob>();
+  /** The messages whose files are being sent, each with what stops them. */
+  private uploading = new Map<string, AbortController>();
+
+  private async unsent(key: string): Promise<Blob | null> {
+    const here = this.blobs.get(key);
+    if (here) return here;
+    const kept = await caches
+      .open(FILES)
+      .then((cache) => cache.match(unsentAddress(this.url, key)))
+      .catch(() => undefined);
+    const blob = kept ? await kept.blob() : null;
+    if (blob) this.blobs.set(key, blob);
+    return blob;
+  }
+
+  private changeUpload(id: string, key: string, patch: Partial<Upload>) {
+    this.set({ pending: this.state.pending.map((each) => (each.id === id && each.uploads ? { ...each, uploads: each.uploads.map((upload) => (upload.key === key ? { ...upload, ...patch } : upload)) } : each)) });
+  }
+
+  /**
+   * Sends a message's files, one after another, each with its small picture: one that does not
+   * reach the server is sent again in a while, sooner once the device is back online; after the
+   * last try the message says Not sent, with Retry. Then the message goes.
+   */
+  private async carry(pending: Pending) {
+    if (this.uploading.has(pending.id)) return;
+    const stop = new AbortController();
+    this.uploading.set(pending.id, stop);
+    try {
+      for (const upload of pending.uploads ?? []) {
+        if (upload.file) continue;
+        const blob = await this.unsent(upload.key);
+        if (!blob) throw new Error('lost');
+        const measured = await measure(blob);
+        if (measured.width) this.changeUpload(pending.id, upload.key, { width: measured.width, height: measured.height, ...(measured.thumb && !isPicture(upload.type) && { preview: URL.createObjectURL(measured.thumb) }) });
+        for (let tries = 0; ; tries++) {
+          try {
+            const thumb = measured.thumb ? (await this.upload(measured.thumb, () => undefined, stop.signal)).hash : undefined;
+            const sent = await this.upload(blob, (count) => this.changeUpload(pending.id, upload.key, { sent: count }), stop.signal);
+            const file: ChatFile = {
+              hash: sent.hash,
+              name: upload.name,
+              type: upload.type,
+              size: sent.size,
+              ...(measured.width && { width: measured.width }),
+              ...(measured.height && { height: measured.height }),
+              ...(measured.duration !== undefined && Number.isFinite(measured.duration) && { duration: measured.duration }),
+              ...(thumb && { thumb }),
+            };
+            this.changeUpload(pending.id, upload.key, { sent: upload.size, file });
+            break;
+          } catch (error) {
+            if (stop.signal.aborted) return;
+            const wait = UPLOAD_AGAIN_MS[tries];
+            if ((error instanceof Error && error.message === 'too-large') || wait === undefined) throw error;
+            this.changeUpload(pending.id, upload.key, { sent: 0 });
+            await waitOrOnline(wait, stop.signal);
+            if (stop.signal.aborted) return;
+          }
+        }
+      }
+    } catch {
+      this.set({ pending: this.state.pending.map((each) => (each.id === pending.id ? { ...each, failed: 'upload' } : each)) });
+      return;
+    } finally {
+      this.uploading.delete(pending.id);
+    }
+    void this.flush();
+  }
+
+  /** A message's files from this device, once it went or was deleted. */
+  private forget(pending: Pending) {
+    this.uploading.get(pending.id)?.abort();
+    for (const upload of pending.uploads ?? []) {
+      if (upload.preview) URL.revokeObjectURL(upload.preview);
+      this.blobs.delete(upload.key);
+      void caches
+        .open(FILES)
+        .then((cache) => cache.delete(unsentAddress(this.url, upload.key)))
+        .catch(() => undefined);
+    }
   }
 
   /** Sends what waits, in the order it was written; one the server refuses is marked, the rest go on. */
@@ -375,10 +511,18 @@ class OneServer {
     if (this.flushing) return;
     this.flushing = true;
     try {
-      for (const pending of this.state.pending) {
-        if (pending.failed) continue;
+      for (const was of this.state.pending) {
+        // As it is now: its files may have gone meanwhile, or it was deleted.
+        const pending = this.state.pending.find((each) => each.id === was.id);
+        if (!pending || pending.failed) continue;
+        // One whose files are on their way goes once they are there; those after it do not wait.
+        if (pending.uploads?.some((upload) => !upload.file)) {
+          void this.carry(pending);
+          continue;
+        }
+        const files = [...(pending.files ?? []), ...(pending.uploads ?? []).map((upload) => upload.file!)];
         try {
-          const sent = await this.client.send(pending.chat, { id: pending.id, body: pending.body, replyTo: pending.replyTo, files: pending.files ?? [] });
+          const sent = await this.client.send(pending.chat, { id: pending.id, body: pending.body, replyTo: pending.replyTo, files });
           this.put([sent]);
         } catch (error) {
           if (error instanceof RemoteOffline) break;
@@ -398,6 +542,8 @@ class OneServer {
   }
 
   discard(id: string) {
+    const pending = this.state.pending.find((each) => each.id === id);
+    if (pending) this.forget(pending);
     this.set({ pending: this.state.pending.filter((each) => each.id !== id) });
   }
 
@@ -576,6 +722,9 @@ class OneServer {
     return typed;
   }
 }
+
+/** A picture the page can show as it is. */
+const isPicture = (type: string) => type.startsWith('image/') && type !== 'image/svg+xml';
 
 /** Where the files of messages are kept on the device once read. */
 const FILES = 'scrawl-chat-files';
