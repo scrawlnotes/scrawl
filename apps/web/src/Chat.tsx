@@ -25,6 +25,7 @@ import { clock, measure, Recording } from './chatMedia';
 import { Attachments, copyImage, ForwardDialog, type Going, isImage, NotifyBanner, NotifyBell, RecorderBar, saveChatFile, Tray, Uploads } from './ChatParts';
 import { type ChatServer, type ChatSnapshot, draftOf, keepDraft, keepOpen, lastOpen, type Pending, store, type Woke } from './chatStore';
 import { ConfirmDialog, type MenuItem } from './dialogs';
+import { log } from './log';
 import { agentChoices } from './mentionChoices';
 import { MentionList, useMentions } from './Mentions';
 import { useWakeable, wakeableKnown } from './wakeable';
@@ -591,6 +592,8 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
       }
       return;
     }
+    // shortcut: temporary measure of an iPhone's end left under the box, remove once found
+    if (!atEnd.current) log('info', 'Chat end', `drawn away from the end: foot ${Math.round(box.scrollHeight - box.scrollTop - box.clientHeight)}, height ${box.clientHeight}`);
     if (atEnd.current) box.scrollTop = box.scrollHeight;
     // Any message changed, not only one more: a reaction or an edit on the last makes it longer. The
     // New line too: put in on coming back, over what came meanwhile, it pushed the last message under the box.
@@ -618,6 +621,8 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
         // Kept at the New line only as the box grows: a keyboard coming up keeps what is over the box to write in.
       } else if (line && box.clientHeight >= was) toLine(box, line);
       else if (was) box.scrollTop += was - box.clientHeight;
+      const foot = Math.round(box.scrollHeight - box.scrollTop - box.clientHeight);
+      if (foot > 1) log('info', 'Chat end', `resized ${was} → ${box.clientHeight}: foot ${foot}, at end ${atEnd.current}, was end ${wasEnd}`);
     };
     const watch = new ResizeObserver(keep);
     watch.observe(box);
@@ -653,7 +658,9 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
     // A scroll that comes while it is being made smaller is not the reader's: the resize above keeps it.
     const foot = box.scrollHeight - box.scrollTop - box.clientHeight;
     if (box.clientHeight === height.current) {
+      const was = atEnd.current;
       atEnd.current = winNow.current?.to === null && foot < 40;
+      if (was && !atEnd.current) log('info', 'Chat end', `scrolled from the end: foot ${Math.round(foot)}, height ${box.clientHeight}, top ${Math.round(box.scrollTop)}`);
       // Scrolled by the reader: the New line moved. A page drawn above keeps it where it is.
       const line = atLine.current !== null && box.querySelector<HTMLElement>('.ch-new');
       if (!line || Math.abs(line.getBoundingClientRect().top - box.getBoundingClientRect().top - atLine.current!) > 1) atLine.current = null;
