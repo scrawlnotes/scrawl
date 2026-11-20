@@ -107,6 +107,7 @@ export function buildServer(agent: Agent): McpServer {
           replyTo: z.string().optional().describe('The id of the message it answers, from messages.'),
           space: z.string().optional().describe('The space of the room `to` names, when more than one space has a room by that name.'),
         }),
+        annotations: { readOnlyHint: false, destructiveHint: false },
       },
       (args, ctx) => writing(ctx, () => sendMessageTool(agent, args, client(ctx))),
     );
