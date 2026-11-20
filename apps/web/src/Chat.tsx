@@ -24,7 +24,7 @@ import { type DragEvent, type KeyboardEvent, memo, type MouseEvent, type Pointer
 import { clock, measure, Recording } from './chatMedia';
 import { Attachments, copyImage, ForwardDialog, type Going, isImage, NotifyBanner, NotifyBell, RecorderBar, saveChatFile, Tray, Uploads } from './ChatParts';
 import { type ChatServer, type ChatSnapshot, draftOf, keepDraft, keepOpen, lastOpen, type Pending, store, type Woke } from './chatStore';
-import { ConfirmDialog, type MenuItem } from './dialogs';
+import { ConfirmDialog, type MenuItem, selectionIn } from './dialogs';
 import { log } from './log';
 import { agentChoices } from './mentionChoices';
 import { MentionList, useMentions } from './Mentions';
@@ -797,9 +797,11 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
   };
   const messageMenu = (event: MouseEvent, message: ChatMessage) => {
     const image = imageAt(message, event.target);
-    if (!image) return menu(event, actionsOf(message));
+    // What is selected in the message is taken as the menu opens: Copy text copies it instead of the whole.
+    const selected = selectionIn((event.currentTarget as Element).closest('.ch-m'));
+    if (!image) return menu(event, actionsOf(message, selected));
     // On a photo, what is done with it first, as Slack's: Copy image, Download; then what is done with the message.
-    const [first, ...rest] = actionsOf(message);
+    const [first, ...rest] = actionsOf(message, selected);
     menu(event, [...imageActions(image), { label: t('chat.download'), icon: 'download', run: () => void saveChatFile(server.url, image) }, { ...first!, apart: true }, ...rest]);
   };
   /** The photo of a message under the pointer or the finger, if one is. */
@@ -816,10 +818,10 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
     { label: t('chat.copyImage'), icon: 'copy', run: () => void copyImage(server.url, image).catch(() => links.say(t('chat.imageNotCopied'))) },
   ];
   /** What is done with a message: Edit for whoever wrote it, Copy text, To task and To card, Delete. */
-  const actionsOf = (message: ChatMessage): MenuItem[] => {
+  const actionsOf = (message: ChatMessage, selected = ''): MenuItem[] => {
     const items: MenuItem[] = [];
     if (mine(message) && !message.forwarded) items.push({ label: t('chat.edit'), icon: 'pen', run: () => setEditing(message.id) });
-    items.push({ label: t('chat.copyText'), icon: 'copy', run: () => void copy(message.body).catch(() => undefined) });
+    items.push({ label: t('chat.copyText'), icon: 'copy', run: () => void copy(selected || message.body).catch(() => undefined) });
     const task = made(message);
     items.push({ label: t('chat.toTask'), icon: 'tasks', apart: true, run: () => links.toTask(task.title, task.description, task.from) });
     items.push({ label: t('chat.toCard'), icon: 'board', run: () => links.toCard(task.title, task.description, task.from) });

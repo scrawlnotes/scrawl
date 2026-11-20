@@ -923,6 +923,7 @@ export const en = {
   'menu.history': 'History…',
   'menu.export': 'Export…',
   'menu.delete': 'Delete',
+  'menu.copy': 'Copy',
   'menu.exportExcel': 'Export as Excel',
   'menu.exportCsv': 'Export as CSV',
   'menu.import': 'Import…',

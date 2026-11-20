@@ -1794,6 +1794,13 @@ ${text}` : text)} />}
   );
 }
 
+/** The words selected inside `node`, if any: what a menu's Copy takes instead of the whole. */
+export function selectionIn(node: Node | null): string {
+  const selection = getSelection();
+  if (!node || !selection || selection.isCollapsed || !selection.rangeCount) return '';
+  return node.contains(selection.getRangeAt(0).commonAncestorContainer) ? selection.toString() : '';
+}
+
 export interface MenuItem {
   label: string;
   run: () => void;

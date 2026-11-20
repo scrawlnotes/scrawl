@@ -30,7 +30,7 @@ import {
   type Collection,
   type Record as CollectionRecord,
 } from '@scrawlnotes/core';
-import type { ScrawlEditor, ScrawlViewer } from '@scrawlnotes/editor';
+import { copyText, type ScrawlEditor, type ScrawlViewer } from '@scrawlnotes/editor';
 import { t } from '@scrawlnotes/i18n';
 import {
   type CSSProperties,
@@ -48,7 +48,7 @@ import {
 import { createPortal } from 'react-dom';
 import { Cell, type CollectionActions, FieldInput, LinkedTable, RecordDialog, StepsBar, usedValues, type ValueContext } from './Collection';
 import { isPhone, pageBox, pageWindow } from './device';
-import type { MenuHead, MenuItem } from './dialogs';
+import { type MenuHead, type MenuItem, selectionIn } from './dialogs';
 import { useEscape } from './choices';
 import { tookComment, useAskedComment } from './commentFocus';
 import { LabelChip, LabelSheet, LabelsField } from './labels';
@@ -526,15 +526,19 @@ function Comment({ entry, lit, who, whoText, face, today, onEdit, onRemove, menu
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   // On a phone, an action sheet with who wrote it and when.
-  const open = (event: MouseEvent) =>
+  const open = (event: MouseEvent) => {
+    // Taken as the menu opens: what is selected in the comment, else the whole of it.
+    const text = selectionIn((event.currentTarget as Element).closest('.tl-cm')) || entry.text;
     menu(
       event,
       [
-        { label: t('card.editComment'), icon: 'pen', run: () => setDraft(entry.text) },
+        { label: t('menu.copy'), icon: 'copy', run: () => void copyText(text, text) },
+        { label: t('card.editComment'), icon: 'pen', apart: true, run: () => setDraft(entry.text) },
         { label: t('menu.delete'), icon: 'trash', danger: true, run: onRemove },
       ],
       { icon: 'comment', title: whoText, sub: when(entry.at, today) },
     );
+  };
   const save = () => {
     if (draft?.trim()) onEdit(draft);
     setDraft(null);
