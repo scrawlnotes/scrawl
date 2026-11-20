@@ -45,9 +45,9 @@ Every interview on a calendar, in its type's color. An interview keeps its candi
 
 **Write feedback** asks a **Score** from 1 to 5, how it went **Overall**, **Definitely not**, **No**, **Yes** or **Strong yes**, and the **Key take-aways**. The interview is then **Feedback written**. Without scores, it asks only the take-aways.
 
-## Today
+## Scheduled
 
-- An interview comes to Today at its time with **Write feedback**. It stays there, late, until its feedback is written.
+- An interview comes to Scheduled at its time with **Write feedback**. It stays there, late, until its feedback is written.
 - The first steps that **Hire** added come on the day the person starts.
 
 ## Home

@@ -5,7 +5,7 @@ import { stageColumns, stageHints } from './crm';
 
 // Job search (design/more-apps.md 4.6), as Huntr, Teal and Simplify keep one: each application its
 // position, company and where, gone through its stages in a bar; its interviews and its to-dos in
-// its window, those of a day in Today; one heard nothing from for a while comes to Today to follow up.
+// its window, those of a day in Scheduled; one heard nothing from for a while comes to Scheduled to follow up.
 
 const STAGES = ['Saved', 'Applied', 'Screening', 'Interview', 'Offer', 'Accepted', 'Rejected'];
 const TYPES = ['Phone screen', 'Technical', 'Culture', 'Panel', 'Final', 'Other'];
@@ -80,7 +80,7 @@ export const jobs: AppTemplate = {
     app.view('applications', { id: 'active', name: 'Active', conditions: [{ field: 'status', op: 'is-not', value: end }], sort: { key: 'applied', dir: 'desc' }, columns: ['company', 'status', 'since', 'next_said'], counts: 'status' }, true);
     app.tableColumns('applications', ['company', 'status', 'since', 'next_said']);
     app.homeTile('applications', { counts: 'status' });
-    // Heard nothing for a while: in Today with Followed up, a week on after it; late, in Overdue.
+    // Heard nothing for a while: in Scheduled with Followed up, a week on after it; late, in Overdue.
     app.view('applications', { ...calendar({ start: 'follow_on', color: 'status', upcoming: true, button: 'Followed up', words: ['follow_said'] }, [{ field: 'status', op: 'is', value: sent }]), hidden: true });
     app.rule('applications', { kind: 'action', name: 'Followed up', src: `action("Followed up", { when: () => ${is(sent)}, hint: "Only one sent and not over" }, () => {\n  followed = today()\n})` });
     app.rule('applications', {
@@ -102,7 +102,7 @@ ${STEPS.map((s) => `    subtask(${JSON.stringify(s)})`).join('\n')}
     app.block('applications', { block: 'linked', collection: app.path('job-interviews'), look: 'days', time: 'when', icon: 'type', icons: ICONS, sub: 'with_said', sort: 'when', column: 2 });
     app.block('applications', { block: 'subtasks', title: 'To do', add: 'Add step', column: 2 });
 
-    // An interview: when, what kind, with whom; in Today with its time, news of its application.
+    // An interview: when, what kind, with whom; in Scheduled with its time, news of its application.
     app.field('job-interviews', { ...nameField(), optional: true });
     app.field('job-interviews', { ...link('application', 'Application', applied), required: true });
     app.field('job-interviews', { ...dayAndTime('when', 'When'), required: true });
@@ -132,16 +132,16 @@ ${STEPS.map((s) => `    subtask(${JSON.stringify(s)})`).join('\n')}
       title: 'Job search',
       what: 'Each job you look at and apply for, how far it has gone, its interviews and when to follow up.',
       pieces: ['applications', 'job-interviews'],
-      glance: ['How many are at each stage', 'Interviews in Today with their time', `Follow up after ${days} days with no news`],
+      glance: ['How many are at each stage', 'Interviews in Scheduled with their time', `Follow up after ${days} days with no news`],
       how: [
         'Add each job you look at: its position, the company, where, and the post; paste the post in its notes and attach your resume.',
         `Move it on in the bar under its title as it goes: ${stages.join(', ')}.`,
         'Add each interview in its window, with its time, its kind and with whom; write how it went in its notes.',
-        'Tick its to-dos as you do them; give one a day to see it in Today.',
+        'Tick its to-dos as you do them; give one a day to see it in Scheduled.',
       ],
       auto: [
         `The day it is sent is written when it leaves ${before[0] ?? 'its first stage'}; each change of stage, and each interview, counts as news.`,
-        `One sent and not over that you have heard nothing from for ${days} days comes to Today: press Followed up, and it comes again a week later.`,
+        `One sent and not over that you have heard nothing from for ${days} days comes to Scheduled: press Followed up, and it comes again a week later.`,
         ...(stages.includes('Interview') ? ['An interview moves its application to Interview.'] : []),
         ...(before.length > 0 ? [`A new one at ${before[0]} has its to-dos ready: ${STEPS.join(', ')}.`] : []),
       ],

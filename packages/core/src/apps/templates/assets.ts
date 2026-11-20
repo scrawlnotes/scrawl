@@ -6,7 +6,7 @@ import type { AppTemplate } from '../types';
 // Assets and maintenance (design/scrawl-apps.md 3.9), as Snipe-IT and Asset Panda keep them: who
 // has each and until when, what it is worth today, its warranty and its next service. Check out
 // gives it to a person or a place with a day to come back, Check in asks how it came back; a day to
-// come back, a service and a warranty ending come to Today and Upcoming. Its history, each check
+// come back, a service and a warranty ending come to Scheduled. Its history, each check
 // out and in, repair and service, is one list on its window; a repair's cost goes to the budget.
 
 const CATEGORIES = ['Computers', 'Phones', 'Furniture', 'Vehicles', 'Machines', 'Other'];
@@ -246,7 +246,7 @@ export const assets: AppTemplate = {
       tab('with-me', 'With me', [{ field: 'holder', op: 'is', value: ['me'] }]);
     }
     tab('retired', 'Retired', [{ field: 'status', op: 'is', value: ['Retired'] }]);
-    // In Today on their day: coming back with Check in, a service with Service done; a warranty ending in Upcoming.
+    // In Scheduled on their day: coming back with Check in, a service with Service done; a warranty ending with no button.
     if (assign) app.view('assets', { ...calendar({ start: 'due_back', color: 'category', upcoming: true, button: 'Check in', words: ['holder'] }, [{ field: 'status', op: 'is', value: ['In use'] }]), id: 'back', name: 'Coming back', hidden: true });
     if (service) app.view('assets', { ...calendar({ start: 'next_service', color: 'category', upcoming: true, button: 'Service done', words: ['interval'] }, [notRetired]), id: 'service', name: 'Service due', hidden: true });
     app.view('assets', { ...calendar({ start: 'warranty', color: 'category', upcoming: true, words: ['supplier'] }, [notRetired]), id: 'warranty', name: 'Warranty ends', hidden: true });
@@ -299,15 +299,15 @@ export const assets: AppTemplate = {
         ...(assign ? ['Check out with a day to come back, Check in asks how it came back'] : []),
         'Its value today, falling over its life',
         'Its history: who had it, repairs and service',
-        ...(assign ? ['A day to come back in Today with Check in'] : []),
-        ...(service ? ['A service due in Today with Service done'] : []),
+        ...(assign ? ['A day to come back in Scheduled with Check in'] : []),
+        ...(service ? ['A service due in Scheduled with Service done'] : []),
         ...(costs ? ['A repair or service with a cost adds its payment'] : []),
       ],
       how: [
         `Add each asset with its category${supplier ? ', its supplier' : ''}, what it cost and when, and its warranty${service ? '; say how often it is serviced' : ''}.`,
         ...(assign ? ['Press Check out when you give it to someone, with the day it comes back; Check in when it does.'] : []),
         'Press Send to repair when it breaks, Back from repair with what it cost.',
-        ...(service ? ['Press Service done when it is serviced, in Today on its day.'] : []),
+        ...(service ? ['Press Service done when it is serviced, in Scheduled on its day.'] : []),
         'Press Retire when it is sold, thrown away or lost.',
       ],
       auto: [
@@ -315,7 +315,7 @@ export const assets: AppTemplate = {
         ...(assign ? ['Check out writes who has it, since when and until when; Check in, how it came back, and Needs repair sends it to In repair.'] : []),
         'Each check out and in, repair and service is written in its history.',
         ...(service ? ['Service done plans the next service as often as it says.'] : []),
-        'A warranty ending comes to Upcoming.',
+        'A warranty ending comes to Scheduled.',
         ...(costs ? ['A repair or service with a cost adds what is owed as a payment on the Maintenance budget line.'] : []),
       ],
       work: ['Who looks after the assets, and who may give them out.', 'How a broken asset is reported, and who repairs it.', ...(service ? ['When each kind of asset is serviced.'] : [])],

@@ -36,9 +36,9 @@ The ideas customers ask for: each with its **Title**, the person and company it 
 
 A folder of notes, each an answer to something customers often ask. It starts with **We are on it**, **We need a few more details** and **Closing this request**. Each note in it is offered in **Saved reply** when you press **Reply**; add your own as notes in the folder.
 
-## Today
+## Scheduled
 
-A request's reply comes to Today on the day it is due, with **Reply**, and to Upcoming before it; one late stays in Overdue. Only **New** and **Open** requests come: one waiting on the customer does not.
+A request's reply comes to Scheduled on the day it is due, with **Reply**; one late stays in Overdue. Only **New** and **Open** requests come: one waiting on the customer does not.
 
 ## Home
 

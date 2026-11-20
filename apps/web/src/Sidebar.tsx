@@ -5,7 +5,7 @@ import { LATEST_RELEASE, openUpdate, useUpdateView } from './desktopUpdate';
 import { cutShort, useHoverTip } from './HoverTip';
 import { Icon, type IconName } from './Icon';
 import { Spin } from './Loading';
-import { appTab, CHAT, collectionTab, countItems, FILES, FILTERS, pathOf, QUICK, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
+import { appTab, CHAT, collectionTab, countItems, FILES, FILTERS, pathOf, QUICK, tabOf, tasksOf, TRASH, UPCOMING } from './items';
 import type { SpaceView } from './session';
 import { isDesktop } from './storage';
 import type { SpaceSyncView } from './sync';
@@ -70,6 +70,8 @@ interface Props {
   active: string | null;
   /** Open tasks behind a row, by the id of the tab the row opens. */
   counts: Record<string, number>;
+  /** Scheduled's number of now: what is late and due today, and whether any of it is late. */
+  scheduledNow: { count: number; late: boolean };
   /** Whether a server this device is signed in to has messaging: Chat shows under Upcoming (design/chat.md, 8.1). */
   chat?: boolean;
   onOpen: (id: string) => void;
@@ -152,6 +154,7 @@ export function Sidebar({
   titles,
   active,
   counts,
+  scheduledNow,
   chat = false,
   onOpen,
   onMove,
@@ -514,8 +517,16 @@ export function Sidebar({
       <button type="button" className="it-main" onClick={() => onOpen(id)}>
         {label}
       </button>
-      {/* Chat's number is what is unread and tells this person: a mark, not a count of things. */}
-      <span className={id === CHAT && counts[id] ? 'ct alert' : 'ct'}>{counts[id] || ''}</span>
+      {/* Chat's number is what is unread and tells this person: a mark, not a count of things. Scheduled's are two: now's, dark, red when late; after today's, faint. */}
+      {id === UPCOMING ? (
+        <span className="ct">
+          {scheduledNow.count > 0 && <b className={scheduledNow.late ? 'late' : undefined}>{scheduledNow.count}</b>}
+          {scheduledNow.count > 0 && counts[id] ? ' · ' : ''}
+          {counts[id] || ''}
+        </span>
+      ) : (
+        <span className={id === CHAT && counts[id] ? 'ct alert' : 'ct'}>{counts[id] || ''}</span>
+      )}
       {onMenu && more(onMenu)}
     </div>
   );
@@ -845,8 +856,7 @@ export function Sidebar({
           <Icon name="search" />
           <span>{t('side.search')}</span>
         </button>
-        {viewRow(TODAY, <span>{t('side.today')}</span>, 0)}
-        {viewRow(UPCOMING, <span>{t('side.upcoming')}</span>, 0)}
+        {viewRow(UPCOMING, <span>{t('side.scheduled')}</span>, 0)}
         <div className="side-div" role="separator" />
         {chat && viewRow(CHAT, <span>{t('chat.title')}</span>, 0)}
         {viewRow(FILTERS, <span>{t('filters.title')}</span>, 0)}

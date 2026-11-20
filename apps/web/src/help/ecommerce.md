@@ -34,9 +34,9 @@ Each channel's **Commission**, **Fee per order**, **Ships within (days)**, 2 to 
 
 A product gets its **Cost**, and counts what it **Sold**, what was **Returned**, its **Return rate** and its **Profit**.
 
-## Today
+## Scheduled
 
-What is to ship comes to Today on its ship-by day, and to Upcoming before it, with **Ship**. A late one stays under **Overdue** until it is shipped.
+What is to ship comes to Scheduled on its ship-by day, with **Ship**. A late one stays under **Overdue** until it is shipped.
 
 ## Home
 

@@ -4,7 +4,7 @@ import { EVERY, UNITS } from './home';
 
 // Personal finance (design/more-apps.md 4.1): an amount and a tap to spend, the account the last
 // one used; the month at a glance, day by day; a budget as bars; what comes again (a salary, the
-// rent) written by itself on its day, what changes each time (electricity) in Today with Paid; one
+// rent) written by itself on its day, what changes each time (electricity) in Scheduled with Paid; one
 // set up with no amount asked the first time it is paid.
 
 const ACCOUNTS = ['Bank account', 'Credit card', 'Cash'];
@@ -132,7 +132,7 @@ export const finance: AppTemplate = {
     app.view('transactions', { id: 'month', name: 'This month', conditions: [{ field: 'this_month', op: 'true' }], sort: { key: 'date', dir: 'desc' }, group: 'date', columns: ['category', 'account', 'signed'] }, true);
     app.tableColumns('transactions', ['date', 'category', 'account', 'signed']);
     app.homeTile('transactions', { value: 'signed', totals: ['in_amt', 'out_amt', 'net'] });
-    // What a recurring one wrote today is in Today, its amount said.
+    // What a recurring one wrote today is in Scheduled, its amount said.
     app.view('transactions', { id: 'today', name: 'Recurring', kind: 'calendar', conditions: [{ field: 'recurring', op: 'not-empty' }], calendar: { start: 'date', upcoming: 'today', words: ['says'] } });
     app.rule('transactions', {
       kind: 'onSave',
@@ -176,7 +176,7 @@ export const finance: AppTemplate = {
     app.field('bills', { ...day('next', 'Next', true), required: true, help: 'The day it comes next; it moves on by itself when paid' });
     app.field('bills', { ...link('account', 'Account', accountsPath), required: true });
     app.field('bills', { ...link('category', 'Category', app.path('categories')), chips: true });
-    app.field('bills', { ...checkbox('auto', 'Paid automatically', true), help: 'Written by itself on its day once it has an amount; off for one that changes, as electricity, paid in Today with Paid' });
+    app.field('bills', { ...checkbox('auto', 'Paid automatically', true), help: 'Written by itself on its day once it has an amount; off for one that changes, as electricity, paid in Scheduled with Paid' });
     // Written by itself: paid automatically, its amount known.
     app.field('bills', formula('writes', 'Writes itself', 'auto && !empty(amount)'));
     app.field('bills', formula('signed', 'Amount', 'empty(amount) ? null : direction == "In" ? amount : -amount', own));
@@ -233,7 +233,7 @@ export const finance: AppTemplate = {
         'Add what you spend with its amount and a category; the account is the last one used, the day today.',
         'Move money between your accounts with Transfer, as a card paid from the bank.',
         ...(budget ? ['Give a category its monthly limit to see it as a bar.'] : []),
-        `Add what comes again in ${app.called('bills')}: a salary or the rent is written by itself; one whose amount changes is in Today with Paid. One with no amount is asked the first time.`,
+        `Add what comes again in ${app.called('bills')}: a salary or the rent is written by itself; one whose amount changes is in Scheduled with Paid. One with no amount is asked the first time.`,
       ],
       auto: [
         "An account's balance is its opening balance with what came in, less what went out, and what was moved to and from it.",

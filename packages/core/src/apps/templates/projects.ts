@@ -4,8 +4,8 @@ import { calendar, checkbox, codeField, day, dayAndTime, formula, inMain, link, 
 import type { AppTemplate } from '../types';
 
 // Project management (design/scrawl-apps.md 3.4), as Linear and Asana keep it: each project's
-// health with each update, its lead reminded in Today when one is due and the project marked when
-// it is missing; its milestones with their days, the next one said on its row and in Today on its
+// health with each update, its lead reminded in Scheduled when one is due and the project marked when
+// it is missing; its milestones with their days, the next one said on its row and in Scheduled on its
 // day; a timeline of them all, a bar each from start to end, dragged to move it. Start project
 // writes the milestones of the answers between its start and its end; Close project asks how it
 // ended and what to do with the cards still open.
@@ -173,7 +173,7 @@ export const projects: AppTemplate = {
       hidden: true,
     };
     app.view('projects', timeline);
-    // The lead's update in Today on its day, with Post update; one missing stays.
+    // The lead's update in Scheduled on its day, with Post update; one missing stays.
     if (every > 0) app.view('projects', { ...calendar({ start: 'update_on', upcoming: 'today', button: 'Post update', person: 'owner', words: ['update_said'] }, [{ field: 'status', op: 'is', value: ['Active'] }]), id: 'updates', name: 'Updates due', hidden: true });
     app.view('projects', { ...calendar({ start: 'start', end: 'end', color: 'status', upcoming: false }, [open]), id: 'calendar', name: 'Calendar', hidden: true });
 
@@ -189,7 +189,7 @@ export const projects: AppTemplate = {
     app.field('project-milestones', day('due', 'Due'));
     app.field('project-milestones', checkbox('done', 'Done'));
     app.field('project-milestones', day('done_on', 'Done on'));
-    // In Today on its day with Done; one not done stays.
+    // In Scheduled on its day with Done; one not done stays.
     app.view('project-milestones', { ...calendar({ start: 'due', upcoming: true, button: 'Done', words: ['project'] }, [{ field: 'done', op: 'false' }]), id: 'due', name: 'Due', hidden: true });
     app.view('project-milestones', { id: 'week', name: 'This week', conditions: [{ field: 'done', op: 'false' }, { field: 'this_week', op: 'true' }], sort: { key: 'due', dir: 'asc' }, hidden: true });
     app.field('project-milestones', formula('this_week', 'This week', '!done && !empty(due) && due <= today() + 7'));
@@ -363,7 +363,7 @@ ${[...spread, ...lines.map((l) => `  add("${app.called('budget-lines')}", { name
       title: 'Project management',
       what: `Your projects${customers ? ' and who they are for' : ''}: how each is going, its milestones, the work on it as cards${time ? ', the hours spent' : ''}${budget ? ', and its budget and spending' : ''}.`,
       pieces: ['projects', 'work', ...(time ? ['time-entries'] : [])],
-      glance: ['Health, progress, the due day and the next milestone on each row', 'A timeline of them all, a bar dragged to move it', ...(every > 0 ? ['The lead posts an update when Today says'] : []), 'Milestones in Today on their day'],
+      glance: ['Health, progress, the due day and the next milestone on each row', 'A timeline of them all, a bar dragged to move it', ...(every > 0 ? ['The lead posts an update when Scheduled says'] : []), 'Milestones in Scheduled on their day'],
       how: [
         `Add a project${customers ? ' with its customer' : ''}, its lead, its start and its end${budget ? ', and its contract' : ''}.`,
         `Press Start project when the work begins${steps.length > 0 ? `: its milestones, ${steps.join(', ')}, come with their days, to change in its window` : ''}.`,
@@ -375,10 +375,10 @@ ${[...spread, ...lines.map((l) => `  add("${app.called('budget-lines')}", { name
       auto: [
         `Start project makes it Active${steps.length > 0 ? ` and adds its milestones, ${steps.join(', ')}, spread from its start to its end` : ''}${lines.length > 0 ? `, and budget lines of ${lines.map((l) => `${l.name} (${l.share}%)`).join(', ')} of the contract` : ''}; it asks first.`,
         'Progress is the share of its cards that are done; a project past its end that is not done is Late, hatched red on the timeline.',
-        'Its next milestone not done is said on its row; a milestone comes to Today on its day with Done.',
-        ...(every > 0 ? [`An active project's update comes to its lead's Today ${every} days after the last one; three days on, it is marked Update missing.`, 'Post update adds by itself how far it got since the last one and whether its end moved.'] : []),
+        'Its next milestone not done is said on its row; a milestone comes to Scheduled on its day with Done.',
+        ...(every > 0 ? [`An active project's update comes to its lead's Scheduled ${every} days after the last one; three days on, it is marked Update missing.`, 'Post update adds by itself how far it got since the last one and whether its end moved.'] : []),
         'Close project asks how it ended and whether the cards still open are done or dropped.',
-        ...(ownTime ? ['A project adds up its hours; a timer running is in Today with Stop.'] : []),
+        ...(ownTime ? ['A project adds up its hours; a timer running is in Scheduled with Stop.'] : []),
         ...(budget ? ['A project adds up its budget lines and what was paid for it, its bar yellow from 80% and red over it.'] : []),
       ],
       work: ['Planned: agreed, not started. Active: being worked on. On hold: waiting for something. Done: delivered and closed.', 'Who leads a project, and who closes it.', ...(every > 0 ? ['When updates are written, and who reads them.'] : [])],

@@ -9,7 +9,7 @@ Appointments with your customers, or bookings of your rooms and tables: who, whe
 - **Your services:** each as its name, then its minutes: `Consultation 30`. It starts with Consultation 30 and Follow-up 15; one with no minutes takes half an hour.
 - **Your rooms and things:** Room 1 and Room 2 to start.
 - **Do you charge for them?** Yes by default: services and appointments get a **Price**.
-- **Remind them the day before?** Yes by default: Today lists whom to call or message, with **Reminded**.
+- **Remind them the day before?** Yes by default: Scheduled lists whom to call or message, with **Reminded**.
 - **Write a done appointment as a payment?** Asked when the app has Budget and spending and you charge; yes by default.
 
 ## Appointments
@@ -41,10 +41,10 @@ A customer's window lists their appointments day by day, each as "Done · $80". 
 - **Staff:** each person's **Phone**, **Email**, **Works from**, **Works until** and **Days**, how many appointments they have **Today**, and their appointments.
 - **Resources:** each room or thing, its **Type**, room, table, vehicle or equipment, its **Capacity**, and its bookings.
 
-## Today
+## Scheduled
 
-- Each appointment comes to Today on its day, and to Upcoming before it, with **Done**.
-- With reminders, a booked one is in Today the day before, as "tomorrow 13:00 · Consultation with Ayşe" with the customer's phone. **Reminded** makes it Confirmed.
+- Each appointment comes to Scheduled on its day, with **Done**.
+- With reminders, a booked one is in Scheduled the day before too, as "tomorrow 13:00 · Consultation with Ayşe" with the customer's phone. **Reminded** makes it Confirmed.
 
 ## Home
 

@@ -5,7 +5,7 @@ Goals for the quarter or the year, and the key results that measure them. For a 
 ## Setting it up
 
 - **Goals are set for:** **A quarter**, **Half a year** or **A year**; a quarter unless you pick another. A new goal starts and ends with the period it is set in, and is named by it: "2026 Q4", "2026 H2", "2026".
-- **How often are goals checked in?** **Every week**, **Every two weeks**, **Every month** or **Only when something changes**; every week unless you pick another. A goal's check-in comes to its owner's Today on its day.
+- **How often are goals checked in?** **Every week**, **Every two weeks**, **Every month** or **Only when something changes**; every week unless you pick another. A goal's check-in comes to its owner's Scheduled on its day.
 
 ## Goals
 
@@ -32,10 +32,10 @@ A key result is **Measured by** a **Number**, a **Percent**, **Money** or **Done
 - **Check in** asks every key result's value at once, beside what it was, then **How is it going** and **What changed**. How it is going starts as worked out; pick another if you know better, and it stays until the next check-in. The check-in is kept in the goal's **Check-ins**, with what moved, from what to what.
 - **Close goal** asks how it ended, **Complete** or **Incomplete**, and **What we learned**. Tick carry over, and the goal starts again in the next period with the key results it did not reach, from where they got to.
 
-## Today
+## Scheduled
 
-- A goal's check-in comes to its owner's Today with **Check in**, as often as you chose, counted from its start, then from its last check-in. With **Only when something changes**, none comes; press **Check in** when you need it.
-- On its last day, a goal comes to its owner's Today with **Close goal**. It shows in Upcoming before.
+- A goal's check-in comes to its owner's Scheduled with **Check in**, as often as you chose, counted from its start, then from its last check-in. With **Only when something changes**, none comes; press **Check in** when you need it.
+- On its last day, a goal comes to its owner's Scheduled with **Close goal**.
 
 ## Home
 

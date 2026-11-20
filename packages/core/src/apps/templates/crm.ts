@@ -9,7 +9,7 @@ import type { AppTemplate } from '../types';
 // CRM (design/scrawl-apps.md 3.1): the deals as Pipedrive keeps them, a column's total over it and
 // each deal's next step on its card, Won and Lost, Lost asking why; a company and a person as
 // HubSpot shows them, what they are on the left, what happened with them in the middle, what links
-// to them on the right; Log writes what was said and plans the next step, which comes to Today.
+// to them on the right; Log writes what was said and plans the next step, which comes to Scheduled.
 
 /** A board's columns from a list of stages: Won and Lost as they say, else the first waits and the last is done. */
 export function stageColumns(stages: string[]): [string, ColumnKind][] {
@@ -126,7 +126,7 @@ export const crm: AppTemplate = {
     app.formOrder('activities', ['type', 'name', 'when', ...(firms ? ['company'] : []), 'person', ...(deals ? ['deal'] : []), 'said', 'done']);
     app.view('activities', { id: 'todo', name: 'To do', conditions: open, sort: { key: 'when', dir: 'asc' }, group: 'bucket', columns: ['type', 'when', 'with_said'], button: 'Done', ring: true }, true);
     app.view('activities', { id: 'done', name: 'Done', conditions: done, sort: { key: 'when', dir: 'desc' }, columns: ['type', 'when', 'with_said', 'said'] });
-    // What is planned comes to Today on its day with Done, a time to Upcoming too; a late one stays in Overdue.
+    // What is planned comes to Scheduled on its day with Done; a late one stays in Overdue.
     app.view('activities', { ...calendar({ start: 'when', color: 'type', upcoming: true, button: 'Done', person: 'by', words: ['with_said'] }, open), id: 'calendar', hidden: true });
     app.rule('activities', {
       kind: 'check',
@@ -145,7 +145,7 @@ export const crm: AppTemplate = {
   }
 })`,
     });
-    // Done, from Today or its window: what was said, and the next step, as Log asks them.
+    // Done, from Scheduled or its window: what was said, and the next step, as Log asks them.
     const next = `
   next_type: { label: "Type", type: "choice", options: ${JSON.stringify(KINDS.filter((k) => k !== 'Note'))}, chips: true, default: "Call", section: "Next step" },
   next_what: { label: "What", type: "text" },
@@ -296,11 +296,11 @@ export const crm: AppTemplate = {
         ? 'Who your customers are, the people you talk to there, every call and meeting with what is next, and the deals on their way.'
         : 'Who your customers are, every call and meeting with them with what is next, and the deals on their way.',
       pieces: [...(firms ? ['companies'] : []), 'people', 'activities', ...(deals ? ['deals'] : [])],
-      glance: ['Log writes what was said and plans the next step', 'What is planned comes to Today with Done', ...(deals ? ['Each deal shows its next step, or that it has none', 'Lost asks why'] : [])],
+      glance: ['Log writes what was said and plans the next step', 'What is planned comes to Scheduled with Done', ...(deals ? ['Each deal shows its next step, or that it has none', 'Lost asks why'] : [])],
       how: [
         firms ? 'Add a company, then its people; a person picks their company as you type it.' : 'Add a person.',
         'After a call, a meeting or an email, press Log on the company or the person: what kind, what was said, and the next step with its day.',
-        'Press Plan for a call or a meeting to come; on its day it is in Today, where Done asks what was said and what is next.',
+        'Press Plan for a call or a meeting to come; on its day it is in Scheduled, where Done asks what was said and what is next.',
         ...(deals
           ? [
               `Add a deal on ${app.called('deals')} with its company, contact and value; give it a day it should close by.`,

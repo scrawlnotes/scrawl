@@ -48,9 +48,9 @@ Your customers. Each has its **Payment terms**, **Due on receipt**, **Net 15**, 
 
 When [CRM](crm) keeps people only, your customers are its **People**, and all this holds for them.
 
-## Today
+## Scheduled
 
-An invoice comes to Today on its due day with **Record payment**, and to Upcoming before it; one not paid stays in Overdue. Only invoiced orders come, not quotes. A payment not paid yet comes on its **Due** day too.
+An invoice comes to Scheduled on its due day with **Record payment**; one not paid stays in Overdue. Only invoiced orders come, not quotes. A payment not paid yet comes on its **Due** day too.
 
 ## Home
 

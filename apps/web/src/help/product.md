@@ -35,9 +35,9 @@ A release **Released** with open cards is marked.
 
 What customers ask for: each with its **Title**, the person and company it came from, its **Source**, **Topic** and **Status** (**new**, **planned**, **done**, **declined**). Its window shows the cards that answer it. Link a card to the feedback it answers, and the card counts it.
 
-## Today
+## Scheduled
 
-A planned release comes to Today on its day with **Ship**, and to Upcoming before it.
+A planned release comes to Scheduled on its day with **Ship**.
 
 ## Home
 
@@ -47,7 +47,7 @@ A planned release comes to Today on its day with **Ship**, and to Upcoming befor
 ## With other apps
 
 - [Customer support](support): the feedback is the same, and a card adds up the requests that ask for what it answers: "Asked by 12". With **Bugs**, **Report bug** on a request adds a bug card linked to it; when the bug moves to **Fixed**, the request opens again, saying "Bug fixed", its reply due now.
-- [CRM](crm): **Ship** asks **Tell those who asked, an activity each in Today**. Ticked, each company whose feedback went out gets an email to send in Today: "Tell them: Dark mode is out in 2.4".
+- [CRM](crm): **Ship** asks **Tell those who asked, an activity each in Scheduled**. Ticked, each company whose feedback went out gets an email to send in Scheduled: "Tell them: Dark mode is out in 2.4".
 - [Content calendar](content): a piece can be about a release, and the release's window lists the pieces that tell about it.
 
 ## Ask an agent

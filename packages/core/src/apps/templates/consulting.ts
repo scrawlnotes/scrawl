@@ -9,7 +9,7 @@ import { periodSpan } from './subscriptions';
 // Consulting (design/scrawl-apps.md 3.3), as Harvest and Toggl keep it: Track time with the hours
 // or a timer that runs until Stop, a week of hours typed in a sheet, row by project; projects by
 // client, their budget as a bar, flagged at 80% and red over it, what is left and what is not
-// invoiced; a fixed fee's payments as steps, each in Today with Invoice when it falls due. Invoice
+// invoiced; a fixed fee's payments as steps, each in Scheduled with Invoice when it falls due. Invoice
 // takes the hours and expenses not invoiced yet onto an order of the client in Sales. Accounting
 // and law firms keep their clients' filings that come again and again as deadlines, the next one
 // written when one is done. Time entries are one piece with Project management's.
@@ -231,7 +231,7 @@ export const consulting: AppTemplate = {
       });
       app.view('time-entries', { id: 'week', name: 'Week', kind: 'sheet', sheet: { row: 'engagement', day: 'date', value: 'hours' }, conditions: [] }, true);
       app.view('time-entries', { id: 'all', name: 'All', conditions: [], sort: { key: 'date', dir: 'desc' }, columns: ['engagement', 'person', 'date', 'hours', 'amount', 'billed'] });
-      // A timer running is in Today with Stop, and on Home.
+      // A timer running is in Scheduled with Stop, and on Home.
       const running: View = { ...calendar({ start: 'started', upcoming: true, button: 'Stop', person: 'person', words: ['engagement', 'running_said'] }, [{ field: 'started', op: 'not-empty' }]), id: 'running', name: 'Running', hidden: true };
       app.view('time-entries', running);
       app.view('time-entries', { id: 'this-week', name: 'This week', conditions: [{ field: 'this_week', op: 'true' }], sort: { key: 'date', dir: 'desc' }, hidden: true });
@@ -282,7 +282,7 @@ export const consulting: AppTemplate = {
     app.view('expenses', { id: 'all', name: 'All', conditions: [], sort: { key: 'date', dir: 'desc' }, columns: ['engagement', 'date', 'category', 'amount', 'billable', 'billed'] }, true);
     app.block('engagements', { block: 'linked', collection: spent, style: 'list', title: 'Expenses', fields: ['date', 'amount'], sort: 'date', dir: 'desc', add: 'Expense', column: 2 });
 
-    // A fixed fee's payments, its steps: each falls due on its day, in Today with Invoice.
+    // A fixed fee's payments, its steps: each falls due on its day, in Scheduled with Invoice.
     if (fixed) {
       const steps = app.path('milestones');
       app.field('milestones', nameField('Payment'));
@@ -422,8 +422,8 @@ export const consulting: AppTemplate = {
         ...(time ? ['Track time, or a timer that runs until Stop', 'A week of hours typed in a sheet'] : []),
         'Each project’s budget as a bar, flagged at 80%',
         ...(toSales ? ['Invoice puts what is not invoiced on an order in Sales'] : paid ? ['Invoice writes a payment'] : ['Invoice marks what was invoiced']),
-        'Deliverables in Today and Upcoming',
-        ...(fixed ? ['A fixed fee’s payment in Today with Invoice when it falls due'] : []),
+        'Deliverables in Scheduled',
+        ...(fixed ? ['A fixed fee’s payment in Scheduled with Invoice when it falls due'] : []),
         ...(deadlines ? ['A deadline done writes the next one'] : []),
       ],
       how: [

@@ -50,9 +50,9 @@ The **To do** tab lists what is planned under **Overdue**, **Today** and **Plann
 - One with no company and no person is marked: **Link it to a company or a person**. With people only, it needs the person.
 - **Done** asks what was said and the next step, as **Log** does.
 
-## Today
+## Scheduled
 
-An activity planned comes to Today on its day with **Done**, and to Upcoming before it. **Done** asks what was said and what comes next, so each call plans the next one. One not done stays in Overdue until it is.
+An activity planned comes to Scheduled on its day with **Done**. **Done** asks what was said and what comes next, so each call plans the next one. One not done stays in Overdue until it is.
 
 ## Home
 
@@ -67,7 +67,7 @@ CRM's companies and people are the same ones the other business apps use. Each a
 
 - [Sales and invoicing](sales): a deal's window lists its quotes, and **Quote** makes one with its company. **Accept** on a quote moves the deal to **Won**, **Declined** to **Lost**; a deal moved to **Won** confirms its quote, one moved to **Lost** declines it. A company says what is left to collect from it.
 - [Customer support](support): a company's and a person's window list their requests, and **Request** adds one.
-- [Product development](product): **Ship** on a release can plan an email to each company that asked for what went out, in Today.
+- [Product development](product): **Ship** on a release can plan an email to each company that asked for what went out, in Scheduled.
 
 ## Ask an agent
 

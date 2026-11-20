@@ -32,7 +32,7 @@ A work you go through a part at a time has a button on its row and in its window
 
 A work keeps its **Type**, **Status**, who made it (**Author**, **Director**, **Created by**, **Studio**, **Host** or **Developer**, by its kind), **Year**, where you are (**Page**, **Episode** or **Chapter**) of how many (**Pages**, **Episodes** or **Chapters**), a series' **Season**, a manga's **Volume** and **Volumes**, a film's **Runtime** in minutes, a game's **Platform** and **Hours to beat**. Every kind has a **Score** from 1 to 5, **Genres**, ready for each kind, **Where** and **Its link**, **Info** (IMDb, Goodreads, MyAnimeList or another page), **Cover**, **Recommended by** and its **Lists**. Write what you thought in its notes.
 
-A series, anime, manga, webtoon or podcast still coming out has **New episode every**, **New chapter every** for manga and webtoons: the days of the week a new one is out. While you are going through it, it comes to Today on those days. Left empty, it does not.
+A series, anime, manga, webtoon or podcast still coming out has **New episode every**, **New chapter every** for manga and webtoons: the days of the week a new one is out. While you are going through it, it comes to Scheduled on those days. Left empty, it does not.
 
 Its window says it in a line under its title: "Anime · 2023 · 28 episodes · Crunchyroll · watching since 2 Oct". It also has how far you are with its button, its **Log**, day by day, and its quotes.
 
@@ -56,11 +56,11 @@ Each year: how many you **Finished** in it, your **Goal**, and **At this pace**,
 
 This year is there from the start; the next one is added when you finish something in it.
 
-## Today
+## Scheduled
 
-- A series, anime, manga, webtoon or podcast you are going through comes to Today on its days, as "E7 out" or "Ch. 161 out", with where it is. **Watched**, or **Read** for a chapter, writes it in the log and moves you on by one; the last one finishes it. A day missed is gone, never piled up, and it is not in Upcoming.
-- A work with **Comes out** comes to Upcoming before its day and to Today on it.
-- With what you lend, a book or a manga comes to Upcoming before its **Back by** and to Today on it. One not back by then is marked, with who has it since when. When it is back, empty **Lent to**.
+- A series, anime, manga, webtoon or podcast you are going through comes to Scheduled on its days, as "E7 out" or "Ch. 161 out", with where it is. **Watched**, or **Read** for a chapter, writes it in the log and moves you on by one; the last one finishes it. A day missed is gone, never piled up, and it does not show before its day.
+- A work with **Comes out** comes to Scheduled on its day.
+- With what you lend, a book or a manga comes to Scheduled on its **Back by** day. One not back by then is marked, with who has it since when. When it is back, empty **Lent to**.
 
 ## Home
 

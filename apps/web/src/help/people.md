@@ -1,6 +1,6 @@
 # 🎂 People and birthdays
 
-The people close to you, their birthdays every year, and keeping in touch. A birthday comes to Today on its day, and so does someone you have not talked to for too long.
+The people close to you, their birthdays every year, and keeping in touch. A birthday comes to Scheduled on its day, and so does someone you have not talked to for too long.
 
 ## Setting it up
 
@@ -20,10 +20,10 @@ Its window says where you stand, "Friend · birthday on 12 Nov · last talked 33
 
 **Talked** writes a moment today. Add one yourself to say how and what about: its **When**, **Type**, **Call**, **Visit** or **Message**, and **Note**. It is named by itself: "Call with Can Demir". **Last talked** is the day of the latest one.
 
-## Today
+## Scheduled
 
-- A birthday or an anniversary comes to Upcoming before it and to Today on its day, as "Turns 36 · Birthday" or "9th anniversary", with **Wished**. It writes a message moment, "Birthday wishes", and moves the day to next year. **Wished** works only on their day.
-- Counted from the last time you talked, someone you have not talked to for longer than their **Keep in touch** comes to Today with **Talked**; late, they stay in Overdue until you press it. Someone you have never talked to does not come: their window says "Not talked yet".
+- A birthday or an anniversary comes to Scheduled on its day, as "Turns 36 · Birthday" or "9th anniversary", with **Wished**. It writes a message moment, "Birthday wishes", and moves the day to next year. **Wished** works only on their day.
+- Counted from the last time you talked, someone you have not talked to for longer than their **Keep in touch** comes to Scheduled with **Talked**; late, they stay in Overdue until you press it. Someone you have never talked to does not come: their window says "Not talked yet".
 
 ## Home
 

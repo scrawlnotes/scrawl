@@ -4,7 +4,7 @@ Your gym programs, written once part by part, and each time you go. Pick the pro
 
 ## Setting it up
 
-- **Will you track your program days?** Yes by default: a program has its **Days** and **From**, and its days come to Today and Upcoming; one gone by with no workout stays in Overdue. With no, you pick the program as you add a workout.
+- **Will you track your program days?** Yes by default: a program has its **Days** and **From**, and its days come to Scheduled; one gone by with no workout stays in Overdue. With no, you pick the program as you add a workout.
 - **Will you track each set?** No by default: a move is one line in a workout, 3 × 12 at 45 kg. With yes, each set is a line, with its own reps and weight.
 
 ## Workouts
@@ -38,9 +38,9 @@ Each says, by itself:
 
 **Weights** lists the moves with a best. A move's window lists each time you did it, with its sets, reps and kg, the latest first.
 
-## Today
+## Scheduled
 
-With program days, each one comes to Today, and to Upcoming before it:
+With program days, each one comes to Scheduled:
 
 - **Start** opens the day's workout, its program picked and its moves filled.
 - **Didn't go** writes the day as not gone, with **Undo**.

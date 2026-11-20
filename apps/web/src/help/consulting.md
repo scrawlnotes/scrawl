@@ -48,12 +48,12 @@ On a fixed-fee project, its payments, each with its **Amount** and **Due** day, 
 
 What is due for each client again and again: a return, a filing or a report. A deadline has its **Client**, **Kind**, **Due**, how often it **Repeats**, **Monthly**, **Quarterly** or **Yearly**, and **Status**, **To do** or **Done**. Its title and how often it comes are taken from its kind. When it is set Done, the next one is added a month, a quarter or a year later. A client's window lists their deadlines.
 
-## Today
+## Scheduled
 
 - A running timer, with **Stop**.
-- A deliverable on its due day, and in Upcoming before it, with **Delivered**.
-- A fee payment on its due day, and in Upcoming before it, with **Invoice**.
-- A deadline on its day, and in Upcoming before it.
+- A deliverable on its due day, with **Delivered**.
+- A fee payment on its due day, with **Invoice**.
+- A deadline on its day.
 
 ## Home
 

@@ -274,13 +274,13 @@ export function buildServer(agent: Agent): McpServer {
     'records',
     {
       title: 'Records',
-      description: 'Lists the records of a collection with their values, formulas and rollups worked out, and `problems` on values that do not fit the schema. `where` filters by field (key or label) with ops contains, is, is-not, empty, not-empty, gt, lt, before, after, on, true, false; `sort` orders; `limit` caps at 100 when left out. `from` and `to` (YYYY-MM-DD), or `due`, keep the records on those days, by the field its calendar goes by. With no collection, gives what the calendars that show in Today and Upcoming bring there, today\'s with `due: "today"`, in every space unless one is named: what is on today, with the tasks and cards. A collection whose records have lines, an order its order lines, names their collections in `lines`, and each record says how many it has in its own `lines`. Use it before save_record to see what is there.',
+      description: 'Lists the records of a collection with their values, formulas and rollups worked out, and `problems` on values that do not fit the schema. `where` filters by field (key or label) with ops contains, is, is-not, empty, not-empty, gt, lt, before, after, on, true, false; `sort` orders; `limit` caps at 100 when left out. `from` and `to` (YYYY-MM-DD), or `due`, keep the records on those days, by the field its calendar goes by. With no collection, gives what the calendars that show in Scheduled bring there, the late and today\'s with `due: "today"`, in every space unless one is named: what is on today, with the tasks and cards. A collection whose records have lines, an order its order lines, names their collections in `lines`, and each record says how many it has in its own `lines`. Use it before save_record to see what is there.',
       inputSchema: z.object({
         space,
-        collection: z.string().optional().describe('The collection, by name or path. Left out with due, from or to: the records the calendars bring to Today and Upcoming.'),
+        collection: z.string().optional().describe('The collection, by name or path. Left out with due, from or to: the records the calendars bring to Scheduled.'),
         from: z.string().optional().describe('The first day, YYYY-MM-DD.'),
         to: z.string().optional().describe('The last day, YYYY-MM-DD.'),
-        due: z.enum(['today', 'upcoming']).optional().describe('Today, or after today.'),
+        due: z.enum(['today', 'upcoming']).optional().describe('"today": late or due today, Overdue and Today in Scheduled; "upcoming": after today.'),
         where: z.array(z.object({ field: z.string(), op: z.string(), value: z.union([z.string(), z.number(), z.array(z.string())]).optional() })).optional(),
         sort: z.object({ field: z.string(), dir: z.enum(['asc', 'desc']).optional() }).optional(),
         limit: z.number().int().positive().optional().describe('At most this many; 100 when left out.'),

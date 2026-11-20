@@ -1,6 +1,6 @@
 # 🏠 Home, car and documents
 
-The documents you keep, a passport or a policy, and when each runs out; and what is done again and again at home and for the car, a reminder each. Each comes to Today on its day, and **Done** plans the next time.
+The documents you keep, a passport or a policy, and when each runs out; and what is done again and again at home and for the car, a reminder each. Each comes to Scheduled on its day, and **Done** plans the next time.
 
 ## Setting it up
 
@@ -17,7 +17,7 @@ Say how often in a reminder's own words: every week, month, 3 months, 6 months, 
 What is done again and again: each with its **Home** or **Car**, its **Next** day, how often as **Every**, **Remind** and **Last done**.
 
 - **Every** is **Weekly**, **Monthly**, **Every 3 months**, **Every 6 months**, **Yearly**, the default, **Every 2 years**, or **Custom**, which asks **How many** and **Of**: **Days**, **Weeks**, **Months** or **Years**.
-- **Remind** says when it comes to Today: **On the day**, the default, **1 week before** or **1 month before**.
+- **Remind** says when it comes to Scheduled: **On the day**, the default, **1 week before** or **1 month before**.
 - **Done** writes today as its **Last done**, and its **Next** as often as **Every** says, counted from today.
 - One past its **Next** day is marked **Overdue**.
 
@@ -35,10 +35,10 @@ Each car's **Name** and **Plate**, and its **Next**: the first of its reminders'
 
 Each home's **Name** and **Address**. Its window lists its reminders and its documents.
 
-## Today
+## Scheduled
 
-- A reminder comes to Today on its day, or a week or a month before as **Remind** says, with **Done**, and to Upcoming before. Until you press **Done**, it stays in Overdue.
-- A document comes to Today 30 days before it expires, to have time to renew it, and to Upcoming before.
+- A reminder comes to Scheduled on its day, or a week or a month before as **Remind** says, with **Done**. Until you press **Done**, it stays in Overdue.
+- A document comes to Scheduled 30 days before it expires, to have time to renew it.
 
 ## Ask an agent
 

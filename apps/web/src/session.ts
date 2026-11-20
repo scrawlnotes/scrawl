@@ -724,7 +724,7 @@ function tabKind(id: string): string {
   if (collectionPathOf(id) !== null) return 'a collection';
   if (appPathOf(id) !== null) return 'an app';
   if (filterOf(id) !== null) return 'a filter';
-  if (VIEWS.has(id)) return id === TODAY ? 'Today' : id === UPCOMING ? 'Upcoming' : id === FILES ? 'Files' : id === CHAT ? 'Chat' : 'the trash';
+  if (VIEWS.has(id)) return id === UPCOMING ? 'Scheduled' : id === FILES ? 'Files' : id === CHAT ? 'Chat' : 'the trash';
   return isNote(id) ? 'a note' : 'a view';
 }
 
@@ -738,7 +738,7 @@ function titlesOf(nodes: TreeNode[], out: Record<string, string> = {}): Record<s
 
 const RECENT = 'scrawl.recent';
 /** The views over everything: on screen, but not something opened, so not in Recent. */
-const VIEWS = new Set([TODAY, UPCOMING, TRASH, FILES, CHAT, QUICK]);
+const VIEWS = new Set([UPCOMING, TRASH, FILES, CHAT, QUICK]);
 
 /** The start page's Recent as this device kept it. */
 function loadRecent(): Seen[] {
@@ -1012,8 +1012,9 @@ export class Session {
 
     // The shell comes now, with last time's tabs: a space's are checked once it is read, as each
     // space's items come as they are read (`readOpening`). Those of a space no longer on this
-    // device, a filter gone, or the onboarding note not there, go now.
+    // device, a filter gone, Today (a view no more), or the onboarding note not there, go now.
     let tabs = workspace.tabs.filter((id) => {
+      if (id === TODAY) return false;
       const where = spaceOfTab(id);
       if (where && !this.opened.has(where)) return false;
       const filter = filterOf(id);

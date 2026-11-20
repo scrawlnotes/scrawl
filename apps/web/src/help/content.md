@@ -1,6 +1,6 @@
 # ✍️ Content calendar
 
-Content calendar keeps what you will publish, on which channel and when, and the steps before it goes out. It is for a team that publishes articles, posts, videos or newsletters on a plan: each piece's steps come to Today on their days, and review and publishing are a button each.
+Content calendar keeps what you will publish, on which channel and when, and the steps before it goes out. It is for a team that publishes articles, posts, videos or newsletters on a plan: each piece's steps come to Scheduled on their days, and review and publishing are a button each.
 
 ## Setting it up
 
@@ -37,11 +37,11 @@ A campaign has its **Name**, **Goal**, **Owner**, **Start**, **End** and **Statu
 
 **Plan content** on a campaign asks a piece's **Title**, **Channel**, **Type** and the day it **Goes out on**, and adds it to the campaign in **Writing**; a **Planned** campaign becomes **Running**. A campaign whose end is before its start is marked: **The end is before the start**.
 
-## Today
+## Scheduled
 
-- A step comes to Today on its day with **Done**, and to Upcoming before it; it stays until it is done.
-- A piece sent for review comes to Today with **Approve**.
-- A piece's day comes to Upcoming, and to Today with **Publish**, while it is being written, in review or scheduled.
+- A step comes to Scheduled on its day with **Done**, and stays until it is done.
+- A piece sent for review comes to Scheduled with **Approve**.
+- A piece's day comes to Scheduled with **Publish** while it is being written, in review or scheduled.
 
 ## Home
 

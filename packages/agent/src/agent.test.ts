@@ -1363,7 +1363,7 @@ describe('mentions and reminders', () => {
 });
 
 describe('records on a calendar', () => {
-  it("gives what the calendars bring to Today and Upcoming, and a collection's records on some days", async () => {
+  it("gives what the calendars bring to Scheduled, and a collection's records on some days", async () => {
     const { agent, fs, activities } = await sample();
     const path = `${activities}/_collection.json`;
     const schema = JSON.parse(await fs.readText(path));

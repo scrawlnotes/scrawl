@@ -20,4 +20,4 @@ Before you type, the searches you opened something from are under the box, the n
 
 ## Actions
 
-Under the results are things to do by their name: **New note**, **Create…**, **Today**, **Upcoming**, **Files**, **Trash**, **Settings**, **Help**, **Sync now**, and **Welcome to Scrawl** to open that note again.
+Under the results are things to do by their name: **New note**, **Create…**, **Scheduled**, **Files**, **Trash**, **Settings**, **Help**, **Sync now**, and **Welcome to Scrawl** to open that note again.

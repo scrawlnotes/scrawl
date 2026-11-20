@@ -1,7 +1,7 @@
 import { day, formula, link, multi, nameField, number, PERCENT, rollup, select, text } from '../pieces';
 import type { AppTemplate } from '../types';
 
-// Habits and goals (design/more-apps.md 4.9): a habit comes to Today on its days and is ticked there
+// Habits and goals (design/more-apps.md 4.9): a habit comes to Scheduled on its days and is ticked there
 // with one click, Undo putting it back; a day missed is gone, never piled up; its last days are a
 // strip in its table and its month in its window, its streak worked out. A goal counts itself, by
 // a number moved with Update or by its steps, and says whether it is on track for its day.
@@ -69,7 +69,7 @@ export const habits: AppTemplate = {
     app.field('habits', formula('kept', '30 days', 'min(1, in_30 / ((often == "Times a week" ? times : days.length) * 30 / 7))', { style: 'percent', decimals: 0 }));
     app.field('habits', formula('today_says', 'Today', 'often == "Times a week" ? (times - week_done == 1 ? "1 more this week" : text(times - week_done) + " more this week") : streak > 0 ? "🔥 " + text(streak) + (streak == 1 ? " day" : " days") : this_week + " this week"'));
     app.tableColumns('habits', ['streak_text', 'this_week', 'kept']);
-    // Its days: in Today only, Done the one button, a day missed gone, a week of enough days done; a strip of seven in the table.
+    // Its days: on their day only, Done the one button, a day missed gone, a week of enough days done; a strip of seven in the table.
     app.view('habits', {
       id: 'days',
       name: 'Calendar',
@@ -136,18 +136,18 @@ export const habits: AppTemplate = {
     const named = ((answers.habits as string[] | undefined) ?? HABITS).map((h) => habitOf(h).name).filter(Boolean);
     app.about({
       title: 'Habits and goals',
-      what: `What you do again and again${named.length > 0 ? `: ${named.join(', ')}` : ''}, ticked in Today, and your streaks${goals ? '; and your goals, by a number or by their steps' : ''}.`,
+      what: `What you do again and again${named.length > 0 ? `: ${named.join(', ')}` : ''}, ticked in Scheduled, and your streaks${goals ? '; and your goals, by a number or by their steps' : ''}.`,
       pieces: ['habits', 'habit-checkins', ...(goals ? ['personal-goals'] : [])],
-      glance: ['Done in Today, one click', 'The last seven days, and your streak', ...(goals ? ['How far each goal is, and whether it is on track'] : [])],
+      glance: ['Done in Scheduled, one click', 'The last seven days, and your streak', ...(goals ? ['How far each goal is, and whether it is on track'] : [])],
       how: [
         'Give each habit how often: every day, on some days, or a number of times a week.',
-        'Press Done on a habit in Today; a day forgotten is ticked in its table or its month.',
-        ...(goals ? ['Add a goal with its target and its day, and press Update as you go; or give it steps, which come to Today on their days.'] : []),
+        'Press Done on a habit in Scheduled; a day forgotten is ticked in its table or its month.',
+        ...(goals ? ['Add a goal with its target and its day, and press Update as you go; or give it steps, which come to Scheduled on their days.'] : []),
       ],
       auto: [
-        'A habit comes to Today on its days; a day missed is not kept. One a number of times a week comes each day until the week has as many.',
+        'A habit comes to Scheduled on its days; a day missed is not kept. One a number of times a week comes each day until the week has as many.',
         'Its streak, its best, this week and the last 30 days are worked out from the days it was done.',
-        ...(goals ? ['A goal says how far it is, and whether it is on track for its day; its day comes to Upcoming, and one past it and not done is marked.'] : []),
+        ...(goals ? ['A goal says how far it is, and whether it is on track for its day; its day comes to Scheduled, and one past it and not done is marked.'] : []),
       ],
       work: ['When in the day you tick your habits.'],
     });

@@ -42,9 +42,9 @@ What to buy: each **Item**, **How much**, the recipe it is **For**, and **Bought
 
 **Add to shopping list**, on a recipe, writes each of its ingredients on the list, with how much.
 
-## Today
+## Scheduled
 
-Today's day comes to Today, not to Upcoming before it. Open it there to tick what you ate.
+A plan's day comes to Scheduled on the day, not before it. Open it there to tick what you ate.
 
 ## Ask an agent
 

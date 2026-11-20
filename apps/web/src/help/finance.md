@@ -8,7 +8,7 @@ Your money: what comes in and goes out of each account, month by month. You add 
 - **What comes in and goes out every time the same:** a row each, with its **Name**, **Amount**, **In or out**, **Every**, **Day** of the month and **Category**. It starts with Salary on the 15th, Rent on the 1st, Electricity, Water and Natural gas on the 20th, Internet and Building fee on the 5th, Phone on the 10th and Streaming on the 12th, all with no amount. An amount left empty is asked the first time it comes. Each goes into your first account, next on its day this month, or next month once that day has passed.
 - **Keep a monthly budget?** Yes by default: a spending category can have a **Monthly limit**, and shows as a bar.
 
-Electricity, water and gas change each month, so they are never written by themselves: they come to Today with **Paid**. The app keeps money in the currencies you choose as it is set up.
+Electricity, water and gas change each month, so they are never written by themselves: they come to Scheduled with **Paid**. The app keeps money in the currencies you choose as it is set up.
 
 ## Transactions
 
@@ -39,16 +39,16 @@ With a budget, give a spending category its **Monthly limit**; left empty, it ha
 What comes in and goes out again and again: its **Amount**, **Out** or **In**, how often as **Every** (**Weekly**, **Monthly**, **Every 3 months**, **Every 6 months**, **Yearly**, **Every 2 years**, or **Custom**, which asks **How many** and **Of**: **Days**, **Weeks**, **Months** or **Years**), its **Next** day, **Account** and **Category**. It opens on **By next**, the nearest first.
 
 - **Paid automatically**, on by default, is for what stays the same: a salary, the rent. Once it has an amount, it writes its transaction by itself on its day, or the next time you open the app after it. A message says so, with **Undo**.
-- Turn it off for what changes, as electricity. It comes to Today with **Paid**, which asks the **Amount**, the last one to start, and the **Account**.
+- Turn it off for what changes, as electricity. It comes to Scheduled with **Paid**, which asks the **Amount**, the last one to start, and the **Account**.
 - One with no amount comes with **Paid** the first time. The amount you give is kept; with **Paid automatically** on, from then on it writes itself.
 
 **Paid** writes the transaction on its **Next** day, today if that is still to come, and moves **Next** on as **Every** says. A new **Amount** is used from the next time on; what was written stays. Its window lists the transactions it wrote, the latest first.
 
-## Today
+## Scheduled
 
-- A recurring one comes to Upcoming before its day and to Today on it, saying how much: "−₺900 · Bank account", "about −₺640 · Bank account" for one that changes, or **No amount yet**.
+- A recurring one comes to Scheduled on its day, saying how much: "−₺900 · Bank account", "about −₺640 · Bank account" for one that changes, or **No amount yet**.
 - One paid automatically writes itself and has no button. The others have **Paid**, and stay in Overdue until they are paid.
-- What a recurring one wrote today is in Today too, with its amount.
+- What a recurring one wrote today is in Scheduled too, with its amount.
 
 ## Home
 

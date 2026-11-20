@@ -17,15 +17,15 @@ Tap a task for its sheet, where everything about it is changed. In a task's desc
 
 **Add section** is in the list's **···** menu. A section folds; tap its name to rename it, and its **···** menu has the rest.
 
-## Today and Upcoming
+## Scheduled
 
-The **Today** tab gathers what is due today or late from every list, board and collection, in every space. Tasks added in Today go to the Inbox.
+The **Scheduled** tab gathers what has a day from every list, board and collection, in every space. Tasks added in Scheduled go to the Inbox.
 
-- Late ones are under **Overdue**. **Reschedule** gives them all a new day at once.
-- What you finished today is at the end, and opens again with a tap on its circle.
-- With Google Calendar or Outlook connected in Settings › Calendars, the day's meetings are at its head; a tap opens one where it is.
-
-**Upcoming**, beside Today, shows what is coming, day by day, as a list or a calendar, your Google and Outlook meetings with it. Away from today in its **Day** or **Month**, **Today** at the bottom left goes back to it.
+- Late ones come first, under **Overdue**. **Reschedule** gives them all a new day at once.
+- Then **Today**, even when nothing is due, with what you finished today under it; a tap on its circle opens one again.
+- Then **Tomorrow** and each day after that has something.
+- **List**, **Day** and **Month** at the top show the days as a list, one day or the month. Away from today in **Day** or **Month**, **Today** at the bottom left goes back to it.
+- With Google Calendar or Outlook connected in Settings › Calendars, your meetings are there too; a tap opens one where it is.
 
 ## Labels
 
@@ -43,4 +43,4 @@ The filter button at the top of a list narrows it by labels, priority, date and 
 
 ## With notes and records
 
-A task made with **To task** from a note links back to it. **Record** links a task to a record of a collection, such as a customer: the task shows with the record's name in Today.
+A task made with **To task** from a note links back to it. **Record** links a task to a record of a collection, such as a customer: the task shows with the record's name in Scheduled.

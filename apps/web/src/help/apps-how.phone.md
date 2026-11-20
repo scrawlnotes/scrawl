@@ -16,9 +16,9 @@ The app comes with an **About** note that says how it was set up and how its par
 
 An app is one row in **Browse**, with its parts under it. Its page has what it has for you today, each part's screens, **About** and **Files**. Press and hold the app's row for **Add to app…** and **Edit app…**.
 
-## Today
+## Scheduled
 
-An app's work comes to Today with what it takes to do it: a call to log, an invoice falling due, a program day with **Start**, a medicine to take. See [Task lists](task-lists).
+An app's work comes to Scheduled with what it takes to do it: a call to log, an invoice falling due, a program day with **Start**, a medicine to take. See [Task lists](task-lists).
 
 ## Adding more
 

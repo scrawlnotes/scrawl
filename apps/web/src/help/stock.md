@@ -51,9 +51,9 @@ With warehouses, each one with its **Address** and the stock of each product in 
 
 Your suppliers. With purchasing, a supplier's window lists its purchase orders, with their status and total.
 
-## Today
+## Scheduled
 
-A purchase order sent comes to Today on the day it is expected, with **Receive**, saying its supplier and total, and to Upcoming before. Late ones stay under **Overdue**.
+A purchase order sent comes to Scheduled on the day it is expected, with **Receive**, saying its supplier and total. Late ones stay under **Overdue**.
 
 ## Home
 

@@ -5,14 +5,14 @@ import { DONE, EVERY, jobOf, UNITS } from './home';
 
 // Health (design/more-apps.md 4.3): what a person or a family needs to remember about health, with
 // as little typed as can be. A medicine says when it runs out from its dose and its box, and comes
-// to Today before it does; an appointment is its doctor and its day, the ones written before
+// to Scheduled before it does; an appointment is its doctor and its day, the ones written before
 // offered, and books the next; a check-up or a vaccine comes again by itself; a record is its file.
 
 const OFTEN = ['Once a day', 'Twice a day', '3 times a day', 'As needed'];
 const KINDS = ['Lab result', 'Report', 'Prescription', 'Imaging', 'Other'];
 const CHECKUPS = ['Dentist every 6 months', 'General check-up every year', 'Eye exam every 2 years', 'Flu shot every year'];
 const FOLLOW = ['In 2 weeks', 'In 1 month', 'In 3 months', 'In 6 months', 'In 1 year'];
-/** A medicine comes to Today this many days before it runs out. */
+/** A medicine comes to Scheduled this many days before it runs out. */
 const AHEAD = 5;
 
 /** The items of a list answer, trimmed, the empty ones left out; its default when it was not given. */
@@ -57,7 +57,7 @@ export const health: AppTemplate = {
       app.field(role, field);
     };
     const byPerson = family ? { color: 'person' } : {};
-    // What a row in Today says after its collection: whose it is, then its own words.
+    // What a row in Scheduled says after its collection: whose it is, then its own words.
     const words = (...keys: string[]) => ({ words: [...(family ? ['person'] : []), ...keys] });
 
     if (medications) {
@@ -130,7 +130,7 @@ export const health: AppTemplate = {
       title: 'Health',
       what: `${family ? `Your family's health${names.length > 0 ? `, ${names.join(', ')}` : ''}` : 'Your health'}: ${medications ? 'medicines and when they run out, ' : ''}appointments, check-ups and vaccines that come again, and the records.`,
       pieces: [...(medications ? ['medications'] : []), 'visits', 'checkups', 'results'],
-      glance: [...(medications ? ['When a medicine runs out, worked out'] : []), 'Appointments in Today, the next booked from the last', 'Check-ups that come again', ...(family ? ['Whose each one is'] : [])],
+      glance: [...(medications ? ['When a medicine runs out, worked out'] : []), 'Appointments in Scheduled, the next booked from the last', 'Check-ups that come again', ...(family ? ['Whose each one is'] : [])],
       how: [
         ...(medications ? ['Add a medicine with its dose, how often and how many are in a box; press Refilled with a new box, Stopped when it is no longer taken.'] : []),
         'An appointment is its doctor and its day; a doctor and a place written before are offered as you type. After it, Book follow-up books the next.',
@@ -138,8 +138,8 @@ export const health: AppTemplate = {
         'Add a result, a report or a prescription with its file in its notes.',
       ],
       auto: [
-        ...(medications ? [`A medicine says when it runs out from its box and how often it is taken, and comes to Today ${AHEAD} days before; one about to run out is marked.`] : []),
-        'An appointment comes to Today and Upcoming.',
+        ...(medications ? [`A medicine says when it runs out from its box and how often it is taken, and comes to Scheduled ${AHEAD} days before; one about to run out is marked.`] : []),
+        'An appointment comes to Scheduled.',
         'Done writes today as a check-up’s last time and its next as often as Every says; one past its day is marked.',
       ],
       work: ['Where the papers are kept.', 'Who to call when someone is ill.'],

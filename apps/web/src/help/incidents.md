@@ -6,7 +6,7 @@ Outages, quality and safety issues, complaints that grew, security breaches: wha
 
 - **Kinds of incident:** Outage, Quality, Safety, Complaint and Security. They are the choices of an incident's **Type**. With none, there is no Type.
 - **Keep what is to be done on a board?** Yes, unless you say no. It adds the Actions board, and **Add action** puts a card on it, with who and by when.
-- **When is its review written?** Two, five or ten days after it is resolved; five unless you pick another. The review comes to its owner's Today with **Write review**.
+- **When is its review written?** Two, five or ten days after it is resolved; five unless you pick another. The review comes to its owner's Scheduled with **Write review**.
 
 ## Incidents
 
@@ -27,11 +27,11 @@ Its window shows its status, **Investigating**, **Fixing**, **Monitoring**, **Re
 
 What is done so that it does not happen again, a card each, in **To do**, **Doing**, **Done** or **Won't do**. A card shows its incident, and an incident's window shows its cards. See [Boards](boards).
 
-## Today
+## Scheduled
 
-- An incident not resolved is in Today every day with **Post update**.
-- Once it is resolved, its review comes to its owner's Today after the days you chose, with **Write review**, and stays until it is written. It shows in Upcoming before.
-- An action's card comes to Today on its day.
+- An incident not resolved is in Scheduled every day with **Post update**.
+- Once it is resolved, its review comes to its owner's Scheduled after the days you chose, with **Write review**, and stays until it is written.
+- An action's card comes to Scheduled on its day.
 
 ## Home
 

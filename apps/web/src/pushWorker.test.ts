@@ -39,7 +39,7 @@ describe('a notification clicked', () => {
     expect(opened).toEqual([]);
   });
 
-  it("opens Today for the morning's", async () => {
+  it("opens Scheduled for the morning's", async () => {
     const app = { focused: true, posted: [] as unknown[] };
     const { click } = load([app]);
     await click({ server: 'https://kaan.scrawlnotes.com', href: 'scrawl:today', tag: 'due' });

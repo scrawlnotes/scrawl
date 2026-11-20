@@ -511,7 +511,7 @@ async function linesFor(fs: VaultFs, collection: Collection, collections: Collec
 }
 
 /**
- * What the calendars that show in Today and Upcoming bring there, with no collection named: in the
+ * What the calendars that show in Scheduled bring there, with no collection named: in the
  * space named, else in every space; today's, those of the days asked for, or from today on. Each
  * record with its collection, the view that brings it, its start, and its end or its length.
  */

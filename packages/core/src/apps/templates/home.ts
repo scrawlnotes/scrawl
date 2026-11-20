@@ -5,7 +5,7 @@ import type { AppTemplate } from '../types';
 // Home, car and documents (design/more-apps.md 4.2): the documents you keep, a manual or a passport,
 // a day each runs out when it does; what is done again and again at each home and for each car, a
 // reminder each with how often; your homes and cars, each with its reminders and documents. Each
-// comes to Today and Upcoming on its day; Done plans a reminder's next time.
+// comes to Scheduled on its day; Done plans a reminder's next time.
 
 const KEEPS = ['documents', 'vehicles', 'upkeep'];
 const HOMES = ['Home'];
@@ -132,10 +132,10 @@ export const home: AppTemplate = {
       app.field('upkeep', { ...number('interval', 'How many'), required: true, ...custom });
       app.field('upkeep', { ...select('unit', 'Of', UNITS, Object.fromEntries(UNITS.map((u) => [u, 'gray' as const])), 'Months'), ...custom });
       app.field('upkeep', select('remind', 'Remind', REMIND, Object.fromEntries(REMIND.map((r) => [r, 'gray' as const])), 'On the day'));
-      // The day it comes to Today and Upcoming: its next, or as long before it as Remind says.
+      // The day it comes to Scheduled: its next, or as long before it as Remind says.
       app.field('upkeep', formula('remind_on', 'Remind on', 'next - (remind == "1 week before" ? 7 : remind == "1 month before" ? 30 : 0)'));
       app.field('upkeep', day('last', 'Last done'));
-      // Done is on its row in Today; one past its day stays in Overdue till it is done.
+      // Done is on its row in Scheduled; one past its day stays in Overdue till it is done.
       app.view('upkeep', calendar({ start: 'remind_on', upcoming: true, button: 'Done' }));
       app.rule('upkeep', { kind: 'check', name: 'Overdue', src: 'check("next", () => empty(next) || next >= today(), "Overdue")' });
       app.rule('upkeep', { kind: 'action', name: 'Done', src: DONE });
@@ -165,11 +165,11 @@ export const home: AppTemplate = {
     const said = kept.join(', and ');
     app.about({
       title: 'Home, car and documents',
-      what: `${said[0]!.toUpperCase()}${said.slice(1)}, each in Today and Upcoming on its day.`,
+      what: `${said[0]!.toUpperCase()}${said.slice(1)}, each in Scheduled on its day.`,
       pieces: ['upkeep', 'documents', 'vehicles', 'homes'].filter((r) => app.hasPiece(r)),
       glance: [
         ...(documents ? ['A month before a document runs out'] : []),
-        ...(upkeep ? ['Reminders in Upcoming on their day', 'Done plans the next time'] : []),
+        ...(upkeep ? ['Reminders in Scheduled on their day', 'Done plans the next time'] : []),
       ],
       how: [
         ...(upkeep ? ['Give each reminder its next day and how often; press Done when it is done.'] : []),
@@ -178,8 +178,8 @@ export const home: AppTemplate = {
         ...(vehicles ? [`Each car is in ${app.called('vehicles')}, with its reminders and documents.`] : []),
       ],
       auto: [
-        ...(upkeep ? ['A reminder comes to Today and Upcoming on its day, or a week or a month before as Remind says; one past its day is marked.', 'Done writes today as its last time, and its next as often as Every says.'] : []),
-        ...(documents ? ['A document comes to Today and Upcoming a month before it runs out; one that ran out is marked.'] : []),
+        ...(upkeep ? ['A reminder comes to Scheduled on its day, or a week or a month before as Remind says; one past its day is marked.', 'Done writes today as its last time, and its next as often as Every says.'] : []),
+        ...(documents ? ['A document comes to Scheduled a month before it runs out; one that ran out is marked.'] : []),
         ...(upkeep && vehicles ? ['A car shows the first of its reminders’ days, and is marked when one is past.'] : []),
         ...(upkeep && homes ? ['With one home, a reminder saved with no home or car is that home’s.'] : []),
       ],

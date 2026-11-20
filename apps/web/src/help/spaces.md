@@ -10,7 +10,7 @@ With more than one space, each is a heading in the sidebar that folds. Drag a he
 
 **Settings › Spaces** lists them all. **Add space…** adds one: a OneDrive folder someone shared with you, or a space on a server. Removing a space takes it off this device only; it stays where it syncs and on your other devices.
 
-Today, Upcoming, Search and filters cover every space. Something in another space says it before its folder: `Acme · Sales`.
+Scheduled, Search and filters cover every space. Something in another space says it before its folder: `Acme · Sales`.
 
 ## Folders
 

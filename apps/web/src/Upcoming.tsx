@@ -2,6 +2,7 @@ import {
   addDays,
   type Board,
   dayInToday,
+  dayOf,
   type DueRecord,
   minutesOfDay,
   movedValues,
@@ -52,8 +53,9 @@ import {
   toDate,
 } from './Tasks';
 
-// Upcoming on a computer, after the Upcoming mockups, in two views chosen in its header and kept
-// on the device. List: what is late first, with Reschedule, then today, then only the days that
+// Scheduled on a computer (Today and Upcoming before, one view now), after the Upcoming mockups,
+// in two views chosen in its header and kept on the device. List: what is late first, with
+// Reschedule, then today, always, with what was completed today under it, then only the days that
 // have something, each with its tasks and cards and a row to add one on it; the free days between
 // two of them are one faint line, which adds on the first of them. Calendar: the month, as many
 // tasks a day as fit and +N more; a day opens in a small window, and a task dragged to another day
@@ -142,6 +144,23 @@ export function datedByDay(lists: Record<string, Task[]>, boards: Record<string,
 /** How many tasks and cards, said the status bar's way. */
 const countWords = (tasks: number, cards: number, records = 0) => [t('count.tasks', { count: tasks }), ...(cards > 0 ? [t('count.cards', { count: cards })] : []), ...(records > 0 ? [t('count.records', { count: records })] : [])];
 
+/** What was completed today, from every list, the latest first, under today: found again, and opened again with its box. */
+export function CompletedToday({ lists, today, actions }: { lists: Record<string, Task[]>; today: string; actions: TaskActions }) {
+  const [shown, setShown] = useState(false);
+  const finished = Object.entries(lists)
+    .flatMap(([list, tasks]) => tasks.filter((task) => task.done && task.completed && dayOf(new Date(task.completed)) === today).map((task) => ({ list, task })))
+    .sort((a, b) => (a.task.completed! < b.task.completed! ? 1 : -1));
+  if (finished.length === 0) return null;
+  return (
+    <>
+      <button type="button" className="qa" aria-expanded={shown} onClick={() => setShown(!shown)}>
+        {t(shown ? 'tasks.hideCompletedToday' : 'tasks.showCompletedToday', { count: finished.length })}
+      </button>
+      {shown && finished.map(({ list, task }) => <TaskItem key={`${list}/${task.id}`} list={list} task={task} tasks={lists[list] ?? []} today={today} showDone={false} actions={actions} flat />)}
+    </>
+  );
+}
+
 /** The header's Add task, pressed: `asked` counts the presses, and a view opens adding at each new one. */
 function useAsked(asked: number, open: () => void) {
   const seen = useRef(asked);
@@ -213,13 +232,13 @@ export function Upcoming(props: Props) {
       )}
     </>
   );
-  // Add task adds on tomorrow; on the calendar, where tomorrow is shown.
+  // Add task adds on today; on the calendar, where today is shown.
   const add = () => {
-    if (view === 'calendar') setFocus(range === 'month' ? today : addDays(today, 1));
+    if (view === 'calendar') setFocus(today);
     setAsked(asked + 1);
   };
   return (
-    <TaskPage title={t('tasks.upcoming')} extra={header} onAddClick={add} footer={<StillOpening text={props.still ?? null} />}>
+    <TaskPage title={t('side.scheduled')} extra={header} onAddClick={add} footer={<StillOpening text={props.still ?? null} />}>
       {view === 'list' ? (
         <UpcomingList {...props} asked={asked} />
       ) : range === 'month' ? (
@@ -241,7 +260,6 @@ interface Adding {
 function UpcomingList({ lists, boards, today, actions, places, onAdd, onStatus, asked }: Props & { asked: number }) {
   const [adding, setAdding] = useState<Adding | null>(null);
   const [rescheduling, setRescheduling] = useState<HTMLElement | null>(null);
-  const tomorrow = addDays(today, 1);
   const due = dueToday(lists, today);
   const cards = splitDueCards(boards, today);
   const subtasks = splitDueSubtasks(actions.dueSubtasks(), today);
@@ -256,10 +274,11 @@ function UpcomingList({ lists, boards, today, actions, places, onAdd, onStatus, 
   const events = useCalendarEvents(today, addDays(today, 62));
   const eventDays = new Set(events.flatMap((event) => (event.lastDay < today ? [] : [event.day < today ? today : event.day])));
   const busy = [...[...tasksOn, ...cards.later, ...subtasks.later, ...recordsOn].filter(([, on]) => on.length > 0).map(([day]) => day), ...eventDays];
-  const runs = dayRuns([...new Set(busy)], today);
+  // Today is always there, with its add row and what was completed today.
+  const runs = dayRuns([today, ...busy], today);
 
   const open = (at: string, day: string) => setAdding({ at, due: day, n: (adding?.n ?? 0) + 1 });
-  useAsked(asked, () => open(tomorrow, tomorrow));
+  useAsked(asked, () => open(today, today));
   const taskCount =
     due.overdue.length + [...tasksOn.values()].reduce((sum, on) => sum + on.length, 0) + subtasks.overdue.length + [...subtasks.later.values()].reduce((sum, on) => sum + on.length, 0);
   const cardCount = cards.overdue.length + [...cards.later.values()].reduce((sum, on) => sum + on.length, 0);
@@ -361,13 +380,7 @@ function UpcomingList({ lists, boards, today, actions, places, onAdd, onStatus, 
             </button>,
           ]),
     );
-  }
-  if (late.length + lateRecords.length === 0 && runs.length === 0 && !adding) {
-    rows.push(
-      <p key="empty" className="task-empty">
-        {t('tasks.nothingLater')}
-      </p>,
-    );
+    if (day === today) rows.push(<CompletedToday key="done:today" lists={lists} today={today} actions={actions} />);
   }
   rows.push(...place(true));
 
@@ -429,9 +442,9 @@ function UpcomingCalendar({ lists, boards, today, actions, places, onAdd, onStat
 
   const openDay = (day: string) => setOpened((was) => (was?.day === day ? was : { day, adding: false, n: (was?.n ?? 0) + 1 }));
   const addOn = (day: string) => setOpened((was) => ({ day, adding: true, n: (was?.n ?? 0) + 1 }));
-  // Another month closes the day open in this one; Add task, which may come with this month again, opens tomorrow after.
+  // Another month closes the day open in this one; Add task, which may come with this month again, opens today after.
   useEffect(() => setOpened(null), [month]);
-  useAsked(asked, () => addOn(addDays(today, 1)));
+  useAsked(asked, () => addOn(today));
 
   const inMonth = (day: string) => day.slice(0, 7) === month;
   const taskCount = tasks.filter((each) => inMonth(each.task.due!)).length + subtasks.filter((each) => inMonth(each.subtask.due!)).length;
@@ -661,7 +674,7 @@ function UpcomingWeek({ lists, boards, today, actions, places, onAdd, onStatus, 
   const openDay = (day: string) => setOpened((was) => (was?.day === day ? was : { day, adding: false, n: (was?.n ?? 0) + 1 }));
   const addOn = (day: string) => setOpened((was) => ({ day, adding: true, n: (was?.n ?? 0) + 1 }));
   useEffect(() => setOpened(null), [days[0]]);
-  useAsked(asked, () => addOn(days.includes(addDays(today, 1)) ? addDays(today, 1) : days[0]!));
+  useAsked(asked, () => addOn(days.includes(today) ? today : days[0]!));
 
   const shown = (day: string) => day >= days[0]! && day <= days.at(-1)!;
   const taskCount = tasks.filter((each) => shown(each.task.due!)).length + subtasks.filter((each) => shown(each.subtask.due!)).length;

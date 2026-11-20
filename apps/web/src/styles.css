@@ -300,6 +300,16 @@ input:focus {
   font-variant-numeric: tabular-nums;
 }
 
+/* Scheduled's number of now beside the faint one after today: dark, red when something is late. */
+.it .ct b {
+  color: var(--sl-fg);
+  font-weight: 600;
+}
+
+.it .ct b.late {
+  color: var(--sl-p1);
+}
+
 /* a line between the day's views, Today and Upcoming, and the rest */
 .side-div {
   height: 1px;

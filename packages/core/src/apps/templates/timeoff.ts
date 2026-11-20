@@ -6,7 +6,7 @@ import type { AppTemplate } from '../types';
 
 // Time off and team (design/more-apps.md 3.3), as Timetastic and BambooHR keep it: the people,
 // the leave they ask for and the public holidays. Request leave says the days and what is left
-// after; a morning or an afternoon is half a day. A request comes to Today with Approve. Who's away
+// after; a morning or an afternoon is half a day. A request comes to Scheduled with Approve. Who's away
 // is a row for each of the team, a bar for each leave. A leave's days are its working days less the
 // holidays; the first kind is the one taken from the yearly allowance, and Carry over takes what is
 // left into the next year. One that runs into another, or goes past the days left, is marked.
@@ -140,7 +140,7 @@ export const timeoff: AppTemplate = {
     tab('upcoming', 'Upcoming', [{ field: 'coming', op: 'true' }]);
     tab('away-now', 'Away now', [{ field: 'away_now', op: 'true' }]);
     tab('past', 'Past', [{ field: 'past', op: 'true' }], 'desc');
-    // In Today: a request with Approve, from the day it was asked till it is; who is away, each day of it.
+    // In Scheduled: a request with Approve, from the day it was asked till it is; who is away, each day of it.
     if (approvals) app.view('leave-requests', { ...calendar({ start: 'requested_on', color: 'type', upcoming: 'today', button: 'Approve', words: ['when_said', 'left_said'] }, [{ field: 'status', op: 'is', value: ['Requested'] }]), id: 'approvals', name: 'To approve', hidden: true });
     app.view('leave-requests', { ...calendar({ start: 'first', end: 'last', color: 'type', upcoming: true, words: ['when_said'] }, [{ field: 'status', op: 'is', value: ['Approved'] }]), id: 'calendar', name: 'Calendar', hidden: true });
 
@@ -249,13 +249,13 @@ export const timeoff: AppTemplate = {
         "Who's away, a row each",
         'Request leave says the days left after it',
         'Half days',
-        ...(approvals ? ['Approve in Today'] : []),
+        ...(approvals ? ['Approve in Scheduled'] : []),
         'Days counted without weekends and holidays',
         ...(carry ? ['Carry over at the end of the year'] : []),
       ],
       how: [
         'Add each of your people, with their team, their manager and the day they started.',
-        `Press Request leave on their screen: its kind, its first and last day, or the morning or the afternoon of one; ${approvals ? 'it comes to Today with Approve, or Reject saying why' : 'it is approved as it is asked'}.`,
+        `Press Request leave on their screen: its kind, its first and last day, or the morning or the afternoon of one; ${approvals ? 'it comes to Scheduled with Approve, or Reject saying why' : 'it is approved as it is asked'}.`,
         `Add the days the company is closed to ${app.called('holidays')}${country ? '; the public holidays of this year and the next are there' : ''}.`,
         ...(carry ? [`At the end of the year, press Carry over on ${app.called('employees')}.`] : []),
       ],
@@ -263,8 +263,8 @@ export const timeoff: AppTemplate = {
         "A leave's days are its working days, Monday to Friday, less the holidays in it; a morning or an afternoon is half a day. Written as it is saved, and again when its days change.",
         `Each of your people shows the ${counted.toLowerCase()} leave they used this year of what they have, what is requested, and when they are next away.`,
         'A leave that runs into another of the same person, or goes past the days left, is marked; it is kept.',
-        ...(approvals ? ['A request is in Today from the day it was asked till it is approved; Approve writes who approved it.'] : []),
-        "Who's away has a row for each of your people, a bar for each leave; an approved one is in Today and Upcoming on its days.",
+        ...(approvals ? ['A request is in Scheduled from the day it was asked till it is approved; Approve writes who approved it.'] : []),
+        "Who's away has a row for each of your people, a bar for each leave; an approved one is in Scheduled on its days.",
         ...(carry ? [`Carry over takes what is left into the next year${cap === null ? '' : `, up to ${cap} days`}.`] : []),
       ],
       work: ['How far ahead leave is asked for.', 'Who approves leave, and who stands in for them.'],

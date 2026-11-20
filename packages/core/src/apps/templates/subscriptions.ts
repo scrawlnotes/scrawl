@@ -7,7 +7,7 @@ import { clientRole, customerRole } from './sales';
 // Subscriptions and memberships (design/more-apps.md 3.1), as Chargebee and Baremetrics keep them:
 // MRR over the list, what renews this week and what is past due; a subscription's window says what
 // it brings a month and since when, and its history, a plan changed, renewed, paused. Renew writes
-// the renewal as an order to invoice with Sales, else as a payment with Budget, and comes to Today
+// the renewal as an order to invoice with Sales, else as a payment with Budget, and comes to Scheduled
 // on its day, by itself for one paid by card; Change plan now or at the renewal; Pause until a day;
 // Cancel now or at the end of its term, with why. A software subscription, a gym's memberships and
 // a maintenance agreement are the same pieces, named as the answer says.
@@ -335,12 +335,12 @@ export const subscriptions: AppTemplate = {
     tab('past-due', 'Past due', [{ field: 'past_due', op: 'true' }]);
     tab('paused', 'Paused', [{ field: 'status', op: 'is', value: ['Paused'] }]);
     tab('cancelled', 'Cancelled', [{ field: 'status', op: 'is', value: ['Cancelled'] }]);
-    // In Today on their day: a renewal with Renew, by itself when it is paid by card; a trial ending with Convert; a pause ending with Resume; a term ending, by itself.
+    // In Scheduled on their day: a renewal with Renew, by itself when it is paid by card; a trial ending with Convert; a pause ending with Resume; a term ending, by itself.
     app.view('subscriptions', { ...calendar({ start: 'renews', color: 'plan', upcoming: true, button: 'Renew', auto: 'auto', words: ['customer', 'amount_said'] }, [{ field: 'status', op: 'is', value: ['Active'] }]), id: 'renewals', name: 'Renewals', hidden: true });
     if (trial) app.view('subscriptions', { ...calendar({ start: 'renews', color: 'plan', upcoming: true, button: 'Convert', words: ['customer', 'amount_said'] }, [{ field: 'status', op: 'is', value: ['Trial'] }]), id: 'trials', name: 'Trials ending', hidden: true });
     app.view('subscriptions', { ...calendar({ start: 'paused_until', color: 'plan', upcoming: true, button: 'Resume', words: ['customer'] }, [{ field: 'status', op: 'is', value: ['Paused'] }]), id: 'pauses', name: 'Pauses ending', hidden: true });
     app.field('subscriptions', formula('ending', 'Ending', 'status == "Non-renewing"'));
-    // In Today only, on its day, where End is pressed by itself: a calendar out of Today presses nothing.
+    // On its day only, where End is pressed by itself: a calendar out of Scheduled presses nothing.
     app.view('subscriptions', { ...calendar({ start: 'renews', color: 'plan', upcoming: 'today', button: 'End', auto: 'ending' }, [{ field: 'status', op: 'is', value: ['Non-renewing'] }]), id: 'ends', name: 'Ending', hidden: true });
     app.view('subscriptions', { id: 'week', name: 'Renewing this week', conditions: [{ field: 'this_week', op: 'true' }], sort: { key: 'renews', dir: 'asc' }, hidden: true });
 
@@ -385,7 +385,7 @@ export const subscriptions: AppTemplate = {
       title: 'Subscriptions and memberships',
       what: `What you sell by the month or the year${planNames.length > 0 ? `: ${planNames.join(', ')}` : ''}; who is on each plan, when each renews, and what comes in each month.`,
       pieces: ['plans', 'subscriptions', customer],
-      glance: ['Over the list, the MRR and what is past due', 'A renewal comes to Today with Renew, by itself when paid by card', `Change plan, Pause, ${cancel} at the end of its term`, ...(toSales ? ['A renewal is an order to invoice'] : paid ? ['A renewal is written as a payment'] : [])],
+      glance: ['Over the list, the MRR and what is past due', 'A renewal comes to Scheduled with Renew, by itself when paid by card', `Change plan, Pause, ${cancel} at the end of its term`, ...(toSales ? ['A renewal is an order to invoice'] : paid ? ['A renewal is written as a payment'] : [])],
       how: [
         'Write each plan with its period and its price.',
         `Add a ${words.one} for each ${who}: their plan and the day it starts; the rest comes from the plan. Tick Renews by itself when it is paid by card.`,

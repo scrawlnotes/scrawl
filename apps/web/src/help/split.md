@@ -45,9 +45,9 @@ A payment ticked **Paid** gets its **Paid on** day and counts in the balances; u
 
 A person's window has what they **Paid**, their **Share** and their **Balance**, and each of their shares: what it **Comes to** and what they paid of it.
 
-## Today
+## Scheduled
 
-An expense ticked **Every month** comes to Upcoming before its **Next** day, with **Add again**. On the day it is written again by itself, and **Undo** takes it back.
+An expense ticked **Every month** comes to Scheduled before its **Next** day, with **Add again**. On the day it is written again by itself, and **Undo** takes it back.
 
 ## Home
 

@@ -5,7 +5,7 @@ import { type FormEvent, Fragment, type MouseEvent, type ReactNode, type TouchEv
 import { createPortal } from 'react-dom';
 import type { PhoneUpcomingView } from './PhoneUpcoming';
 import { Icon, type IconName } from './Icon';
-import { boardOf, CHAT, collectionPathOf, collectionTab, countItems, FILES, filterOf, FILTERS, folderLabel, folderOf, iconOf, isNote, nameOf, NEW_FILTER, pathOf, seenText, spaceLabel, spaceWhere, tabOf, tasksOf, TODAY, TRASH, UPCOMING } from './items';
+import { boardOf, CHAT, collectionPathOf, collectionTab, countItems, FILES, filterOf, FILTERS, folderLabel, folderOf, iconOf, isNote, nameOf, NEW_FILTER, pathOf, seenText, spaceLabel, spaceWhere, tabOf, tasksOf, TRASH, UPCOMING } from './items';
 import type { SpaceView } from './session';
 import type { FavoriteRow } from './Sidebar';
 import { PhoneAbout, type Section, sectionValue, SettingsSection, settingsSections, type SettingsValues } from './Settings';
@@ -134,9 +134,9 @@ export interface PhoneProps {
   counts: Record<string, number>;
   /** Where the app draws what is open; moved into the page that shows it. */
   item: HTMLElement;
-  /** Today or Upcoming. */
-  dueView: (kind: 'today' | 'upcoming') => ReactNode;
-  /** How Upcoming shows: its days, or the month. */
+  /** Scheduled. */
+  dueView: () => ReactNode;
+  /** How Scheduled shows: its days, a day, or the month. */
   upcomingView: PhoneUpcomingView;
   onUpcomingView: (view: PhoneUpcomingView) => void;
   /** The day Upcoming's Day shows. */
@@ -278,7 +278,7 @@ export interface PhoneProps {
 let pageKeys = Date.now();
 const root = (): Page => ({ kind: 'root', key: ++pageKeys });
 // Chat, a tab on a computer, is a place of the tab bar here.
-const views = new Set([TODAY, UPCOMING, TRASH, FILES, CHAT]);
+const views = new Set([UPCOMING, TRASH, FILES, CHAT]);
 /** Whether a tab is something open, as opposed to a view the tab bar shows. */
 const isItem = (id: string | null): id is string => id !== null && !views.has(id);
 
@@ -612,12 +612,9 @@ export function Phone(props: PhoneProps) {
   const [leaving, setLeaving] = useState<{ place: Place; page: Page } | null>(null);
   /** How far a finger has pulled the page on top to the right, going back. */
   const [pull, setPull] = useState<number | null>(null);
-  const [due, setDue] = useState<'today' | 'upcoming'>('today');
-  // The morning's notification tapped: Today's tab, on Today.
+  // The morning's notification tapped: the Scheduled tab.
   useEffect(() => {
-    if (!props.todayAsked) return;
-    setDue('today');
-    setPlace('today');
+    if (props.todayAsked) setPlace('today');
   }, [props.todayAsked]);
   const [newFolderIn, setNewFolderIn] = useState<string | null>(null);
   // Settings › Spaces: reordering the spaces, adding one, a space's menu and the question before it leaves this phone.
@@ -675,12 +672,9 @@ export function Phone(props: PhoneProps) {
     else if (target.kind === 'card') push({ kind: 'item', id: boardOf(target.board) });
     props.search.onPick(found);
   };
-  // Search's actions go where a phone has those places: Today and Upcoming are a tab, Files and the trash pages of Browse.
+  // Search's actions go where a phone has those places: Scheduled is a tab, Files and the trash pages of Browse.
   const searchActions = props.search.actions.map((action): SearchAction => {
-    if (action.id === 'today' || action.id === 'upcoming') {
-      const kind = action.id;
-      return { ...action, run: () => (setDue(kind), setPlace('today')) };
-    }
+    if (action.id === 'upcoming') return { ...action, run: () => setPlace('today') };
     if (action.id === 'files' || action.id === 'trash' || action.id === 'help') {
       const kind = action.id;
       return { ...action, run: () => (setPlace('browse'), setStacks((current) => ({ ...current, browse: [current.browse[0]!, { kind, key: ++pageKeys }] }))) };
@@ -1043,7 +1037,7 @@ export function Phone(props: PhoneProps) {
   // ---------- the pages ----------
 
   const titleOf = (page: Page, of: Place): string => {
-    if (page.kind === 'root') return of === 'today' ? t('side.today') : of === 'settings' ? t('settings.title') : of === 'search' ? t('phone.search') : of === 'chat' ? t('chat.title') : t('phone.browse');
+    if (page.kind === 'root') return of === 'today' ? t('side.scheduled') : of === 'settings' ? t('settings.title') : of === 'search' ? t('phone.search') : of === 'chat' ? t('chat.title') : t('phone.browse');
     if (page.kind === 'chatConv') {
       const server = chat.servers.find((each) => each.url === page.url);
       const found = server?.chats.find((each) => each.id === page.chat) ?? (server?.visiting?.id === page.chat ? server.visiting : undefined);
@@ -1442,41 +1436,19 @@ export function Phone(props: PhoneProps) {
       const day = new Date().toLocaleDateString(locale(), { weekday: 'long', month: 'short', day: 'numeric' });
       return (
         <PageFrame
-          title={due === 'today' ? t('side.today') : t('side.upcoming')}
-          sub={due === 'today' ? day : props.upcomingView === 'day' ? new Date(`${props.upcomingDay}T12:00:00`).toLocaleDateString(locale(), { weekday: 'long', month: 'short', day: 'numeric' }) : undefined}
+          title={t('side.scheduled')}
+          sub={props.upcomingView === 'day' ? new Date(`${props.upcomingDay}T12:00:00`).toLocaleDateString(locale(), { weekday: 'long', month: 'short', day: 'numeric' }) : day}
           side={
-            due === 'upcoming' && (
-              <div className="mb-seg" role="tablist">
-                {(['list', 'day', 'month'] as const).map((view) => (
-                  <button key={view} type="button" role="tab" aria-selected={props.upcomingView === view} onClick={() => props.onUpcomingView(view)}>
-                    {view === 'list' ? t('tasks.viewList') : t(`calendar.${view}`)}
-                  </button>
-                ))}
-              </div>
-            )
-          }
-          head={
             <div className="mb-seg" role="tablist">
-              {(['today', 'upcoming'] as const).map((kind) => {
-                // The sidebar's numbers: Today's what is late and due today, Upcoming's what is due after it.
-                const count = props.counts[kind === 'today' ? TODAY : UPCOMING];
-                return (
-                  <button
-                    key={kind}
-                    type="button"
-                    role="tab"
-                    aria-selected={due === kind}
-                    onClick={() => setDue(kind)}
-                  >
-                    {kind === 'today' ? t('side.today') : t('side.upcoming')}
-                    {count ? <small>{count.toLocaleString(locale())}</small> : null}
-                  </button>
-                );
-              })}
+              {(['list', 'day', 'month'] as const).map((view) => (
+                <button key={view} type="button" role="tab" aria-selected={props.upcomingView === view} onClick={() => props.onUpcomingView(view)}>
+                  {view === 'list' ? t('tasks.viewList') : t(`calendar.${view}`)}
+                </button>
+              ))}
             </div>
           }
         >
-          <div className="mb-due">{props.dueView(due)}</div>
+          <div className="mb-due">{props.dueView()}</div>
         </PageFrame>
       );
     }
@@ -1828,7 +1800,7 @@ export function Phone(props: PhoneProps) {
           push({ kind: 'quickNote', path: null });
         }
       : top.kind === 'root' && place === 'today'
-      ? () => props.onAdd(due === 'today' ? TODAY : UPCOMING)
+      ? () => props.onAdd(UPCOMING)
       : (top.kind === 'root' && place === 'browse') || top.kind === 'folder'
         ? () => props.onCreate(top.kind === 'folder' ? top.path : '')
         : top.kind === 'item' && props.canAdd(top.id)
@@ -1956,7 +1928,7 @@ export function Phone(props: PhoneProps) {
         {places.map((each) => (
           <button key={each} type="button" aria-current={each === place ? 'page' : undefined} onClick={() => choose(each)}>
             {each === 'today' ? <DayIcon /> : <Icon name={each === 'settings' ? 'settings' : each === 'search' ? 'search' : each === 'chat' ? 'chat' : 'folder'} />}
-            <span>{each === 'today' ? t('side.today') : each === 'settings' ? t('side.settings') : each === 'search' ? t('phone.search') : each === 'chat' ? t('chat.title') : t('phone.browse')}</span>
+            <span>{each === 'today' ? t('side.scheduled') : each === 'settings' ? t('side.settings') : each === 'search' ? t('phone.search') : each === 'chat' ? t('chat.title') : t('phone.browse')}</span>
             {each === 'chat' && chat.alerts > 0 && <em className="bdg">{chat.alerts > 99 ? '99+' : chat.alerts}</em>}
           </button>
         ))}

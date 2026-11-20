@@ -209,7 +209,7 @@ export const support: AppTemplate = {
     tab('waiting', 'Waiting on customer', [{ field: 'status', op: 'is', value: ['Waiting on customer'] }]);
     tab('solved', 'Solved', [{ field: 'status', op: 'is', value: ['Solved', 'Closed'] }]);
     app.view('requests', { id: 'open', name: 'Open', conditions: [open], sort: { key: 'reply_due', dir: 'asc' }, hidden: true });
-    // A reply due comes to Today with Reply; one late stays in Overdue.
+    // A reply due comes to Scheduled with Reply; one late stays in Overdue.
     app.view('requests', { ...calendar({ start: 'reply_due', color: 'priority', upcoming: true, button: 'Reply', person: 'assignee', words: ['who', ...(bugs ? ['bug_said'] : []), 'reply_said'] }, [{ field: 'status', op: 'is', value: OPEN }]), id: 'due', name: 'Reply due', hidden: true });
     app.homeTile('requests', { off: true });
     app.homeTiles('requests', [
@@ -236,7 +236,7 @@ export const support: AppTemplate = {
       title: 'Customer support',
       what: `Every request a customer sends${channels.length > 0 ? ` by ${channels.join(', ')}` : ''}, what was said on it, and when its reply is due${ideas ? '; and what customers ask for, among your ideas' : ''}. The mail itself is sent and read in your mail program.`,
       pieces: ['requests', ...(ideas ? ['feedback'] : []), ...(replies ? ['saved-replies'] : [])],
-      glance: ['Over the requests, how many are open, unassigned and late', `A reply is due ${dueSaid} after the customer writes`, 'A reply due comes to Today with Reply', 'Reply sets how it stands after it'],
+      glance: ['Over the requests, how many are open, unassigned and late', `A reply is due ${dueSaid} after the customer writes`, 'A reply due comes to Scheduled with Reply', 'Reply sets how it stands after it'],
       how: [
         `Add a request with what the customer wrote; pick the customer${firms ? ', and its company comes with them' : ''}.`,
         `Press Reply when you answer: write it${replies ? ' or pick a saved reply' : ''}, send it from your mail, and say whether you wait for the customer or it is solved.`,

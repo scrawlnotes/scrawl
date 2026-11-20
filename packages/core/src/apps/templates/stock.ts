@@ -316,7 +316,7 @@ ${movement(app, '      ', 'product: l.product, direction: diff > 0 ? "In" : "Out
       app.view('purchase-orders', { id: 'open', name: 'Open', conditions: [{ field: 'status', op: 'is-not', value: ['Received', 'Cancelled'] }], sort: { key: 'expected', dir: 'asc' }, columns: ['supplier', 'status', 'expected', 'arrives', 'total'] }, true);
       app.view('purchase-orders', { id: 'received', name: 'Received', conditions: [{ field: 'status', op: 'is', value: ['Received'] }], sort: { key: 'date', dir: 'desc' }, columns: ['supplier', 'date', 'total'] });
       app.view('purchase-orders', { id: 'to-receive', name: 'To receive', conditions: [waiting], sort: { key: 'expected', dir: 'asc' }, hidden: true });
-      // What is to come is in Today on its day with Receive, Upcoming before; a late one stays in Overdue.
+      // What is to come is in Scheduled on its day with Receive; a late one stays in Overdue.
       app.view('purchase-orders', { ...calendar({ start: 'expected', color: 'status', upcoming: true, button: 'Receive', words: ['supplier', 'total'] }, [waiting]), id: 'calendar', name: 'Expected', hidden: true });
       app.homeTile('purchase-orders', { off: true });
       app.homeTiles('purchase-orders', [{ view: 'to-receive', title: 'To receive', head: [{ label: 'purchase orders', one: 'purchase order' }], value: 'arrives', sub: 'supplier', empty: 'Nothing is on its way.' }]);

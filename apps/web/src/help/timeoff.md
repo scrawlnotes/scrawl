@@ -37,10 +37,10 @@ A person's window says where they stand: "Platform · 11 days left of 16 · 3 re
 
 The public holidays and the days the company is closed, on a calendar. Leave is counted without them.
 
-## Today
+## Scheduled
 
-- With approvals, a request comes to Today with **Approve** from the day it was asked until it is approved, with its days and what is left after: "Nov 2 – Nov 4 · 3 days · 11 left after".
-- An approved leave is in Today and Upcoming on its days, so you see who is away.
+- With approvals, a request comes to Scheduled with **Approve** from the day it was asked until it is approved, with its days and what is left after: "Nov 2 – Nov 4 · 3 days · 11 left after".
+- An approved leave is in Scheduled on its days, so you see who is away.
 
 ## Home
 

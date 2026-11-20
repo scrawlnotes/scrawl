@@ -1,6 +1,6 @@
 # ✈️ Travel
 
-Your trips: where to and when, the bookings day by day, the places to see, what to pack from your own list, and what each trip costs. A trip comes to Today on its first day, and each booking at its time.
+Your trips: where to and when, the bookings day by day, the places to see, what to pack from your own list, and what each trip costs. A trip comes to Scheduled on its first day, and each booking at its time.
 
 ## Setting it up
 
@@ -17,7 +17,7 @@ A trip keeps **Where to**, its **First day** and **Last day**, its **Kind of tri
 Its window has its days under its name, "12–16 Nov · 5 days · in 14 days", or **No days yet**, and:
 
 - Its money in one line: "$300 spent · $1700 left · $340 a day", what is left for each day to come. A trip over its budget is marked: "Over its budget by 200".
-- **To do**, what is to be done before the trip: a visa, the insurance. **Add step** adds one; one given a day comes to Today.
+- **To do**, what is to be done before the trip: a visa, the insurance. **Add step** adds one; one given a day comes to Scheduled.
 - Its bookings, day by day.
 - **Places to visit**, numbered, each with its weekday.
 - Its packing, in its groups.
@@ -58,9 +58,9 @@ A trip adds up its expenses, its bookings' costs among them, and from its **Budg
 
 Your own list of what you take, ready with 62 things in **Documents**, **Money**, **Electronics**, **Clothes**, **Toiletries**, **Health** and **Other**. Each says what it is **Taken on**: **Every trip**, or **Abroad**, **Flying**, **Beach**, **Cold** or **Work**. A passport goes abroad, a swimsuit to a beach, a phone charger everywhere. Add what you always take and take out what you never do.
 
-## Today
+## Scheduled
 
-- A trip comes to Upcoming before its first day and to Today on it, with what is still to pack.
+- A trip comes to Scheduled on its first day, with what is still to pack.
 - Each booking comes on its day, at its time, with its line.
 - A step in a trip's **To do** given a day comes on that day.
 

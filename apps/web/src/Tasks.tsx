@@ -4,7 +4,6 @@ import {
   atMinutes,
   basename,
   type Board,
-  BOARD_EXT,
   type CalendarRecord,
   collectionName,
   dayInToday,
@@ -19,16 +18,13 @@ import {
   type DueRecordSubtask,
   type Card,
   childrenOf,
-  dayOf,
   dueCards,
   depthOf,
   dirname,
-  dueToday,
   filterCards,
   filterTasks,
   keyOf,
   parseCardRef,
-  INBOX_TASKS,
   GIVEN,
   listName,
   type ListLook,
@@ -84,13 +80,11 @@ import { type Choices, type FilterPlace, type FilterStep, PhoneFilterChips, Sear
 import { LabelChip, LabelDot, LabelPop, useAtLabels } from './labels';
 import { Icon, type IconName } from './Icon';
 import { StillOpening } from './Loading';
-import { boardHeading, boardLabel, boardWhere, collectionHeading, collectionLabel, collectionWhere, folderLabel, listHeading, listLabel, listWhere } from './items';
+import { boardHeading, boardLabel, boardWhere, collectionLabel, collectionWhere, folderLabel, listHeading, listLabel, listWhere } from './items';
 import { TaskActivity } from './Activity';
 import { AssigneeChip, NameOf, PersonPicker, type SpacePeople, WhoOf } from './People';
 import { Empty, liftUntilTouch, suppressClick } from './sheets';
 import { holdToDrag, pressOnField } from './touchDrag';
-import { useCalendarAccounts, useCalendarDay } from './calendars';
-import { EventBox } from './OutlookEvents';
 
 /** A task in its list, or a card on its board: something with a day to move. */
 /**
@@ -2358,159 +2352,6 @@ export function splitDueCards(boards: Record<string, Board>, today: string) {
     today: all.filter((d) => d.card.due === today),
     later,
   };
-}
-
-/** Today: what is due today and what is late, from every task list and every board. */
-export function TodayView({ lists, boards, today, actions, bare, adding, still = null, places, onAdd }: {
-  lists: Record<string, Task[]>;
-  /** On a computer: where a task added here can go, and how it is added, from the add box. */
-  places?: TaskPlaceChoice[];
-  onAdd?: (list: string, task: NewTask) => void;
-  /** The spaces still read as the app opens, said under the tasks read so far. */
-  still?: string | null;
-  boards: Record<string, Board>;
-  today: string;
-  actions: TaskActions;
-  /** On a phone's page, which has its own title. */
-  bare?: boolean;
-  /** Counts the presses of a phone's + button, which open the add row. */
-  adding?: number;
-}) {
-  const [showDone, setShowDone] = useState(false);
-  // The add box, as Todoist's Today opens it: in Inbox, due today; the count tells one opening from the next.
-  const [composing, setComposing] = useState(0);
-  const item = ({ list, task }: { list: string; task: Task }) => (
-    <TaskItem key={`${list}/${task.id}`} list={list} task={task} tasks={lists[list] ?? []} today={today} showDone={false} actions={actions} flat />
-  );
-  const cardItem = ({ board, card }: { board: string; card: Card }, grouped?: boolean) => (
-    <CardRow key={`${board}#${card.id}`} board={board} whole={boards[board]!} card={card} today={today} actions={actions} grouped={grouped} />
-  );
-  const section = (title: string, tasks: { list: string; task: Task }[], cards: { board: string; card: Card }[] = [], action?: ReactNode, records: DueRecord[] = [], head?: ReactNode) =>
-    (tasks.length + cards.length + records.length > 0 || head) && (
-      <div key={title}>
-        <div className="sec">
-          {title} {tasks.length + cards.length + records.length > 0 && <small>{tasks.length + cards.length + records.length}</small>}
-          {action}
-        </div>
-        {head}
-        {tasks.map(item)}
-        {cards.map((due) => cardItem(due))}
-        {records.map((due) => (
-          <RecordRow key={recordKey(due)} due={due} day={due.day ?? today} today={today} actions={actions} />
-        ))}
-      </div>
-    );
-  // The records of today, those with no time first, then by the hour.
-  const records = recordsByDay(actions.dueRecords(), today).get(today) ?? [];
-  // Outlook's and Google's events of today, at the head of Today's own (design/outlook-calendar.md 2.4).
-  const calendarAccounts = useCalendarAccounts();
-  const todayEvents = useCalendarDay(today);
-  const signInAgain = calendarAccounts.some((account) => account.status === 'signin' && account.choice.events);
-  const outlookToday = todayEvents.length > 0 || signInAgain ? <EventBox day={today} today={today} warn /> : undefined;
-  // The days a program came on that went by with nothing written for them (design/gym.md 4.3).
-  const lateRecords = actions.dueRecords().filter((d) => d.late);
-  const cards = splitDueCards(boards, today);
-  const subtasks = splitDueSubtasks(actions.dueSubtasks(), today);
-  const due = dueToday(lists, today);
-  // Cards come after the tasks, under the board they are on; the subtasks of cards and records after
-  // them, under the board or the collection they are in.
-  const byBoard = new Map<string, { cards: { board: string; card: Card }[]; subtasks: DueSubtask[] }>();
-  const group = (place: string) => byBoard.get(place) ?? byBoard.set(place, { cards: [], subtasks: [] }).get(place)!;
-  for (const d of [...cards.overdue, ...cards.today]) group(d.board).cards.push(d);
-  for (const d of [...subtasks.overdue, ...subtasks.today]) group(placeOf(d)).subtasks.push(d);
-  // What was completed today, from every list, the latest first: found again, and opened again with its box.
-  const finished = Object.entries(lists)
-    .flatMap(([list, tasks]) => tasks.filter((task) => task.done && task.completed && dayOf(new Date(task.completed)) === today).map((task) => ({ list, task })))
-    .sort((a, b) => (a.task.completed! < b.task.completed! ? 1 : -1));
-  const nothingDue = due.overdue.length + due.today.length + byBoard.size + records.length + lateRecords.length === 0;
-  // What is overdue moves on to one day, all at once, as Todoist's Reschedule does.
-  const late = due.overdue.map(({ list, task }) => ({ list, id: task.id }));
-  const reschedule = (event: MouseEvent) => {
-    const to = (day: string | null) => actions.reschedule(late, day);
-    if (actions.pickDay) return actions.pickDay(t('tasks.rescheduleTitle', { count: late.length }), to);
-    actions.menu(event, [
-      { label: t('day.today'), run: () => to(today) },
-      { label: t('day.tomorrow'), run: () => to(addDays(today, 1)) },
-      { label: t('tasks.nextWeek'), run: () => to(nextWeek(today)) },
-    ]);
-  };
-  return (
-    <TaskPage
-      title={t('tasks.today')}
-      detail={toDate(today).toLocaleDateString(locale(), { weekday: 'short', month: 'short', day: 'numeric' })}
-      {...(places && onAdd ? { onAddClick: () => setComposing(composing + 1) } : { onAdd: (title: string) => actions.add(INBOX_TASKS, { title, due: today }) })}
-      bare={bare}
-      adding={adding}
-      footer={
-        <>
-          {finished.length > 0 && (
-            <>
-              <button type="button" className="qa" aria-expanded={showDone} onClick={() => setShowDone(!showDone)}>
-                {t(showDone ? 'tasks.hideCompletedToday' : 'tasks.showCompletedToday', { count: finished.length })}
-              </button>
-              {showDone && finished.map(item)}
-            </>
-          )}
-          <StillOpening text={still} />
-        </>
-      }
-    >
-      {section(
-        t('tasks.overdue'),
-        due.overdue,
-        [],
-        late.length > 0 && (
-          <button type="button" className="resch" onClick={reschedule}>
-            {t('tasks.reschedule')}
-          </button>
-        ),
-        lateRecords,
-      )}
-      {section(t('tasks.today'), due.today, [], undefined, records, outlookToday)}
-      {[...byBoard].map(([place, dues]) => (
-        <div key={place}>
-          <div className="sec">
-            {place.endsWith(BOARD_EXT) ? boardHeading(place) : collectionHeading(place)} <small>{dues.cards.length + dues.subtasks.length}</small>
-          </div>
-          {dues.cards.map((d) => cardItem(d, true))}
-          {dues.subtasks.map((d) => (
-            <SubtaskRow key={`${placeOf(d)}#${d.subtask.id}`} due={d} today={today} actions={actions} grouped />
-          ))}
-        </div>
-      ))}
-      {nothingDue &&
-        (isPhone() ? (
-          <Empty
-            icon="sun"
-            title={t(finished.length > 0 ? 'phone.allDoneToday' : 'phone.emptyToday')}
-            text={t(finished.length > 0 ? 'phone.allDoneTodayText' : 'phone.emptyTodayText')}
-            action={{ label: t('tasks.add'), run: () => actions.quickAdd?.(INBOX_TASKS, null, today) }}
-          />
-        ) : (
-          <p className="task-empty">{t('tasks.nothingToday')}</p>
-        ))}
-      {places &&
-        onAdd &&
-        (composing > 0 ? (
-          <TaskComposer
-            key={composing}
-            start={{ due: today, list: INBOX_TASKS, section: null }}
-            today={today}
-            places={places}
-            recordChoices={actions.recordChoices}
-            recordName={actions.recordTitle}
-            menu={actions.menu}
-            description={actions.description}
-            onAdd={onAdd}
-            onClose={() => setComposing(0)}
-          />
-        ) : (
-          <button type="button" className="qa" onClick={() => setComposing(1)}>
-            {t('tasks.addRow')}
-          </button>
-        ))}
-    </TaskPage>
-  );
 }
 
 /** What tells a record a calendar brings apart: its collection and its id. */

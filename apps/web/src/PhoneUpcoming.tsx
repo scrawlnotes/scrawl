@@ -1,4 +1,4 @@
-import { addDays, type Board, type Card, dayRuns, dueToday, dueUpcoming, eventsOn, INBOX_TASKS, keyOf, minutesOfDay, monthDays, movedValues, recordLabel, type Task, timedOn, weekDays } from '@scrawlnotes/core';
+import { addDays, type Board, type Card, dayOf, dayRuns, dueToday, dueUpcoming, eventsOn, INBOX_TASKS, keyOf, minutesOfDay, monthDays, movedValues, recordLabel, type Task, timedOn, weekDays } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type CSSProperties, Fragment, useState } from 'react';
 import { type CalendarBox, choiceColor, PhoneHours } from './Calendar';
@@ -7,18 +7,18 @@ import { StillOpening } from './Loading';
 import { Empty } from './sheets';
 import { dateWords } from './TaskComposer';
 import { CardRow, type Dated, type DueSubtask, placeOf, RecordRow, recordKey, recordsByDay, splitDueCards, splitDueSubtasks, SubtaskRow, subtaskRefOf, type TaskActions, TaskItem, TaskPage } from './Tasks';
-import { datedByDay, dayHeading, type Entry, entryKey, EntryRow, freeWords, monthWords } from './Upcoming';
+import { CompletedToday, datedByDay, dayHeading, type Entry, entryKey, EntryRow, freeWords, monthWords } from './Upcoming';
 import { calendarColor, openCalendarEvent, useCalendarEvents } from './calendars';
 import { EventBox, eventBoxes, openEventBox } from './OutlookEvents';
 
-// Upcoming on a phone, after the Phone views of the Upcoming and Calendar mockups, in three views
-// chosen beside its title. List: what is late first, with Reschedule, then today, then only the
-// days that have something, the free days between them in one faint line. Day: the week's strip,
+// Scheduled on a phone (Today and Upcoming before), after the Phone views of the Upcoming and
+// Calendar mockups, in three views chosen beside its title. List: what is late first, with
+// Reschedule, then today, always, with what was completed today, then only the days that have something, the free days between them in one faint line. Day: the week's strip,
 // the day's tasks and cards, then its hours with what has a time; swiped to the next day. Month:
 // the month with a dot under each day that has something, and under it the tasks of the day
 // chosen, which + adds to.
 
-/** What a phone's Upcoming shows. */
+/** What a phone's Scheduled shows. */
 export type PhoneUpcomingView = 'list' | 'day' | 'month';
 
 interface Props {
@@ -105,7 +105,7 @@ function PhoneDay({ lists, boards, today, actions, day, onDay, still = null }: P
     );
   };
   return (
-    <TaskPage title={t('tasks.upcoming')} bare footer={<StillOpening text={still} />}>
+    <TaskPage title={t('side.scheduled')} bare footer={<StillOpening text={still} />}>
       <div className="mb-wstrip">
         {week.map((each) => {
           const busy = byDay.has(each) || eventsOn(events, each).length > 0;
@@ -148,7 +148,17 @@ function PhoneDays({ lists, boards, today, actions, still = null }: Props) {
   const events = useCalendarEvents(today, addDays(today, 62));
   const eventDays = events.flatMap((event) => (event.lastDay < today ? [] : [event.day < today ? today : event.day]));
   const busy = [...[...tasksOn, ...cards.later, ...subtasks.later, ...recordsOn].filter(([, on]) => on.length > 0).map(([day]) => day), ...eventDays];
-  const runs = dayRuns([...new Set(busy)], today);
+  // A program's days that went by with nothing written for them stay in Overdue (design/gym.md 4.3).
+  const lateRecords = actions.dueRecords().filter((d) => d.late);
+  const finishedToday = Object.values(lists).some((tasks) => tasks.some((task) => task.done && task.completed && dayOf(new Date(task.completed)) === today));
+  const late: Dated[] = [
+    ...due.overdue.map(({ list, task }) => ({ list, id: task.id })),
+    ...cards.overdue.map(({ board, card }) => ({ board, id: card.id })),
+    ...subtasks.overdue.map(subtaskRefOf),
+  ];
+  const nothing = busy.length + late.length + lateRecords.length === 0 && !finishedToday;
+  // Today is always there once anything is: what is due today, or that nothing is, and what was completed today.
+  const runs = dayRuns(nothing ? [] : [today, ...busy], today);
   const countOn = (day: string) => (tasksOn.get(day)?.length ?? 0) + (cards.later.get(day)?.length ?? 0) + (subtasks.later.get(day)?.length ?? 0) + (recordsOn.get(day)?.length ?? 0);
 
   const item = ({ list, task }: { list: string; task: Task }) => (
@@ -158,26 +168,26 @@ function PhoneDays({ lists, boards, today, actions, still = null }: Props) {
     <CardRow key={`${board}#${card.id}`} board={board} whole={boards[board]!} card={card} today={today} actions={actions} byDay />
   );
   const subtaskItem = (d: DueSubtask) => <SubtaskRow key={`${placeOf(d)}~${d.subtask.id}`} due={d} today={today} actions={actions} byDay />;
-  const late: Dated[] = [
-    ...due.overdue.map(({ list, task }) => ({ list, id: task.id })),
-    ...cards.overdue.map(({ board, card }) => ({ board, id: card.id })),
-    ...subtasks.overdue.map(subtaskRefOf),
-  ];
   const reschedule = () => actions.pickDay?.(t('tasks.rescheduleTitle', { count: late.length }), (day) => actions.reschedule(late, day));
 
   return (
-    <TaskPage title={t('tasks.upcoming')} bare footer={<StillOpening text={still} />}>
-      {late.length > 0 && (
+    <TaskPage title={t('side.scheduled')} bare footer={<StillOpening text={still} />}>
+      {late.length + lateRecords.length > 0 && (
         <>
           <div className="sec">
-            {t('tasks.overdue')} <small>{late.length}</small>
-            <button type="button" className="resch" onClick={reschedule}>
-              {t('tasks.reschedule')}
-            </button>
+            {t('tasks.overdue')} <small>{late.length + lateRecords.length}</small>
+            {late.length > 0 && (
+              <button type="button" className="resch" onClick={reschedule}>
+                {t('tasks.reschedule')}
+              </button>
+            )}
           </div>
           {due.overdue.map(item)}
           {cards.overdue.map(cardItem)}
           {subtasks.overdue.map(subtaskItem)}
+          {lateRecords.map((d) => (
+            <RecordRow key={recordKey(d)} due={d} day={d.day!} today={today} actions={actions} />
+          ))}
         </>
       )}
       {runs.map((run) =>
@@ -197,15 +207,17 @@ function PhoneDays({ lists, boards, today, actions, still = null }: Props) {
             {(recordsOn.get(run.day) ?? []).map((due) => (
               <RecordRow key={recordKey(due)} due={due} day={run.day} today={today} actions={actions} />
             ))}
+            {run.day === today && countOn(today) === 0 && <p className="task-empty">{t('tasks.nothingToday')}</p>}
+            {run.day === today && <CompletedToday lists={lists} today={today} actions={actions} />}
           </Fragment>
         ),
       )}
-      {late.length === 0 && runs.length === 0 && (
+      {nothing && (
         <Empty
           icon="week"
           title={t('phone.emptyUpcoming')}
           text={t('phone.emptyUpcomingText')}
-          action={{ label: t('tasks.add'), run: () => actions.quickAdd?.(INBOX_TASKS, null, addDays(today, 1)) }}
+          action={{ label: t('tasks.add'), run: () => actions.quickAdd?.(INBOX_TASKS, null, today) }}
         />
       )}
     </TaskPage>
@@ -229,7 +241,7 @@ function PhoneMonth({ lists, boards, today, actions, day, onDay, still = null }:
   const row = (entry: Entry) => <EntryRow key={entryKey(entry)} entry={entry} lists={lists} boards={boards} today={today} actions={actions} />;
 
   return (
-    <TaskPage title={t('tasks.upcoming')} bare footer={<StillOpening text={still} />}>
+    <TaskPage title={t('side.scheduled')} bare footer={<StillOpening text={still} />}>
       <div className="mb-month">
         <div className="mh">
           {monthWords(month)}

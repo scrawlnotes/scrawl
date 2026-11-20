@@ -6,7 +6,7 @@ import type { AppTemplate } from '../types';
 // Reading and watching (design/more-apps.md 4.8), as Sequel, MyAnimeList and StoryGraph keep one:
 // each kind its own screen, the works of one collection by their kind; statuses in each kind's
 // words, Watching for an anime and Reading for a book; how far in pages, episodes or chapters, +1 a
-// click, Update a page; the days a new episode comes out in Today; a goal for the year.
+// click, Update a page; the days a new episode comes out in Scheduled; a goal for the year.
 
 const TYPES = ['Book', 'Film', 'Series', 'Anime', 'Manga', 'Webtoon', 'Podcast', 'Game'];
 const TYPE_COLORS = { Book: 'blue', Film: 'red', Series: 'purple', Anime: 'pink', Manga: 'orange', Webtoon: 'teal', Podcast: 'yellow', Game: 'green' } as const;
@@ -129,7 +129,7 @@ export const reading: AppTemplate = {
         chips: true,
         when: is(weekly),
         ...by(each(READS, 'New chapter every')),
-        help: 'While it is coming out: that day it comes to Today. Left empty, it does not.',
+        help: 'While it is coming out: that day it comes to Scheduled. Left empty, it does not.',
       });
     }
     app.field('library', link('lists', 'Lists', app.path('reading-lists'), true));
@@ -162,7 +162,7 @@ export const reading: AppTemplate = {
       // Today's is new until something of it is written today.
       app.field('library', rollup('last_seen', 'Last read or watched', app.path('reading-log'), 'max', 'date'));
       app.field('library', formula('next_episode', 'Next out', `empty(airs) || status != "In progress" ? "" : contains(airs, weekday(today())) && last_seen != today() ? "New " + (type == "Manga" || type == "Webtoon" ? "chapter" : "episode") + " today" : ${one} : "Every " + text(airs)`));
-      // In Today: "E7 out", "Ch. 161 out".
+      // In Scheduled: "E7 out", "Ch. 161 out".
       app.field('library', formula('out_said', 'Out', `(type == "Manga" || type == "Webtoon" ? "Ch. " : "E") + text((done || 0) + 1) + " out"`));
     }
     const recommended = app.hasPiece('close-people') ? 'recommended.name' : 'recommended';
@@ -216,7 +216,7 @@ export const reading: AppTemplate = {
       app.rule('library', { kind: 'check', name: 'Not back', src: 'check("back_by", () => empty(lent_to) || empty(back_by) || back_by >= today(), `${lent_to} has it since ${text(lent_on)}`)' });
     }
     if (releases) app.view('library', { ...calendar({ start: 'release', color: 'type', upcoming: true }), id: 'releases', name: 'Coming out', hidden: true });
-    // A new episode on its days: in Today with Watched, or Read for a chapter; a day missed is gone.
+    // A new episode on its days: in Scheduled with Watched, or Read for a chapter; a day missed is gone.
     const airing = (types: string[], label: string, id: string) => {
       if (types.length === 0) return;
       app.view('library', {
@@ -291,7 +291,7 @@ export const reading: AppTemplate = {
     app.field('reading-log', { ...link('item', 'Work', library), required: true });
     app.field('reading-log', day('date', 'Day', true));
     app.field('reading-log', number('amount', 'How much'));
-    app.field('reading-log', { key: 'aired', label: 'From Today', type: 'checkbox' });
+    app.field('reading-log', { key: 'aired', label: 'From Scheduled', type: 'checkbox' });
     app.field('reading-log', formula('unit', 'In', 'item.unit'));
     app.field('reading-log', formula('this_week', 'This week', 'today() - date < 7'));
     app.field('reading-log', link('year', 'Year', app.path('reading-years')));
@@ -355,9 +355,9 @@ export const reading: AppTemplate = {
         'Each kind its own screen, in its own words',
         ...(parts.length > 0 ? ['+1 writes an episode or a chapter'] : []),
         ...(types.includes('Book') ? ['Update writes the page you are at'] : []),
-        ...(weekly.length > 0 ? ['A new episode in Today on its day'] : []),
+        ...(weekly.length > 0 ? ['A new episode in Scheduled on its day'] : []),
         'What you finished this year, and the pace',
-        ...(releases ? ['What comes out, in Upcoming and on its day in Today'] : []),
+        ...(releases ? ['What comes out, in Scheduled on its day'] : []),
         ...(lending ? ['What you lent, back by its day'] : []),
       ],
       how: [
@@ -365,7 +365,7 @@ export const reading: AppTemplate = {
         'It starts as one you plan to; set it going, on hold, finished or dropped, each in its kind\'s words; score it from 1 to 5 and write what you thought in its notes.',
         ...(parts.length > 0 ? ['Press +1 as you watch an episode or read a chapter; the last one finishes it.'] : []),
         ...(types.includes('Book') ? ['Press Update on a book to write the page you are at.'] : []),
-        ...(weekly.length > 0 ? ['For one still coming out, pick the days a new episode or chapter comes: that day it is in Today with Watched or Read.'] : []),
+        ...(weekly.length > 0 ? ['For one still coming out, pick the days a new episode or chapter comes: that day it is in Scheduled with Watched or Read.'] : []),
         'Put it on your own lists: for the summer, award nominees, what a friend picked.',
         ...(quotes ? ['Keep the lines you like as quotes, with where they are.'] : []),
         ...(lending ? ['When you lend a book, write to whom and when it should come back.'] : []),
@@ -377,8 +377,8 @@ export const reading: AppTemplate = {
         'Each +1, Update and Watched is written in the log, day by day in its window; at its last page, episode or chapter it is finished.',
         `Each year counts what you finished in it, its pages and its episodes, and your days in a row, and at this pace how many by its end${goal > 0 ? `, against your goal of ${goal}` : ''}.`,
         'A score that is not from 1 to 5 is marked.',
-        ...(lending ? ['What you lent comes to Upcoming on the day it should be back; one not back by then is marked.'] : []),
-        ...(releases ? ['What comes out comes to Today and Upcoming on its day.'] : []),
+        ...(lending ? ['What you lent comes to Scheduled on the day it should be back; one not back by then is marked.'] : []),
+        ...(releases ? ['What comes out comes to Scheduled on its day.'] : []),
       ],
       work: ['What you read or watch next, and how you choose.'],
     });

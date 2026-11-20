@@ -10,7 +10,7 @@ With more than one space, each is a section of **Browse** with its folders under
 
 **Settings › Spaces** lists them all; **Reorder** puts the shared ones in order. **Add space…** adds one: a OneDrive folder someone shared with you, or a space on a server. Removing a space takes it off this phone only; it stays where it syncs and on your other devices.
 
-Today, Upcoming, Search and filters cover every space. Something in another space says it before its folder: `Acme · Sales`.
+Scheduled, Search and filters cover every space. Something in another space says it before its folder: `Acme · Sales`.
 
 ## Folders
 

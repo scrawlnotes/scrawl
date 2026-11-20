@@ -134,7 +134,7 @@ export const travel: AppTemplate = {
       src: `onSave("Its name", () => {\n  if (empty(name) && !empty(destination)) name = empty(first) ? destination : destination + " · " + monthname(first) + " " + text(year(first))\n})`,
     });
     app.rule('trips', { kind: 'check', name: 'The last day is before the first', src: 'check("last", () => empty(last) || empty(first) || last >= first, "The last day is before the first")' });
-    // Its to-dos: a visa, the insurance; one with a day comes to Today and Upcoming.
+    // Its to-dos: a visa, the insurance; one with a day comes to Scheduled.
     app.block('trips', { block: 'subtasks', title: 'To do', add: 'Add step', column: 1 });
     app.block('trips', {
       block: 'linked',
@@ -295,17 +295,17 @@ ${write}
       title: 'Travel',
       what: `Your trips: where to and when, the bookings day by day${places ? ', the places to see' : ''}${packing ? ', what to pack from your own list' : ''}${spending ? ', and what it costs, each day' : ''}.`,
       pieces: ['trips', 'bookings', ...(places ? ['places'] : []), ...(packing ? ['packing', 'packing-list'] : []), ...(spending ? ['spending'] : [])],
-      glance: ['Trips and bookings in Today and Upcoming', 'Bookings day by day, a hotel on its check in and check out', ...(spending ? ['What is left of a trip’s budget for each day'] : []), ...(packing ? ['What is still to pack'] : []), ...(shared ? ['A trip is a group whose expenses are shared'] : [])],
+      glance: ['Trips and bookings in Scheduled', 'Bookings day by day, a hotel on its check in and check out', ...(spending ? ['What is left of a trip’s budget for each day'] : []), ...(packing ? ['What is still to pack'] : []), ...(shared ? ['A trip is a group whose expenses are shared'] : [])],
       how: [
         `Add a trip with where to, and its days once they are known${packing ? '; tick its kinds, abroad, flying, a beach' : ''}; it is called "Rome · Nov 2026".`,
         `Add each booking in the trip's window: a flight with its number, from and to, a hotel with its address, and their times${spending ? '; its cost is written as an expense' : ''}${shared ? ', with who paid it' : ''}.`,
-        'Write what is to be done before the trip in To do: a visa, the insurance; one with a day comes to Today.',
+        'Write what is to be done before the trip in To do: a visa, the insurance; one with a day comes to Scheduled.',
         ...(places ? ['Add the places to see, each on its day.'] : []),
         ...(packing ? [`Keep ${app.called('packing-list')} as you pack; a new trip takes what it is taken on, ticked as it is packed.`] : []),
         ...(spending ? [`Add what you spend on the way: its title and amount; the trip is the one on now${app.money.multi ? ', and in another currency the rate used last' : ''}.`] : []),
       ],
       auto: [
-        'A trip comes to Upcoming before its first day and to Today on it; its bookings on their days and times.',
+        'A trip comes to Scheduled on its first day; its bookings on their days and times.',
         'A trip is called after where to and its month; a flight or a train after where from and to.',
         ...(spending ? ['A booking with a cost writes its expense, changed with it; a trip adds up its expenses, what is left of its budget, and what is left for each of its days to come; one over its budget is marked.'] : []),
         ...(packing ? [`A new trip, or one given another kind, takes from ${app.called('packing-list')} what is taken on every trip and on its kinds.`] : []),

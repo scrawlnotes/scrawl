@@ -4,7 +4,7 @@ import type { AppTemplate } from '../types';
 
 // People and birthdays (design/more-apps.md 4.7), as hip, Dex and Garden keep them: the people close
 // to you, their birthdays day by day, a year left out when it is not known; how often you wish to
-// talk to each, and when it is time, in Today with Talked; on a birthday, Wished. The moments you
+// talk to each, and when it is time, in Scheduled with Talked; on a birthday, Wished. The moments you
 // talked day by day in a person's window.
 
 const RELATIONS = ['Family', 'Friend', 'Partner', 'Colleague', 'Other'];
@@ -100,7 +100,7 @@ export const people: AppTemplate = {
     app.view('close-people', { id: 'keep-in-touch', name: 'Keep in touch', conditions: [{ field: 'every', op: 'not-empty' }], sort: { key: 'touch_on', dir: 'asc' }, columns: ['relation', 'every', 'touch_said', 'last'] });
     app.tableColumns('close-people', ['relation', 'day_said', 'touch_said']);
     app.homeTile('close-people', { sub: 'day_said', value: 'when_said' });
-    // A birthday in Today with Wished, as hip ticks it; one who is due to talk to, with Talked.
+    // A birthday in Scheduled with Wished, as hip ticks it; one who is due to talk to, with Talked.
     app.view('close-people', { ...calendar({ start: 'next', color: 'relation', upcoming: true, button: 'Wished', words: ['wish_said'] }), id: 'days', name: 'Days', hidden: true });
     app.view('close-people', { id: 'touch', name: 'Talk by', kind: 'calendar', conditions: [{ field: 'every', op: 'not-empty' }], calendar: { start: 'touch_on', color: 'relation', upcoming: 'today', button: 'Talked', words: ['last_said'] }, hidden: true });
     app.rule('close-people', {
@@ -129,7 +129,7 @@ export const people: AppTemplate = {
       title: 'People and birthdays',
       what: `The people close to you: their birthdays${anniversaries ? ' and anniversaries' : ''} every year, and keeping in touch.`,
       pieces: ['close-people', 'moments'],
-      glance: [`Birthdays${anniversaries ? ' and anniversaries' : ''} in Today, with Wished`, 'Who is due to talk to in Today, with Talked', 'The moments you talked, day by day'],
+      glance: [`Birthdays${anniversaries ? ' and anniversaries' : ''} in Scheduled, with Wished`, 'Who is due to talk to in Scheduled, with Talked', 'The moments you talked, day by day'],
       how: [
         `Add the people close to you, with their birthday${anniversaries ? ' and anniversary' : ''}: the year only if you know it.`,
         `Say how often you wish to keep in touch with each${touch ? `; ${touch.toLowerCase()} to start with` : ''}.`,
@@ -137,8 +137,8 @@ export const people: AppTemplate = {
         'Write in their notes what you wish to remember: their family, what they like, a gift idea.',
       ],
       auto: [
-        `A birthday${anniversaries ? ' or an anniversary' : ''} comes to Upcoming and to Today on its day, with the age they turn when the year is known; pressing Wished writes a message and moves it to next year.`,
-        'Counted from the last time you talked, someone you have not talked to for longer than you wish comes to Today with Talked; late, they stay in Overdue.',
+        `A birthday${anniversaries ? ' or an anniversary' : ''} comes to Scheduled on its day, with the age they turn when the year is known; pressing Wished writes a message and moves it to next year.`,
+        'Counted from the last time you talked, someone you have not talked to for longer than you wish comes to Scheduled with Talked; late, they stay in Overdue.',
         "A person's last talk is the day of their last moment.",
       ],
       work: ['What you give on a birthday, and when you buy it.'],

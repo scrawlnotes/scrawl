@@ -182,7 +182,7 @@ export const sales: AppTemplate = {
     tab('unpaid', 'Unpaid', [{ field: 'status', op: 'is', value: ['Invoiced'] }], 'asc');
     tab('paid', 'Paid', [{ field: 'status', op: 'is', value: ['Paid'] }]);
     app.view('orders', { id: 'month', name: 'This month', conditions: [{ field: 'this_month', op: 'true' }], sort: { key: 'date', dir: 'desc' }, hidden: true });
-    // An invoice due comes to Today on its day with Record payment, late ones stay in Overdue; Upcoming has those to come.
+    // An invoice due comes to Scheduled on its day with Record payment; late ones stay in Overdue.
     app.view('orders', { ...calendar({ start: 'due', color: 'status', upcoming: true, button: 'Record payment', words: ['customer', 'state'] }, [{ field: 'status', op: 'is', value: ['Invoiced'] }]), id: 'due', name: 'Due', hidden: true });
     app.homeTile('orders', { off: true });
     // Payments are counted on Home by Budget, when it is there; Sales says what is to collect.
@@ -357,13 +357,13 @@ export const sales: AppTemplate = {
       title: 'Sales and invoicing',
       what: `Your ${answers.sells === 'services' ? 'services' : answers.sells === 'products' ? 'products' : 'products and services'}, the orders for them${quotes ? ' from the quote on' : ''}, and the money coming in. Invoices are made in your accounting program; their numbers are kept here.`,
       pieces: ['products', 'orders', 'order-lines', 'payments'],
-      glance: ['Over the orders, what is to collect and what of it is late', ...(quotes ? ['Accept makes a quote an order'] : []), 'Invoice works out the due day', 'An invoice due comes to Today with Record payment'],
+      glance: ['Over the orders, what is to collect and what of it is late', ...(quotes ? ['Accept makes a quote an order'] : []), 'Invoice works out the due day', 'An invoice due comes to Scheduled with Record payment'],
       how: [
         'Add your products with their price' + (tax ? ' and tax.' : '.'),
         `Add ${quotes ? 'a quote' : 'an order'} for a customer${deals ? ', or with + Quote on a deal,' : ''} and its lines: pick the product, write the quantity.`,
         ...(quotes ? ['When the customer says yes, press Accept; Declined asks why.'] : []),
         'Move it on as it goes, Delivered once the customer has it; press Invoice with the invoice’s number.',
-        'Press Record payment when money comes in, on the order or in Today.',
+        'Press Record payment when money comes in, on the order or in Scheduled.',
       ],
       auto: [
         `A line takes its price${tax ? ', tax rate and whether tax is included' : ''} from its product when it is left empty.`,

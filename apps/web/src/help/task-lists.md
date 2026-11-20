@@ -19,15 +19,16 @@ Click a task to change it. The bar under it has **Date**, **Priority**, **Labels
 
 **Add section** at the end of the list splits it. A section folds; click its name to rename it, and its menu has **Add task** and **Delete section**. Sections are dragged like tasks.
 
-## Today and Upcoming
+## Scheduled
 
-**Today**, at the top of the sidebar, gathers what is due today or late from every list, board and collection, in every space. A task added in Today starts in the Inbox, due today; its date and list can be changed before it is added.
+**Scheduled**, at the top of the sidebar, gathers what has a day from every list, board and collection, in every space. A task added in Scheduled starts in the Inbox, due today; its date and list can be changed before it is added.
 
-- Late ones are under **Overdue**. **Reschedule** gives them all a new day at once.
-- What you finished today is at the end, and opens again with a tick.
-- With Google Calendar or Outlook connected in Settings › Calendars, the day's meetings are in a box at its head; a click opens one where it is.
-
-**Upcoming** shows what is coming, day by day, as a list or a calendar, your Google and Outlook meetings with it, hollow in the calendar. The numbers beside both in the sidebar count what each shows.
+- Late ones come first, under **Overdue**. **Reschedule** gives them all a new day at once.
+- Then **Today**, even when nothing is due, with what you finished today under it; a tick opens one again.
+- Then **Tomorrow** and each day after that has something.
+- **List** and **Calendar** at the top show the days as a list or a calendar.
+- The two numbers beside it in the sidebar count what is late or due today, red when something is late, and, faint, what comes after.
+- With Google Calendar or Outlook connected in Settings › Calendars, your meetings are there too, hollow in the calendar; a click opens one where it is.
 
 ## Labels
 
@@ -45,4 +46,4 @@ Labels are words you put on tasks and cards, each in a color, such as `bug` or `
 
 ## With notes and records
 
-A task made with **To task** from a note links back to it. **Record** links a task to a record of a collection, such as a customer: the task shows with the record's name in Today.
+A task made with **To task** from a note links back to it. **Record** links a task to a record of a collection, such as a customer: the task shows with the record's name in Scheduled.

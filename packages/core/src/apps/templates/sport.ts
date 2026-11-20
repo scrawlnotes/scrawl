@@ -5,7 +5,7 @@ import type { AppTemplate } from '../types';
 
 // Sport and training (design/more-apps.md 4.10), as Strava, TrainingPeaks and Runna keep it: runs,
 // rides, swims and the rest; the gym's sets are Gym's. A weekly plan is written once, its days come
-// to Today with Done, which opens the workout with the plan's values, and Skip; a day gone by is not
+// to Scheduled with Done, which opens the workout with the plan's values, and Skip; a day gone by is not
 // kept. Workouts by the week with their totals, the pace worked out by the sport, and how close each
 // came to its plan, in TrainingPeaks' colors. Races with their aim, their result asked after the day.
 
@@ -61,7 +61,7 @@ export const sport: AppTemplate = {
     app.field('training-plan', formula('until_said', 'Until', 'empty(until) ? "Ongoing" : until < today() ? "Ended " + ' + short('until') + ' : ' + short('until')));
     app.formOrder('training-plan', ['name', 'sport', 'days', 'minutes', 'km', 'from', 'until']);
     app.rule('training-plan', { kind: 'onSave', name: 'Its name', src: 'onSave("Its name", () => {\n  if (empty(name)) name = sport\n})' });
-    // Its days in Today with Done, which opens the workout, and Skip; a day gone by is not kept.
+    // Its days in Scheduled with Done, which opens the workout, and Skip; a day gone by is not kept.
     app.view('training-plan', {
       id: 'days',
       name: 'Plan days',
@@ -210,21 +210,21 @@ export const sport: AppTemplate = {
       title: 'Sport and training',
       what: `Your workouts${chosen.length > 0 ? ` (${chosen.map((s) => s.toLowerCase()).join(', ')})` : ''} and your weekly plan${races ? ', and races with their aim and result' : ''}${body ? ', and body measures' : ''}. The gym's sets are kept in Gym.`,
       pieces: ['workouts', 'training-plan', ...(races ? ['races'] : []), ...(body ? ['body-measures'] : [])],
-      glance: ["The plan's days in Today with Done and Skip", 'Done opens the workout with the plan filled in', 'Workouts by the week with their totals', 'Pace worked out by the sport', 'How close each came to its plan', ...(races ? ['Write result after a race'] : [])],
+      glance: ["The plan's days in Scheduled with Done and Skip", 'Done opens the workout with the plan filled in', 'Workouts by the week with their totals', 'Pace worked out by the sport', 'How close each came to its plan', ...(races ? ['Write result after a race'] : [])],
       how: [
         'Write your weekly plan once: the sport, its days, how long or how far, from when.',
-        'On its day, press Done in Today: change what was different and save; press Skip if you did not go.',
+        'On its day, press Done in Scheduled: change what was different and save; press Skip if you did not go.',
         'Add a workout that was not planned with Add record.',
-        ...(races ? ['Add a race with its day and your aim; after it, Today asks its result.'] : []),
+        ...(races ? ['Add a race with its day and your aim; after it, Scheduled asks its result.'] : []),
         ...(body ? ['Write your measures now and then.'] : []),
       ],
       auto: [
-        "A plan's days come to Today and Upcoming; a day gone by without a workout is not kept.",
+        "A plan's days come to Scheduled; a day gone by without a workout is not kept.",
         'Done opens the workout of the day with its sport, its duration and its distance from the plan.',
         'Pace is worked out by the sport: per kilometre running and walking, per 100 m swimming, km/h cycling.',
         "A planned workout is On plan within a fifth of its plan's distance, else its duration; Short or Long within a half; Far off beyond.",
         'The list goes by the week, each with how many, how long and how far.',
-        ...(races ? ['A race past its day with no result stays in Today with Write result.'] : []),
+        ...(races ? ['A race past its day with no result stays in Scheduled with Write result.'] : []),
         ...(body ? ['A measure says how far your weight is from the first one written.'] : []),
       ],
       work: ['When you train in the week, and how you rest.'],

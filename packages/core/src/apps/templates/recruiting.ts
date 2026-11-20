@@ -7,7 +7,7 @@ import { stageColumns, stageHints } from './crm';
 // Recruiting (design/scrawl-apps.md 3.8), as Workable and Greenhouse keep it: a candidate is one
 // card on Hiring, its position and source on its face with its next interview, or that it has
 // none; Rejected asks why. The card's window has its position's Schedule interview, Make offer and
-// Hire, the candidate given. An interview over comes to Today with Write feedback: a score, how it
+// Hire, the candidate given. An interview over comes to Scheduled with Write feedback: a score, how it
 // went and what was learned. A position counts its candidates at each stage and the ones hired.
 
 const STAGES = ['Applied', 'Screening', 'Interview', 'Offer', 'Hired', 'Rejected'];
@@ -134,7 +134,7 @@ export const recruiting: AppTemplate = {
       app.field('interviews', formula('said', 'Says', `(empty(interviewer) ? "" : interviewer)${scores ? ' + (empty(score) ? "" : " · " + text(score)) + (empty(verdict) ? "" : " · " + verdict)' : ''} + (empty(takeaways) ? (done ? "" : " · planned") : " · " + takeaways)`));
       app.formOrder('interviews', ['name', 'candidate', 'position', 'date', 'type', 'interviewer', ...(scores ? ['score', 'verdict'] : []), 'takeaways']);
       app.view('interviews', calendar({ start: 'date', color: 'type', upcoming: false }), true);
-      // Its time in Today, and after it, late, till its feedback is written.
+      // Its time in Scheduled, and after it, late, till its feedback is written.
       app.view('interviews', { ...calendar({ start: 'date', color: 'type', upcoming: true, button: 'Write feedback', person: 'interviewer', words: ['position'] }, [{ field: 'done', op: 'false' }]), id: 'feedback', name: 'Feedback', hidden: true });
       app.view('interviews', { id: 'week', name: 'Coming', conditions: [{ field: 'coming', op: 'true' }], sort: { key: 'date', dir: 'asc' }, columns: ['candidate', 'type', 'date'], hidden: true });
       app.view('interviews', { id: 'due', name: 'Feedback due', conditions: [{ field: 'due', op: 'true' }], sort: { key: 'date', dir: 'asc' }, columns: ['candidate', 'type', 'date'], hidden: true });
@@ -246,7 +246,7 @@ ${steps.map((s) => `  subtask(${JSON.stringify(`${s} · `)} + input.candidate.na
       pieces: ['positions', 'hiring', ...(interviews ? ['interviews'] : [])],
       glance: [
         ...(interviews ? ['Each card says its next interview, or that it has none'] : []),
-        ...(scores ? ['Write feedback in Today after an interview'] : []),
+        ...(scores ? ['Write feedback in Scheduled after an interview'] : []),
         `Hire moves the card to ${hired}${steps.length > 0 ? ' and adds the first steps' : ''}`,
         'Rejected asks why',
         'A position counts its candidates at each stage',
@@ -254,12 +254,12 @@ ${steps.map((s) => `  subtask(${JSON.stringify(`${s} · `)} + input.candidate.na
       how: [
         'Add a position, with how many people it needs.',
         `Add each candidate as a card on ${board}, with their position and their CV in its description; move the card as it goes.`,
-        ...(interviews ? ['Press Schedule interview on their card; after it, Today asks the interviewer to Write feedback.'] : []),
+        ...(interviews ? ['Press Schedule interview on their card; after it, Scheduled asks the interviewer to Write feedback.'] : []),
         ...(offer ? ['Press Make offer with the salary and the day they would start.'] : []),
         'When they say yes, press Hire; Reject asks why.',
       ],
       auto: [
-        ...(interviews ? [`A card says its next interview; one with none planned is marked.`, `An interview is in Today at its time with Write feedback, and stays, late, till it is written${scores ? `: a score from 1 to 5, ${VERDICTS.join(', ')}, and the key take-aways` : ''}.`] : []),
+        ...(interviews ? [`A card says its next interview; one with none planned is marked.`, `An interview is in Scheduled at its time with Write feedback, and stays, late, till it is written${scores ? `: a score from 1 to 5, ${VERDICTS.join(', ')}, and the key take-aways` : ''}.`] : []),
         ...(offer ? [`Make offer moves the card to ${offer} with the salary and the day they start.`] : []),
         `Hire moves the card to ${hired} with the day they start${steps.length > 0 ? `; it adds ${steps.join(', ')} for them as steps of the position, due that day` : ''}${team ? `; they are added to ${app.called('employees')}` : ''}. When nobody is left to hire, the position is Filled.`,
         'A card moved to Rejected asks why.',

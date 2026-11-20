@@ -5,8 +5,8 @@ import type { AppTemplate } from '../types';
 
 // Incidents and actions (design/more-apps.md 3.5), as incident.io, FireHydrant and SafetyCulture
 // keep them: an outage, a quality problem, an accident or a near miss, a complaint that grew, a
-// security breach. Reported in a few words, it is in Today every day with Post update until it is
-// resolved, each update written on its timeline; resolved, its review comes to its owner's Today
+// security breach. Reported in a few words, it is in Scheduled every day with Post update until it is
+// resolved, each update written on its timeline; resolved, its review comes to its owner's Scheduled
 // a few days on, and what is to be done so that it does not happen again is a card on Actions.
 // With Support, a request may point at the incident it is part of, and opens again when it is resolved.
 
@@ -126,7 +126,7 @@ export const incidents: AppTemplate = {
   hint: "Only one not resolved",
   ask: {
     status: { label: "Status", type: "choice", options: [${['Investigating', 'Fixing', 'Monitoring', 'Resolved'].map((s) => JSON.stringify(s)).join(', ')}], chips: true, default: () => status, required: true },
-    text: { label: "What's happening", type: "text", lines: true, required: true, note: () => input.status == "Resolved" ? "Writes when it ended${requests ? '; its requests open again for their reply' : ''}. Its review comes to Today in ${review} days." : "Written on its timeline; it stays in Today until it is resolved." },
+    text: { label: "What's happening", type: "text", lines: true, required: true, note: () => input.status == "Resolved" ? "Writes when it ended${requests ? '; its requests open again for their reply' : ''}. Its review comes to Scheduled in ${review} days." : "Written on its timeline; it stays in Scheduled until it is resolved." },
   },
   done: () => name + " · " + input.status,
 }, () => {
@@ -176,7 +176,7 @@ export const incidents: AppTemplate = {
   ask: {
     title: { label: "What is to be done", type: "text", required: true },
     who: { label: "Who", type: "person", default: () => owner },
-    due: { label: "By when", type: "date", note: () => "A card on ${app.called('actions')}; its day comes to Today." },
+    due: { label: "By when", type: "date", note: () => "A card on ${app.called('actions')}; its day comes to Scheduled." },
   },
   done: () => input.title,
 }, () => {
@@ -198,7 +198,7 @@ export const incidents: AppTemplate = {
     tab('to-review', 'To review', [{ field: 'to_review', op: 'true' }]);
     tab('closed', 'Closed', [{ field: 'status', op: 'is', value: ['Closed'] }]);
     tab('all', 'All', []);
-    // In Today: one open, every day with Post update; one resolved, its review a few days on in its owner's, with Write review.
+    // In Scheduled: one open, every day with Post update; one resolved, its review a few days on in its owner's, with Write review.
     app.view('incidents', { ...calendar({ start: 'started', color: 'severity', upcoming: 'today', button: 'Post update', person: 'owner', words: ['said'] }, [open]), id: 'ongoing', name: 'Ongoing', hidden: true });
     app.view('incidents', { ...calendar({ start: 'review_on', color: 'severity', upcoming: true, button: 'Write review', person: 'owner', words: ['when_said'] }, [{ field: 'to_review', op: 'true' }]), id: 'reviews', name: 'Reviews', hidden: true });
     app.view('incidents', { ...calendar({ start: 'started', end: 'ended', color: 'severity', upcoming: false }), id: 'calendar', name: 'Calendar', hidden: true });
@@ -223,18 +223,18 @@ export const incidents: AppTemplate = {
       title: 'Incidents and actions',
       what: `What went wrong${types.length > 0 ? ` (${types.map((t) => t.toLowerCase()).join(', ')})` : ''}: how bad it is, what is being done while it lasts, why it happened${actions ? ', and what is done so that it does not happen again' : ''}.`,
       pieces: ['incidents', ...(actions ? ['actions'] : [])],
-      glance: ['Report it in a few words', 'In Today every day with Post update while it lasts', 'Its timeline written by the updates', `Write review in Today ${review} days after it is resolved`, ...(actions ? ["Actions To do, Doing, Done and Won't do"] : []), ...(requests ? ['Its requests open again when it is resolved'] : [])],
+      glance: ['Report it in a few words', 'In Scheduled every day with Post update while it lasts', 'Its timeline written by the updates', `Write review in Scheduled ${review} days after it is resolved`, ...(actions ? ["Actions To do, Doing, Done and Won't do"] : []), ...(requests ? ['Its requests open again when it is resolved'] : [])],
       how: [
         'Report an incident as soon as it is noticed: what happened, its type and how bad; it starts now, with you as its owner. Put photos and files in its notes.',
-        'Press Post update in Today as it goes: Investigating, Fixing, Monitoring, and Resolved when it is over.',
-        `When Today asks, press Write review: its root cause, its impact and what we learned${actions ? '; add what is to be done with + Add action' : ''}. Then Close.`,
+        'Press Post update in Scheduled as it goes: Investigating, Fixing, Monitoring, and Resolved when it is over.',
+        `When Scheduled asks, press Write review: its root cause, its impact and what we learned${actions ? '; add what is to be done with + Add action' : ''}. Then Close.`,
         ...(requests ? [`On a request in ${app.called('requests')}, pick the incident it is part of.`] : []),
       ],
       auto: [
-        'An incident not resolved is in Today every day with Post update; each update is written on its timeline with who and when.',
-        `Resolved writes when it ended and how long it took${requests ? `; the requests that point at it open again with their reply due` : ''}. Its review comes to its owner's Today ${review} days later and stays till it is written.`,
+        'An incident not resolved is in Scheduled every day with Post update; each update is written on its timeline with who and when.',
+        `Resolved writes when it ended and how long it took${requests ? `; the requests that point at it open again with their reply due` : ''}. Its review comes to its owner's Scheduled ${review} days later and stays till it is written.`,
         'Close asks for its review first; one closed without it is marked.',
-        ...(actions ? [`Add action puts a card on ${app.called('actions')} in To do, linked to the incident; its day comes to Today. An incident counts its open actions.`] : []),
+        ...(actions ? [`Add action puts a card on ${app.called('actions')} in To do, linked to the incident; its day comes to Scheduled. An incident counts its open actions.`] : []),
         'Over the list, what is open, how many are critical, what is to review and the actions open.',
       ],
       work: ['Who is told when an incident starts, and how.', 'How bad is Critical, Major and Minor for us.', 'Who writes the review, and when we look back at it.'],

@@ -28,8 +28,8 @@ A collection can check a wrong value and say why, have buttons on a record that 
 
 ## A calendar
 
-A collection with dates can have a calendar view, by the day, the week or the month. Its records come to Today and Upcoming on their day too.
+A collection with dates can have a calendar view, by the day, the week or the month. Its records come to Scheduled on their day too.
 
 ## Records in your work
 
-A card's link field, or a task's **Record**, points to a record. A task given a record shows in Today with the record's name.
+A card's link field, or a task's **Record**, points to a record. A task given a record shows in Scheduled with the record's name.

@@ -43,7 +43,7 @@ function placeOf(id: string): string {
 
 type Due = { list: string; task: Task } | { board: string; card: Card } | DueSubtask;
 
-export function StartPage({ empty, recent, titles, filters, lists, boards, today, actions, onKind, onTemplate, onApp, onOpen, onOpenTask, onOpenToday, onAgents, still = null }: {
+export function StartPage({ empty, recent, titles, filters, lists, boards, today, actions, onKind, onTemplate, onApp, onOpen, onOpenTask, onOpenScheduled, onAgents, still = null }: {
   /** No space has anything in it yet. */
   empty: boolean;
   /** What was on screen last on this device and is still there, the latest first. */
@@ -63,7 +63,7 @@ export function StartPage({ empty, recent, titles, filters, lists, boards, today
   onOpen: (id: string) => void;
   /** Opens a task's list with the task shown in it. */
   onOpenTask: (list: string, id: string) => void;
-  onOpenToday: () => void;
+  onOpenScheduled: () => void;
   /** Opens Settings › Agents. */
   onAgents: () => void;
   /** The spaces still read as the app opens, said under Today. */
@@ -148,7 +148,7 @@ export function StartPage({ empty, recent, titles, filters, lists, boards, today
                 ))
               )}
             </div>
-            <StartToday lists={lists} boards={boards} today={today} actions={actions} onOpenTask={onOpenTask} onOpenToday={onOpenToday} still={still} />
+            <StartToday lists={lists} boards={boards} today={today} actions={actions} onOpenTask={onOpenTask} onOpenScheduled={onOpenScheduled} still={still} />
           </div>
         )}
       </div>
@@ -157,14 +157,14 @@ export function StartPage({ empty, recent, titles, filters, lists, boards, today
 }
 
 /** Today's first few, as Today orders them: the late tasks, today's, then the cards, then the subtasks of cards and records; each finished from its box. */
-function StartToday({ lists, boards, today, actions, onOpenTask, onOpenToday, still }: {
+function StartToday({ lists, boards, today, actions, onOpenTask, onOpenScheduled, still }: {
   still: string | null;
   lists: Record<string, Task[]>;
   boards: Record<string, Board>;
   today: string;
   actions: TaskActions;
   onOpenTask: (list: string, id: string) => void;
-  onOpenToday: () => void;
+  onOpenScheduled: () => void;
 }) {
   const tasks = dueToday(lists, today);
   const due: Due[] = [
@@ -261,8 +261,8 @@ function StartToday({ lists, boards, today, actions, onOpenTask, onOpenToday, st
           </div>
         ),
       )}
-      <button type="button" className="start-more" onClick={onOpenToday}>
-        {t('start.openToday')}
+      <button type="button" className="start-more" onClick={onOpenScheduled}>
+        {t('start.openScheduled')}
         <Icon name="chevron" />
       </button>
       <StillOpening text={still} />

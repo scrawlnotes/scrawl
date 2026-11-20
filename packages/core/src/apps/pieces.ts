@@ -240,7 +240,7 @@ export const PIECES: { [role: string]: PieceInfo } = {
   'reading-years': { kind: 'collection', name: 'Years', singular: 'year', about: 'each year: what you finished, your goal, and your days in a row.' },
   'reading-lists': { kind: 'collection', name: 'Lists', singular: 'list', about: 'your own lists: for the summer, award nominees, what a friend picked.' },
   quotes: { kind: 'collection', name: 'Quotes', singular: 'quote', about: 'the lines you keep, from which work and where in it.' },
-  habits: { kind: 'collection', name: 'Habits', singular: 'habit', about: 'what you do again and again, ticked in Today, your streak and your last days.', hidden: ['since', 'done_days', 'per_week', 'streak', 'best', 'streak_text', 'best_text', 'week_done', 'this_week', 'in_30', 'kept', 'today_says'] },
+  habits: { kind: 'collection', name: 'Habits', singular: 'habit', about: 'what you do again and again, ticked in Scheduled, your streak and your last days.', hidden: ['since', 'done_days', 'per_week', 'streak', 'best', 'streak_text', 'best_text', 'week_done', 'this_week', 'in_30', 'kept', 'today_says'] },
   'habit-checkins': { kind: 'collection', name: 'Check-ins', singular: 'check-in', about: 'each day a habit was done, written as it is ticked.', lines: ['habits'], hidden: ['name', 'this_week', 'in_30'] },
   'personal-goals': { kind: 'collection', name: 'Goals', singular: 'goal', about: 'your own goals, by a number or by their steps, how far each is and whether it is on track.', hidden: ['shown', 'expected'] },
   workouts: {

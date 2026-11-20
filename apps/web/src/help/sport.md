@@ -1,6 +1,6 @@
 # 🏃 Sport and training
 
-Your runs, rides, swims and the rest, and a weekly plan whose days come to Today. Each workout says its pace and how close it came to its plan; races keep your aim and your result. The gym's sets are kept in [Gym](gym).
+Your runs, rides, swims and the rest, and a weekly plan whose days come to Scheduled. Each workout says its pace and how close it came to its plan; races keep your aim and your result. The gym's sets are kept in [Gym](gym).
 
 ## Setting it up
 
@@ -37,10 +37,10 @@ Each race: its **Day**, **Sport**, **Distance (km)**, your **Aim** and your **Re
 
 With body measures: each day's **Weight (kg)**, **Waist (cm)** and **Body fat %**. **Since the first (kg)** says how far your weight is from the first one written.
 
-## Today
+## Scheduled
 
-- Each day of a plan comes to Today, with how long or how far, and to Upcoming before it. **Done** opens the day's workout with the plan's sport, duration and distance: change what was different and save. **Skip** writes it skipped. A day gone by with neither is not kept.
-- A race comes to Upcoming before its day, and to Today on it with **Write result**. It stays in Today until its result is written.
+- Each day of a plan comes to Scheduled, with how long or how far. **Done** opens the day's workout with the plan's sport, duration and distance: change what was different and save. **Skip** writes it skipped. A day gone by with neither is not kept.
+- A race comes to Scheduled on its day with **Write result**. It stays in Scheduled until its result is written.
 
 ## Home
 

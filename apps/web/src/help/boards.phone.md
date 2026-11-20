@@ -44,6 +44,6 @@ The filter button at the top works as in a task list, and knows the board's fiel
 
 ## Dates and agents
 
-Cards and their subtasks with a date come to Today and Upcoming, under their board's name.
+Cards and their subtasks with a date come to Scheduled, under their board's name.
 
 **Copy as brief** copies a card as one text with its linked notes, ready for an agent. An agent connected to Scrawl reads and moves cards itself: see [Agents](ai-agents).

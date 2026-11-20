@@ -5,7 +5,7 @@ import { keepsFeedback } from './support';
 
 // Product development (design/scrawl-apps.md 3.7), as Productboard, Linear and Canny keep it: the
 // roadmap's Ideas, Later, Next and Now as columns, each card saying how many asked for it; a bug
-// reported from a support request, the request opened again when it is fixed; a release in Today
+// reported from a support request, the request opened again when it is fixed; a release in Scheduled
 // on its day, Ship writing its notes from its cards under New, Improved and Fixed, the feedback
 // they answer done, and, with the CRM, an activity to tell each company that asked.
 
@@ -144,7 +144,7 @@ export const product: AppTemplate = {
       app.block('releases', { block: 'cards', column: 2 });
       app.view('releases', { id: 'planned', name: 'Planned', conditions: [{ field: 'status', op: 'is', value: ['Planned'] }], sort: { key: 'planned', dir: 'asc' }, columns: ['when_said', 'done_said'], set: 'releases' }, true);
       app.view('releases', { id: 'released', name: 'Released', conditions: [{ field: 'status', op: 'is', value: ['Released'] }], sort: { key: 'shipped', dir: 'desc' }, columns: ['when_said', 'done_said'], set: 'releases' });
-      // Its day in Upcoming, in Today with Ship.
+      // Its day in Scheduled, with Ship.
       app.view('releases', { ...calendar({ start: 'planned', color: 'status', upcoming: true, button: 'Ship', words: ['done_said'] }, [{ field: 'status', op: 'is', value: ['Planned'] }]), id: 'days', name: 'Days', hidden: true });
       app.rule('releases', {
         kind: 'check',
@@ -164,7 +164,7 @@ export const product: AppTemplate = {
   hint: "It is out",
   ask: {
     open: { label: "Cards still open", type: "choice", options: ["Move to the next release", "Ship with it"], chips: true, default: "Move to the next release", note: () => open_cards == 0 ? "Every card is done." : text(open_cards) + (open_cards == 1 ? " card is" : " cards are") + " still open." },${tell ? `
-    tell: { label: "Tell those who asked, an activity each in Today", type: "tick", default: true },` : ''}
+    tell: { label: "Tell those who asked, an activity each in Scheduled", type: "tick", default: true },` : ''}
   },
   done: () => name + " · shipped",
 }, () => {
@@ -213,7 +213,7 @@ export const product: AppTemplate = {
         `Add each piece of work as a card on ${roadmap}: an idea in Ideas, then Later, Next and Now as you plan it${releases ? '; link it to the release it goes out in' : ''}.`,
         ...(ideas ? ['Link a card to the feedback it answers; it says how many asked for it.'] : []),
         ...(bugs ? [`Add each bug to ${app.called('bugs')} with how bad it is${requests ? `, or press Report bug on a request in ${app.called('requests')}` : ''}.`] : []),
-        ...(releases ? ["Press Ship on a release when it is out, in Today on its day; its notes are written for you."] : []),
+        ...(releases ? ["Press Ship on a release when it is out, in Scheduled on its day; its notes are written for you."] : []),
       ],
       auto: [
         `A card dropped in Won't do asks why.`,
@@ -221,7 +221,7 @@ export const product: AppTemplate = {
         ...(requests ? ['A bug moved to Fixed opens its request again, saying Bug fixed.'] : []),
         ...(releases
           ? [
-              'A release counts its cards and those done; its day comes to Upcoming, and to Today with Ship.',
+              'A release counts its cards and those done; its day comes to Scheduled with Ship.',
               `Ship asks what to do with the cards still open, moving them to Next with the next release; it writes the release notes from the shipped cards under New, Improved and Fixed${ideas ? ', marks the feedback they answer done' : ''}${tell ? ', and plans an activity to tell each company that asked' : ''}.`,
               'A release that is Released with open cards is marked.',
             ]

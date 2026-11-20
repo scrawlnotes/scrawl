@@ -177,11 +177,11 @@ describe('setting up an app', () => {
       'project-milestones': { start: 'due', upcoming: true, button: 'Done', words: ['project'], conditions: [{ field: 'done', op: 'false' }] },
       'purchase-orders': { start: 'expected', color: 'status', upcoming: true, button: 'Receive', words: ['supplier', 'total'], conditions: [{ field: 'status', op: 'is', value: ['Ordered', 'Partially received'] }] },
       releases: { start: 'planned', color: 'status', upcoming: true, button: 'Ship', words: ['done_said'], conditions: [{ field: 'status', op: 'is', value: ['Planned'] }] },
-      // An interview's last calendar: its time, in Today with Write feedback till it is written.
+      // An interview's last calendar: its time, in Scheduled with Write feedback till it is written.
       interviews: { start: 'date', color: 'type', upcoming: true, button: 'Write feedback', person: 'interviewer', words: ['position'], conditions: [{ field: 'done', op: 'false' }] },
-      // An asset's last calendar: its warranty ending, in Upcoming; before it, coming back and its service, with their buttons.
+      // An asset's last calendar: its warranty ending, with no button; before it, coming back and its service, with their buttons.
       assets: { start: 'warranty', color: 'category', upcoming: true, words: ['supplier'], conditions: [{ field: 'status', op: 'is-not', value: ['Retired'] }] },
-      // A piece's last calendar: its day with Publish; before it, sent for review, in Today with Approve. Its steps each with Done; campaigns are a timeline.
+      // A piece's last calendar: its day with Publish; before it, sent for review, in Scheduled with Approve. Its steps each with Done; campaigns are a timeline.
       content: { start: 'goes_out', color: 'channel', upcoming: true, button: 'Publish', person: 'owner', words: ['where'], conditions: [{ field: 'status', op: 'is', value: ['Writing', 'Review', 'Scheduled'] }] },
       'content-steps': { start: 'due', upcoming: true, button: 'Done', words: ['piece'], conditions: [{ field: 'done', op: 'false' }] },
     });
@@ -322,7 +322,7 @@ describe('setting up an app', () => {
     expect(contracts.fields.find((f) => f.key === 'type')!.options).toEqual(['Lease', 'Software']);
     expect(contracts.fields.find((f) => f.key === 'notice_days')!.default).toBe(60);
     expect(contracts.fields.map((f) => f.key)).toContain('seats');
-    // Its tabs; the day to give notice by is worked out, in Today with Give notice; its end with Renew, by itself for one that renews by itself.
+    // Its tabs; the day to give notice by is worked out, in Scheduled with Give notice; its end with Renew, by itself for one that renews by itself.
     expect(contracts.views!.map((v) => [v.id, v.kind ?? 'table', v.calendar ?? null])).toEqual([
       ['active', 'table', null],
       ['to-decide', 'table', null],
@@ -357,7 +357,7 @@ describe('setting up an app', () => {
     expect(holidays.map((f) => /day: (.*)/.exec(f.text)![1]).filter((d) => d!.startsWith('2027-05'))).toEqual(['2027-05-01', '2027-05-16', '2027-05-17', '2027-05-18', '2027-05-19', '2027-05-19']);
     const leave = schema('Team/Leave requests');
     expect(leave.fields.find((f) => f.key === 'status')).toMatchObject({ options: ['Requested', 'Approved', 'Rejected', 'Cancelled'], default: 'Requested' });
-    // It opens on who is away, a row each; a request is in Today with Approve, an approved one on its days.
+    // It opens on who is away, a row each; a request is in Scheduled with Approve, an approved one on its days.
     expect(leave.views![0]).toMatchObject({ kind: 'timeline', timeline: { start: 'first', end: 'last', color: 'type', rows: 'employee' } });
     expect(leave.views!.filter((v) => v.kind === 'calendar').map((v) => [v.id, v.calendar])).toEqual([
       ['approvals', { start: 'requested_on', color: 'type', upcoming: 'today', button: 'Approve', words: ['when_said', 'left_said'] }],
@@ -369,7 +369,7 @@ describe('setting up an app', () => {
     expect(rules('Team/Positions')).toContain('add("Employees", { name: input.candidate.name, team: team, started: input.starts })');
 
     const goals = schema('Team/Goals');
-    // A new goal starts and ends with this quarter; its check-in and its end come to Today with their buttons.
+    // A new goal starts and ends with this quarter; its check-in and its end come to Scheduled with their buttons.
     expect(goals.fields.find((f) => f.key === 'starts')!.default).toBe('=today() - (monthday(today()) - 1) - months(month(today()) - 3 * round((month(today()) + 1) / 3) + 2)');
     expect(goals.views!.filter((v) => v.kind === 'calendar').map((v) => [v.id, v.calendar])).toEqual([
       ['checkins', { start: 'checkin_on', upcoming: 'today', button: 'Check in', person: 'owner', words: ['checkin_words'] }],
@@ -379,7 +379,7 @@ describe('setting up an app', () => {
     expect(board('Team/Roadmap.board.json').fields!.find((f) => f.key === 'goal')!.collection).toBe('Team/Goals');
     expect(schema('Team/Requests').fields.find((f) => f.key === 'incident')!.collection).toBe('Team/Incidents');
     expect(board('Team/Actions.board.json').columns.map((c) => c.name)).toEqual(['To do', 'Doing', 'Done', "Won't do"]);
-    // An open incident in Today every day with Post update; one resolved, its review a few days on.
+    // An open incident in Scheduled every day with Post update; one resolved, its review a few days on.
     expect(schema('Team/Incidents').views!.filter((v) => v.kind === 'calendar').map((v) => [v.id, v.calendar])).toEqual([
       ['ongoing', { start: 'started', color: 'severity', upcoming: 'today', button: 'Post update', person: 'owner', words: ['said'] }],
       ['reviews', { start: 'review_on', color: 'severity', upcoming: true, button: 'Write review', person: 'owner', words: ['when_said'] }],
@@ -1163,7 +1163,7 @@ describe('Gym', () => {
     expect(JSON.stringify(schema.layout)).toContain('"group":["part","exercise"]');
   });
 
-  it('brings a program’s days to Today and Upcoming, a day closed by its workout, one not gone to too', async () => {
+  it('brings a program’s days to Scheduled, a day closed by its workout, one not gone to too', async () => {
     const { add, to, program, space } = await gymApp({});
     await add('Workouts', { name: 'Full body · Mon', day: '2026-10-19', program: to(program), status: 'Done' });
     await add('Workouts', { name: 'Full body · Wed', day: '2026-10-14', program: to(program), status: "Didn't go" });
@@ -1193,7 +1193,7 @@ describe('Gym', () => {
     expect(dueRecords((await off.space()).collections, '2026-10-21')).toEqual([]);
   });
 
-  it('ends a contract by itself in Today, given notice on its end day, one that does not renew the day after; one added Active writes its payment', async () => {
+  it('ends a contract by itself in Scheduled, given notice on its end day, one that does not renew the day after; one added Active writes its payment', async () => {
     const fs = new MemoryFs();
     await installApp(fs, planApp({ name: 'Office', currencies: ['USD'], templates: [{ id: 'contracts', answers: {} }, { id: 'budget', answers: {} }] }, { ids }));
     const today = '2026-11-08';
@@ -1206,7 +1206,7 @@ describe('Gym', () => {
     const collections = await Promise.all(['Contracts', 'Payments', 'Budget lines', 'Companies'].map(load));
     const contracts = new Computer(collections, {}, today).withValues('Office/Contracts')!;
     const due = dueRecords([contracts], today).map((d) => [d.record.name, d.view.id, d.record.values[d.view.calendar!.auto!] === true]);
-    // Pressed by itself: End on the two that end; Renew in Today on the last day of the one that does not renew; the rest end not.
+    // Pressed by itself: End on the two that end; Renew in Scheduled on the last day of the one that does not renew; the rest end not.
     expect(due.filter(([, view]) => view === 'ends').sort()).toEqual([
       ['Cleaning', 'ends', true],
       ['Old office', 'ends', true],
@@ -1245,7 +1245,7 @@ describe('Gym', () => {
 });
 
 describe('Personal templates', () => {
-  it('ties what Paid writes to its recurring one, so its window and Today list it', async () => {
+  it('ties what Paid writes to its recurring one, so its window and Scheduled list it', async () => {
     const fs = new MemoryFs();
     await installApp(fs, planApp({ name: 'Money', currencies: ['TRY'], templates: [{ id: 'finance', answers: { recurring: [] } }] }, { ids }));
     const load = (dir: string) => loadCollection(fs, `Money/${dir}`);

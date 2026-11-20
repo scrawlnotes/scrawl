@@ -3,7 +3,7 @@ import { type AppTemplate, RECORD_BODY } from '../types';
 import { EXERCISES, PROGRAM, PROGRAM_DAYS, PROGRAM_DURATION, PROGRAM_ITEMS, PROGRAM_NOTES } from './gym-seed';
 
 // Gym (design/gym.md): programs written once, part by part; each workout picks one and its items
-// come ticked, the weight from the last time; the days a program is on come to Today and Upcoming,
+// come ticked, the weight from the last time; the days a program is on come to Scheduled,
 // one gone by unwritten stays in Overdue until it is started or not gone to; how regular each move
 // is and its best. Sport and training keeps the other sports beside it; Exercises are Gym's alone.
 
@@ -182,9 +182,9 @@ export const gym: AppTemplate = {
 
     app.about({
       title: 'Gym',
-      what: `Your gym programs, part by part, and each time you went${days ? ', your program days in Today' : ''}: how regular each move is, and your best${sets ? ', set by set' : ''}.`,
+      what: `Your gym programs, part by part, and each time you went${days ? ', your program days in Scheduled' : ''}: how regular each move is, and your best${sets ? ', set by set' : ''}.`,
       pieces: ['programs', 'program-items', 'gym-workouts', 'workout-items', 'exercises'],
-      glance: ['A workout’s items come ticked from its program', 'The weight from the last time', ...(days ? ['Program days in Today and Upcoming, the ones gone by in Overdue'] : []), 'How regular each move is, and its best'],
+      glance: ['A workout’s items come ticked from its program', 'The weight from the last time', ...(days ? ['Program days in Scheduled, the ones gone by in Overdue'] : []), 'How regular each move is, and its best'],
       how: [
         `It starts with the moves most used in a gym and a program, ${PROGRAM}: change it to yours, or write your own, its items part by part, each with its sets, reps, time and rest.`,
         days ? 'At the gym press Start on the program’s day; untick what you did not do, write what changed, Save.' : 'At the gym add a workout and pick its program; untick what you did not do, write what changed, Save.',
@@ -192,7 +192,7 @@ export const gym: AppTemplate = {
       ],
       auto: [
         `Picking a workout’s program fills its items, ${sets ? 'each set a line' : 'each move a line'}, ticked, the weight as the last time.`,
-        ...(days ? ['A program’s days come to Today and Upcoming; one gone by with no workout stays in Overdue.'] : []),
+        ...(days ? ['A program’s days come to Scheduled; one gone by with no workout stays in Overdue.'] : []),
         'An exercise shows its best, its last day and how many of its workouts in the last 4 weeks it was done in; under 7 of 10 is marked.',
         'Two workouts of a program on one day are marked, and one you did not go to with moves ticked.',
       ],

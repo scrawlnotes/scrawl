@@ -12,7 +12,7 @@ import { movement } from './stock';
 // Start and Complete, its checklist from its type, its parts, photos and the customer's signature;
 // Complete writes the hours from Start, the labour as a line, and the parts go out of stock.
 // Invoice writes the job on an order of its customer in Sales; equipment serviced regularly comes
-// to Today with Book visit, and a service done plans the next.
+// to Scheduled with Book visit, and a service done plans the next.
 
 const JOBS = ['repair', 'maintenance', 'installation', 'inspection'];
 const JOB_NAMES: { [job: string]: string } = { repair: 'Repair', maintenance: 'Maintenance', installation: 'Installation', inspection: 'Inspection' };
@@ -109,7 +109,7 @@ export const field: AppTemplate = {
       app.field('equipment', rollup('booked', 'Booked', orders, 'count', undefined, [{ field: 'type', op: 'is', value: ['Maintenance'] }, { field: 'status', op: 'is', value: ['Unscheduled', 'Scheduled', 'In progress'] }]));
       app.field('equipment', formula('next_said', 'Next', `empty(next_service) ? "" : next_service < today() ? "service " + text(today() - next_service) + " days late" : "service " + monthname(next_service) + " " + text(monthday(next_service))`));
       app.rule('equipment', { kind: 'check', name: 'Service due', src: 'check("next_service", () => empty(next_service) || next_service >= today(), "Service due")' });
-      // Its service comes to Today with Book visit, which adds a maintenance job not scheduled yet.
+      // Its service comes to Scheduled with Book visit, which adds a maintenance job not scheduled yet.
       app.view('equipment', { ...calendar({ start: 'next_service', color: 'customer', upcoming: true, button: 'Book visit', words: ['customer', 'interval'] }, [{ field: 'interval', op: 'not-empty' }]), id: 'due', name: 'Service due' });
       app.homeTile('equipment', { off: true });
       app.rule('equipment', {
@@ -203,7 +203,7 @@ export const field: AppTemplate = {
     tab('done', 'Done', [{ field: 'status', op: 'is', value: ['Done', 'Invoiced'] }], { sort: { key: 'start', dir: 'desc' } });
     // The day of each technician on a row; the jobs with no day beside it.
     app.view('work-orders', { ...calendar({ start: 'start', duration: 'duration', color: 'type', lanes: 'technician', upcoming: false }, [notOver]), id: 'schedule', name: 'Schedule' });
-    // In Today and Upcoming: a job scheduled with Start, one started with Complete.
+    // In Scheduled: a job scheduled with Start, one started with Complete.
     app.view('work-orders', { ...calendar({ start: 'start', duration: 'duration', color: 'type', upcoming: true, button: 'Start', words: ['customer', 'technician'] }, [{ field: 'status', op: 'is', value: ['Scheduled'] }]), id: 'to-start', name: 'To start', hidden: true });
     app.view('work-orders', { ...calendar({ start: 'start', duration: 'duration', color: 'type', upcoming: true, button: 'Complete', words: ['customer', 'technician'] }, [{ field: 'status', op: 'is', value: ['In progress'] }]), id: 'in-progress', name: 'In progress', hidden: true });
     names.forEach((name, i) => {
@@ -385,9 +385,9 @@ ${places ? `        const location = find("${app.called('locations')}", { is_def
       glance: [
         'Over the jobs, how many are today, unscheduled and late',
         'Schedule: each technician’s day on a row; drag a job onto one',
-        'On my way, Start and Complete on each job; Today has them',
+        'On my way, Start and Complete on each job; Scheduled has them',
         'A job starts with its checklist',
-        ...(regular ? ['A unit’s service comes to Today with Book visit; one done plans the next'] : []),
+        ...(regular ? ['A unit’s service comes to Scheduled with Book visit; one done plans the next'] : []),
         ...(fromStock ? ['The parts used go out of stock'] : []),
         ...(toSales ? ['Invoice puts the job on its customer’s order in Sales'] : toBudget ? ['Invoice writes what to collect'] : []),
       ],

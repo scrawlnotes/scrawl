@@ -4,6 +4,7 @@ import type { IconName } from './Icon';
 
 // A tab holds a note (its vault path), a task list, a board, a keys file or a view. The ids of
 // all but notes contain `:`, which no path can.
+/** A view no more: Today and Upcoming are one, Scheduled, `UPCOMING`; a tab of it kept from before closes. */
 export const TODAY = 'view:today';
 export const UPCOMING = 'view:upcoming';
 export const TRASH = 'view:trash';
@@ -219,10 +220,9 @@ export function iconOf(id: string): IconName {
 }
 
 export function labelOf(id: string, titles: Record<string, string>, filters: TaskFilter[] = []): string {
-  if (id === TODAY) return t('side.today');
   const filter = filterOf(id);
   if (filter !== null) return filters.find((f) => f.id === filter)?.name ?? t('filter.title');
-  if (id === UPCOMING) return t('side.upcoming');
+  if (id === UPCOMING) return t('side.scheduled');
   if (id === FILTERS) return t('filters.title');
   if (id === NEW_FILTER) return t('filters.new');
   const label = labelOfTab(id);

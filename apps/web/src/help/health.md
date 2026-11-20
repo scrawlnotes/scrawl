@@ -38,11 +38,11 @@ Check-ups and vaccines that come again: each with how often as **Every**, its **
 
 A lab result, a report, a prescription: its **Name**, its **Kind** (**Lab result**, **Report**, **Prescription**, **Imaging** or **Other**) and its **Date**, today to start. Put its file in its notes.
 
-## Today
+## Scheduled
 
-- A medicine you are taking comes to Today 5 days before it runs out, saying how many days are left, with **Refilled**, and to Upcoming before. Until it is refilled, it stays in Overdue.
-- An appointment comes to Today on its day, saying where, and to Upcoming before.
-- A check-up comes to Today on its **Next** day with **Done**, and to Upcoming before. Until it is done, it stays in Overdue.
+- A medicine you are taking comes to Scheduled 5 days before it runs out, saying how many days are left, with **Refilled**. Until it is refilled, it stays in Overdue.
+- An appointment comes to Scheduled on its day, saying where.
+- A check-up comes to Scheduled on its **Next** day with **Done**. Until it is done, it stays in Overdue.
 
 With a family, each row says whose it is.
 

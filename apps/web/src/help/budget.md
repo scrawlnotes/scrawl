@@ -37,9 +37,9 @@ The tabs are **Mine**, **To approve**, **To pay back**, **Paid back** and **Reje
 - **Approve** asks its **Budget line**, saying where the line would stand this month with it. It writes who approved, and adds what is to pay back to **To pay**. Once that payment is paid, the expense is **Reimbursed**.
 - **Reject** asks **Why**.
 
-## Today
+## Scheduled
 
-A payment not yet paid comes to Today on its due day with **Mark paid**, saying to or from whom and how much, and to Upcoming before. One that **Pays itself** is marked paid by itself on its day. Late ones stay under **Overdue**.
+A payment not yet paid comes to Scheduled on its due day with **Mark paid**, saying to or from whom and how much. One that **Pays itself** is marked paid by itself on its day. Late ones stay under **Overdue**.
 
 ## Home
 

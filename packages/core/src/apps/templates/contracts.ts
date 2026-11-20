@@ -6,7 +6,7 @@ import type { AppTemplate } from '../types';
 
 // Contracts and renewals (design/more-apps.md 3.2), as Tomorro, LawVu and PandaDoc keep them:
 // leases, insurance, suppliers, software and the customers' own, from a draft out for signature to
-// signed and active. One that renews by itself is renewed on its end day, its notice day in Today
+// signed and active. One that renews by itself is renewed on its end day, its notice day in Scheduled
 // before then with Give notice; given, it ends by itself on that day. Renew asks how long and for
 // how much, and its history says what each renewal did to the price. With Budget, what it costs is
 // a payment that comes again, stopped when it is given notice.
@@ -99,9 +99,9 @@ export const contracts: AppTemplate = {
     app.field('contracts', { ...text('why', 'Why it ended'), when: [{ field: 'status', op: 'is', value: ['Ended'] }] });
     app.field('contracts', formula('renews_itself', 'Renews on its day', 'status == "Active" && renews == "By itself"'));
     app.field('contracts', formula('ends_itself', 'Ends on its day', 'status == "Notice given" || (status == "Active" && renews == "No")'));
-    // Given notice, it ends on its end day; one that does not renew, the day after, its last day in Today with Renew.
+    // Given notice, it ends on its end day; one that does not renew, the day after, its last day in Scheduled with Renew.
     app.field('contracts', formula('auto_end', 'Ends by itself on', 'empty(ends) ? null : status == "Notice given" ? ends : status == "Active" && renews == "No" ? ends + 1 : null'));
-    // Its notice day in Today until it has gone by: then it renews.
+    // Its notice day in Scheduled until it has gone by: then it renews.
     app.field('contracts', formula('deciding', 'Notice still to give', 'renews_itself && !empty(cancel_by) && cancel_by >= today()'));
     app.field('contracts', formula('to_decide', 'To decide', 'deciding && cancel_by <= today() + 60'));
     app.field('contracts', formula('ending', 'Ending', '(status == "Notice given" || (status == "Active" && renews == "No")) && !empty(ends) && ends <= today() + 60'));
@@ -260,8 +260,8 @@ export const contracts: AppTemplate = {
     tab('ending', 'Ending', [{ field: 'ending', op: 'true' }]);
     tab('drafts', 'Drafts', [{ field: 'status', op: 'is', value: ['Draft', 'Out for signature'] }]);
     tab('ended', 'Ended', [{ field: 'status', op: 'is', value: ['Ended'] }]);
-    // In Today: its notice day with Give notice; its end day with Renew, by itself for one that renews by itself; one given notice ends by itself
-    // on its end day, one that does not renew the day after: in Today only, where End is pressed by itself.
+    // In Scheduled: its notice day with Give notice; its end day with Renew, by itself for one that renews by itself; one given notice ends by itself
+    // on its end day, one that does not renew the day after: on its day only, where End is pressed by itself.
     app.view('contracts', { ...calendar({ start: 'cancel_by', ...(kinds.length > 0 && { color: 'type' }), upcoming: true, button: 'Give notice', person: 'owner', words: ['notice_said'] }, [{ field: 'deciding', op: 'true' }]), id: 'notice', name: 'Notice by', hidden: true });
     app.view('contracts', { ...calendar({ start: 'ends', ...(kinds.length > 0 && { color: 'type' }), upcoming: true, button: 'Renew', auto: 'renews_itself', person: 'owner', words: ['amount_said'] }, [{ field: 'status', op: 'is', value: ['Active'] }]), id: 'renewals', name: 'Renewals', hidden: true });
     app.view('contracts', { ...calendar({ start: 'auto_end', ...(kinds.length > 0 && { color: 'type' }), upcoming: 'today', button: 'End', auto: 'ends_itself', person: 'owner' }, [{ field: 'ends_itself', op: 'true' }]), id: 'ends', name: 'Ending', hidden: true });
@@ -288,17 +288,17 @@ export const contracts: AppTemplate = {
       title: 'Contracts and renewals',
       what: `Your contracts${kinds.length > 0 ? `, ${kinds.map((k) => k.toLowerCase()).join(', ')}` : ''}: with whom, from when to when, what they cost, and by when to give notice.`,
       pieces: ['contracts', 'companies'],
-      glance: ['Its notice day in Today with Give notice', 'One that renews by itself renewed on its day', 'Each renewal with what it did to the price', ...(paid ? ['What it costs a payment in Budget'] : [])],
+      glance: ['Its notice day in Scheduled with Give notice', 'One that renews by itself renewed on its day', 'Each renewal with what it did to the price', ...(paid ? ['What it costs a payment in Budget'] : [])],
       how: [
         `Add each contract with whom it is${contact ? ' and your contact there' : ''}, its start and its end, whether it renews by itself and its notice, and what it costs; put the signed copy in its notes.`,
         'A new one is Active; one still to sign, set it to Draft: Send for signature, then Signed when it comes back.',
-        'On its notice day, Today asks: press Give notice to end it, or let it renew.',
+        'On its notice day, Scheduled asks: press Give notice to end it, or let it renew.',
         'Press Renew to renew it for longer or for another price; End to stop it now.',
       ],
       auto: [
-        `Its notice day is its end less its notice${notice > 0 ? `, ${notice} days unless you write another` : ''}; it comes to Today and Upcoming until it has gone by.`,
+        `Its notice day is its end less its notice${notice > 0 ? `, ${notice} days unless you write another` : ''}; it is in Scheduled until it has gone by.`,
         'One that renews by itself is renewed on its end day for another term at the same price; one given notice ends by itself that day.',
-        'One that does not renew comes to Today on its end day with Renew; not renewed, it ends by itself the day after.',
+        'One that does not renew comes to Scheduled on its end day with Renew; not renewed, it ends by itself the day after.',
         'Each send, signature, renewal, notice and end is written in its history, a renewal with what it did to the price.',
         'Over the list, what is active, what it all costs a year, what is to decide and what is ending in 60 days.',
         ...(paid ? ['Signed, or a new one added Active, writes what it costs, or brings, as a payment in Budget that comes again by its period; given notice or ended, it comes no more.'] : []),

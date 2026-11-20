@@ -188,7 +188,6 @@ import { folderLabel, setSpaceNames,
   QUICK,
   tabOf,
   tasksOf,
-  TODAY,
   TRASH,
   FILES,
   UPCOMING,
@@ -245,7 +244,7 @@ import { pendingJoin } from './servers';
 import { type FavoriteRow, Sidebar } from './Sidebar';
 import type { Exported, ExportFormat } from './exporting';
 import { type SearchAction, SearchWindow, type Target, type Thing, thingsOf } from './Search';
-import { type Dated, dueLabel, type DueSubtask, FilterPage, isSubtaskRef, type SubtaskRef, type TaskActions, TaskList, TodayView } from './Tasks';
+import { type Dated, dueLabel, type DueSubtask, FilterPage, isSubtaskRef, type SubtaskRef, type TaskActions, TaskList } from './Tasks';
 import { Upcoming } from './Upcoming';
 import { type ChatLinks, type ChipState, ChatView } from './Chat';
 import { store as chatStore, useChat } from './chatStore';
@@ -1818,8 +1817,7 @@ export function App() {
     { id: 'tasks', label: t('create.newList'), icon: 'tasks', run: () => setDialog({ kind: 'new', start: 'tasks' }) },
     { id: 'board', label: t('create.newBoard'), icon: 'board', run: () => setDialog({ kind: 'new', start: 'board' }) },
     { id: 'collection', label: t('create.newCollection'), icon: 'collection', run: () => setDialog({ kind: 'new', start: 'collection' }) },
-    { id: 'today', label: t('side.today'), icon: 'calendar', run: () => void session.open(TODAY) },
-    { id: 'upcoming', label: t('side.upcoming'), icon: 'calendar', run: () => void session.open(UPCOMING) },
+    { id: 'upcoming', label: t('side.scheduled'), icon: 'calendar', run: () => void session.open(UPCOMING) },
     { id: 'files', label: t('side.files'), icon: 'clip', run: () => void session.open(FILES) },
     { id: 'trash', label: t('side.trash'), icon: 'trash', run: () => void session.open(TRASH) },
     { id: 'settings', label: t('side.settings'), icon: 'settings', run: () => setDialog({ kind: 'settings' }) },
@@ -2002,10 +2000,15 @@ export function App() {
     // On a phone Chat is a tab of its own, which opens at the message.
     if (!phone) void session.open(CHAT);
   };
-  // The morning's notification opens Today: a tab on a computer, the Today tab on a phone.
+  // The morning's notification opens Scheduled on its list, at today: a tab on a computer, the Scheduled tab on a phone.
   const [todayAsked, setTodayAsked] = useState(0);
   const openToday = useRef(() => undefined as void);
-  openToday.current = () => (phone ? setTodayAsked(Date.now()) : void session.open(TODAY));
+  openToday.current = () => {
+    saveUpcomingView('list');
+    setUpcomingView('list');
+    setTodayAsked(Date.now());
+    if (!phone) void session.open(UPCOMING);
+  };
   // A notification of a card or a task can open the app: what it is of is read a moment later, so
   // it waits for it, at most a while, and then opens or says why it cannot (design/notifications.md 6).
   const [noticeGoTo, setNoticeGoTo] = useState<{ href: string; until: number } | null>(null);
@@ -2052,8 +2055,7 @@ export function App() {
       const view = schema?.views?.find((v) => v.id === (viewId === undefined ? schema.defaultView : viewId));
       return setNewRecord({ dir: collectionDir, ...(schema && view && { values: viewValues(view, schema) }) });
     }
-    if (id === TODAY) return setQuickAdd({ list: INBOX_TASKS, section: null, due: today });
-    if (id === UPCOMING) return setQuickAdd({ list: INBOX_TASKS, section: null, due: upcomingView === 'calendar' ? upDay : addDays(today, 1) });
+    if (id === UPCOMING) return setQuickAdd({ list: INBOX_TASKS, section: null, due: upcomingView === 'calendar' ? upDay : today });
     const list = listOf(id);
     if (list !== null) setQuickAdd({ list, section: null, due: null });
   };
@@ -2499,14 +2501,19 @@ export function App() {
     />
   );
   const dueNow = dueToday(myTasks, today);
-  // Today counts what is late and due today, Upcoming what is due after it: neither counts what the other does.
+  // Scheduled counts what is late and due today, and apart what is due after it: neither counts what the other does.
   const cardDays = [...dueCards(myBoards).map((d) => d.card.due!), ...dueSubtasksNow.map((d) => d.subtask.due!)];
   const dueCardsNow = cardDays.filter((day) => day <= today).length;
   const dueLater = dueUpcoming(myTasks, today).reduce((sum, d) => sum + d.tasks.length, 0) + cardDays.length - dueCardsNow;
-  // The calendars' records count under the day each is listed: today's, late ones and those going on in Today, the rest in Upcoming.
+  // The calendars' records count under the day each is listed: today's, late ones and those going on now, the rest after.
   const recordDays = dueRecordsNow.map((d) => (d.late ? today : (d.day ?? dayInToday(d, today))));
   const recordsNow = recordDays.filter((day) => day <= today).length;
-  const counts: Record<string, number> = { [TODAY]: dueNow.overdue.length + dueNow.today.length + dueCardsNow + recordsNow, [UPCOMING]: dueLater + recordDays.length - recordsNow, [TRASH]: trash.length, [FILES]: fileCount, [CHAT]: chat.alerts, [QUICK]: quick.length };
+  // Now's number turns red when something is late, as a late day does.
+  const scheduledNow = {
+    count: dueNow.overdue.length + dueNow.today.length + dueCardsNow + recordsNow,
+    late: dueNow.overdue.length > 0 || cardDays.some((day) => day < today) || dueRecordsNow.some((d) => d.late),
+  };
+  const counts: Record<string, number> = { [UPCOMING]: dueLater + recordDays.length - recordsNow, [TRASH]: trash.length, [FILES]: fileCount, [CHAT]: chat.alerts, [QUICK]: quick.length };
   for (const [list, listTasks] of Object.entries(tasks)) counts[tasksOf(list)] = openCount(listTasks);
   for (const [path, board] of Object.entries(boards)) counts[boardOf(path)] = openCardCount(board);
   for (const [dir, collection] of Object.entries(collections)) counts[collectionTab(dir)] = collection.records.length;
@@ -2633,7 +2640,7 @@ export function App() {
   };
   // And under what shows tasks, and in Search, the spaces still read.
   const still = stillOpening(reading, new Map([['', space.name ?? t('settings.personal')], ...spaces.map((each) => [each.id, each.name] as const)]));
-  const isDueView = active === TODAY || active === UPCOMING;
+  const isDueView = active === UPCOMING;
   // Where a filter over everything can look: the personal space as a whole and its top folders, then every other space as a whole.
   const filterFolders: FilterFolder[] = ['', ...tree.filter((node) => node.kind === 'folder').map((node) => node.path), ...spaces.map((each) => inSpace(each.id, ''))].map(
     (value) => ({ value, text: folderLabel(value), space: value === '' || (spaceOf(value) !== null && localPath(value) === '') }),
@@ -2791,13 +2798,6 @@ export function App() {
       ...(cardCount > 0 ? [t('count.cards', { count: cardCount })] : []),
       ...besides(0, overdue),
     ];
-    if (active === TODAY) {
-      const cards = dueCards(myBoards).filter((d) => d.card.due! <= today);
-      const subtasks = dueSubtasksNow.filter((d) => d.subtask.due! <= today);
-      const overdue = dueNow.overdue.length + cards.filter((d) => late(d.card.due)).length + subtasks.filter((d) => late(d.subtask.due)).length;
-      const records = dueRecordsNow.filter((d) => d.start.slice(0, 10) <= today).length;
-      return [...counted(dueNow.overdue.length + dueNow.today.length + subtasks.length, cards.length, overdue), ...(records > 0 ? [t('count.records', { count: records })] : [])];
-    }
     if (filterPageOn) {
       const asked = { ...filterPageOn.choices, ...filterPageOn.base };
       const found = filterTasks(asked, tasks, today, me?.id).flatMap((group) => group.tasks);
@@ -3024,10 +3024,10 @@ export function App() {
         fieldsAsked={collectionFields}
       />
     )}
-    {!phone && active === TODAY && <TodayView lists={myTasks} boards={myBoards} today={today} actions={taskActions} still={still} places={allPlaces()} onAdd={addTask} />}
     {!phone && active === CHAT && <ChatView snapshot={chat} menu={openMenu} onStatus={setViewStatus} links={chatLinks} goTo={chatGoTo} />}
     {!phone && active === UPCOMING && (
       <Upcoming
+        key={todayAsked}
         lists={myTasks}
         boards={myBoards}
         today={today}
@@ -3140,7 +3140,7 @@ export function App() {
               void session.open(tasksOf(taskList));
               setRevealTask({ list: taskList, id, at: Date.now() });
             }}
-            onOpenToday={() => void session.open(TODAY)}
+            onOpenScheduled={() => void session.open(UPCOMING)}
             onAgents={() => setDialog({ kind: 'settings', section: 'agents' })}
             still={still}
           />
@@ -3226,13 +3226,7 @@ export function App() {
             filters={filters}
             counts={counts}
             item={itemLayer}
-            dueView={(kind) =>
-              kind === 'today' ? (
-                <TodayView lists={myTasks} boards={myBoards} today={today} actions={taskActions} bare still={still} />
-              ) : (
-                <PhoneUpcoming view={phoneUpcoming} lists={myTasks} boards={myBoards} today={today} actions={taskActions} day={upDay} onDay={setUpcomingDay} still={still} />
-              )
-            }
+            dueView={() => <PhoneUpcoming view={phoneUpcoming} lists={myTasks} boards={myBoards} today={today} actions={taskActions} day={upDay} onDay={setUpcomingDay} still={still} />}
             upcomingView={phoneUpcoming}
             upcomingDay={upDay}
             onUpcomingView={(view) => {
@@ -3607,6 +3601,7 @@ export function App() {
           titles={titles}
           active={active}
           counts={counts}
+          scheduledNow={scheduledNow}
           chat={chat.servers.length > 0}
           onOpen={(id) => {
             setDrawer(false);

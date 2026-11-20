@@ -40,11 +40,11 @@ An entry has its **Asset**, its **Type** (**Checked out**, **Checked in**, **Rep
 
 With places, each place with its **Address** and the assets in it.
 
-## Today
+## Scheduled
 
-- The day an asset is due back comes to Today with **Check in**, saying who has it, and to Upcoming before.
+- The day an asset is due back comes to Scheduled with **Check in**, saying who has it.
 - A service due comes the same way, with **Service done**.
-- The day a warranty ends comes to Upcoming, and to Today on the day.
+- The day a warranty ends comes to Scheduled too.
 
 An asset late back or a service late stays under **Overdue** until its button is pressed.
 

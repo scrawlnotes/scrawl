@@ -1,6 +1,6 @@
 # 🔥 Habits and goals
 
-What you do again and again, ticked off in Today, and your streaks. And, if you like, your own goals, by a number or by their steps, each saying whether it is on track.
+What you do again and again, ticked off in Scheduled, and your streaks. And, if you like, your own goals, by a number or by their steps, each saying whether it is on track.
 
 ## Setting it up
 
@@ -30,12 +30,12 @@ Each has **Since**, today to start, and **By**, the day to reach it. **Progress*
 
 **Open** lists the goals not done, the nearest **By** first. **Calendar** shows them on their **By**.
 
-## Today
+## Scheduled
 
-- A habit comes to Today on its days with **Done**, and **Undo** takes it back. It says your streak, "🔥 5 days", or what is left of the week: "3 of 7 this week", "2 more this week". One done a number of times a week comes each day until the week has as many.
-- A day missed is gone, never piled up. Habits are not in Upcoming.
-- A goal's step with a day comes to Today on it, and to Upcoming before it, to be ticked there.
-- A goal comes to Upcoming before its **By**, and to Today on it.
+- A habit comes to Scheduled on its days with **Done**, and **Undo** takes it back. It says your streak, "🔥 5 days", or what is left of the week: "3 of 7 this week", "2 more this week". One done a number of times a week comes each day until the week has as many.
+- A day missed is gone, never piled up. A habit does not show before its day.
+- A goal's step with a day comes to Scheduled on it, to be ticked there.
+- A goal comes to Scheduled on its **By** day.
 
 ## Ask an agent
 

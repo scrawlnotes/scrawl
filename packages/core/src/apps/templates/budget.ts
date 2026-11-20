@@ -8,7 +8,7 @@ import { periodSpan } from './subscriptions';
 // Budget and spending (design/scrawl-apps.md 3.5), as QuickBooks' Budget vs Actuals and Bills and
 // Expensify keep them: each budget line what it plans a month against what was paid this month and
 // this year, a bar of what is spent, yellow from 80% and red over it; what is to pay, overdue and to
-// collect over the payments, each due one in Today with Mark paid, by itself when it pays itself,
+// collect over the payments, each due one in Scheduled with Mark paid, by itself when it pays itself,
 // one that comes again writing the next; expenses with their receipt, approved onto a budget line
 // and paid back.
 
@@ -271,10 +271,10 @@ export const budget: AppTemplate = {
       title: 'Budget and spending',
       what: 'What you plan to earn and spend each month against what was paid, the bills to pay and the money to collect, all in one place.',
       pieces: ['budget-lines', 'payments', ...(expenses ? ['expenses'] : [])],
-      glance: ['Each budget line against what was paid this month and this year', 'Over the payments, what is to pay this week, overdue and to collect', 'A payment due comes to Today with Mark paid', 'One that comes again writes the next', ...(expenses ? ['An approved expense goes to To pay'] : []), ...(expected ? ['An invoiced order adds the payment to collect'] : [])],
+      glance: ['Each budget line against what was paid this month and this year', 'Over the payments, what is to pay this week, overdue and to collect', 'A payment due comes to Scheduled with Mark paid', 'One that comes again writes the next', ...(expenses ? ['An approved expense goes to To pay'] : []), ...(expected ? ['An invoiced order adds the payment to collect'] : [])],
       how: [
         'Add a budget line for each kind of income and spending, with what you plan a month.',
-        `Add each bill to ${app.called('payments')}, to whom and on which budget line${dated ? ', with its due day' : ''}; say how often it comes again; press Mark paid once it is paid, in Today on its day.`,
+        `Add each bill to ${app.called('payments')}, to whom and on which budget line${dated ? ', with its due day' : ''}; say how often it comes again; press Mark paid once it is paid, in Scheduled on its day.`,
         ...(expenses ? [`Add your expenses to ${app.called('expenses')} with a photo of the receipt in their notes; Approve or Reject them.`] : []),
       ],
       auto: [

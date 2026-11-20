@@ -163,7 +163,7 @@ export const ecommerce: AppTemplate = {
     tab('cancelled', 'Cancelled', [{ field: 'status', op: 'is', value: ['Cancelled'] }, { field: 'channel', op: 'not-empty' }], { key: 'date', dir: 'desc' });
     app.view('orders', { id: 'channel-orders', name: 'Channel orders', conditions: [{ field: 'channel', op: 'not-empty' }, { field: 'status', op: 'is-not', value: notCounted }], hidden: true });
     app.view('orders', { id: 'payouts', name: 'Payouts', conditions: [{ field: 'channel', op: 'not-empty' }, { field: 'payout_due', op: 'not-empty' }, { field: 'payout_on', op: 'empty' }], sort: { key: 'payout_due', dir: 'asc' }, hidden: true });
-    // What is to go is in Today on its day with Ship, Upcoming before; a late one stays in Overdue.
+    // What is to go is in Scheduled on its day with Ship; a late one stays in Overdue.
     app.view('orders', { ...calendar({ start: 'ship_by', color: 'channel', upcoming: true, button: 'Ship', words: ['shop_title', 'items'] }, toShip), id: 'ship-calendar', name: 'To ship', hidden: true });
     app.homeTiles('orders', [
       { view: 'channel-orders', title: 'Sales by day', periods: { date: 'date', columns: [{ label: 'Orders' }, { label: 'Sales', field: 'total' }, { label: 'Profit', field: 'net_profit' }, { label: 'Margin', field: 'net_profit', per: base }] } },
@@ -289,11 +289,11 @@ ${movement(app, '    ', 'product: product, direction: "In", type: "return", quan
       title: 'E-commerce',
       what: `Selling${channels.length > 0 ? ` on ${channels.join(', ')}` : ''}: what is to ship by its day, each channel's commission and when it pays${returns ? ', returns' : ''} and what each order really earns.`,
       pieces: ['channels', ...(returns ? ['returns'] : [])],
-      glance: ['To ship by the day each must go, the channels as chips', 'Today has what goes today, with Ship', 'An order says its profit in one line, and when it is paid out', ...(returns ? ['Return asks which items come back and why'] : [])],
+      glance: ['To ship by the day each must go, the channels as chips', 'Scheduled has what goes today, with Ship', 'An order says its profit in one line, and when it is paid out', ...(returns ? ['Return asks which items come back and why'] : [])],
       how: [
         'Write each channel’s commission, its fee per order, within how many days its orders ship and after how many days it pays.',
         'Add an order with its channel and its order no; the agent can bring them from a marketplace’s file.',
-        'Press Ship when it goes out, on the order or in Today.',
+        'Press Ship when it goes out, on the order or in Scheduled.',
         ...(returns ? ['When something comes back, press Return on its order and pick the items; then Received, then Refunded.'] : []),
       ],
       auto: [

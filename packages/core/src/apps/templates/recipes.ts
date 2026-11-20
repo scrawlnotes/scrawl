@@ -3,7 +3,7 @@ import type { AppTemplate } from '../types';
 
 // Recipes and meal plan (design/meal-plans.md): your recipes, their links and what goes into them;
 // a plan to eat by, a diet written once meal by meal, the ones of a meal alternatives; its days in
-// Today, each ticked as it was eaten, what was eaten off the plan added; and the shopping list a
+// Scheduled, each ticked as it was eaten, what was eaten off the plan added; and the shopping list a
 // recipe writes.
 
 const MEALS = ['Breakfast', 'Snack', 'Lunch', 'Dinner'];
@@ -148,7 +148,7 @@ ${put('m', 'want', '      ')}
     app.field('meal-days', formula('ahead', 'From today', 'day >= today()'));
     app.view('meal-days', { id: 'from-today', name: 'From today', conditions: [{ field: 'ahead', op: 'true' }], sort: { key: 'day', dir: 'asc' }, columns: ['status', 'summary', 'changed'] }, true);
     app.view('meal-days', { id: 'all', name: 'All', conditions: [], sort: { key: 'day', dir: 'desc' }, columns: ['status', 'summary', 'changed'] });
-    // Today's day comes to Today, not to Upcoming before it.
+    // A plan's day comes to Scheduled on the day, not before it.
     app.view('meal-days', { id: 'calendar', name: 'Calendar', kind: 'calendar', calendar: { start: 'day', color: 'status', upcoming: 'today' }, conditions: [] });
     app.block('meal-days', { block: 'linked', collection: dayItems, style: 'table', fields: ['done', 'name', 'instead'], sort: 'order', group: ['meal'], edit: ['done', 'instead'], choose: true, instead: 'instead' });
     app.rule('meal-days', { kind: 'onSave', name: 'Its name', src: 'onSave("Its name", () => {\n  if (empty(name) && !empty(plan)) name = plan.name + " · " + weekday(day) + " " + text(day)\n})' });
@@ -192,10 +192,10 @@ ${put('m', 'want', '      ')}
       title: 'Recipes and meal plan',
       what: `Your recipes and where each is written, and a plan to eat by: each of its days with what to eat${shopping ? ', and the shopping list' : ''}.`,
       pieces: ['meal-days', 'day-items', 'meal-plans', 'plan-items', 'recipes', 'ingredients', ...(shopping ? ['shopping'] : [])],
-      glance: ['A plan’s days written by themselves', 'Today’s in Today', 'Tick what you ate, or write what you ate instead', 'A recipe with no ingredients is marked', ...(shopping ? ['A recipe writes the shopping list'] : [])],
+      glance: ['A plan’s days written by themselves', 'Today’s in Scheduled', 'Tick what you ate, or write what you ate instead', 'A recipe with no ingredients is marked', ...(shopping ? ['A recipe writes the shopping list'] : [])],
       how: [
         `Write your plan in ${app.called('meal-plans')}: its days, from when until when, and its items meal by meal (${meals.join(', ')}), each what to eat as you would say it; the items of a meal are its alternatives. An item for some weekdays only has its day in On. Put the dietitian's list in its notes.`,
-        `Its days are in ${app.called('meal-days')}, from today on. Open one, or today's in Today: tick what you ate, write what you ate instead beside it, or press ${DIDNT}. A day you leave as it is stays as it is.`,
+        `Its days are in ${app.called('meal-days')}, from today on. Open one, or today's in Scheduled: tick what you ate, write what you ate instead beside it, or press ${DIDNT}. A day you leave as it is stays as it is.`,
         'Add a recipe with its link, how long it takes and for how many, and its ingredients; an item of the plan may point to it.',
         ...(shopping ? ['Press Add to shopping list on a recipe; tick what you bought.'] : []),
       ],
@@ -203,7 +203,7 @@ ${put('m', 'want', '      ')}
         'Saving a plan writes each of its days from its first to its last, with the items of its weekday; a longer plan gets the days added, a shorter one loses those no one touched.',
         'A change to a plan’s items reaches its days from today on that no one has ticked or written in; the others, and the days gone by, stay as they were.',
         'A day says how many of its meals were eaten, one of a meal’s alternatives or what was had instead enough, and how many were changed.',
-        `Today's day comes to Today, not to Upcoming before it. A day marked ${DIDNT} with meals ticked is marked.`,
+        `A plan's day comes to Scheduled on the day, not before it. A day marked ${DIDNT} with meals ticked is marked.`,
         'A recipe with no ingredients is marked.',
         ...(shopping ? ['Add to shopping list writes a recipe’s ingredients on the list; the list shows what is still to buy.'] : []),
       ],

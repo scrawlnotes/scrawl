@@ -22,7 +22,7 @@ Settings › Privacy & Security and choose Open Anyway.
   computer, Claude, ChatGPT and Gemini through a Scrawl server. It reads and writes, sets up apps and presses buttons
   as you would. No assistant inside.
 - **Notes**: Markdown, formatted as you type. No name or folder needed to start.
-- **Task lists**: sections, subtasks, priorities and due dates; Today, Upcoming and filters.
+- **Task lists**: sections, subtasks, priorities and due dates; Scheduled and filters.
 - **Boards**: columns, cards, comments and phases. A card copies as a brief for a person or an agent.
 - **Collections**: lists of records that link to each other, like people, companies and deals,
   with their own form designer, views, formulas, rules and buttons, and CSV or Excel in and out.

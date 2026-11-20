@@ -46,7 +46,7 @@ For writing. What you type stays as you typed it; the bar above the note handles
 
 ### ✅ Task lists
 
-Tasks with dates, priorities and subtasks. **Today** and **Upcoming** gather dated tasks and cards from all your lists and boards; Upcoming has a list and a calendar. A **Filter** saves a view of tasks by date, priority or place.
+Tasks with dates, priorities and subtasks. **Scheduled** gathers dated tasks and cards from all your lists and boards, late ones first, then day by day, as a list or a calendar. A **Filter** saves a view of tasks by date, priority or place.
 
 ### 📋 Boards
 
@@ -60,7 +60,7 @@ API keys, passwords and settings in a `.env` file. Secret values stay hidden unt
 
 | At the foot of the screen | In Browse |
 | --- | --- |
-| **Search**, **Browse**, **Today**, **Settings** | Your spaces and folders, **Files**, **Trash**, **Sync** |
+| **Search**, **Browse**, **Scheduled**, **Settings** | Your spaces and folders, **Files**, **Trash**, **Sync** |
 
 ---
 

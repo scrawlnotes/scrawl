@@ -5,7 +5,7 @@ import type { AppTemplate } from '../types';
 
 // Appointments and bookings (design/calendar.md 6), as Fresha and Acuity keep them: what is booked,
 // for whom, when and with whom, on a calendar whose Day has a row for each in the team. Book on a
-// customer says the free times; the day before, Today says whom to remind; Done asks when they come
+// customer says the free times; the day before, Scheduled says whom to remind; Done asks when they come
 // next and books it. A service is given by the one person or by a team, each with their hours; a
 // resource, a room or a table, is booked by the hour. Two at the same time for the same person or
 // the same room are marked, as one outside its person's hours or days; nothing is refused.
@@ -152,7 +152,7 @@ export const appointments: AppTemplate = {
       const own: View = { id: `staff-${i + 1}`, name, kind: 'calendar', calendar: { start: 'start', duration: 'duration', color: 'status', upcoming: false }, conditions: [{ field: 'staff', op: 'is', value: [name] }, { field: 'status', op: 'is-not', value: ['Cancelled'] }] };
       app.view('appointments', own);
     });
-    // The day before, Today asks to remind them; Reminded is Confirmed.
+    // The day before, Scheduled asks to remind them; Reminded is Confirmed.
     if (remind) app.view('appointments', { ...calendar({ start: 'remind_on', color: team ? 'staff' : 'status', upcoming: 'today', button: 'Reminded', words: ['remind_said'] }, [{ field: 'status', op: 'is', value: ['Booked'] }]), id: 'remind', name: 'To remind', hidden: true });
     const notCancelled: Condition = { field: 'status', op: 'is-not', value: ['Cancelled'] };
     app.view('appointments', { id: 'today', name: 'Today', conditions: [{ field: 'start', op: 'on', value: 'today' }, notCancelled], sort: { key: 'start', dir: 'asc' }, columns: ['customer', 'what_said', 'status'], hidden: true });
@@ -306,7 +306,7 @@ export const appointments: AppTemplate = {
       pieces: ['appointments', ...(services ? ['services'] : []), ...(team ? ['staff'] : []), ...(resources ? ['resources'] : []), 'people'],
       glance: [
         `A calendar of the week${team ? ', its Day a row for each in the team' : ''}`,
-        "Today's appointments in Today with Done",
+        "Today's appointments in Scheduled with Done",
         'Done asks the next visit and books it',
         'Book says the free times',
         ...(remind ? ['Whom to remind the day before'] : []),
@@ -315,7 +315,7 @@ export const appointments: AppTemplate = {
       ],
       how: [
         `Press Book on a customer: ${services ? 'the service, ' : ''}${team ? 'with whom, ' : ''}and when; it says the times free that day. Or drag over its hours on the calendar.`,
-        `${remind ? 'The day before, Today lists whom to remind with their phone; press Reminded when they know. ' : ''}Press Arrived when they come, Done when it is over: it asks when they come next, and books it.`,
+        `${remind ? 'The day before, Scheduled lists whom to remind with their phone; press Reminded when they know. ' : ''}Press Arrived when they come, Done when it is over: it asks when they come next, and books it.`,
         'No-show when they did not come; Reschedule asks for the new time; Cancel asks why.',
         ...(team ? ['Each in the team has their own calendar beside the whole one; their hours and days are on their screen.'] : []),
       ],
@@ -323,7 +323,7 @@ export const appointments: AppTemplate = {
         ...(services ? [`A new appointment takes its length${fee ? ' and its price' : ''} from its service, unless you write them.`] : []),
         `Book looks at every half hour of the day${team ? ' of that person, within their hours' : ''}, and says those nothing else is booked at.`,
         `Done books the next visit so many weeks on, at the same time${team ? ' with the same person' : ''}; one taken then is said, and marked.`,
-        ...(remind ? ['A booked appointment is in Today the day before, with whom to remind and their phone; Reminded makes it Confirmed.'] : []),
+        ...(remind ? ['A booked appointment is in Scheduled the day before too, with whom to remind and their phone; Reminded makes it Confirmed.'] : []),
         ...(team ? ['An appointment that runs into another of the same person, or is outside their hours or days, is marked; it is kept.'] : []),
         ...(resources ? ['A room or a thing booked twice at the same time is marked; it is kept.'] : []),
         'A customer shows their visits, their last and their next, and how many times they did not come.',

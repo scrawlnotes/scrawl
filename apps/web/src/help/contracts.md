@@ -1,6 +1,6 @@
 # 📜 Contracts and renewals
 
-Leases, insurance, suppliers, software and your customers' contracts: with whom, from when to when, what each costs, and by when to give notice. Before a contract renews by itself, its notice day comes to Today.
+Leases, insurance, suppliers, software and your customers' contracts: with whom, from when to when, what each costs, and by when to give notice. Before a contract renews by itself, its notice day comes to Scheduled.
 
 ## Setting it up
 
@@ -37,9 +37,9 @@ A contract is **Draft**, **Out for signature**, **Active**, **Notice given** or 
 
 The companies you have contracts with. A company's window lists its contracts, each with its status and its days.
 
-## Today
+## Scheduled
 
-- For a contract that renews by itself, its notice day comes to Today and Upcoming with **Give notice**. Once the day has gone by, it leaves Today: the contract is left to renew.
+- For a contract that renews by itself, its notice day comes to Scheduled with **Give notice**. Once the day has gone by, it leaves Scheduled: the contract is left to renew.
 - On its end day, an active contract comes with **Renew**. One that renews by itself is renewed by itself that day, for another term at the same price. One that does not renew and is not renewed ends by itself the day after.
 - One given notice ends by itself on its end day. Either way, **Undo** takes it back.
 

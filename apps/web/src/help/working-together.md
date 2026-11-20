@@ -21,14 +21,14 @@ Everyone who opens a shared space is in its **People**, on its page in **Setting
 
 ## Mentions and notifications
 
-With a Scrawl server, people are told of what is theirs, on their phone and their computer. A notification opens what it is about: a card at its comment, a task, or Today.
+With a Scrawl server, people are told of what is theirs, on their phone and their computer. A notification opens what it is about: a card at its comment, a task, or Scheduled at today.
 
 - **Mentions:** type `@` in a card's description or comment, or a task's description, and pick someone in the space.
 - **Given to:** whoever a card or a task is given to.
 - **Remind:** on a card or a task given to someone else, **Remind** and their name tells them again. Once an hour.
 - **Due dates:** at 9:00, one notification of what is yours today and tomorrow.
 
-An agent's mentions, what it gives and its reminders tell people the same way. What each person is told of is chosen in **Settings › Notifications**. A notification missed is not kept anywhere: what is yours is in Today, Upcoming and **Given to me**.
+An agent's mentions, what it gives and its reminders tell people the same way. What each person is told of is chosen in **Settings › Notifications**. A notification missed is not kept anywhere: what is yours is in Scheduled and **Given to me**.
 
 ## Agents that answer
 

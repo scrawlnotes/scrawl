@@ -6,7 +6,7 @@ Chat is there when you are in a shared space on a Scrawl server: see [What a ser
 
 ## Rooms and direct messages
 
-**Chat**, under Upcoming in the sidebar, opens in one tab: each space's rooms and your direct messages on the left, the conversation on the right.
+**Chat**, under Scheduled in the sidebar, opens in one tab: each space's rooms and your direct messages on the left, the conversation on the right.
 
 - A **room** belongs to a space. A public one is open to everyone in the space, to read and to **Join**; a private one only to its members, who add others. Every space has a **general** room.
 - A **direct message** is between you and up to eight others who share a space with you.

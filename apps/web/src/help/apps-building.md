@@ -10,14 +10,14 @@ Connect an agent to Scrawl: see [Agents](ai-agents). Then make, or choose, the f
 
 Tell it about the work, not about fields: who does what, what is kept, and what you look at each day. For example:
 
-> Make an app for our spare parts business in the Workshop folder. We keep parts with a code, a shelf and a price in TRY and EUR. Customers order parts; an order has lines, and its stock goes out when it is shipped. Warn me in Today when a part runs low. I want to see this week's orders and what they earn.
+> Make an app for our spare parts business in the Workshop folder. We keep parts with a code, a shelf and a price in TRY and EUR. Customers order parts; an order has lines, and its stock goes out when it is shipped. Warn me in Scheduled when a part runs low. I want to see this week's orders and what they earn.
 
 A few things help:
 
 - Say what each record is called and what it holds, in your own words.
 - Say what goes together: an order's lines, a customer's orders.
 - Say what should happen by itself, and when: "when an order is shipped".
-- Say what you want to see: in Today, as a board, on a calendar.
+- Say what you want to see: in Scheduled, as a board, on a calendar.
 
 ## What it makes
 

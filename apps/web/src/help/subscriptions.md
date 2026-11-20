@@ -37,9 +37,9 @@ Each plan's **Period**, **Monthly**, **Quarterly** or **Yearly**, its **Price**,
 
 A customer's window shows their active subscriptions and their MRR, and lists them, with **+ Subscription**, or **+ Membership**.
 
-## Today
+## Scheduled
 
-- A renewal comes to Today on its day, and to Upcoming before it, with **Renew**. One that renews by itself is renewed once its day has come, and **Undo** takes it back.
+- A renewal comes to Scheduled on its day, with **Renew**. One that renews by itself is renewed once its day has come, and **Undo** takes it back.
 - A trial ending comes with **Convert**.
 - A pause ending comes with **Resume**.
 - A non-renewing one ends by itself on its renewal day, and **Undo** takes it back.

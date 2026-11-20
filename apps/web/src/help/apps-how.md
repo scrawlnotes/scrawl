@@ -18,9 +18,9 @@ An app is one row in the sidebar, and opens in a tab of its own. **Home** shows 
 
 Its **···** menu has **About**, **Add to app…**, **Edit app…**, and **Show files**, which shows its collections and boards in the sidebar under it.
 
-## Today
+## Scheduled
 
-An app's work comes to Today with what it takes to do it: a call to log, an invoice falling due, a program day with **Start**, a medicine to take. See [Task lists](task-lists).
+An app's work comes to Scheduled with what it takes to do it: a call to log, an invoice falling due, a program day with **Start**, a medicine to take. See [Task lists](task-lists).
 
 ## Adding more
 

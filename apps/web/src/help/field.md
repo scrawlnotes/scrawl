@@ -46,9 +46,9 @@ A unit's window lists its jobs, with **+ Job**. A customer's window lists their 
 - **Technicians:** each one's **Phone**, **Hourly rate**, **Works from** and **Works until**, 08:00 to 17:00 to start, and **Days**, Monday to Friday; how many jobs they have **Today**, and their jobs.
 - **Checklists:** what is checked on each type of job, in order, such as "Check the safety devices". A new job of the type starts with them, so change them here.
 
-## Today
+## Scheduled
 
-- A scheduled job comes to Today on its day, and to Upcoming before it, with **Start**; one not started stays under **Overdue**.
+- A scheduled job comes to Scheduled on its day, with **Start**; one not started stays under **Overdue**.
 - A job in progress comes with **Complete**.
 - A unit's next service comes on its day with **Book visit**. It asks **When** and the **Technician**, and adds a maintenance job; with no time, it waits in Unscheduled. A unit with a maintenance job already open has no **Book visit**.
 - When a unit's maintenance job is completed, its next service is set that much after the day: a month, 3 months, 6 months or a year.

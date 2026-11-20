@@ -30,10 +30,10 @@ Add each interview in the application's window: **When**, with its time, its **T
 
 In the application's window each is on its day, at its time, with its sign, 📞 💻 🤝 👥 🏁 💬, and "With Ayşe Kaya".
 
-## Today
+## Scheduled
 
-- An interview comes to Upcoming before its day and to Today on it, at its time, with whom.
-- An application sent and not over, with no news for as long as you chose, comes to Upcoming and then to Today as "Follow up · Linear · applied 16 days ago", with **Followed up**. Press it once you have written: it comes again a week later. News starts the count again. Not pressed, it stays in Overdue.
+- An interview comes to Scheduled on its day, at its time, with whom.
+- An application sent and not over, with no news for as long as you chose, comes to Scheduled as "Follow up · Linear · applied 16 days ago", with **Followed up**. Press it once you have written: it comes again a week later. News starts the count again. Not pressed, it stays in Overdue.
 - A to-do given a day comes on that day.
 
 ## Home

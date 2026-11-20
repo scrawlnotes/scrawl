@@ -7,7 +7,7 @@ import type { AppTemplate } from '../types';
 // by its key results, each from where it started to where it should get, or by the goals that are
 // part of it; how far it should be by now is a line on its bar, and its status is worked out from
 // the two, Behind up to a quarter short, At risk beyond. Check in asks every key result's value at
-// once, how it is going and what changed, and comes to the owner's Today on its day; at its end,
+// once, how it is going and what changed, and comes to the owner's Scheduled on its day; at its end,
 // Close goal asks Complete or Incomplete, what was learned, and carries what is left over.
 
 /** The first day of the period a new goal starts in, by the answer: this quarter's, this half's, this year's. */
@@ -245,7 +245,7 @@ export const goals: AppTemplate = {
     tab('mine', 'Mine', [open, { field: 'owner', op: 'is', value: ['me'] }]);
     tab('behind', 'Behind', [open, { field: 'status', op: 'is', value: ['Behind', 'At risk'] }]);
     tab('closed', 'Closed', [{ field: 'result', op: 'not-empty' }]);
-    // In the owner's Today: a check-in on its day with Check in; the goal's end with Close goal.
+    // In the owner's Scheduled: a check-in on its day with Check in; the goal's end with Close goal.
     if (every > 0) app.view('goals', { ...calendar({ start: 'checkin_on', upcoming: 'today', button: 'Check in', person: 'owner', words: ['checkin_words'] }, [open]), id: 'checkins', name: 'Check-ins', hidden: true });
     app.view('goals', { ...calendar({ start: 'ends', upcoming: true, button: 'Close goal', person: 'owner', words: ['checkin_words'] }, [open]), id: 'ends', name: 'Ending', hidden: true });
     if (every > 0) app.view('goals', { id: 'due', name: 'Check-ins due', conditions: [{ field: 'checkin_due', op: 'true' }], sort: { key: 'checkin_on', dir: 'asc' }, hidden: true });
@@ -274,20 +274,20 @@ export const goals: AppTemplate = {
       title: 'Goals',
       what: `Your goals for the ${length}, the key results that measure them, and each check-in.`,
       pieces: ['goals', 'key-results', 'check-ins'],
-      glance: ['How far each goal is, and how far it should be by now', 'On track, Behind or At risk, worked out', ...(every > 0 ? ['A check-in in the owner’s Today on its day'] : []), 'Close goal at its end, what is left carried over'],
+      glance: ['How far each goal is, and how far it should be by now', 'On track, Behind or At risk, worked out', ...(every > 0 ? ['A check-in in the owner’s Scheduled on its day'] : []), 'Close goal at its end, what is left carried over'],
       how: [
         'Add a goal, whose it is, and the goal it is part of, if any.',
         `Add its key results in its window: what each is measured by, where it starts and where it should get${projects ? ", or the project whose progress it is" : ''}.`,
-        `Press Check in${every > 0 ? ` when Today says, every ${every === 7 ? 'week' : every === 14 ? 'two weeks' : 'month'}` : ''}: each key result's value now, how it is going and what changed.`,
+        `Press Check in${every > 0 ? ` when Scheduled says, every ${every === 7 ? 'week' : every === 14 ? 'two weeks' : 'month'}` : ''}: each key result's value now, how it is going and what changed.`,
         'At its end, press Close goal: Complete or Incomplete, what you learned, and whether what is left carries over.',
       ],
       auto: [
         `A new goal starts and ends with the ${length} it is set in.`,
         "A key result's progress is how far it is from its start to its target; a goal's is its key results' on average, or, with none, the goals that are part of it.",
         'How far it should be by now is the share of its period gone by, a line on its bar; a goal short of it is Behind, a quarter short At risk. The owner can say otherwise at a check-in, until the next one.',
-        ...(every > 0 ? [`A goal's check-in comes to its owner's Today ${every} days after the last one.`] : []),
+        ...(every > 0 ? [`A goal's check-in comes to its owner's Scheduled ${every} days after the last one.`] : []),
         'Check in writes each value that moved, from what to what, in its history.',
-        'Close goal comes to Today on its last day; carried over, it starts again in the next period with the key results not reached, from where they got to.',
+        'Close goal comes to Scheduled on its last day; carried over, it starts again in the next period with the key results not reached, from where they got to.',
         ...(projects ? ["A key result measured by a project's progress takes it from the project's cards."] : []),
         ...(roadmap ? [`A goal shows the ${app.called('roadmap')} cards that point at it.`] : []),
       ],

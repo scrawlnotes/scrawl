@@ -5,7 +5,7 @@ import type { AnswerRow, AppTemplate } from '../types';
 
 // Content calendar (design/scrawl-apps.md 3.10), as CoSchedule and Buffer keep it: a calendar of
 // what goes out when, colored by its channel; each piece's steps worked out back from its day by
-// its type, each in Today on its day; Send for review, Approve and Request changes; Publish on its
+// its type, each in Scheduled on its day; Send for review, Approve and Request changes; Publish on its
 // day asks its link. Campaigns on a timeline, Plan content adding their pieces.
 
 const CHANNELS = ['Blog', 'Newsletter', 'LinkedIn', 'X', 'Instagram', 'YouTube', 'Podcast'];
@@ -134,7 +134,7 @@ export const content: AppTemplate = {
     tab('scheduled', 'Scheduled', [{ field: 'status', op: 'is', value: ['Scheduled'] }]);
     tab('published', 'Published', [{ field: 'status', op: 'is', value: ['Published'] }]);
     tab('mine', 'Mine', [{ field: 'owner', op: 'is', value: ['me'] }, notOut]);
-    // In Today: a piece sent for review with Approve, first, as a record comes by its first calendar; its day with Publish.
+    // In Scheduled: a piece sent for review with Approve, first, as a record comes by its first calendar; its day with Publish.
     app.view('content', { ...calendar({ start: 'review_on', upcoming: 'today', button: 'Approve', person: 'reviewer', words: ['review_said'] }, [{ field: 'status', op: 'is', value: ['Review'] }]), id: 'review', name: 'To review', hidden: true });
     app.view('content', { ...calendar({ start: 'goes_out', ...(channels.length > 0 && { color: 'channel' }), upcoming: true, button: 'Publish', person: 'owner', words: ['where'] }, [{ field: 'status', op: 'is', value: ['Writing', 'Review', 'Scheduled'] }]), id: 'going-out', name: 'Going out', hidden: true });
     app.view('content', { id: 'week', name: 'This week', conditions: [{ field: 'this_week', op: 'true' }], sort: { key: 'goes_out', dir: 'asc' }, hidden: true });
@@ -287,18 +287,18 @@ ${byType.join('\n')}
       title: 'Content calendar',
       what: `What you will publish${channels.length > 0 ? ` on ${channels.join(', ')}` : ''}, when, and the steps before it${campaigns ? ', in campaigns' : ''}.`,
       pieces: ['content', ...(campaigns ? ['campaigns'] : [])],
-      glance: ['A calendar of what goes out, by channel', 'Each piece’s steps back from its day, in Today', 'Send for review, Approve, Publish', ...(campaigns ? ['Campaigns on a timeline'] : [])],
+      glance: ['A calendar of what goes out, by channel', 'Each piece’s steps back from its day, in Scheduled', 'Send for review, Approve, Publish', ...(campaigns ? ['Campaigns on a timeline'] : [])],
       how: [
         `Add a piece with its${channels.length > 0 ? ' channel,' : ''} type and the day it goes out${typed.length > 0 ? `; its steps come by themselves` : ''}.`,
-        'Tick each step as it is done, in its window or in Today.',
+        'Tick each step as it is done, in its window or in Scheduled.',
         'Press Send for review; the reviewer presses Approve, or Request changes with what to change.',
         'On its day, press Publish and paste its link.',
         ...(campaigns ? ['Add a campaign with its dates, and press Plan content on it to add its pieces.'] : []),
       ],
       auto: [
         ...(typed.length > 0 ? [`A new piece of type ${typed.join(', ')} gets that type's steps, each so many days before it goes out; moving its day moves them.`] : []),
-        'A step comes to Today on its day with Done, and stays until it is done.',
-        "A piece's day comes to Upcoming, and to Today with Publish; one sent for review comes to Today with Approve.",
+        'A step comes to Scheduled on its day with Done, and stays until it is done.',
+        "A piece's day comes to Scheduled with Publish, and one sent for review with Approve.",
         ...(campaigns ? ['Plan content adds a piece to the campaign, in Writing; a campaign counts its pieces and those out.'] : []),
         ...(budget ? ['A campaign shows what was paid on its budget line.'] : []),
         ...(releases ? ['A release shows the pieces that tell about it.'] : []),

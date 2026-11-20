@@ -7,7 +7,7 @@ Your projects, for customers or for yourselves: how each is going, its milestone
 - **Who are your projects for?** **Customers**, **Ourselves** or **Both**, the default. With **Ourselves**, a project has no customer.
 - **Will you track time?** No by default. Yes adds **Time**: the hours spent on each project.
 - **Each project's milestones:** **Kickoff**, **Planning**, **Delivery** and **Review** to start with. **Start project** adds each to a project, with a day spread from its start to its end.
-- **How often does a project lead post an update?** **Every week**, the default, **Every two weeks** or **No updates**. The update comes to the lead's Today on its day.
+- **How often does a project lead post an update?** **Every week**, the default, **Every two weeks** or **No updates**. The update comes to the lead's Scheduled on its day.
 - **Will you keep the budget of your projects?** No by default, and asked only when [Budget and spending](budget) is not chosen too. Yes sets up budget lines and payments, linked to each project.
 - **The budget lines every project starts with:** asked with a budget. **Material 40%**, **Labour 40%** and **Transport 10%** to start with; **Start project** adds each, planned at its share of the project's **Contract**.
 
@@ -45,10 +45,10 @@ With time, **Time** opens on **Week**: a row for each project, a column for each
 
 An entry has **What**, **Work** when left empty, its **Person**, **Day** and **Hours**, and **Billable**, ticked to start with, when projects are for customers. Added without hours, a timer starts; **Stop** writes the hours.
 
-## Today
+## Scheduled
 
-- When an active project's update is due, it comes to its lead's Today with **Post update**, saying how it stood last time: "last Nov 3 · On track · 64%". Three days on with none, the project is marked **Update missing**.
-- A milestone comes on its day with **Done**, and to Upcoming before.
+- When an active project's update is due, it comes to its lead's Scheduled with **Post update**, saying how it stood last time: "last Nov 3 · On track · 64%". Three days on with none, the project is marked **Update missing**.
+- A milestone comes on its day with **Done**.
 - A timer running is there with **Stop**.
 
 Late ones stay under **Overdue**.
