@@ -1,4 +1,4 @@
-import { type RemoteSignedOut, ServerAccount, type ServerAccountInfo, ServerRemote, type ServerSignedIn } from '@scrawlnotes/core';
+import { fillMe, type Me, type RemoteSignedOut, ServerAccount, type ServerAccountInfo, ServerRemote, type ServerSignedIn, type SpaceEntry } from '@scrawlnotes/core';
 import { useSyncExternalStore } from 'react';
 import { isDesktop } from './storage';
 
@@ -88,6 +88,23 @@ export function knownServers(): KnownServer[] {
   } catch {
     return [];
   }
+}
+
+/**
+ * The person as a space's people have them: on a server's space, that server's account, its id
+ * and, where Profile has none, its name and email; so a device whose id is not yet the account's
+ * writes no row of its own there (design/one-person.md 3).
+ */
+export function personIn(entry: Pick<SpaceEntry, 'source'>, me: Me, servers: KnownServer[] = knownServers()): Me {
+  const url = entry.source?.provider === 'server' ? entry.source.place.url : undefined;
+  const account = url ? servers.find((server) => server.url === url) : undefined;
+  return account?.id && account.id !== me.id ? fillMe({ ...me, id: account.id }, account.name, account.email) : me;
+}
+
+/** The server account a device's person takes as it opens: none when the person is one of its servers' accounts already. */
+export function accountToTake(me: Me | null | undefined, servers: KnownServer[] = knownServers()): KnownServer | undefined {
+  if (!me || servers.some((server) => server.id === me.id)) return undefined;
+  return servers.find((server) => server.id);
 }
 
 function keepServers(list: KnownServer[]) {

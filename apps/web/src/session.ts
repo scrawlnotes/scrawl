@@ -402,7 +402,7 @@ import {
   setCarriedSeen,
 } from './storage';
 import { pictureSession } from './pictures';
-import { knownServers, onServersChanged, rememberServer, serverAccount, serverKey, tellTimeZones } from './servers';
+import { accountToTake, knownServers, onServersChanged, personIn, rememberServer, serverAccount, serverKey, tellTimeZones } from './servers';
 import { keptConnection } from './sync';
 
 const SAVE_DELAY_MS = 400;
@@ -1086,6 +1086,10 @@ export class Session {
       this.serversHeard = true;
       onServersChanged(() => void this.carry());
     }
+    // A device whose person was made again after it signed in, its key kept, takes the account's id
+    // without a sign-in (design/one-person.md 3).
+    const account = accountToTake(this.snapshot.me);
+    if (account) this.takeAccount(account);
     this.meetSpaces();
     // A picture set or taken away while a server was out of reach, or on another device, reaches it now.
     this.tellPictures();
@@ -1406,13 +1410,14 @@ export class Session {
         const met = new Map<string, Person[]>();
         for (const [id, space] of this.opened) {
           try {
+            const who = personIn(space.entry, me);
             const people = await loadPeople(space.fs);
-            if (samePerson(people, me)) continue;
+            if (samePerson(people, who)) continue;
             // The picture goes with the row: written beside it when it changed, taken away with it.
-            const was = people.find((person) => person.id === me.id)?.picture;
-            if (me.picture && me.picture !== was) await space.fs.writeBlob(pictureFile(me.id), await this.personal.readBlob(MY_PICTURE));
-            else if (!me.picture && was) await space.fs.remove(pictureFile(me.id)).catch(() => undefined);
-            const next = withPerson(people, me);
+            const was = people.find((person) => person.id === who.id)?.picture;
+            if (who.picture && who.picture !== was) await space.fs.writeBlob(pictureFile(who.id), await this.personal.readBlob(MY_PICTURE));
+            else if (!who.picture && was) await space.fs.remove(pictureFile(who.id)).catch(() => undefined);
+            const next = withPerson(people, who);
             await savePeople(space.fs, next);
             met.set(id, next);
           } catch {
