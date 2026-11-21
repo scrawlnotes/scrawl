@@ -1,4 +1,4 @@
-import { foldersNest, inOneDrive, localPath, readSpaceEntries, type SpaceEntry, spaceOf, type VaultFs } from '@scrawlnotes/core';
+import { foldersNest, inOneDrive, localPath, NfcFs, readSpaceEntries, type SpaceEntry, spaceOf, type VaultFs } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { openBrowserVault, openBrowserVaultAt, removeBrowserVaultAt } from './opfsFs';
@@ -23,6 +23,14 @@ let folder: string | null = null;
 let defaultFolder: string | null = null;
 let settings: Settings = { vault: null, spaces: [] };
 
+/** Desktop: each folder's files as the app reads them, every name in NFC (design/unicode-names.md 3.1), by the folder. */
+const opened = new Map<string, NfcFs>();
+const inNfc = (fs: VaultFs, root?: string) => {
+  const nfc = new NfcFs(fs);
+  if (root) opened.set(root, nfc);
+  return nfc;
+};
+
 /** The folder the desktop app keeps its notes in, as of the last `openVault`. */
 export const vaultFolder = () => folder;
 
@@ -31,12 +39,12 @@ export const defaultVaultFolder = () => defaultFolder;
 
 /** Opens the vault: the browser's own storage, or on desktop the folder chosen or the default one, made by the shell. */
 export async function openVault(): Promise<VaultFs> {
-  if (!isDesktop) return openBrowserVault();
+  if (!isDesktop) return inNfc(await openBrowserVault());
   const [loaded, fallback] = await Promise.all([invoke<{ vault?: string | null; spaces?: unknown }>('settings_load'), invoke<string>('default_vault_folder')]);
   settings = { vault: loaded.vault ?? null, spaces: readSpaceEntries(loaded.spaces) };
   defaultFolder = fallback;
   folder = settings.vault ?? fallback;
-  return new TauriFs(folder);
+  return inNfc(new TauriFs(folder), folder);
 }
 
 async function saveSettings(next: Settings): Promise<void> {
@@ -162,9 +170,9 @@ const browserFolder = (id: string) => `.spaces/${id}`;
  * or sit in it. Nothing is made for a space that is not there.
  */
 export async function openSpaceVault(entry: SpaceEntry): Promise<VaultFs | null> {
-  if (!isDesktop) return openBrowserVaultAt(browserFolder(entry.id));
+  if (!isDesktop) return inNfc(await openBrowserVaultAt(browserFolder(entry.id)));
   if (!entry.folder || (folder && foldersNest(entry.folder, folder))) return null;
-  return (await invoke<boolean>('folder_exists', { folder: entry.folder })) ? new TauriFs(entry.folder) : null;
+  return (await invoke<boolean>('folder_exists', { folder: entry.folder })) ? inNfc(new TauriFs(entry.folder), entry.folder) : null;
 }
 
 /** A folder of its own for a new space: named after it in the app's data folder on desktop, under the browser's storage in the browser. */
@@ -234,6 +242,12 @@ function onDisk(path: string): [string, string] | null {
   return root ? [root, localPath(path)] : null;
 }
 
+/** Desktop: as `onDisk`, with the path inside the folder as the disk spells it, which may be NFD (design/unicode-names.md 3.1). */
+async function speltOnDisk(path: string): Promise<[string, string] | null> {
+  const at = onDisk(path);
+  return at && [at[0], (await opened.get(at[0])?.onDisk(at[1])) ?? at[1]];
+}
+
 /** Desktop: whether a path of the app is in a folder on this device, where the file manager can show it. */
 export function isOnDisk(path: string): boolean {
   return onDisk(path) !== null;
@@ -241,13 +255,13 @@ export function isOnDisk(path: string): boolean {
 
 /** Desktop: opens a file of a space with the program the system uses for it. */
 export async function openFileOnDesktop(path: string): Promise<void> {
-  const at = onDisk(path);
+  const at = await speltOnDisk(path);
   if (at) await invoke('open_file', { root: at[0], path: at[1] });
 }
 
 /** Desktop: shows a file of a space selected in its folder, in the system's file manager. */
 export async function revealFileOnDesktop(path: string): Promise<void> {
-  const at = onDisk(path);
+  const at = await speltOnDisk(path);
   if (at) await invoke('reveal_file', { root: at[0], path: at[1] });
 }
 
@@ -298,9 +312,12 @@ export async function openUrlOnDesktop(url: string): Promise<void> {
 }
 
 /** Desktop: an address the web view reads a file of a space from, straight from disk. */
-export const fileUrl = (path: string) => {
+export const fileUrl = (path: string): string | Promise<string> => {
   const at = onDisk(path);
-  return at ? convertFileSrc(`${at[0]}/${at[1]}`) : path;
+  if (!at) return path;
+  const url = ([root, local]: [string, string]) => convertFileSrc(`${root}/${local}`);
+  // A name of plain letters is spelt one way: the disk need not be asked.
+  return /^[\x00-\x7f]*$/.test(at[1]) ? url(at) : speltOnDisk(path).then((spelt) => url(spelt ?? at));
 };
 
 /**

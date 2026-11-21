@@ -18,7 +18,8 @@ export function parseRecent(text: string | null): Seen[] {
   if (!text) return [];
   let data: unknown;
   try {
-    data = JSON.parse(text);
+    // A path kept from before may be in NFD; the app's are NFC (design/unicode-names.md 3.4).
+    data = JSON.parse(text.normalize('NFC'));
   } catch {
     return [];
   }

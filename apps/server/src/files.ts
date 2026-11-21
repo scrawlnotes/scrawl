@@ -60,7 +60,9 @@ export const PAGE = 1000;
 const MAX_PATH = 1024;
 
 /** The path as the server keeps it, or a `BadPath`. */
-export function checkPath(path: string): string {
+export function checkPath(asked: string): string {
+  // Kept in NFC, as every path in Scrawl is: a letter and its mark apart (NFD) is the same name (design/unicode-names.md 3.3).
+  const path = asked.normalize('NFC');
   const parts = path.split('/');
   // eslint-disable-next-line no-control-regex
   const bad = path.length > MAX_PATH || parts.some((p) => p === '' || p === '.' || p === '..' || /[\u0000-\u001f\u007f\\]/.test(p));
@@ -130,8 +132,8 @@ export class SpaceFiles {
    * Writes what was taken to `path`, while the file there has the tag `ifMatch`, or with null
    * while there is none; its folders are made as needed.
    */
-  write(space: string, path: string, taken: Taken, ifMatch: string | null, by: Actor): Entry {
-    checkPath(path);
+  write(space: string, asked: string, taken: Taken, ifMatch: string | null, by: Actor): Entry {
+    const path = checkPath(asked);
     this.blobs.keep(taken);
     let before: string | null = null;
     const entry = this.telling(space, () => transaction(this.db, () => {
@@ -151,8 +153,8 @@ export class SpaceFiles {
   }
 
   /** Moves a file, while it has the tag `ifMatch`; nothing may be at `to`, but the same file spelt otherwise. */
-  move(space: string, from: string, to: string, ifMatch: string | null, by: Actor): Entry {
-    checkPath(to);
+  move(space: string, from: string, asked: string, ifMatch: string | null, by: Actor): Entry {
+    const to = checkPath(asked);
     return this.telling(space, () => transaction(this.db, () => {
       const fromKey = keyOf(from);
       const toKey = keyOf(to);
@@ -197,8 +199,8 @@ export class SpaceFiles {
   }
 
   /** An empty folder; nothing happens when it is there. */
-  mkdir(space: string, path: string, by: Actor) {
-    checkPath(path);
+  mkdir(space: string, asked: string, by: Actor) {
+    const path = checkPath(asked);
     this.telling(space, () => transaction(this.db, () => {
       const row = this.live(space, keyOf(path));
       if (row?.kind === 'dir') return;

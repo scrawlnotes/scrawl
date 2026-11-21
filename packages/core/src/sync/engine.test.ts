@@ -277,6 +277,30 @@ describe('sync', () => {
     expect(await dirs(phone)).toContain('Empty');
   });
 
+  it('10b. takes a name in another Unicode form for the same name, on either side, and moves nothing (design/unicode-names.md 3.2)', async () => {
+    const { remote, laptop, phone, syncLaptop, syncPhone } = setup();
+    const nfc = 'OzBI/Kaan İş Takibi.md';
+    const nfd = nfc.normalize('NFD');
+    await laptop.writeText(nfc, 'board');
+    await syncLaptop();
+    await syncPhone();
+    // The phone's store gives the name in NFD: not a rename there.
+    await phone.move(nfc, nfd);
+    const moves = remote.calls.move;
+    expect((await syncPhone()).moved).toEqual([]);
+    expect(remote.calls.move).toBe(moves);
+    expect(remote.paths()).toContain(nfc);
+    // The name there turned to NFD, as an old device or the server's NFC turn does: nothing moves here.
+    await remote.move(nfc, nfd, await tagOf(remote, nfc));
+    expect((await syncLaptop()).moved).toEqual([]);
+    expect(Object.keys(await contents(laptop))).toEqual([nfc]);
+    // A change made since still goes up, to the one file.
+    await laptop.writeText(nfc, 'board, changed');
+    await syncLaptop();
+    expect(await remote.text(nfc)).toBe('board, changed');
+    expect(remote.paths().filter((p) => p.endsWith('.md'))).toHaveLength(1);
+  });
+
   it('11. keeps the comments made on both devices and gives a doubled key a new number, alike on both', async () => {
     const { laptop, phone, syncLaptop, syncPhone } = setup();
     const path = 'Scrawl/Roadmap.board.json';

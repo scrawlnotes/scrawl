@@ -48,6 +48,120 @@ export const join = (...parts: string[]) => parts.filter(Boolean).join('/');
 export const dirname = (path: string) => path.slice(0, Math.max(0, path.lastIndexOf('/')));
 export const basename = (path: string) => path.slice(path.lastIndexOf('/') + 1);
 
+const ascii = (text: string) => /^[\x00-\x7f]*$/.test(text);
+
+/**
+ * A store's files with every name in NFC (design/unicode-names.md 3.1). A letter can be written as
+ * one character or as a letter and its mark (NFD): `İ` or `I` and a dot. A name a store keeps in
+ * NFD is listed in NFC and reached by its NFC path; a name not there yet is written in NFC. Names
+ * on the disk are never changed.
+ */
+export class NfcFs implements VaultFs {
+  /** Each folder's names as the store spells them, by their NFC, from when it was last listed; by the folder's own spelling. */
+  private readonly spelt = new Map<string, Map<string, string>>();
+  readonly stat?: (path: string) => Promise<Entry | null>;
+
+  constructor(private readonly inner: VaultFs) {
+    if (inner.stat) {
+      const stat = inner.stat.bind(inner);
+      this.stat = async (path) => {
+        const entry = await stat(await this.onDisk(path));
+        return entry && { ...entry, name: basename(path).normalize('NFC'), path: path.normalize('NFC') };
+      };
+    }
+  }
+
+  private remember(dir: string, entries: Entry[]) {
+    this.spelt.set(dir, new Map(entries.map((entry) => [entry.name.normalize('NFC'), entry.name])));
+  }
+
+  /** The path as the store spells it: each part as it is there, a part not there in NFC. */
+  async onDisk(path: string): Promise<string> {
+    if (ascii(path)) return path;
+    let at = '';
+    for (const part of path.split('/')) {
+      const wanted = part.normalize('NFC');
+      let found = ascii(part) ? part : this.spelt.get(at)?.get(wanted);
+      // Not seen in its folder: made since, by this app or another, or not there at all.
+      if (found === undefined) {
+        this.remember(at, await this.inner.list(at));
+        found = this.spelt.get(at)!.get(wanted) ?? wanted;
+      }
+      at = join(at, found);
+    }
+    return at;
+  }
+
+  /** A name written, made or moved in: its folder, when it was listed, has it now. */
+  private wrote(disk: string) {
+    this.spelt.get(dirname(disk))?.set(basename(disk).normalize('NFC'), basename(disk));
+  }
+
+  /** A name gone: from its folder, and every folder under it. */
+  private gone(disk: string) {
+    this.spelt.get(dirname(disk))?.delete(basename(disk).normalize('NFC'));
+    for (const dir of [...this.spelt.keys()]) if (dir === disk || dir.startsWith(`${disk}/`)) this.spelt.delete(dir);
+  }
+
+  async list(dir: string): Promise<Entry[]> {
+    const disk = await this.onDisk(dir);
+    const entries = await this.inner.list(disk);
+    this.remember(disk, entries);
+    const shown = dir.normalize('NFC');
+    return entries.map((entry) => {
+      const name = entry.name.normalize('NFC');
+      return name === entry.name && disk === shown ? entry : { ...entry, name, path: join(shown, name) };
+    });
+  }
+
+  async readText(path: string): Promise<string> {
+    return this.inner.readText(await this.onDisk(path));
+  }
+
+  async readBlob(path: string): Promise<Blob> {
+    return this.inner.readBlob(await this.onDisk(path));
+  }
+
+  async writeText(path: string, text: string): Promise<void> {
+    const disk = await this.onDisk(path);
+    await this.inner.writeText(disk, text);
+    this.wrote(disk);
+  }
+
+  async writeBlob(path: string, data: Blob): Promise<void> {
+    const disk = await this.onDisk(path);
+    await this.inner.writeBlob(disk, data);
+    this.wrote(disk);
+  }
+
+  async writeBlobInParts(path: string, data: Blob, options?: PartsOptions): Promise<void> {
+    const disk = await this.onDisk(path);
+    await this.inner.writeBlobInParts(disk, data, options);
+    this.wrote(disk);
+  }
+
+  async move(from: string, to: string): Promise<void> {
+    const [source, target] = [await this.onDisk(from), await this.onDisk(to)];
+    // The same name in another form: it is there already.
+    if (source === target) return;
+    await this.inner.move(source, target);
+    this.gone(source);
+    this.wrote(target);
+  }
+
+  async remove(path: string): Promise<void> {
+    const disk = await this.onDisk(path);
+    await this.inner.remove(disk);
+    this.gone(disk);
+  }
+
+  async mkdir(path: string): Promise<void> {
+    const disk = await this.onDisk(path);
+    await this.inner.mkdir(disk);
+    this.wrote(disk);
+  }
+}
+
 /** An in-memory vault for tests and for browsers without persistent storage. */
 export class MemoryFs implements VaultFs {
   private readonly files = new Map<string, Blob>();

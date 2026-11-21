@@ -14,6 +14,7 @@ import {
 } from '@scrawlnotes/core';
 import { afterEach, describe, expect, it } from 'vitest';
 import { SETUP_MS, type Config } from './config';
+import { openDb } from './db';
 import { makeServer } from './server';
 
 // The server as the app reaches it: its API through the client in packages/core, against a
@@ -46,7 +47,7 @@ function start(options: { ownerEmail?: string; pageSize?: number; minSyncLevel?:
   const fetch: typeof globalThis.fetch = (input, init) => Promise.resolve(server.app.request(input instanceof Request ? input : String(input), init));
   const account = (token: string | null = null) => new ServerAccount({ url: URL, token: () => token, fetch });
   const remote = (token: string, space = SPACE) => new ServerRemote({ url: URL, token: () => token, space, fetch });
-  return { server, fetch, account, remote, later: (ms: number) => (clock += ms) };
+  return { server, data, fetch, account, remote, later: (ms: number) => (clock += ms) };
 }
 
 async function owner(s: ReturnType<typeof start>) {
@@ -179,14 +180,34 @@ describe('a space’s files, as a remote', () => {
     expect((await remote.changes(null)).changed).toEqual([]);
   });
 
-  it('takes a path whatever its case or Unicode form as the same, keeping the last spelling', async () => {
+  it('takes a path whatever its case or Unicode form as the same, keeping the last spelling in NFC', async () => {
     const s = start();
     const remote = s.remote(await owner(s));
     const first = await remote.write('Şirket/Toplantı.md', new Blob(['1']), null);
     const second = await remote.write('şirket/toplantı.md'.normalize('NFD'), new Blob(['2']), first.tag);
+    expect(second.path).toBe('şirket/toplantı.md');
     const all = (await remote.changes(null)).changed;
     expect(all.filter((e) => e.kind === 'file')).toEqual([second]);
     expect(await refusal(remote.write('Şirket', new Blob(['x']), null))).toBeInstanceOf(RemoteConflict);
+    const moved = await remote.move(second.path, 'Şirket/Kaan İş.md'.normalize('NFD'), second.tag);
+    expect(moved.path).toBe('Şirket/Kaan İş.md');
+  });
+
+  it('turns the names it kept in NFD to NFC once, each with a new number (design/unicode-names.md 3.3)', async () => {
+    const s = start();
+    const remote = s.remote(await owner(s));
+    const nfc = 'Kaan İş Takibi.board.json';
+    const written = await remote.write(nfc, new Blob(['{}']), null);
+    const { cursor } = await remote.changes(null);
+    // As a server before this one kept it.
+    s.server.db.prepare('UPDATE entries SET path = ? WHERE path = ?').run(nfc.normalize('NFD'), nfc);
+    s.server.db.prepare("DELETE FROM meta WHERE key = 'nfc-paths'").run();
+    openDb(join(s.data, 'scrawl.db')).close();
+    const since = await remote.changes(cursor);
+    expect(since.changed).toEqual([{ ...written, path: nfc }]);
+    expect(since.removed).toEqual([]);
+    openDb(join(s.data, 'scrawl.db')).close();
+    expect((await remote.changes(since.cursor)).changed).toEqual([]);
   });
 
   it('lists a long space a page at a time, entirely or since a cursor', async () => {

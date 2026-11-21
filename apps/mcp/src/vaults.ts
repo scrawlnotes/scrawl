@@ -1,7 +1,7 @@
 import { readFile, stat } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import type { AgentSpace } from '@scrawlnotes/agent';
-import { loadSpace, readSpaceEntries, type SpaceEntry } from '@scrawlnotes/core';
+import { loadSpace, NfcFs, readSpaceEntries, type SpaceEntry } from '@scrawlnotes/core';
 import { NodeFs } from './nodefs';
 
 // Where the notes are. Without being told, the command reads the desktop app's own settings and
@@ -106,7 +106,7 @@ export async function vaultsFromFolders(folders: string[]): Promise<{ found: Fou
   return { found, missing };
 }
 
-/** The spaces the tools work on, over the vaults found. */
+/** The spaces the tools work on, over the vaults found, every name in NFC as the app has it (design/unicode-names.md 3.1). */
 export function spacesOf(found: FoundVault[]): AgentSpace[] {
-  return found.map((vault) => ({ id: vault.id, name: vault.name, where: vault.where, personal: vault.personal, fs: new NodeFs(vault.folder) }));
+  return found.map((vault) => ({ id: vault.id, name: vault.name, where: vault.where, personal: vault.personal, fs: new NfcFs(new NodeFs(vault.folder)) }));
 }

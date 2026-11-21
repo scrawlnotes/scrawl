@@ -132,7 +132,7 @@ async function localStatusOf(record: FileRecord | undefined, entry: Entry | unde
   if (record?.away) return entry ? 'changed' : 'away';
   if (!entry) return record ? 'deleted' : 'none';
   if (!record) return 'new';
-  if (entry.path === record.path && entry.size === record.size && entry.modified !== undefined && entry.modified === record.modified) return 'same';
+  if (samePath(entry.path, record.path) && entry.size === record.size && entry.modified !== undefined && entry.modified === record.modified) return 'same';
   return (await hash()) === record.hash ? 'same' : 'changed';
 }
 
@@ -160,6 +160,8 @@ const moment = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d
 /** A device name as it can stand in a file name anywhere. */
 const safeName = (name: string) => name.replace(/[\\/:*?"<>|]/g, '-').trim() || 'another device';
 const isUnder = (key: string, dir: string) => key.startsWith(`${dir}/`);
+/** One name spelt in one Unicode form or another (design/unicode-names.md 3.2); a change of case is still a rename. */
+const samePath = (a: string, b: string) => a === b || a.normalize('NFC') === b.normalize('NFC');
 
 /**
  * Where another version of a file goes beside it, made on `device` at `at`: `Plan (conflict,
@@ -335,7 +337,7 @@ class Turn {
     for (const [key, [here]] of status) {
       const record = this.state.files[key];
       const entry = this.local.files.get(key);
-      if (here === 'same' && record && entry?.modified !== undefined && entry.path === record.path) record.modified = entry.modified;
+      if (here === 'same' && record && entry?.modified !== undefined && samePath(entry.path, record.path)) record.modified = entry.modified;
     }
     // A change of the other side left for later is listed again next turn: the cursor stays. A
     // record the other side does not bear out is told right by a listing of everything there is.
@@ -532,13 +534,16 @@ class Turn {
       this.report.followed.push({ from: entry.path, to: file.path });
       this.did(file.path, 'moved', 'moved', 0, entry.path);
     }
-    // Renamed in case or Unicode form only: the key is the same, the spelling not.
+    // Renamed in case only: the key is the same, the spelling not. A name in another Unicode form
+    // is not renamed: one device's store giving it so would turn it on every device.
     for (const [key, entry] of [...this.local.files]) {
       const record = records[key];
       if (!record || record.away) continue;
       const there = this.remoteFiles.get(key);
-      const renamedHere = entry.path !== record.path;
-      const renamedThere = there !== undefined && there.tag === record.tag && there.path !== record.path;
+      // Spelt there in another form only: the record takes it, for what is asked there; nothing moves.
+      if (there && there.tag === record.tag && there.path !== record.path && samePath(there.path, record.path)) record.path = there.path;
+      const renamedHere = !samePath(entry.path, record.path);
+      const renamedThere = there !== undefined && there.tag === record.tag && !samePath(there.path, record.path);
       if (renamedThere && !renamedHere) {
         await this.fs.move(entry.path, there.path);
         await moveBase(this.fs, record.path, there.path);

@@ -59,9 +59,8 @@ Sarıldığı yerler:
 
 | Nerede | Hangi depo |
 |---|---|
-| Web ve telefon | `openBrowserVault`, `openBrowserVaultAt` (`opfsFs.ts`) |
-| Masaüstü | `TauriFs` açılan yerler (`storage.ts`) |
-| Ajan, kendi bilgisayarında | `NodeFs` (`apps/mcp/src/vaults.ts`, `main.ts`) |
+| Web, telefon ve masaüstü | `openVault`, `openSpaceVault` (`storage.ts`): tarayıcının deposu da, masaüstünün `TauriFs`'i de |
+| Ajan, kendi bilgisayarında | `spacesOf` (`apps/mcp/src/vaults.ts`): araçların her space'i |
 | Ajan, sunucuda | Sarılmaz: sunucu adları NFC saklıyor (3.3), `ServerFs` onları veriyor. |
 
 Maliyet: ASCII yollarda çeviri yok. Ötekilerde klasör başına bir listeleme, o da uygulama ağacı okurken zaten listelediği için çoğu zaman eşlemede hazır.
@@ -70,8 +69,8 @@ Maliyet: ASCII yollarda çeviri yok. Ötekilerde klasör başına bir listeleme,
 
 - Yalnız biçimi farklı iki yazım yeniden adlandırma sayılmaz (`engine.ts` 535–559). Karşılaştırma NFC'de yapılır; büyük-küçük harf farkı yine yeniden adlandırma.
 - Sunucudaki yazım bu cihazınkinden yalnız biçimde farklıysa kayıt (`record.path`) sunucununkini alır; burada ya da orada hiçbir şey taşınmaz.
-- `sync-state.json` okunurken kayıttaki yollar ve klasörler NFC'ye çevrilir. Eski bir kayıt NFD yazımı tutuyor olabilir.
-- Uzak listedeki yollar karşılaştırma için NFC'ye çevrilir. Uzaktaki çağrılar (`read`, `move`, `remove`) uzak yazımla yapılır. OneDrive adı nasıl tutuyorsa öyle kalır, sunucu iki biçimi bir sayıyor.
+- Yazımlar NFC'de karşılaştırılır (`samePath`): dosyanın değişip değişmediğine bakarken de, yeniden adlandırmada da. Bu yüzden `sync-state.json`'daki eski NFD yazımlar dönüştürülmez; olduğu gibi kalabilirler.
+- Uzaktaki çağrılar (`read`, `move`, `remove`) kayıttaki, yani uzaktaki yazımla yapılır. OneDrive adı nasıl tutuyorsa öyle kalır, sunucu iki biçimi bir sayıyor.
 
 ### 3.3 Sunucu
 
@@ -83,8 +82,9 @@ Maliyet: ASCII yollarda çeviri yok. Ötekilerde klasör başına bir listeleme,
 
 Kaynakların hepsi NFC verince karşılaştırmalar kendiliğinden düzelir. Ayrıca:
 
-- `workspace.json`'daki açık sekmeler ve son açılanlar okunurken NFC'ye çevrilir. Eski bir oturum NFD yol tutuyor olabilir.
-- Cihaz önbellekleri (`.scrawl/index`) yeni NFC adlarla yeniden kurulur. Eski NFD girdilerin atılması gerekiyor; index'in ağaçta olmayan girdiyi nasıl attığına kod yazılırken bakılacak.
+- `workspace.json` (açık sekmeler, pano ve liste görünümleri) ve Recent listesi okunurken metinleri NFC'ye çevrilir. Eski bir oturum NFD yol tutuyor olabilir.
+- Not başlıklarının önbelleği (`.scrawl/index/_titles.json`) yalnız görülen notları tutuyor. Eski NFD girdiler bir sonraki kayıtta kendiliğinden gider, o notlar bir kez yeniden okunur.
+- Masaüstünde yolu doğrudan diske veren üç yer de diskteki yazımı kullanır: notta resim (`fileUrl`), Open ve Show in folder (`storage.ts`).
 - Favorilerdeki `62a8a34` düzeltmesi kalır; artık gerekmese de zararı yok.
 - Not içindeki linkler, görevin ve kartın `note`'u, Chat'teki `scrawl:item` linkleri zaten NFC (1.2). Bir şey değişmez.
 

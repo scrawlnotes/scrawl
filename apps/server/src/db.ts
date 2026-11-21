@@ -313,7 +313,27 @@ export function openDb(file: string): Db {
   const db = new DatabaseSync(file);
   db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;');
   migrate(db);
+  nfcPaths(db);
   return db;
+}
+
+/**
+ * Once: the names of files and folders kept in NFD (a letter and its mark apart) turn NFC, each
+ * with a new number so that every device hears of it, and takes it for the same name, moving
+ * nothing (design/unicode-names.md 3.3). What is gone, and the record of writes, stay as written.
+ */
+function nfcPaths(db: Db) {
+  if (db.prepare("SELECT 1 FROM meta WHERE key = 'nfc-paths'").get()) return;
+  transaction(db, () => {
+    const rows = db.prepare('SELECT space_id, key, path FROM entries WHERE deleted = 0').all() as { space_id: string; key: string; path: string }[];
+    for (const row of rows) {
+      const path = row.path.normalize('NFC');
+      if (path === row.path) continue;
+      const { seq } = db.prepare('UPDATE spaces SET seq = seq + 1 WHERE id = ? RETURNING seq').get(row.space_id) as { seq: number };
+      db.prepare('UPDATE entries SET path = ?, seq = ? WHERE space_id = ? AND key = ?').run(path, seq, row.space_id, row.key);
+    }
+    db.prepare("INSERT INTO meta (key, value) VALUES ('nfc-paths', '1')").run();
+  });
 }
 
 function migrate(db: Db) {

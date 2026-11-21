@@ -1210,7 +1210,8 @@ export async function saveNoteTitles(fs: VaultFs, titles: NoteTitles): Promise<v
 
 export async function loadWorkspace(fs: VaultFs): Promise<Workspace> {
   try {
-    const data = JSON.parse(await fs.readText(WORKSPACE)) as Partial<Workspace>;
+    // Paths kept from before may be in NFD; every path in the app is NFC (design/unicode-names.md 3.4).
+    const data = JSON.parse((await fs.readText(WORKSPACE)).normalize('NFC')) as Partial<Workspace>;
     const tabs = Array.isArray(data.tabs) ? data.tabs.filter((t) => typeof t === 'string') : [];
     const boards: Record<string, BoardLook> = {};
     if (data.boards && typeof data.boards === 'object') {

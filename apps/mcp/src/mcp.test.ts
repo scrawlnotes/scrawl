@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Client } from '@modelcontextprotocol/client';
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
-import { loadAgents, loadList, saveMe, saveSpace } from '@scrawlnotes/core';
+import { loadAgents, loadList, NfcFs, saveMe, saveSpace } from '@scrawlnotes/core';
 import { afterEach, describe, expect, it } from 'vitest';
 import { agentOf, machineName, parseArgs } from './main';
 import { NodeFs } from './nodefs';
@@ -46,6 +46,17 @@ describe('a vault on disk', () => {
     expect(await fs.list('Archive')).toEqual([]);
     await expect(fs.readText('../outside.md')).rejects.toThrow('Not inside the vault');
     await expect(fs.writeText('a/../../b.md', 'x')).rejects.toThrow('Not inside the vault');
+  });
+
+  it('shows a name kept in NFD on the disk in NFC, and reaches it so (design/unicode-names.md 3.1)', async () => {
+    const root = temp('nfd');
+    const name = 'Kaan İş Takibi.md';
+    writeFileSync(join(root, name.normalize('NFD')), 'board');
+    const fs = new NfcFs(new NodeFs(root));
+    expect((await fs.list('')).map((e) => e.path)).toEqual([name]);
+    expect(await fs.readText(name)).toBe('board');
+    await fs.writeText(name, 'board, changed');
+    expect((await new NodeFs(root).list('')).map((e) => e.name)).toEqual([name.normalize('NFD')]);
   });
 });
 
@@ -104,7 +115,7 @@ describe('finding the vaults', () => {
       ['folder:C', 'C', false],
     ]);
     expect(missing).toEqual([join(home, 'Nope')]);
-    expect(spacesOf(found).map((s) => s.fs instanceof NodeFs)).toEqual([true, true, true]);
+    expect(spacesOf(found).map((s) => s.fs instanceof NfcFs)).toEqual([true, true, true]);
     expect(parseArgs([a, '--vault', b, '', '--client', 'Claude'])).toEqual({ folders: [a, b], client: 'Claude' });
     expect(() => parseArgs(['--nope'])).toThrow('Unknown option');
     expect(parseArgs(['--help']).help).toBe(true);
