@@ -1,5 +1,6 @@
 import { t } from '@scrawlnotes/i18n';
 import { Fragment, type KeyboardEvent, type ReactNode, type TouchEvent, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { MenuHead, MenuItem } from './dialogs';
 import { Icon, type IconName } from './Icon';
 
@@ -15,6 +16,17 @@ const KEYBOARD = 120;
 
 /** How long a quick add sheet says what it added last. */
 const ADDED_MS = 4000;
+
+/** The phone's own frame (Phone.tsx), where menus are drawn. */
+let phoneFrame: HTMLElement | null = null;
+export const setPhoneFrame = (frame: HTMLElement | null) => {
+  phoneFrame = frame;
+};
+/**
+ * A menu drawn in the phone's frame, over the tab bar and the page's bar. Drawn inside a page, an
+ * iPhone keeps what is fixed in its scrolled part under them, Cancel behind the tab bar.
+ */
+const overAll = (menu: ReactNode) => (phoneFrame ? createPortal(menu, phoneFrame) : menu);
 
 /**
  * What a quick add sheet added last, said above it for a moment while the sheet stays open for
@@ -259,7 +271,7 @@ export function ActionSheet({ head, items: all, onClose }: { head?: MenuHead; it
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
-  return (
+  return overAll(
     <>
       <div className="mb-acts-back" onClick={onClose} />
       <div className="mb-acts" role="menu" aria-label={head?.title} style={place}>
@@ -308,7 +320,7 @@ export function ActionSheet({ head, items: all, onClose }: { head?: MenuHead; it
           </button>
         </div>
       </div>
-    </>
+    </>,
   );
 }
 
@@ -327,7 +339,7 @@ export function AskSheet({ title, message, action, danger = true, onConfirm, onC
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
-  return (
+  return overAll(
     <>
       <div className="mb-acts-back" onClick={onClose} />
       <div className="mb-acts" role="alertdialog" aria-label={title} style={place}>
@@ -346,6 +358,6 @@ export function AskSheet({ title, message, action, danger = true, onConfirm, onC
           </button>
         </div>
       </div>
-    </>
+    </>,
   );
 }
