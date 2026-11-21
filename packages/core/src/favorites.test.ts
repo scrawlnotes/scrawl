@@ -25,6 +25,15 @@ describe('favorites', () => {
     expect(starFavorite(two, { label: 'Bug' }, false)).toEqual([{ filter: 'p1' }]);
   });
 
+  it('takes a path written in either Unicode form as one', () => {
+    const nfc = { item: `${SPACE}/Kaan İş Takibi.board.json` };
+    const nfd = { item: nfc.item.normalize('NFD') };
+    expect(nfd.item).not.toBe(nfc.item);
+    expect(isFavorite([nfc], nfd)).toBe(true);
+    expect(starFavorite([nfc], nfd, true)).toEqual([nfc]);
+    expect(starFavorite([nfc], nfd, false)).toEqual([]);
+  });
+
   it('follows what moved or was renamed, and what is in a folder that did', () => {
     const favorites: Favorite[] = [{ item: 'Work/Plan.md' }, { item: 'Work/Sub/Tasks.tasks.json' }, { item: 'Workshop.md' }, { filter: 'p1' }];
     expect(moveFavorites(favorites, 'Work/Plan.md', 'Work/Plan 2.md')[0]).toEqual({ item: 'Work/Plan 2.md' });

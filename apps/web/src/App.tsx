@@ -2749,8 +2749,11 @@ export function App() {
       const count = shownBy({ ...EVERYTHING, labels: [use.name], folders: [inSpace(where, '')] });
       return [{ key, tab: labelTab(label), name: use.name, icon: 'tag', dot: <LabelDot path={label} name={use.name} />, ...(where && { space: spaceLabel(where) }), count }];
     }
-    const path = favorite.item;
-    if (!(path in titles || path in tasks || path in boards || path in keyFiles || path in collections)) return [];
+    const here = (path: string) => path in titles || path in tasks || path in boards || path in keyFiles || path in collections;
+    // Starred on another device, its path may be written in another Unicode form than this one's (an iPhone's NFD).
+    const wanted = favorite.item.normalize('NFC');
+    const path = here(favorite.item) ? favorite.item : [titles, tasks, boards, keyFiles, collections].flatMap(Object.keys).find((each) => each.normalize('NFC') === wanted);
+    if (path === undefined) return [];
     const tab = path in collections ? collectionTab(path) : tabOf(path);
     const where = spaceOf(path);
     return [{ key, tab, name: nameOf(tab, tabTitles, filters), icon: iconOf(tab), ...(where && { space: spaceLabel(where) }), count: counts[tab] ?? 0 }];

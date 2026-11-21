@@ -17,9 +17,12 @@ export type Favorite =
 
 export const FAVORITES_FILE = '.scrawl/favorites.json';
 
-/** What tells one favorite from another: two writings of a label in different cases are one. */
+/**
+ * What tells one favorite from another: two writings of a label in different cases are one, and so
+ * are two writings of a path in Unicode, as a phone's storage may give `İ` apart (NFD).
+ */
 export function favoriteKey(favorite: Favorite): string {
-  if ('item' in favorite) return `item:${favorite.item}`;
+  if ('item' in favorite) return `item:${favorite.item.normalize('NFC')}`;
   if ('filter' in favorite) return `filter:${favorite.filter}`;
   return `label:${favorite.space ?? ''}:${favorite.label.toLowerCase()}`;
 }
