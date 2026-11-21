@@ -2,6 +2,19 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.34
+
+Scheduled, files that go with their message, and names in any language.
+
+- Today and Upcoming are one view, Scheduled: what is late first, then today, then each day that has something. Its number in the sidebar is two: what is late or due today, and after it what comes later.
+- A message's files sit inside the box with its words, and the message goes once all of them are on the server, never the words alone. A file that doesn't get there is sent again; if it still can't, the message says Not sent, with Retry.
+- A web address in a message opens in your browser.
+- Messages selected in Chat copy as their words alone, without names, times and empty lines. Copy on a message or a card's comment takes what you selected in it.
+- A name with letters such as İ, ş, й or が is the same name however another device wrote it: favorites, links and tabs find it, and syncing no longer renames it on your other devices.
+- When ChatGPT stops watching Scrawl, you are told, and Settings › Agents says the day it stopped. Mention it after that and Couldn't reach ChatGPT comes under your message.
+- Seen's eye comes after the message's last word.
+- On a server's space you are one person in its people, whichever device you signed in from.
+
 ## 0.1.33
 
 A task on any day, and your calendars as in Todoist.
