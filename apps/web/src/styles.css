@@ -17353,6 +17353,16 @@ div.ol-cal {
   padding: 8px 20px 4px;
   font-size: 15px;
   line-height: 22px;
+  /* What is selected over messages is their words: faces, names, times and buttons stay out (.bd takes text). */
+  user-select: none;
+}
+
+.ch-day,
+.ch-new,
+.ch-m .bd .ch-ed,
+.ch-m .bd .msg-codebar,
+.ch-m .bd .msg-more {
+  user-select: none;
 }
 
 .ch-m.cont {

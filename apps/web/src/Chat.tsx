@@ -951,7 +951,18 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
         </span>
       </header>
       )}
-      <div className="ch-msgs" ref={scroller} onScroll={onScroll}>
+      <div
+        className="ch-msgs"
+        ref={scroller}
+        onScroll={onScroll}
+        // Copied as words alone: the page's HTML around the messages would paste as empty lines.
+        onCopy={(event) => {
+          const words = getSelection()?.toString().trim();
+          if (!words || event.defaultPrevented) return;
+          event.clipboardData.setData('text/plain', words);
+          event.preventDefault();
+        }}
+      >
         {start === 0 && (server.older[chat.id] === false || (messages[0]?.seq ?? 1) <= 1) ? (
           <ChatIntro
             server={server}
