@@ -110,8 +110,13 @@ export async function startWebApp(): Promise<boolean> {
   void navigator.storage?.persist?.().catch(() => undefined);
   if (!import.meta.env.PROD || !('serviceWorker' in navigator)) return true;
   for (const kind of ['keydown', 'pointerdown'] as const) window.addEventListener(kind, () => (touched = true), { capture: true, once: true });
-  const kept = await within(navigator.serviceWorker.register('/sw.js'), REGISTER_MS).catch(() => null);
-  if (!kept) return true;
+  const registering = navigator.serviceWorker.register('/sw.js');
+  const kept = await within(registering, REGISTER_MS).catch(() => null);
+  if (!kept) {
+    // Kept late, it still looks for new versions from now on, and Check for updates works; else neither did all session.
+    void registering.then(watch).catch(() => undefined);
+    return true;
+  }
   registration = kept;
   const ready = waitingAtOpen(kept, navigator.serviceWorker.controller !== null) as ServiceWorker | null;
   // Back from Microsoft, its code becomes the key first: a reload cuts that off, and the code is
@@ -128,6 +133,13 @@ export async function startWebApp(): Promise<boolean> {
     });
     if (going) return false;
   }
+  watch(kept);
+  return true;
+}
+
+/** The service worker kept: a new version it finds is offered, and one is looked for whenever the app comes back on screen. */
+function watch(kept: ServiceWorkerRegistration) {
+  registration = kept;
   tell();
   found(kept.waiting);
   kept.addEventListener('updatefound', () => {
@@ -138,7 +150,6 @@ export async function startWebApp(): Promise<boolean> {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') void kept.update().catch(() => undefined);
   });
-  return true;
 }
 
 let opening: Promise<boolean> | null = null;
