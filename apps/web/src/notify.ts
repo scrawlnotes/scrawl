@@ -453,8 +453,8 @@ export function onNotificationClick(open: (href: string) => void): () => void {
 }
 
 const clicked = (href: string) => {
-  // A message, a card or a task a notice is of, or Today for the morning's.
-  if (!href.startsWith('scrawl:chat/') && !href.startsWith('scrawl:item/') && href !== 'scrawl:today') return;
+  // A message, a card or a task a notice is of, Today for the morning's, Settings › Agents for an agent that stopped watching.
+  if (!href.startsWith('scrawl:chat/') && !href.startsWith('scrawl:item/') && href !== 'scrawl:today' && href !== 'scrawl:agents') return;
   if (opens.size === 0) openedAt = href;
   for (const open of opens) open(href);
 };

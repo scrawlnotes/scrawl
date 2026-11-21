@@ -450,6 +450,57 @@ describe('ChatGPT watching (MCP Events)', () => {
     expect((sent.body as unknown as { data: { text: string } }).data.text).toContain('> @ChatGPT look at the build');
     await s.server.wakes.subscribe(agent, { arguments: {}, url: HOOK, secret: SECRET, ttlMs: 60 * 60 * 1000 });
     expect(rows(s)).toBe(1);
+    // Renewed, the callback is not asked again.
+    expect(s.verified).toEqual([HOOK]);
+  });
+
+  it('is renewed without a new check, a little late too; run out an hour unrenewed it ends, Kaan is told once, and a mention says so (design/agent-wake.md 15)', async () => {
+    const s = await start();
+    const { device, agent } = s.connect(KAAN, 'https://chatgpt.com/oauth', 'ChatGPT');
+    const subscribe = () => s.server.wakes.subscribe(agent, { arguments: {}, url: HOOK, secret: SECRET, ttlMs: 60 * 60_000 });
+    const notices = () => s.heard.filter((each) => each.type === 'notice');
+    const listed = async () => (await s.call(s.owner, 'GET', '/agents')).body as unknown as { watches: unknown; watchEnded: string | null }[];
+    await subscribe();
+    s.listen(KAAN);
+    // A callback that would not answer a check now: renewals do not ask it, one half an hour late neither.
+    s.callback.echoes = false;
+    await subscribe();
+    s.clock.at += 90 * 60_000;
+    s.server.wakes.endWatches();
+    await subscribe();
+    expect(s.verified).toEqual([HOOK]);
+    expect(notices()).toEqual([]);
+    // Run out an hour ago and not renewed: ended, told once.
+    const ranOut = s.clock.at + 60 * 60_000;
+    s.clock.at = ranOut + 61 * 60_000;
+    s.server.wakes.endWatches();
+    s.server.wakes.endWatches();
+    expect(rows(s)).toBe(0);
+    expect(notices()).toEqual([expect.objectContaining({ title: 'ChatGPT stopped watching Scrawl', body: 'Set it up again on a computer: Settings › Agents.', href: 'scrawl:agents' })]);
+    expect(logged).toContain(`Watch ended: ChatGPT of Kaan Arslan, ran out ${new Date(ranOut).toISOString()} without being renewed`);
+    expect(await listed()).toEqual([expect.objectContaining({ id: device, watches: null, watchEnded: new Date(ranOut).toISOString() })]);
+    // Mentioned now: nothing is sent, the line under the message and a notification say why.
+    const asked = await s.say(s.owner, s.general, `${personLink('ChatGPT', agent)} look`);
+    await s.settle();
+    expect(s.woken).toEqual([]);
+    expect(s.lines(asked.id)).toEqual(['failed']);
+    expect(notices()[1]).toMatchObject({ title: 'Couldn’t reach ChatGPT', body: 'ChatGPT isn’t watching Scrawl any more. Set it up again on a computer: Settings › Agents.' });
+    // Watching again: a new callback is checked, and the end is gone.
+    s.callback.echoes = true;
+    await subscribe();
+    expect(s.verified).toEqual([HOOK, HOOK]);
+    expect(await listed()).toEqual([expect.objectContaining({ watches: { host: 'chatgpt.com' }, watchEnded: null })]);
+  });
+
+  it('says so when mentioned just after it ran out, before the end is told', async () => {
+    const s = await start();
+    const { agent } = s.connect(KAAN, 'https://chatgpt.com/oauth', 'ChatGPT');
+    await s.server.wakes.subscribe(agent, { arguments: {}, url: HOOK, secret: SECRET, ttlMs: 60 * 60_000 });
+    s.listen(KAAN);
+    s.clock.at += 61 * 60_000;
+    const asked = await s.say(s.owner, s.general, `${personLink('ChatGPT', agent)} look`);
+    await s.settle();
+    expect(s.lines(asked.id)).toEqual(['failed']);
   });
 
   it('keeps the line at sent when one of its subscriptions got it and another did not', async () => {
@@ -475,6 +526,7 @@ describe('ChatGPT watching (MCP Events)', () => {
     await s.settle();
     expect(rows(s)).toBe(0);
     expect(s.heard.filter((each) => each.type === 'notice')).toEqual([expect.objectContaining({ title: 'Couldn’t reach ChatGPT', body: 'ChatGPT stopped watching Scrawl. Set it up again in Settings › Agents.' })]);
+    expect(((await s.call(s.owner, 'GET', '/agents')).body as unknown as { watchEnded: string | null }[])[0]!.watchEnded).toBe(new Date(s.clock.at).toISOString());
   });
 
   it('refuses a callback that does not give the challenge back, a wrong secret, a callback on a home network, and arguments', async () => {
@@ -499,6 +551,11 @@ describe('ChatGPT watching (MCP Events)', () => {
     await s.server.wakes.subscribe(agent, { arguments: {}, url: HOOK, secret: SECRET, ttlMs: null });
     expect((await s.call(s.owner, 'DELETE', `/agents/${device}/wake`)).status).toBe(204);
     expect(rows(s)).toBe(0);
+    // Turned off, it did not stop on its own: a mention says nothing.
+    s.listen(KAAN);
+    await s.say(s.owner, s.general, `${personLink('ChatGPT', agent)} look`);
+    await s.settle();
+    expect(s.heard.filter((each) => each.type === 'notice')).toEqual([]);
     await s.server.wakes.subscribe(agent, { arguments: {}, url: HOOK, secret: SECRET, ttlMs: null });
     await s.call(s.owner, 'DELETE', `/agents/${device}`);
     expect(rows(s)).toBe(0);

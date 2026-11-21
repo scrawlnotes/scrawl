@@ -306,6 +306,8 @@ export interface ServerAgent {
   wakes?: ServerWake | null;
   /** Where a subscription of its own sends what wakes it, as ChatGPT's (design/agent-wake.md 11); null for none. */
   watches?: { host: string } | null;
+  /** Not watching now: when its watching ended unrenewed or was ended by its subscriber (design/agent-wake.md 15); null otherwise. */
+  watchEnded?: string | null;
 }
 
 export interface ServerWake {

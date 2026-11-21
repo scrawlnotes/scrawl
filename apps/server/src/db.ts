@@ -307,6 +307,10 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE chats ADD COLUMN agent_id TEXT;
   `,
+  // When an agent's watching ended without being renewed, or its subscriber ended it (design/agent-wake.md 15).
+  `
+  ALTER TABLE agent_identities ADD COLUMN watch_ended_at INTEGER;
+  `,
 ];
 
 export function openDb(file: string): Db {

@@ -62,6 +62,8 @@ export interface AgentConnection {
   agent: string | null;
   /** Where a subscription of its own sends what wakes it, as ChatGPT's (design/agent-wake.md 11); null for none. */
   watches: { host: string } | null;
+  /** Not watching now, when its watching ended without being renewed or its subscriber ended it (design/agent-wake.md 15); null otherwise. */
+  watchEnded: string | null;
   /** Where its owner wakes it (design/agent-wake.md 4): the address and its headers' names; their values are never given back. */
   wakes: WakeInfo | null;
 }
@@ -355,14 +357,19 @@ export class OAuth {
   list(account: string): AgentConnection[] {
     const rows = this.db
       .prepare(
-        `SELECT d.id, a.client_name AS client, a.created_at AS connected, d.seen_at AS seen, i.name AS name, i.id AS agent, i.wake_url, i.wake_headers, i.wake_kind,
+        `SELECT d.id, a.client_name AS client, a.created_at AS connected, d.seen_at AS seen, i.name AS name, i.id AS agent, i.wake_url, i.wake_headers, i.wake_kind, i.watch_ended_at,
            (SELECT s.url FROM event_subscriptions s WHERE s.agent_id = i.id AND s.expires_at > ? ORDER BY s.created_at DESC LIMIT 1) AS watch_url
          FROM agents a JOIN devices d ON d.id = a.device_id
          LEFT JOIN agent_identities i ON i.account_id = d.account_id AND i.client_id = a.client_id
          WHERE d.account_id = ? AND d.revoked_at IS NULL ORDER BY a.created_at DESC`,
       )
-      .all(this.now(), account) as unknown as (Omit<AgentConnection, 'wakes' | 'watches'> & { wake_url: string | null; wake_headers: string | null; wake_kind: string | null; watch_url: string | null })[];
-    return rows.map(({ wake_url, wake_headers, wake_kind, watch_url, ...row }) => ({ ...row, wakes: wakeInfoOf(wake_url, wake_headers, wake_kind), watches: watch_url ? { host: new URL(watch_url).host } : null }));
+      .all(this.now(), account) as unknown as (Omit<AgentConnection, 'wakes' | 'watches' | 'watchEnded'> & { wake_url: string | null; wake_headers: string | null; wake_kind: string | null; watch_url: string | null; watch_ended_at: number | null })[];
+    return rows.map(({ wake_url, wake_headers, wake_kind, watch_url, watch_ended_at, ...row }) => ({
+      ...row,
+      wakes: wakeInfoOf(wake_url, wake_headers, wake_kind),
+      watches: watch_url ? { host: new URL(watch_url).host } : null,
+      watchEnded: !watch_url && watch_ended_at ? new Date(watch_ended_at).toISOString() : null,
+    }));
   }
 
   /**

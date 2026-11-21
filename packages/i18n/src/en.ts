@@ -355,6 +355,7 @@ export const en = {
   'agents.answerAddFirst': 'Add Scrawl to {name} first',
   'agents.answerClaudeOn': 'On · a task on claude.ai',
   'agents.answerChatgptOn': 'On · watching from a Work chat',
+  'agents.answerChatgptEnded': 'Off · stopped watching {day}',
   'agents.answerOther': 'Another agent',
   'agents.answerOtherSub': 'n8n, Zapier or your own code',
   'agents.answerOtherOn': 'On · {names}',

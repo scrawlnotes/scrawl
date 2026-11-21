@@ -48,6 +48,9 @@ const openLink = (href: string) => (isDesktop ? void openUrlOnDesktop(href).catc
 
 /** When an agent connected, as its row says it: `Oct 15`. */
 const dayText = (at: number) => new Date(at).toLocaleDateString(locale(), { month: 'short', day: 'numeric' });
+/** How ChatGPT's watching stands: on, off, or off since the day it stopped on its own (design/agent-wake.md 15). */
+const watchingText = (agent: ServerAgent) =>
+  agent.watches ? t('agents.answerChatgptOn') : agent.watchEnded ? t('agents.answerChatgptEnded', { day: dayText(Date.parse(agent.watchEnded)) }) : t('agents.answerOff');
 
 /** When an agent was last here: today, yesterday, a day. */
 const seenText = (seen: number) => dueLabel(dayOf(new Date(seen)), dayOf(new Date()));
@@ -410,7 +413,7 @@ function AnswerPart({ claude, chatgpt, others, onSetUp, onHelp }: {
           ? row('claude', face('C'), t('agents.claude'), claude.wakes ? t('agents.answerClaudeOn') : t('agents.answerOff'), !!claude.wakes, press(claude.wakes ? t('agents.answerChange') : t('agents.answerSetUp'), () => onSetUp('claude')))
           : row('claude', face('C'), t('agents.claude'), t('agents.answerAddFirst', { name: t('agents.claude') }), false, null)}
         {chatgpt
-          ? row('chatgpt', face(faceText(t('agents.chatgpt'))), t('agents.chatgpt'), chatgpt.watches ? t('agents.answerChatgptOn') : t('agents.answerOff'), !!chatgpt.watches, press(chatgpt.watches ? t('agents.answerChange') : t('agents.answerSetUp'), () => onSetUp('chatgpt')))
+          ? row('chatgpt', face(faceText(t('agents.chatgpt'))), t('agents.chatgpt'), watchingText(chatgpt), !!chatgpt.watches, press(chatgpt.watches ? t('agents.answerChange') : t('agents.answerSetUp'), () => onSetUp('chatgpt')))
           : row('chatgpt', face(faceText(t('agents.chatgpt'))), t('agents.chatgpt'), t('agents.answerAddFirst', { name: t('agents.chatgpt') }), false, null)}
         {row(
           'other',
@@ -1097,7 +1100,7 @@ function PhoneAnswer({ agents }: { agents: ServerAgent[] }) {
       </div>
       <div className="mb-list">
         {row('claude', 'C', t('agents.claude'), claude?.wakes ? t('agents.answerClaudeOn') : t('agents.answerOff'))}
-        {row('chatgpt', faceText(t('agents.chatgpt')), t('agents.chatgpt'), chatgpt?.watches ? t('agents.answerChatgptOn') : t('agents.answerOff'))}
+        {row('chatgpt', faceText(t('agents.chatgpt')), t('agents.chatgpt'), chatgpt ? watchingText(chatgpt) : t('agents.answerOff'))}
       </div>
       <p className="mb-p">{t('agents.answerPhoneNote')}</p>
     </>

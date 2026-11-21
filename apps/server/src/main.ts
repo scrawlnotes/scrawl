@@ -57,6 +57,8 @@ if (command === 'backup') {
   const server = makeServer(config, { videoTools: await ffmpegTools() });
   // The morning's notification of work due (design/notifications.md 5).
   server.due.start();
+  // Watches that ended without being renewed, told to their owners (design/agent-wake.md 15).
+  server.wakes.start();
   // Videos sent before, or left half done when it stopped, are looked at now (design/chat.md 27).
   void server.chats.lookAtVideos();
   const sockets = new WebSocketServer({ noServer: true });

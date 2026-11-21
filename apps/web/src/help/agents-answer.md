@@ -80,6 +80,7 @@ Scrawl sends the address a POST with JSON:
   - *Claude couldn't be reached:* Scrawl tries again after a minute and after five, then tells you.
 - **No answer from Claude yet** under your message: open the task on claude.ai and look under **History**; the run shows what Claude did.
 - **ChatGPT doesn't answer:** the Work chat must still be there. If ChatGPT's row says **Off**, set it up again.
+- **ChatGPT stopped watching Scrawl:** ChatGPT renews its watching by itself. When it hasn't for an hour after it ran out, Scrawl tells you once, and ChatGPT's row says the day it stopped. Mention it after that and **Couldn't reach ChatGPT** comes under your message. Set it up again, in a new Work chat.
 - **ChatGPT says it couldn't start watching Scrawl**, and offers to check every hour instead:
   - Only these can watch: a **Work** chat on **chatgpt.com**, and ChatGPT's desktop app with **Work** and **Cloud** chosen. A Chat, the phone app and **Local** can't. Send the message again in one of them.
   - On a company's ChatGPT, its admin's settings for plugins and for work that events start apply. Ask them to allow these for Scrawl.

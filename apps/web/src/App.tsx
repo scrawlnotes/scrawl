@@ -2029,9 +2029,15 @@ export function App() {
   }, [noticeGoTo, spaces, boards, tasks]);
   useEffect(() => {
     session.openScrawl = (href) => openScrawl.current(href);
-    // A notification clicked opens Chat at its message, or the card or the task it is of.
+    // A notification clicked opens Chat at its message, or the card or the task it is of; an agent that stopped watching, Settings › Agents.
     const stop = onNotificationClick((href) =>
-      href === 'scrawl:today' ? openToday.current() : href.startsWith('scrawl:item/') ? setNoticeGoTo({ href, until: Date.now() + NOTICE_WAIT_MS }) : openScrawl.current(href),
+      href === 'scrawl:today'
+        ? openToday.current()
+        : href === 'scrawl:agents'
+          ? setDialog({ kind: 'settings', section: 'agents' })
+          : href.startsWith('scrawl:item/')
+            ? setNoticeGoTo({ href, until: Date.now() + NOTICE_WAIT_MS })
+            : openScrawl.current(href),
     );
     return () => {
       session.openScrawl = null;

@@ -545,3 +545,35 @@ Tek dilim: sunucu, core, ajan paketi ve web birlikte. Sonra sunucu 0.2.41, web v
 7. Telefonda aynı.
 
 Mockup: design/mockups.html › Ajanla DM.
+
+## 15. İzleme bitince (21 Kasım'da onaylandı)
+
+### 15.1 Sorun
+
+21 Kasım: Eren'in ChatGPT'si Scrawl'a bağlı ve o gün kullanılmıştı, ama Answer in Scrawl'da ChatGPT **Off** idi. İzleme yenilenmeden bitmişti. Eren @ChatGPT yazınca hiçbir şey olmuyordu: ajana yol kalmayınca `wake()` sessiz dönüyordu. Mesajın altında satır yoktu, bildirim yoktu. Yalnız ChatGPT kendisi bitirince (410) "Couldn't reach ChatGPT" çıkıyordu.
+
+### 15.2 Yenileme (OpenAI'ın MCP Events belgesi)
+
+- ChatGPT süresi dolmadan `events/subscribe`'ı aynı abonelikle yeniden çağırır; sunucu süreyi uzatıp yeni `refreshBefore`'u döner. Süre dolunca sunucu göndermeyi bırakır; aboneliği ChatGPT'nin yerine uzatamaz.
+- Belge, başarılı doğrulamanın bir süre hatırlanmasını, tekrarlanan abone isteklerinde yeniden sorulmamasını öneriyor. Biz her yenilemede adrese yeniden challenge gönderiyorduk; 10 saniyede cevap gelmezse yenileme düşüyor, izleme sessizce bitiyordu.
+- Belge ChatGPT'nin yenilemeyi ne zaman bıraktığını (Work sohbeti silinince, uzun süre kullanılmayınca) söylemiyor. "Stop monitoring" `events/unsubscribe` çağırır.
+- Yenileme durunca tek yol kurulumu yeniden yapmak: Settings › Agents › Answer in Scrawl › ChatGPT › Set up…, yeni bir Work sohbeti.
+
+### 15.3 Kullanıcı gözüyle
+
+1. **Anınca:** sahibi izlemesi bitmiş ajanı anınca ya da ona kart veya görev verince, gönderilemeyen bir uyandırma gibi: mesajın altında **Couldn't reach ChatGPT**, bildirimde "ChatGPT isn't watching Scrawl any more. Set it up again on a computer: Settings › Agents." Hiç kurulmamış ve sahibinin kapattığı (Stop watching, Disconnect) ajan bugünkü gibi sessiz.
+2. **Bitince:** süresi dolduktan bir saat sonra hâlâ yenilenmemişse sahibine bir kez bildirim: "ChatGPT stopped watching Scrawl", "Set it up again on a computer: Settings › Agents." Dokununca Settings › Agents açılır (telefonda sayfası, bilgisayarda pencere). Bir saatlik pay, birkaç dakika geç yenilemeyi bitiş saymamak için. Bildirimin Settings'te açma-kapaması yok: seyrek ve yapılacak bir iş söylüyor.
+3. **Settings › Agents:** ChatGPT'nin satırı "Off · stopped watching Nov 18".
+
+### 15.4 Kodda
+
+- **Veri:** `agent_identities.watch_ended_at` (SQL geçişi). İzleme bitince ya da abone 410 dönünce yazılır; yeniden abone olunca ve sahibi kapatınca (`clear`) boşalır.
+- **Yenileme (`watch`):** aynı kimlikli abonelik duruyorsa ve süresi dolalı bir saatten az olduysa adres yeniden doğrulanmaz, yalnız sır ve süre güncellenir. Yeni bir adres her zaman doğrulanır (`verify`).
+- **Bitiş (`endWatches`):** beş dakikada bir (`Wakes.start`, `main.ts`); bütün abonelikleri bir saatten fazla önce dolmuş ajanların abonelikleri silinir, `watch_ended_at` en son dolanın anı olur, sahibine `scrawl:agents` bağlantılı bildirim gider, log'a "Watch ended: ChatGPT of Eren, ran out … without being renewed" yazılır.
+- **Uyandırma (`wake`):** yol yoksa ve ajanın `watch_ended_at`'i ya da dolmuş bir aboneliği varsa `failed`: satır ve bildirim, 410'daki gibi.
+- **`/agents`:** `watchEnded` (ISO), izlemiyorken ve bitmişken.
+- **İstemci:** `scrawl:agents` bildirimde (`notify.ts`, `push-sw.js`) ve uygulamada (`App.tsx`) Settings › Agents'ı açar; Agents satırında ve telefonda `agents.answerChatgptEnded`. Help'te (agents-answer.md) bir satır.
+
+### 15.5 Testler
+
+Sunucu (`wake.test.ts`): yenileme adresi yeniden sormuyor, yarım saat geç gelen de; bir saatten fazla dolmuş izleme bir kez bildirim verip siliniyor, log'a yazılıyor, `/agents` bitiş gününü veriyor; sonra anınca hiçbir şey gönderilmiyor, satır `failed` ve bildirim geliyor; yeniden abone olunca adres soruluyor ve bitiş siliniyor; dolar dolmaz anınca da `failed`; 410'dan sonra `watchEnded` yazılı; Stop watching'den sonra anınca sessiz.

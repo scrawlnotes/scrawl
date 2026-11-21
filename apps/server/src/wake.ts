@@ -180,6 +180,10 @@ const CLAUDE_HEADERS: [string, string][] = [
 const WATCH_MS = 7 * 24 * 60 * 60 * 1000;
 const WATCH_MIN_MS = 60_000;
 const WATCHES = 5;
+/** A watch not renewed for this long after it ran out has ended: a renewal a little late is not taken for its end (design/agent-wake.md 15). */
+const ENDED_AFTER_MS = 60 * 60_000;
+/** How often ended watches are looked for. */
+const ENDS_EVERY_MS = 5 * 60_000;
 
 /** An agent that may be woken: connected, and its owner's account in use. */
 interface Woken {
@@ -249,6 +253,7 @@ export class Wakes {
   private readonly waiting = new Set<ReturnType<typeof setTimeout>>();
   /** By agent, the messages it was reached by and has not answered; in the process, gone with it. */
   private readonly answers = new Map<string, Waiting[]>();
+  private ends: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     private readonly db: Db,
@@ -301,9 +306,9 @@ export class Wakes {
     return wakeInfoOf(url, saved, kind)!;
   }
 
-  /** The agent is woken no more: its address goes, and its subscriptions. */
+  /** The agent is woken no more: its address goes, and its subscriptions; turned off, it did not stop on its own. */
   clear(agent: string) {
-    this.db.prepare('UPDATE agent_identities SET wake_url = NULL, wake_headers = NULL, wake_kind = NULL WHERE id = ?').run(agent);
+    this.db.prepare('UPDATE agent_identities SET wake_url = NULL, wake_headers = NULL, wake_kind = NULL, watch_ended_at = NULL WHERE id = ?').run(agent);
     this.db.prepare('DELETE FROM event_subscriptions WHERE agent_id = ?').run(agent);
   }
 
@@ -347,16 +352,10 @@ export class Wakes {
     if (!wakeAddressOk(input.url)) throw new SubscriptionRefused('The callback must be an https address with a public name');
     if (!secretOk(input.secret)) throw new SubscriptionRefused('The secret must start with whsec_ and hold 24 to 64 bytes');
     const id = `sub_${createHash('sha256').update(`${agent}\n${input.url}\nwake\n{}`).digest('base64url').slice(0, 32)}`;
-    const challenge = randomBytes(24).toString('base64url');
-    const body = JSON.stringify({ type: 'verification', challenge });
-    let answer: Awaited<ReturnType<WakeSend>>;
-    try {
-      answer = await this.send(input.url, this.signed(input.secret, `msg_${randomUUID()}`, id, body), body);
-    } catch (error) {
-      const why = error instanceof FetchFailed ? error.why : 'unreachable';
-      throw new CallbackRefused(why === 'timeout' ? 'timeout' : why === 'refused' ? 'refused' : 'unreachable', 'The callback could not be reached');
-    }
-    if (answer.status < 200 || answer.status >= 300 || !echoes(answer.body, challenge)) throw new CallbackRefused('challenge_failed', 'The callback did not give the challenge back');
+    // A renewal of a watch still on, or just run out, is not checked again: the address was when it
+    // began, and a slow answer to a check would end the watch (design/agent-wake.md 15).
+    const renewed = !!this.db.prepare('SELECT 1 FROM event_subscriptions WHERE id = ? AND expires_at > ?').get(id, this.now() - ENDED_AFTER_MS);
+    if (!renewed) await this.verify(input.url, input.secret, id);
     const lasts = input.ttlMs === null || input.ttlMs === undefined ? WATCH_MS : Math.min(Math.max(input.ttlMs, WATCH_MIN_MS), WATCH_MS);
     const until = this.now() + lasts;
     this.db
@@ -368,8 +367,46 @@ export class Wakes {
     this.db
       .prepare('DELETE FROM event_subscriptions WHERE agent_id = ? AND id NOT IN (SELECT id FROM event_subscriptions WHERE agent_id = ? ORDER BY created_at DESC LIMIT ?)')
       .run(agent, agent, WATCHES);
+    this.db.prepare('UPDATE agent_identities SET watch_ended_at = NULL WHERE id = ?').run(agent);
     this.chats.agentDirect(ownerOf(agent), agent);
     return { id, refreshBefore: new Date(until).toISOString() };
+  }
+
+  /** A new callback answers a signed challenge before anything is sent there. */
+  private async verify(url: string, secret: string, id: string) {
+    const challenge = randomBytes(24).toString('base64url');
+    const body = JSON.stringify({ type: 'verification', challenge });
+    let answer: Awaited<ReturnType<WakeSend>>;
+    try {
+      answer = await this.send(url, this.signed(secret, `msg_${randomUUID()}`, id, body), body);
+    } catch (error) {
+      const why = error instanceof FetchFailed ? error.why : 'unreachable';
+      throw new CallbackRefused(why === 'timeout' ? 'timeout' : why === 'refused' ? 'refused' : 'unreachable', 'The callback could not be reached');
+    }
+    if (answer.status < 200 || answer.status >= 300 || !echoes(answer.body, challenge)) throw new CallbackRefused('challenge_failed', 'The callback did not give the challenge back');
+  }
+
+  /**
+   * The watches that ran out an hour ago and were not renewed: each agent's watching has ended,
+   * and its owner is told once, with where to set it up again (design/agent-wake.md 15).
+   */
+  endWatches() {
+    const ended = this.db
+      .prepare('SELECT agent_id AS agent, MAX(expires_at) AS at FROM event_subscriptions GROUP BY agent_id HAVING MAX(expires_at) <= ?')
+      .all(this.now() - ENDED_AFTER_MS) as { agent: string; at: number }[];
+    for (const { agent, at } of ended) {
+      this.db.prepare('DELETE FROM event_subscriptions WHERE agent_id = ?').run(agent);
+      this.db.prepare('UPDATE agent_identities SET watch_ended_at = ? WHERE id = ?').run(at, agent);
+      console.log(`Watch ended: ${this.identityName(agent)} of ${this.accountName(ownerOf(agent))}, ran out ${new Date(at).toISOString()} without being renewed`);
+      const who = this.wokenOf(agent);
+      if (who) this.push.notice(who.owner, { title: `${who.name} stopped watching Scrawl`, body: 'Set it up again on a computer: Settings › Agents.', href: 'scrawl:agents', tag: `watch:${agent}`, space: '', item: `watch:${agent}` });
+    }
+  }
+
+  /** Looks for ended watches every few minutes; it never keeps the process alive on its own. */
+  start() {
+    this.ends = setInterval(() => this.endWatches(), ENDS_EVERY_MS);
+    this.ends.unref?.();
   }
 
   /** The subscription of an agent to a callback ends. */
@@ -450,6 +487,8 @@ export class Wakes {
   stop() {
     for (const timer of this.waiting) clearTimeout(timer);
     this.waiting.clear();
+    if (this.ends) clearInterval(this.ends);
+    this.ends = null;
   }
 
   /** An agent wrote in a conversation: what woke it there is answered, and its line goes. */
@@ -529,7 +568,11 @@ export class Wakes {
     const who = this.wokenOf(agent);
     if (!who) return;
     const routes: Route[] = [...(this.hookOf(agent) ? [{ kind: 'hook' as const }] : []), ...this.watchesOf(agent).map((id) => ({ kind: 'watch' as const, id }))];
-    if (routes.length === 0) return;
+    if (routes.length === 0) {
+      // Watching once and no longer: told as a wake that could not be sent is; one never set up stays quiet (design/agent-wake.md 15).
+      if (this.watchEnded(agent)) this.failed(who, origin, `${who.name} isn’t watching Scrawl any more. Set it up again on a computer: Settings › Agents.`);
+      return;
+    }
     const { from, ...rest } = what;
     const event: WakeEvent = { ...rest, server: this.server, agent: { id: who.id, name: who.name }, from: { id: from, name: this.accountName(from) }, at: new Date(this.now()).toISOString() };
     const payload = { text: wakeText(event, words), event };
@@ -571,6 +614,7 @@ export class Wakes {
       if (route.kind === 'watch' && answer.status === 410) {
         // The subscriber ended it on its side.
         this.db.prepare('DELETE FROM event_subscriptions WHERE id = ?').run(route.id);
+        if (this.watchesOf(agent).length === 0) this.db.prepare('UPDATE agent_identities SET watch_ended_at = ? WHERE id = ?').run(this.now(), agent);
         reason = `${who.name} stopped watching Scrawl. Set it up again in Settings › Agents.`;
       } else if (claude && (answer.status === 401 || answer.status === 403)) {
         reason = `${who.name} didn’t accept the token. Set it up again in Settings › Agents.`;
@@ -595,8 +639,21 @@ export class Wakes {
       if (!this.reachedBy(who.id, origin.item)) this.told(who, origin, 'again', this.now() + again);
       return;
     }
+    this.failed(who, origin, reason);
+  }
+
+  /** A wake that could not be sent: the line under the message says so, and its owner is told why. */
+  private failed(who: Woken, origin: Origin, reason: string) {
     if (!this.reachedBy(who.id, origin.item)) this.told(who, origin, 'failed');
     this.push.notice(who.owner, { title: `Couldn’t reach ${who.name}`, body: reason, href: origin.href, tag: `wake:${origin.item}`, space: origin.space, item: origin.item });
+  }
+
+  /** Of an agent with no watch on: whether it watched Scrawl once and that ended, not turned off; one just run out counts. */
+  private watchEnded(agent: string): boolean {
+    const row = this.db
+      .prepare('SELECT watch_ended_at AS ended, EXISTS (SELECT 1 FROM event_subscriptions WHERE agent_id = ?) AS ran FROM agent_identities WHERE id = ?')
+      .get(agent, agent) as { ended: number | null; ran: number } | undefined;
+    return !!row && (row.ended !== null || row.ran === 1);
   }
 
   /**
