@@ -1035,8 +1035,7 @@ export const en = {
 
   // deleting
   'delete.action': 'Delete',
-  'delete.note': 'Delete note',
-  'delete.noteText': '{name} will be moved to the trash.',
+  'delete.noteTrashed': '{name} moved to the trash',
   'delete.list': 'Delete task list',
   'delete.listText': '{name} will be moved to the trash.',
   'delete.listWithTasks': '{name} and its {tasks} will be moved to the trash.',

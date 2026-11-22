@@ -2694,8 +2694,12 @@ body > .touch-ghost {
   inset: -8px;
 }
 
-button.cb:hover::after {
-  opacity: 1;
+/* Only with a mouse: a phone keeps hover where it was tapped, and the task that moves up under the
+   finger looked done. */
+@media (hover: hover) {
+  button.cb:hover::after {
+    opacity: 1;
+  }
 }
 
 .task.done .cb,

@@ -4209,7 +4209,11 @@ export class Session {
     }
     // Deferred: the editor is still hidden when it replaces a view, and a hidden element cannot take focus.
     // Taking the focus does not scroll to the caret: the note shows where it was left, or its top.
-    if (isNote(id) && this.focusOnOpen) window.setTimeout(() => this.editor?.view.contentDOM.focus({ preventScroll: true }));
+    // A window opened meanwhile, as History after opening its note, keeps the keyboard: Escape closes it.
+    if (isNote(id) && this.focusOnOpen)
+      window.setTimeout(() => {
+        if (!document.activeElement?.closest('[role="dialog"]')) this.editor?.view.contentDOM.focus({ preventScroll: true });
+      });
     // On a phone a note with nothing in it opens to be written in: the keyboard held since the tap
     // goes to it. Anything else lets the keyboard go.
     else if (this.keeper) {

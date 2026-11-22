@@ -1980,7 +1980,6 @@ export function TaskList({ list, tasks, sections, today, actions, places, reveal
             icon="tasks"
             title={t(completed > 0 ? 'phone.allDone' : 'phone.emptyList')}
             text={t(completed > 0 ? 'phone.allDoneText' : 'phone.emptyListText')}
-            action={{ label: t('tasks.add'), run: () => actions.quickAdd?.(list, null) }}
           />
         )
       )}

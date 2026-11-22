@@ -274,6 +274,8 @@ class TableWidget extends WidgetType {
       el.className = className;
       el.textContent = label;
       el.title = title;
+      // × is not a name a screen reader can say.
+      if (label === '×') el.setAttribute('aria-label', title);
       el.contentEditable = 'false';
       // On mousedown, and without taking the focus: a click would arrive after the cell's blur had redrawn the table.
       el.addEventListener('mousedown', (event) => {

@@ -860,8 +860,12 @@ export function App() {
         total > 0 ? t('delete.keysFileWithKeys', { name, keys: t('count.keys', { count: total }) }) : t('delete.keysFileText', { name });
       ask(t('delete.keysFile'), message, () => void session.trash(path));
     } else {
+      // A note goes without asking, as a task does: Undo brings it back at once, the trash later.
       const name = quote(titles[path] ?? t('note.untitled'));
-      ask(t('delete.note'), t('delete.noteText', { name }), () => void session.trash(path));
+      void session.trash(path).then(() => {
+        const item = session.getSnapshot().trash.find((each) => each.from === path);
+        if (item) undoable(t('delete.noteTrashed', { name }), () => void session.restore(item));
+      });
     }
   };
   const deleteFolder = (path: string) => {
@@ -3712,6 +3716,7 @@ export function App() {
                   type="button"
                   className="tab-close"
                   title={t('tab.close', { keys: keys('W') })}
+                  aria-label={t('tab.close', { keys: keys('W') })}
                   onClick={() => void session.close(id)}
                 >
                   <span>×</span>

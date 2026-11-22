@@ -240,6 +240,8 @@ export function FormatBar({ format, onFormat, onLink, linkChoices, linkHref, rec
                 type="button"
                 className={item.className}
                 title={t(item.title)}
+                // A mark (B, I, H1…) is not a name a screen reader can say.
+                aria-label={MARKS.has(item.label) ? t(item.title) : undefined}
                 disabled={!format}
                 aria-pressed={(format && item.active?.(format)) ?? false}
                 onClick={() => onFormat(item.action)}

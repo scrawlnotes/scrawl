@@ -306,6 +306,10 @@ export function QuickAdd({ initial, places, today, recordChoices, recordName, de
     event?.preventDefault();
     if (!title.trim()) return;
     onAdd(place.list, { title, description: description.trim() || undefined, section: place.section, due, priority, record, ...(labels.length > 0 && { labels }) });
+    // The next one starts as the sheet opened: a date carried over unseen went on tasks given none.
+    setDue(initial.due);
+    setPriority(4);
+    setRecord(null);
     setLabels([]);
     added.say(t('phone.addedTo', { name: title.trim(), place: placeLabel(places, place.list, place.section) }));
     setTitle('');

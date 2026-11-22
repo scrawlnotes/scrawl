@@ -217,7 +217,6 @@ function PhoneDays({ lists, boards, today, actions, still = null }: Props) {
           icon="week"
           title={t('phone.emptyUpcoming')}
           text={t('phone.emptyUpcomingText')}
-          action={{ label: t('tasks.add'), run: () => actions.quickAdd?.(INBOX_TASKS, null, today) }}
         />
       )}
     </TaskPage>

@@ -65,6 +65,8 @@ export function findPanel(view: EditorView): Panel {
     el.type = 'button';
     el.textContent = label;
     el.title = title;
+    // × is not a name a screen reader can say.
+    if (label === '×') el.setAttribute('aria-label', title);
     el.addEventListener('click', run);
     return el;
   };

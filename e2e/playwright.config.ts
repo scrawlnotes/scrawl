@@ -24,7 +24,13 @@ export default defineConfig({
   },
   projects: [
     { name: 'desktop', use: { viewport: { width: 1440, height: 900 } } },
-    { name: 'phone', use: { ...devices['iPhone 15'], defaultBrowserType: 'chromium', channel: 'msedge' } },
+    // An iPhone's size and touch, with Edge's own user agent: the app knows a phone by its touch and
+    // size, and the editor, told it is an iPhone, takes keys as iOS sends them, which Chromium does not.
+    // How iOS types is tried on an iPhone itself.
+    {
+      name: 'phone',
+      use: { viewport: devices['iPhone 15'].viewport, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
+    },
   ],
   webServer: [
     {

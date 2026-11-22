@@ -353,8 +353,8 @@ export interface ComposerStart {
 /**
  * A new task, typed where it will show: its name and description, its date, priority, labels and
  * record as chips with Attach after them, the list it goes in, Cancel and Add task. Add task, or Enter
- * in the name or the description, adds it and keeps the row with the same date and list for the next
- * one; Ctrl+Enter is a new line in the description. `@` in the name puts a label on it, and a day
+ * in the name or the description, adds it and keeps the row open in the same list and section for the
+ * next one, its date, priority and labels back to what the row opened with; Ctrl+Enter is a new line in the description. `@` in the name puts a label on it, and a day
  * written in it ("Dentist fri") is its date, lit in the name and gone from it as it is added; the
  * date picked, or the chip's ×, leaves those words as they are. A record is one of the list's space, as a
  * task's links do not reach another space.
@@ -407,7 +407,13 @@ export function TaskComposer({ start, today, places, recordChoices, recordName, 
     setTitle('');
     setKept(null);
     setDescription('');
+    // The next one starts as this row opened (a date only where the view gives one): a date carried
+    // over unseen went on tasks given none. The list and the section stay.
+    setDue(start.due);
+    setPriority(start.priority ?? 4);
+    setRecord(null);
     setLabels(start.labels ?? []);
+    setAssignee(start.assignee);
     setAdded((n) => n + 1);
     titleField.current?.focus();
   };
