@@ -1,5 +1,5 @@
 import { type Page } from '@playwright/test';
-import { expect, joinSpace, test } from '../fixtures';
+import { expect, joinSpace, test, typeInto } from '../fixtures';
 import { invite, person, spaceWithInvite } from '../server';
 
 // Two people who join and talk take longer than one device.
@@ -15,8 +15,7 @@ async function openChat(page: Page, phone: boolean) {
 // Enter sends on a computer; on a phone it is a new line, and Send sends.
 async function send(page: Page, phone: boolean, room: string, text: string) {
   const box = page.getByRole('textbox', { name: `Message ${room}` });
-  await box.click();
-  await page.keyboard.type(text);
+  await typeInto(box, text);
   if (phone) await page.getByRole('button', { name: 'Send', exact: true }).click();
   else await page.keyboard.press('Enter');
 }

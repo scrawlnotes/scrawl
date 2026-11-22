@@ -52,11 +52,15 @@ test('on a phone CRM sets up from Create and a company is added from +', async (
   const wizard = app.getByRole('dialog', { name: 'New app' });
   await wizard.getByRole('radio', { name: 'Business' }).click();
   await wizard.getByRole('checkbox', { name: /^CRM/ }).click();
-  // The phone's steps are sheets: Next until Create.
-  for (let step = 0; step < 6 && !(await wizard.getByRole('button', { name: 'Create', exact: true }).isVisible()); step++) {
-    await wizard.getByRole('button', { name: 'Next', exact: true }).click();
+  // The phone's steps are sheets: Next until Create. A step sliding in has the one before it beside
+  // it for a moment: what to tap is read once one is left.
+  const go = wizard.getByRole('button', { name: /^(Next|Create)$/ });
+  for (let step = 0; step < 6; step++) {
+    await expect(go).toHaveCount(1);
+    const name = await go.textContent();
+    await go.click();
+    if (name === 'Create') break;
   }
-  await wizard.getByRole('button', { name: 'Create', exact: true }).click();
 
   await browse(app, phone);
   await app.getByRole('button', { name: /^CRM/ }).first().click();

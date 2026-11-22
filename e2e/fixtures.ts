@@ -1,4 +1,4 @@
-import { test as base, expect, type Page } from '@playwright/test';
+import { test as base, expect, type Locator, type Page } from '@playwright/test';
 
 // Opens Scrawl on a page of a new device and waits for it to be ready; what nothing caught in it is kept.
 async function openDevice(page: Page, errors: string[]) {
@@ -140,4 +140,13 @@ export async function browse(page: Page, phone: boolean) {
   const top = page.getByRole('heading', { name: 'Browse', level: 1 });
   if (!(await top.isVisible())) await tab.click();
   await expect(top).toBeVisible();
+}
+
+// Taps a field and types in it once it has the keyboard. A phone's empty editor first hands the
+// keyboard to a hidden field for a moment, so that it starts on a capital (packages/editor
+// handKeyboard): a person cannot type in that moment, a test on a slow computer would.
+export async function typeInto(field: Locator, text: string) {
+  await field.click();
+  await expect(field).toBeFocused();
+  await field.page().keyboard.type(text);
 }

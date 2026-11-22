@@ -1,9 +1,8 @@
-import { browse, createNote, editor, expect, noteMenu, test, undoInNotice, vaultFile } from '../fixtures';
+import { browse, createNote, editor, expect, noteMenu, test, undoInNotice, vaultFile, typeInto } from '../fixtures';
 
 test('what is typed stays as typed, but a dash or a number at a line start makes a list (PLAN 4.2)', async ({ app, phone }) => {
   await createNote(app, phone, 'Typed');
-  await editor(app).click();
-  await app.keyboard.type('# Title\n\nAgenda:\n- First\nsecond\n\n1. One\nTwo\n\nSome **bold** here');
+  await typeInto(editor(app), '# Title\n\nAgenda:\n- First\nsecond\n\n1. One\nTwo\n\nSome **bold** here');
   await expect
     .poll(() => vaultFile(app, 'Typed.md'))
     .toBe('\\# Title\n\nAgenda:\n- First\n- second\n\n1. One\n2. Two\n\nSome **bold\\*\\* here');
@@ -11,8 +10,7 @@ test('what is typed stays as typed, but a dash or a number at a line start makes
 
 test('Bold from the format bar makes the chosen words bold', async ({ app, phone }) => {
   await createNote(app, phone, 'Formatted');
-  await editor(app).click();
-  await app.keyboard.type('plain word');
+  await typeInto(editor(app), 'plain word');
   await app.keyboard.press('Shift+Control+ArrowLeft');
   await app.getByRole('toolbar', { name: 'Formatting' }).getByRole('button', { name: 'Bold' }).click();
   await expect.poll(() => vaultFile(app, 'Formatted.md')).toBe('plain **word**');
@@ -20,8 +18,7 @@ test('Bold from the format bar makes the chosen words bold', async ({ app, phone
 
 test('a note renamed from its menu keeps its text under the new name', async ({ app, phone }) => {
   await createNote(app, phone, 'Draft');
-  await editor(app).click();
-  await app.keyboard.type('Kept text');
+  await typeInto(editor(app), 'Kept text');
   await expect.poll(() => vaultFile(app, 'Draft.md')).toBe('Kept text');
 
   await noteMenu(app, phone, 'Draft');
@@ -38,8 +35,7 @@ test('a note renamed from its menu keeps its text under the new name', async ({ 
 
 test('a note deleted goes to Trash without asking, and Undo brings it back', async ({ app, phone }) => {
   await createNote(app, phone, 'Gone');
-  await editor(app).click();
-  await app.keyboard.type('Kept');
+  await typeInto(editor(app), 'Kept');
   await expect.poll(() => vaultFile(app, 'Gone.md')).toBe('Kept');
   await noteMenu(app, phone, 'Gone');
   await app.getByRole('menuitem', { name: 'Delete' }).click();
@@ -50,8 +46,7 @@ test('a note deleted goes to Trash without asking, and Undo brings it back', asy
 
 test('a deleted note goes to Trash and comes back from it', async ({ app, phone }) => {
   await createNote(app, phone, 'Plan');
-  await editor(app).click();
-  await app.keyboard.type('Some text');
+  await typeInto(editor(app), 'Some text');
   await expect.poll(() => vaultFile(app, 'Plan.md')).toBe('Some text');
 
   await noteMenu(app, phone, 'Plan');
@@ -67,8 +62,7 @@ test('a deleted note goes to Trash and comes back from it', async ({ app, phone 
 test('History opens on the note and closes with Escape', async ({ app, phone }) => {
   test.skip(phone, 'A page on the phone, closed with Back.');
   await createNote(app, phone, 'Versions');
-  await editor(app).click();
-  await app.keyboard.type('Now');
+  await typeInto(editor(app), 'Now');
   await noteMenu(app, phone, 'Versions');
   await app.getByRole('menuitem', { name: 'History…' }).click();
   const history = app.getByRole('dialog', { name: /History of Versions/ });
@@ -80,8 +74,7 @@ test('History opens on the note and closes with Escape', async ({ app, phone }) 
 test('Export as Markdown gives the note as written', async ({ app, phone }) => {
   test.skip(phone, 'The phone shares the file instead of downloading it.');
   await createNote(app, phone, 'Exported');
-  await editor(app).click();
-  await app.keyboard.type('- one\ntwo');
+  await typeInto(editor(app), '- one\ntwo');
   await expect.poll(() => vaultFile(app, 'Exported.md')).toBe('- one\n- two');
   await noteMenu(app, phone, 'Exported');
   await app.getByRole('menuitem', { name: 'Export…' }).click();

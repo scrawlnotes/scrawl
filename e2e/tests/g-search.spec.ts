@@ -1,9 +1,8 @@
-import { createNote, editor, expect, test } from '../fixtures';
+import { createNote, editor, expect, test, typeInto } from '../fixtures';
 
 test('a note is found by a word in it and opens from the result', async ({ app, phone }) => {
   await createNote(app, phone, 'Budget');
-  await editor(app).click();
-  await app.keyboard.type('Quarterly numbers for the board');
+  await typeInto(editor(app), 'Quarterly numbers for the board');
 
   if (phone) {
     await app.getByRole('navigation', { name: 'Places' }).getByRole('button', { name: 'Search' }).click();

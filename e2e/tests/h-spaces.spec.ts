@@ -1,4 +1,4 @@
-import { browse, createNote, editor, expect, joinSpace, test } from '../fixtures';
+import { browse, createNote, editor, expect, joinSpace, test, typeInto } from '../fixtures';
 import { invite, person, spaceWithInvite } from '../server';
 
 // Two devices that open, join and sync take longer than one.
@@ -10,8 +10,7 @@ test('a note written by one person shows on the other’s device in a shared spa
   await joinSpace(second, await invite(space.id), person('Ben'), phone);
 
   await createNote(app, phone, 'Plan', space.name);
-  await editor(app).click();
-  await app.keyboard.type('From Ada');
+  await typeInto(editor(app), 'From Ada');
 
   await browse(second, phone);
   const plan = second.getByRole('button', { name: 'Plan', exact: true });

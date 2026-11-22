@@ -1,5 +1,5 @@
 import { type Page } from '@playwright/test';
-import { browse, expect, test } from '../fixtures';
+import { browse, expect, test, typeInto } from '../fixtures';
 
 // A Simple board (Todo, Doing, Done) made from the Create window.
 async function createBoard(page: Page, phone: boolean, name: string) {
@@ -63,8 +63,7 @@ test('a comment written on a card shows on its timeline', async ({ app, phone })
   await createBoard(app, phone, 'Launch');
   await addCard(app, phone, 'Book the venue');
   await app.getByText('Book the venue', { exact: true }).first().click();
-  await app.getByRole('textbox', { name: 'Write a comment…' }).click();
-  await app.keyboard.type('Called them, waiting for a price');
+  await typeInto(app.getByRole('textbox', { name: 'Write a comment…' }), 'Called them, waiting for a price');
   await app.getByRole('button', { name: 'Comment', exact: true }).click();
   await expect(app.getByText('Called them, waiting for a price').first()).toBeVisible();
 });

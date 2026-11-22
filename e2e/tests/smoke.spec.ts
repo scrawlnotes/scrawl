@@ -1,10 +1,9 @@
-import { createNote, editor, expect, openNote, test } from '../fixtures';
+import { createNote, editor, expect, openNote, test, typeInto } from '../fixtures';
 import { SERVER } from '../playwright.config';
 
 test('a note written on a new device is still there after a reload', async ({ app, phone }) => {
   await createNote(app, phone, 'Smoke');
-  await editor(app).click();
-  await app.keyboard.type('Written by the smoke test');
+  await typeInto(editor(app), 'Written by the smoke test');
   await expect(editor(app)).toContainText('Written by the smoke test');
 
   await app.reload();
