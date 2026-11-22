@@ -14,6 +14,7 @@ Plan: `design/e2e.md`. Hatalar sormadan düzeltilir ve burada kaydı tutulur; UI
 | H6 | C Görevler | Telefonda bir görev tamamlanınca altındaki görev yukarı, parmağın altına kayıyor ve dairesinde onay işareti görünüyordu, tamamlanmış gibi: fareyle üstüne gelince gösterilen önizleme, dokunmatik ekranda dokunulan yerde takılı kalıyor (iPhone da öyle). | `styles.css`: önizleme yalnız fareli cihazlarda (`@media (hover: hover)`). | Düzeltildi |
 | H7 | E Koleksiyon | Yeni bir şirket (ve başlığında adı olan her kayıt) Name'de değil, altındaki ilk alanda (Website) açılıyordu: ilk kutu, pencerenin başlığı olarak çizilen adı atlayıp düzendeki ilk alanı alıyordu. | `Collection.tsx`: başlıkta adı olan yeni kayıt adında açılır; satırları bir alandan gelen kayıt (antrenmanın programı) yine o alanda açılır. | Düzeltildi, `e-apps.spec.ts` |
 | H8 | D Pano, E Koleksiyon | Kartın ve görevin açıklaması, kartın yorum kutusu ve kaydın notları ekran okuyucuya adsız "textbox" olarak görünüyordu. | `Description.tsx`: boşken gösterdiği metin (Write a comment…, Add a description…) adı da olur. | Düzeltildi, `d-boards.spec.ts` |
+| H9 | I Chat | Chat'in mesaj kutusu da ekran okuyucuya adsız "textbox" idi. | `Chat.tsx`: "Message #general" gibi yer tutucusu adı da olur. | Düzeltildi, `i-chat.spec.ts` |
 
 ## UI/UX bulguları
 
@@ -31,16 +32,18 @@ Karar sütunu kullanıcının; onaylananlar aynı dilimde yapıldı.
 
 ## Özellik önerileri (kararını bekliyor)
 
-2. ve 3. dilimde (ilk açılış, notlar, görevler, arama, Settings, Help, pano, app'ler, takvim) değer katacak bir eksik görmedim; uydurmadım.
+2., 3. ve 4. dilimde (ilk açılış, notlar, görevler, arama, Settings, Help, pano, app'ler, takvim, space ve sync, Chat, bildirim ayarları, ajan) değer katacak bir eksik görmedim; uydurmadım.
 
 ## Notlar
 
 - **Telefonda yazma:** Chromium'da iPhone kullanıcı ajanıyla editör iOS'un tuş yolunu seçiyor, Playwright'ın tuşları o yola uymuyor ve sahte hatalar çıkıyor (liste bozuluyor, karakter düşüyor). Telefon projesi iPhone boyutu ve dokunmayla ama bilgisayarın kullanıcı ajanıyla çalışır; uygulama telefonu dokunma ve boyuttan tanıdığı için düzen aynıdır. iOS klavyesinin kendisi gerçek iPhone'da denenir.
+- **Test sunucusu:** her koşu boş bir klasörle başlar; sahibi `global-setup.ts` API'yle kurar. Her test kendi space'ini açar, her kişi kendi davetiyle (davet linki tek kullanımlık) ve kendi e-postasıyla katılır (aynı e-postayla dakikada 5 giriş sınırı). Test hesapları `e2e/server.ts`'te, yalnız bu yerel sunucu için.
+- **Bildirimlerin gidişi:** tarayıcı ve telefonda Web Push ile, tarayıcının dış servisi üzerinden gider; bu bilgisayardaki test oraya ulaşmaz. Gidişi sunucunun testleri (`notices.test.ts`, `push.test.ts`) ve gerçek cihaz denemesi kapsar; e2e ayarları kapsar.
 - **Yazılan Markdown:** `#`, `**` gibi yazılanlar biçime dönmez, dosyada kaçırılır (PLAN 4.2); testler buna göre.
 
 ## Testler
 
-`pnpm e2e`: masaüstü ve telefon boyutunda 60 koşu (49 geçer, 11'i yalnız bir boyuta ait). Her test sonunda sayfada yakalanmamış hata olmaması da denetlenir.
+`pnpm e2e`: masaüstü ve telefon boyutunda 72 koşu (55 geçer, 17'si yalnız bir boyuta ait). Her test sonunda sayfada yakalanmamış hata olmaması da denetlenir.
 
 | Dosya | Ne |
 |---|---|
@@ -53,3 +56,7 @@ Karar sütunu kullanıcının; onaylananlar aynı dilimde yapıldı.
 | `d-boards.spec.ts` | Kart ekleme ve yenileme; sürükleyerek Doing'e; telefonda Status'tan Doing'e; yorum; adsız kişinin kartında You; kartın Priority ve Due seçicileri |
 | `e-apps.spec.ts` | CRM New app'ten kurulup Home'da açılıyor; şirket formu Name'de açılıyor, kayıt tabloda ve yenilemeden sonra |
 | `f-calendar.spec.ts` | Outlook bağlanınca bugünkü toplantı Scheduled'da; bugünkü görev takvimde |
+| `h-spaces.spec.ts` | İki kişi iki cihazda: birinin yazdığı not öbüründe açılıyor, öbürünün eklediği geri geliyor |
+| `i-chat.spec.ts` | #general'da iki kişi yazışıyor; mesaj aramayla bulunuyor |
+| `j-notifications.spec.ts` | Kapatılan bildirim türü yenilemeden sonra kapalı |
+| `k-agent.spec.ts` | Ajan OAuth'la bağlanıp MCP'yle not yazıyor ve görev ekliyor; açık uygulamada saniyeler içinde görünüyor |

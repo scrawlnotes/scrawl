@@ -5,12 +5,14 @@ import { defineConfig, devices } from '@playwright/test';
 
 // Ports of their own, so a dev server already open on 5173/8080 is never touched.
 export const WEB = 'http://localhost:5199';
-export const SERVER = 'http://localhost:8199';
+import { SERVER } from './server';
+export { SERVER };
 // Every run starts the server on an empty folder.
 const data = mkdtempSync(join(tmpdir(), 'scrawl-e2e-'));
 
 export default defineConfig({
   testDir: 'tests',
+  globalSetup: './global-setup.ts',
   outputDir: 'results',
   reporter: [['list'], ['html', { outputFolder: 'report', open: 'never' }]],
   fullyParallel: true,

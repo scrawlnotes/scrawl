@@ -1,24 +1,58 @@
 import { test as base, expect, type Page } from '@playwright/test';
 
+// Opens Scrawl on a page of a new device and waits for it to be ready; what nothing caught in it is kept.
+async function openDevice(page: Page, errors: string[]) {
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('/');
+  // The welcome note opens on a new device once the space is ready. Dev serves the app's modules one by one: with several devices opening at once this takes a while.
+  await expect(page.getByText('Welcome to Scrawl').first()).toBeVisible({ timeout: 30_000 });
+}
+
 // What every test gets: a new device (empty OPFS and storage) opened on Scrawl, and whether it is the phone.
-export const test = base.extend<{ app: Page; phone: boolean }>({
+// `second` is another device, of another person when a test has them join: a browser of its own, the same size.
+export const test = base.extend<{ app: Page; phone: boolean; second: Page }>({
   phone: async ({}, use, info) => use(info.project.name === 'phone'),
   app: async ({ page }, use) => {
     // An error nothing caught fails the test that met it, whatever the test was about.
     const errors: string[] = [];
-    page.on('pageerror', (error) => errors.push(error.message));
-    await page.goto('/');
-    // The welcome note opens on a new device once the space is ready. Dev serves the app's modules one by one: with several devices opening at once this takes a while.
-    await expect(page.getByText('Welcome to Scrawl').first()).toBeVisible({ timeout: 30_000 });
+    await openDevice(page, errors);
     await use(page);
     expect(errors, 'errors in the page').toEqual([]);
+  },
+  second: async ({ browser }, use, info) => {
+    const { viewport, deviceScaleFactor, isMobile, hasTouch, baseURL } = info.project.use;
+    const context = await browser.newContext({ viewport, deviceScaleFactor, isMobile, hasTouch, baseURL });
+    const page = await context.newPage();
+    const errors: string[] = [];
+    await openDevice(page, errors);
+    await use(page);
+    await context.close();
+    expect(errors, 'errors in the second device').toEqual([]);
   },
 });
 
 export { expect };
 
-// Makes a note in Personal from the Create window, as a person does, and leaves it open.
-export async function createNote(page: Page, phone: boolean, name: string) {
+// Joins a space of the test server from its invite link, as a new person, on a computer.
+export async function joinSpace(page: Page, link: string, who: { name: string; email: string; password: string }) {
+  await page.getByRole('button', { name: 'Sync', exact: true }).click();
+  await page.getByRole('button', { name: /Add space/ }).click();
+  await page.getByRole('button', { name: 'Connect a server…' }).click();
+  // Within Add space: Settings under it has a Name of its own, the device's.
+  const add = page.getByRole('dialog', { name: 'Add space' });
+  await add.getByRole('textbox', { name: 'Server address or invite link' }).fill(link);
+  await add.getByRole('textbox', { name: 'Name' }).fill(who.name);
+  await add.getByRole('textbox', { name: 'Email' }).fill(who.email);
+  await add.getByRole('textbox', { name: 'Password' }).fill(who.password);
+  await add.getByRole('button', { name: /^Join / }).click();
+  await expect(add).toBeHidden({ timeout: 20_000 });
+  // Settings stays on the space joined; closed to work in it.
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+}
+
+// Makes a note from the Create window, as a person does, and leaves it open: in Personal, or in `space`.
+export async function createNote(page: Page, phone: boolean, name: string, space?: string) {
   if (phone) {
     await page.getByRole('navigation', { name: 'Places' }).getByRole('button', { name: 'Browse' }).click();
     await page.getByRole('button', { name: 'Create' }).last().click();
@@ -29,6 +63,10 @@ export async function createNote(page: Page, phone: boolean, name: string) {
   }
   const dialog = page.getByRole('dialog', { name: 'New note' });
   await dialog.getByPlaceholder('Optional · Named by its first line').fill(name);
+  if (space) {
+    await dialog.getByRole('button', { name: /^Folder/ }).click();
+    await page.getByRole('option', { name: space }).or(page.getByRole('button', { name: space })).last().click();
+  }
   await dialog.getByRole('button', { name: 'Create' }).click();
   await expect(dialog).toBeHidden();
 }

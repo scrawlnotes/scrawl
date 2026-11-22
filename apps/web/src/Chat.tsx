@@ -1951,6 +1951,8 @@ export function Composer({ server, chat, replyTo, nameOf, menu, links, dropping,
       },
     });
     editor.current = made;
+    // "Message #general" names the box for a screen reader too, which has no label to read.
+    made.view.contentDOM.setAttribute('aria-label', placeholder);
     if (!phone) made.view.focus();
     made.view.dispatch({ selection: { anchor: made.view.state.doc.length } });
     return () => {
