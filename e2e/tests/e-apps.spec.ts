@@ -1,5 +1,5 @@
 import { type Page } from '@playwright/test';
-import { expect, test } from '../fixtures';
+import { browse, expect, test } from '../fixtures';
 
 // The CRM template, set up from New app with every answer as it opens.
 async function installCrm(page: Page) {
@@ -42,4 +42,33 @@ test('a company added from its form is in the table, and there after a reload', 
   await openCrm(app);
   await app.getByRole('tab', { name: 'Companies' }).click();
   await expect(app.getByRole('table', { name: 'Companies' }).getByText('Izmir')).toBeVisible({ timeout: 15_000 });
+});
+
+test('on a phone CRM sets up from Create and a company is added from +', async ({ app, phone }) => {
+  test.skip(!phone);
+  await browse(app, phone);
+  await app.getByRole('button', { name: 'Create' }).last().click();
+  await app.getByRole('dialog', { name: 'Create' }).getByRole('button', { name: /^App/ }).click();
+  const wizard = app.getByRole('dialog', { name: 'New app' });
+  await wizard.getByRole('radio', { name: 'Business' }).click();
+  await wizard.getByRole('checkbox', { name: /^CRM/ }).click();
+  // The phone's steps are sheets: Next until Create.
+  for (let step = 0; step < 6 && !(await wizard.getByRole('button', { name: 'Create', exact: true }).isVisible()); step++) {
+    await wizard.getByRole('button', { name: 'Next', exact: true }).click();
+  }
+  await wizard.getByRole('button', { name: 'Create', exact: true }).click();
+
+  await browse(app, phone);
+  await app.getByRole('button', { name: /^CRM/ }).first().click();
+  await app.getByRole('button', { name: /^Companies/ }).first().click();
+  // Empty, it says so; adding is the + alone (design/e2e-findings.md U8).
+  await expect(app.getByText('No records yet')).toBeVisible();
+  await expect(app.getByRole('button', { name: 'Add record' })).toHaveCount(0);
+  await app.getByRole('button', { name: 'Create', exact: true }).last().click();
+  const form = app.getByRole('dialog', { name: 'New company' });
+  await expect(form.getByRole('textbox', { name: 'Name' })).toBeFocused();
+  await app.keyboard.type('Acme');
+  await expect(form.getByRole('textbox', { name: 'Add a note…' })).toBeVisible();
+  await form.getByRole('button', { name: 'Create', exact: true }).click();
+  await expect(app.getByText('Acme', { exact: true }).first()).toBeVisible();
 });

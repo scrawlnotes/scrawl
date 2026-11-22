@@ -1138,6 +1138,8 @@ export function NotesBlock({ home, text, editor, attach, onChange, only }: {
   changed.current = onChange;
   useEffect(() => {
     made.current = editor(home, host.current!, text, (doc) => changed.current(doc));
+    // Named for a screen reader as it shows empty: "Add a note…".
+    made.current.view.contentDOM.setAttribute('aria-label', t('collection.notesHint'));
     return () => {
       made.current?.destroy();
       made.current = null;

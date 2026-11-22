@@ -1018,6 +1018,8 @@ export class Session {
       onAttachments: (removed, added) => this.attachmentsChanged(this.onScreen, removed, added),
       record: () => void this.startRecording(),
     });
+    // A note's text, named for a screen reader, which otherwise hears a box with no name.
+    this.editor.view.contentDOM.setAttribute('aria-label', t('create.note'));
     window.addEventListener('pagehide', this.goingAway);
     document.addEventListener('visibilitychange', this.hidden);
 
@@ -3863,6 +3865,7 @@ export class Session {
       onAttachments: (removed, added) => this.attachmentsChanged(at, removed, added),
       record: () => void this.startRecording(),
     });
+    quick.editor.view.contentDOM.setAttribute('aria-label', t('create.note'));
     this.set({ quickFormat: formatState(quick.editor.view.state) });
     // It opens to be written in: the cursor at the end of what it says. Opened from the search, at
     // the words found in its body: they are found in its file, where the title comes first.

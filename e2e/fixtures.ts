@@ -33,8 +33,25 @@ export const test = base.extend<{ app: Page; phone: boolean; second: Page }>({
 
 export { expect };
 
-// Joins a space of the test server from its invite link, as a new person, on a computer.
-export async function joinSpace(page: Page, link: string, who: { name: string; email: string; password: string }) {
+// Joins a space of the test server from its invite link, as a new person: on a phone from Settings ›
+// Spaces, in sheets one after another; on a computer from Sync, in one window.
+export async function joinSpace(page: Page, link: string, who: { name: string; email: string; password: string }, phone = false) {
+  if (phone) {
+    await page.getByRole('navigation', { name: 'Places' }).getByRole('button', { name: 'Settings' }).click();
+    await page.getByRole('button', { name: /^Spaces/ }).first().click();
+    await page.getByRole('button', { name: 'Add space' }).click();
+    await page.getByRole('button', { name: /^Location/ }).click();
+    await page.getByRole('button', { name: 'Connect a server…' }).click();
+    const sheet = page.getByRole('dialog', { name: 'Connect a server' });
+    await sheet.getByRole('textbox', { name: 'Server address or invite link' }).fill(link);
+    await sheet.getByRole('button', { name: 'Continue' }).click();
+    await sheet.getByRole('textbox', { name: 'Name' }).fill(who.name);
+    await sheet.getByRole('textbox', { name: 'Email' }).fill(who.email);
+    await sheet.getByRole('textbox', { name: 'Password' }).fill(who.password);
+    await sheet.getByRole('button', { name: 'Join', exact: true }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0, { timeout: 20_000 });
+    return;
+  }
   await page.getByRole('button', { name: 'Sync', exact: true }).click();
   await page.getByRole('button', { name: /Add space/ }).click();
   await page.getByRole('button', { name: 'Connect a server…' }).click();
@@ -54,7 +71,7 @@ export async function joinSpace(page: Page, link: string, who: { name: string; e
 // Makes a note from the Create window, as a person does, and leaves it open: in Personal, or in `space`.
 export async function createNote(page: Page, phone: boolean, name: string, space?: string) {
   if (phone) {
-    await page.getByRole('navigation', { name: 'Places' }).getByRole('button', { name: 'Browse' }).click();
+    await browse(page, phone);
     await page.getByRole('button', { name: 'Create' }).last().click();
     await page.getByRole('dialog', { name: 'Create' }).getByRole('button', { name: /^Note/ }).click();
   } else {
@@ -73,7 +90,7 @@ export async function createNote(page: Page, phone: boolean, name: string, space
 
 // Opens a note from Browse (phone) or the sidebar (desktop).
 export async function openNote(page: Page, phone: boolean, name: string) {
-  if (phone) await page.getByRole('navigation', { name: 'Places' }).getByRole('button', { name: 'Browse' }).click();
+  await browse(page, phone);
   await page.getByRole('button', { name, exact: true }).first().click();
 }
 
@@ -116,5 +133,11 @@ export const undoInNotice = (page: Page) => page.locator('.toast, .mb-toast, .no
 
 // Browse on a phone; the sidebar is always there on a computer.
 export async function browse(page: Page, phone: boolean) {
-  if (phone) await page.getByRole('navigation', { name: 'Places' }).getByRole('button', { name: 'Browse' }).click();
+  if (!phone) return;
+  const tab = page.getByRole('navigation', { name: 'Places' }).getByRole('button', { name: 'Browse' });
+  await tab.click();
+  // Back on Browse its page left open shows (a note); Browse again goes to its top, as on an iPhone.
+  const top = page.getByRole('heading', { name: 'Browse', level: 1 });
+  if (!(await top.isVisible())) await tab.click();
+  await expect(top).toBeVisible();
 }

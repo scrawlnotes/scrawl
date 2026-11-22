@@ -93,13 +93,20 @@ test('Export as Markdown gives the note as written', async ({ app, phone }) => {
   expect(await readFile(await file.path(), 'utf8')).toBe('- one\n- two');
 });
 
-test('a quick note taken from Take a note… shows as a card and stays after a reload', async ({ app, phone }) => {
-  test.skip(phone, 'The phone takes it from +, tried with the phone in its own slice.');
+test('a quick note shows as a card and stays after a reload', async ({ app, phone }) => {
+  await browse(app, phone);
   await app.getByRole('button', { name: 'Quick notes', exact: true }).first().click();
-  await app.getByRole('button', { name: 'Take a note…' }).click();
+  // A phone takes it from +, on a page of its own; a computer from Take a note… on top of the cards.
+  if (phone) await app.getByRole('button', { name: 'Create', exact: true }).last().click();
+  else await app.getByRole('button', { name: 'Take a note…' }).click();
+  await expect(app.getByRole('textbox', { name: 'Note' })).toBeVisible();
   await app.keyboard.type('Buy milk');
-  await app.keyboard.press('Escape');
-  await expect(app.getByText('Buy milk')).toBeVisible();
+  if (phone) await app.getByRole('button', { name: /^Back to Quick notes/ }).click();
+  else await app.keyboard.press('Escape');
+  await expect(app.getByText('Buy milk').first()).toBeVisible();
   await app.reload();
-  await expect(app.getByText('Buy milk')).toBeVisible({ timeout: 15_000 });
+  await browse(app, phone);
+  // With one in it the phone's row says so: Quick notes 1.
+  await app.getByRole('button', { name: /^Quick notes( \d+)?$/ }).first().click();
+  await expect(app.getByText('Buy milk').first()).toBeVisible({ timeout: 15_000 });
 });

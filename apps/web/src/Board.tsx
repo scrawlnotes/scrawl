@@ -1374,7 +1374,7 @@ const ROW_HOLD_MS = 450;
  * picked again turning it around, and adds up the board's number, or counts the cards. A row
  * tapped opens its card; held, its actions.
  */
-function PhoneBoardList({ board, path, today, actions, visible, onStatus, onAdd }: {
+function PhoneBoardList({ board, path, today, actions, visible, onStatus }: {
   board: Board;
   path: string;
   today: string;
@@ -1382,7 +1382,6 @@ function PhoneBoardList({ board, path, today, actions, visible, onStatus, onAdd 
   /** The cards the filter shows. */
   visible: (card: Card) => boolean;
   onStatus: (card: Card) => void;
-  onAdd: () => void;
 }) {
   const [sort, setSort] = useState<Sort | null>(null);
   const pressed = useRef<{ x: number; y: number; timer: number; fired: boolean } | null>(null);
@@ -1457,7 +1456,7 @@ function PhoneBoardList({ board, path, today, actions, visible, onStatus, onAdd 
     }
   };
   if (board.cards.length === 0) {
-    return <Empty icon="board" title={t('phone.emptyBoard')} text={t('phone.emptyBoardText')} action={board.columns.length > 0 ? { label: t('board.addCard'), run: onAdd } : undefined} />;
+    return <Empty icon="board" title={t('phone.emptyBoard')} text={t('phone.emptyBoardText')} />;
   }
   return (
     <div className="mb-dlist">
@@ -1925,7 +1924,6 @@ export function BoardView({ path, board, name, embedded, today, actions, look, o
           actions={actions}
           visible={matches}
           onStatus={setStatusFor}
-          onAdd={() => setQuickAdding(board.columns[Math.min(onScreen, board.columns.length - 1)]?.id ?? null)}
         />
       )}
       {view === 'list' && !phone && (

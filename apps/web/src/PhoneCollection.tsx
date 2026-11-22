@@ -1872,7 +1872,7 @@ export function PhoneCollectionList({ name, count, schema, today, fields, record
         {noFields ? (
           <Empty icon="collection" title={t('collection.noFields')} action={{ label: t('collection.fields'), run: onFields }} />
         ) : records.length === 0 ? (
-          <Empty icon="collection" title={t('phone.noRecords')} text={t('phone.noRecordsText')} action={{ label: t('collection.addRecord'), run: onAdd }} />
+          <Empty icon="collection" title={t('phone.noRecords')} text={t('phone.noRecordsText')} />
         ) : shown.length === 0 ? (
           <p className="mb-none">{t('collection.noMatch')}</p>
         ) : groups ? (

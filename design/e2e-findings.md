@@ -13,8 +13,9 @@ Plan: `design/e2e.md`. Hatalar sormadan düzeltilir ve burada kaydı tutulur; UI
 | H5 | B Notlar | History penceresi Escape ile kapanmıyordu: History notu önce açıyor, notu açmanın ertelenmiş odak vermesi pencere açıldıktan sonra çalışıp odağı arkadaki editöre geri alıyordu (Escape de editöre gidiyordu). | `session.ts`: not açılınca editör, o arada açılmış bir pencere odaktaysa odağı almaz. | Düzeltildi, `b-notes.spec.ts` |
 | H6 | C Görevler | Telefonda bir görev tamamlanınca altındaki görev yukarı, parmağın altına kayıyor ve dairesinde onay işareti görünüyordu, tamamlanmış gibi: fareyle üstüne gelince gösterilen önizleme, dokunmatik ekranda dokunulan yerde takılı kalıyor (iPhone da öyle). | `styles.css`: önizleme yalnız fareli cihazlarda (`@media (hover: hover)`). | Düzeltildi |
 | H7 | E Koleksiyon | Yeni bir şirket (ve başlığında adı olan her kayıt) Name'de değil, altındaki ilk alanda (Website) açılıyordu: ilk kutu, pencerenin başlığı olarak çizilen adı atlayıp düzendeki ilk alanı alıyordu. | `Collection.tsx`: başlıkta adı olan yeni kayıt adında açılır; satırları bir alandan gelen kayıt (antrenmanın programı) yine o alanda açılır. | Düzeltildi, `e-apps.spec.ts` |
-| H8 | D Pano, E Koleksiyon | Kartın ve görevin açıklaması, kartın yorum kutusu ve kaydın notları ekran okuyucuya adsız "textbox" olarak görünüyordu. | `Description.tsx`: boşken gösterdiği metin (Write a comment…, Add a description…) adı da olur. | Düzeltildi, `d-boards.spec.ts` |
+| H8 | D Pano, E Koleksiyon | Kartın ve görevin açıklaması ve kartın yorum kutusu ekran okuyucuya adsız "textbox" olarak görünüyordu. | `Description.tsx`: boşken gösterdiği metin (Write a comment…, Add a description…) adı da olur. | Düzeltildi, `d-boards.spec.ts` |
 | H9 | I Chat | Chat'in mesaj kutusu da ekran okuyucuya adsız "textbox" idi. | `Chat.tsx`: "Message #general" gibi yer tutucusu adı da olur. | Düzeltildi, `i-chat.spec.ts` |
+| H10 | B Notlar, E Koleksiyon | Notun kendi editörü, Quick note'un gövdesi ve kaydın notları (bilgisayar ve telefon formu) da ekran okuyucuya adsızdı; H8'de kaydın notlarını düzelttim sanmıştım, ayrı bir bileşenmiş. | `session.ts`: notun ve Quick note'un editörü "Note"; `Collection.tsx`: kaydın notları "Add a note…". | Düzeltildi, `b-notes.spec.ts`, `e-apps.spec.ts` |
 
 ## UI/UX bulguları
 
@@ -29,21 +30,23 @@ Karar sütunu kullanıcının; onaylananlar aynı dilimde yapıldı.
 | U5 | D Pano, bilgisayar | Kart penceresinin sağında Status özel bir seçici, ama Priority tarayıcının kendi açılır kutusu ve Due tarayıcının "mm/dd/yyyy" tarih kutusu. Görevlerin tarih seçicisi (Today, Tomorrow, takvim) burada yok. | Aynı pencerede üç ayrı görünüm; tarih kutusu bilgisayarın dilinden gelen biçimde ve görevlerdekinden farklı. | Priority görevlerdeki öncelik menüsüyle, Due görevlerdeki tarih seçicisiyle olsun. | Cila | Onaylandı, yapıldı: ikisi de Status gibi alan, bayrak öncelik renginde, tarih Today/Tomorrow/… ile (`CardPanel.tsx`, `styles.css`); `d-boards.spec.ts` |
 | U6 | E App'ler, telefon | App kurulunca çıkan bildirim tek satırda kesiliyor: "CRM set up: 3 collections, 1 board, 1 n…". | Ne kurulduğunu söyleyen cümle yarım kalıyor. | Telefonda bildirim metni iki satıra kadar sarsın, Undo yanında kalsın. | Cila | Onaylandı, yapıldı (`phone.css`) |
 | U7 | F Takvim, telefon | Scheduled › Day bugün açılınca saat 07:00'dan başlıyor; akşam 18:30'da "şu an" görünmüyor, aşağı kaydırmak gerekiyor. | Bugüne bakan kişi önce şimdiyi ve sıradakini görmek ister. | Bugün açılınca görünüm şimdiki saatin biraz üstünden başlasın; başka bir gün açılınca o günün ilk işinden. | Cila | Onaylandı, yapıldı: iş olmayan gün yine 07:00 (`Calendar.tsx`) |
+| U8 | Telefon, boş ekranlar | U1'de boş Inbox ve Scheduled'dan ortadaki düğmeyi kaldırdık; aynı durum başka boş ekranlarda da var: boş koleksiyonda (Companies) "Add record", boş panoda ve sütunda "Add card", boş Keys'te "Add key", boş klasörde "Create" düğmesi köşedeki + ile yan yana. | U1'deki gibi aynı ekranda iki ekleme yeri; görevlerde kalktı, öbürlerinde duruyor: tutarsız. | Bu boş ekranlarda da ortadaki düğme kalksın, metin ve + kalsın. (Boş sütundaki "Add card" o sütuna ekler, + ilk sütuna: o düğme kalsın.) | Cila | Onaylandı, yapıldı: dördünde de + olduğu doğrulandı (klasör, alanı olan koleksiyon, pano, tablo görünümündeki Keys); sütunun Add card'ı ve alanı olmayan koleksiyonun Fields'ı kaldı (`Phone.tsx`, `PhoneCollection.tsx`, `Board.tsx`, `PhoneKeys.tsx`); `e-apps.spec.ts` |
 
 ## Özellik önerileri (kararını bekliyor)
 
-2., 3. ve 4. dilimde (ilk açılış, notlar, görevler, arama, Settings, Help, pano, app'ler, takvim, space ve sync, Chat, bildirim ayarları, ajan) değer katacak bir eksik görmedim; uydurmadım.
+2.–5. dilimde (ilk açılış, notlar, görevler, arama, Settings, Help, pano, app'ler, takvim, space ve sync, Chat, bildirim ayarları, ajan, telefon kabuğu) değer katacak bir eksik görmedim; uydurmadım.
 
 ## Notlar
 
 - **Telefonda yazma:** Chromium'da iPhone kullanıcı ajanıyla editör iOS'un tuş yolunu seçiyor, Playwright'ın tuşları o yola uymuyor ve sahte hatalar çıkıyor (liste bozuluyor, karakter düşüyor). Telefon projesi iPhone boyutu ve dokunmayla ama bilgisayarın kullanıcı ajanıyla çalışır; uygulama telefonu dokunma ve boyuttan tanıdığı için düzen aynıdır. iOS klavyesinin kendisi gerçek iPhone'da denenir.
+- **Telefonda dokunma alanları:** Browse, not, Inbox, ekleme sayfası, Scheduled, Search ve Settings ölçüldü; görünen her dokunma alanı 44 px ya da üstü. Tek istisna Search'teki All · Notes · Tasks… sekmeleri (32 px), iPhone'un segmentli seçicileri gibi.
 - **Test sunucusu:** her koşu boş bir klasörle başlar; sahibi `global-setup.ts` API'yle kurar. Her test kendi space'ini açar, her kişi kendi davetiyle (davet linki tek kullanımlık) ve kendi e-postasıyla katılır (aynı e-postayla dakikada 5 giriş sınırı). Test hesapları `e2e/server.ts`'te, yalnız bu yerel sunucu için.
 - **Bildirimlerin gidişi:** tarayıcı ve telefonda Web Push ile, tarayıcının dış servisi üzerinden gider; bu bilgisayardaki test oraya ulaşmaz. Gidişi sunucunun testleri (`notices.test.ts`, `push.test.ts`) ve gerçek cihaz denemesi kapsar; e2e ayarları kapsar.
 - **Yazılan Markdown:** `#`, `**` gibi yazılanlar biçime dönmez, dosyada kaçırılır (PLAN 4.2); testler buna göre.
 
 ## Testler
 
-`pnpm e2e`: masaüstü ve telefon boyutunda 72 koşu (55 geçer, 17'si yalnız bir boyuta ait). Her test sonunda sayfada yakalanmamış hata olmaması da denetlenir.
+`pnpm e2e`: masaüstü ve telefon boyutunda 74 koşu (63 geçer, 11'i bilerek yalnız bir boyuta ait: bilgisayarın başlangıç sayfası, sürükle-bırak, dosya indirme, History penceresi, kartın yan alanları; telefonun Browse'u, Status'tan taşıma). Her test sonunda sayfada yakalanmamış hata olmaması da denetlenir.
 
 | Dosya | Ne |
 |---|---|

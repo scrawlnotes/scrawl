@@ -1299,7 +1299,7 @@ export function Phone(props: PhoneProps) {
     const empty = children.length === 0;
     if (node?.reading || (!node && props.reading.has(spaceOf(path) ?? ''))) return <div className="mb-list">{loadingRow}</div>;
     if (empty && newFolderIn !== path) {
-      return <Empty icon="folder" title={t('phone.emptyFolder')} text={t('phone.emptyFolderText')} action={{ label: t('create.title'), run: () => props.onCreate(path) }} />;
+      return <Empty icon="folder" title={t('phone.emptyFolder')} text={t('phone.emptyFolderText')} />;
     }
     return (
       <div className="mb-list">

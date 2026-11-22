@@ -367,7 +367,7 @@ export function PhoneKeysTable({ text, latest, change, actions, adding, bad }: {
     <div className="mb-klist">
       {bad}
       {groups.length === 0 ? (
-        <Empty icon="keys" title={t('phone.noKeys')} text={t('phone.noKeysText')} action={{ label: t('phone.addKey'), run: () => setSheet({ kind: 'key', group: NO_GROUP, entry: null }) }} />
+        <Empty icon="keys" title={t('phone.noKeys')} text={t('phone.noKeysText')} />
       ) : (
         groups.map((group) => {
           const id = idOf('g:', group.name ?? '');
