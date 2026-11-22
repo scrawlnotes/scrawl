@@ -652,6 +652,10 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
     };
   }, [lastSeq]);
 
+  // For the measure in onScroll: where the last scroll left it, and whether a finger is on the conversation.
+  const lastFoot = useRef(0);
+  const lastTop = useRef(0);
+  const touching = useRef(false);
   const onScroll = () => {
     const box = scroller.current;
     if (!box) return;
@@ -661,10 +665,17 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
       const was = atEnd.current;
       atEnd.current = winNow.current?.to === null && foot < 40;
       if (was && !atEnd.current) log('info', 'Chat end', `scrolled from the end: foot ${Math.round(foot)}, height ${box.clientHeight}, top ${Math.round(box.scrollTop)}`);
+      // shortcut: temporary measure, as above: still taken as at the end, but a little short of it, and nothing brings it back.
+      else if (atEnd.current && foot > 1 && lastFoot.current <= 1) {
+        const seen = window.visualViewport;
+        log('info', 'Chat end', `short of the end: foot ${Math.round(foot)}, top ${Math.round(lastTop.current)} → ${Math.round(box.scrollTop)}, height ${box.clientHeight}, touch ${touching.current}, window ${Math.round(window.scrollY)}, view ${Math.round(seen?.offsetTop ?? 0)}+${Math.round(seen?.height ?? 0)}`);
+      }
       // Scrolled by the reader: the New line moved. A page drawn above keeps it where it is.
       const line = atLine.current !== null && box.querySelector<HTMLElement>('.ch-new');
       if (!line || Math.abs(line.getBoundingClientRect().top - box.getBoundingClientRect().top - atLine.current!) > 1) atLine.current = null;
     }
+    lastFoot.current = foot;
+    lastTop.current = box.scrollTop;
     readNow();
     if (box.scrollTop < box.clientHeight) page(-1);
     else if (foot < box.clientHeight) page(1);
@@ -955,6 +966,9 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
         className="ch-msgs"
         ref={scroller}
         onScroll={onScroll}
+        onTouchStart={() => (touching.current = true)}
+        onTouchEnd={() => (touching.current = false)}
+        onTouchCancel={() => (touching.current = false)}
         // Copied as words alone: the page's HTML around the messages would paste as empty lines.
         onCopy={(event) => {
           const words = getSelection()?.toString().trim();
