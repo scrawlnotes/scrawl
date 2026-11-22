@@ -93,11 +93,14 @@ export function TimeGrid({ days, today, allDay, boxes, onOpen, onMove, onResize,
   const timed: Timed<CalendarBox>[] = boxes.map((box) => ({ item: box, start: box.start, end: box.end, minutes: box.minutes }));
   const laid = new Map(days.map((day) => [day, layoutDay(timed, day)]));
 
-  // The hours open at the morning.
+  // As on a phone: a span with today opens an hour above now; another at its first box; one with none at the morning.
+  const first = Math.min(...days.flatMap((day) => laid.get(day)!.map((box) => box.from)));
+  const opensAt = days.includes(today) ? Math.max(0, Math.floor(now / 60) - 1) : Number.isFinite(first) ? Math.floor(first / 60) : OPENS_AT;
   useLayoutEffect(() => {
-    // A little above the hour, so that its time shows whole.
-    if (scroll.current) scroll.current.scrollTop = OPENS_AT * HOUR - 8;
-  }, []);
+    // A little above the hour, so that its time shows whole. Only as the days change: not while one scrolls.
+    if (scroll.current) scroll.current.scrollTop = Math.max(0, opensAt * HOUR - 8);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [days[0], days.length]);
 
   const begin = (event: ReactPointerEvent, laidBox: DayBox<CalendarBox>, day: string, mode: Dragging['mode']) => {
     if (event.button !== 0) return;

@@ -2,6 +2,46 @@
 
 Plan: `design/e2e.md`. Hatalar sormadan düzeltilir ve burada kaydı tutulur; UI/UX bulguları ve özellik önerileri karar bekler.
 
+## Özet
+
+22 Kasım 2026, altı dilim bitti (aee3076, c4f4b63, 26ac234, 0ee9b4a, 8e8e302; hepsi web'de).
+
+- **Hata:** 10 bulundu, 10'u düzeltildi. En ağırı H1: yazdıktan hemen sonra kapanan ya da yenilenen sekmede son yazılan kayboluyordu. Dördü (H2, H3, H8–H10) ekran okuyucuya adsız düğme ve kutulardı.
+- **UI/UX:** 9 bulgu, 9'u onaylandı ve yapıldı.
+- **Özellik önerisi:** yok. Taranan ekranlarda değer katacak, eksik bir şey görmedim; liste doldurmak için uydurmadım.
+- **Test takımı:** `pnpm e2e`, 38 test iki boyutta 76 koşu; 65 geçer, 11'i bilerek tek boyutta. GitHub'da her push'ta çalışır (K2). 13 alanın her birinde en az bir akış testli; planda sayılan akışların bir kısmının testi yok (Kapsam).
+
+## Toplu raporun kararları
+
+22 Kasım'da dördü de onaylandı ("önerilerin ok, ücretsizde kesin kalsın ama").
+
+| # | Konu | Durum | Öneri | Karar |
+|---|---|---|---|---|
+| U9 | Takvim, bilgisayar | U7 telefon için onaylandı. Bilgisayarda Day ve Week bugün açılınca yine 07:00'dan başlıyor; akşam "şu an" görünmüyor. | Telefondaki gibi olsun: bugün şimdiki saatin bir saat üstünden, başka gün ilk işinden, iş yoksa 07:00. Cila. | Yapıldı (`Calendar.tsx`), `f-calendar.spec.ts` iki boyutta |
+| K1 | Testi olmayan akışlar | Planın 3. bölümünde sayılan akışların aşağıdaki "Kapsam"da "Testi yok" denenleri. | 7. dilim: hepsine test, aynı yöntemle (önce kullanıcı gibi kullan, hatayı düzelt, UI/UX bulgusunu sor). Planın istediği buydu; önceki dilimlerden büyük, alan grubu grubu ilerler. | Onaylandı, 7. dilim |
+| K2 | Her push'ta çalışması (CI) | Planda "takım oturunca karar" denmişti; takım şimdi yerelde kararlı. Bir koşu bu bilgisayarda ~2 dakika. | GitHub Actions'da yalnız `apps/web` veya `e2e/` değişince, Edge yerine Playwright'ın Chromium'uyla. Ücretsiz dakika sınırı doğrulanmadan açılmaz. | Yapıldı: `.github/workflows/web.yml` web'in typecheck'i, birim testleri ve e2e; runner'ın kendi Chrome'uyla. Ücretsiz: GitHub'ın belgesine göre standart runner açık depoda ücretsiz ve sınırsız ("free and unlimited on public repositories"); depo açık, büyük runner yok, hiçbir dosya yüklenmiyor. |
+| K3 | Masaüstü uygulamasına özgü olanlar | Tepsi, açılışta başlama, dosya izleme, güncelleme hâlâ elle deneniyor. | Şimdilik elle kalsın; `tauri-driver` kurulumu bu iş için büyük. | Onaylandı, elle kalır |
+
+## Kapsam
+
+Planın 3. bölümündeki akışlar, testi olanlar ve olmayanlar. "Testi yok" çalışmıyor demek değil; testle kilitlenmedi demek.
+
+| Alan | Testli | Testi yok |
+|---|---|---|
+| A İlk açılış | Welcome notu, başlangıç sayfası, OneDrive'a bağlama, telefonda boş ekran | — |
+| B Notlar | Yazınca liste, Bold, Rename, Trash ve Undo, History, Markdown dışa aktarma, Quick notes | Başlık, link, resim, kod, callout ve tablo; Excel'den yapıştırma; sekmeler; taşıma; PDF ve HTML dışa aktarma |
+| C Görevler | Ekleme, tamamlama ve Undo, Scheduled, eklemeden sonra tarihin boşalması | Alt görev, öncelik, bölümler, sürükleyerek sıralama, etiketler, filtreler, Favorites, Remind |
+| D Pano | Kart, sürükleme, telefonda Status, yorum, You, Priority ve Due | Şablondan pano, sütun düzenleme, faz kapatma, mention |
+| E Koleksiyon ve app'ler | CRM kurulumu (iki boyutta), kayıt formu, tablo | Gym ve öbür şablonlar, görünümler, kurallar, CSV/XLSX içe aktarma, hatalı girdi, Edit app |
+| F Takvim | Outlook'un bugünkü toplantısı, görevin takvimde günü | Google, takvimde taşıma |
+| G Arama | Kelimeyle bulup açma | Recent ve son aramalar |
+| H Space ve sync | Davetle katılma, iki cihaz arası sync | Çakışma, offline şeridi, space taşıma |
+| I Chat | #general'da yazışma, mesaj arama | DM, dosya, mention, ajanla DM |
+| J Bildirimler | Tür kapatma ayarı | Mention, atama, Remind ve son tarih bildiriminin gidişi (sunucu testlerinde, bkz. Notlar) |
+| K Ajan | OAuth, `create`, `write`, `save_task` ve arayüzde görünmesi | `tree`, `read`, `save_card`, `save_record` (ajan paketinin ve sunucunun birim testlerinde) |
+| L Diğer ekranlar | Settings › Appearance, Help | Keys, Files, Activity, People |
+| M Telefon kabuğu | Bütün testler telefon boyutunda da; dokunma alanları ölçüldü | Klavye açıkken düzen (gerçek iPhone'da) |
+
 ## Hatalar
 
 | # | Alan | Ne oldu | Düzeltme | Durum |
@@ -58,7 +98,7 @@ Karar sütunu kullanıcının; onaylananlar aynı dilimde yapıldı.
 | `l-screens.spec.ts` | Dark hemen uygulanıyor; Help'te konuya gitme |
 | `d-boards.spec.ts` | Kart ekleme ve yenileme; sürükleyerek Doing'e; telefonda Status'tan Doing'e; yorum; adsız kişinin kartında You; kartın Priority ve Due seçicileri |
 | `e-apps.spec.ts` | CRM New app'ten kurulup Home'da açılıyor; şirket formu Name'de açılıyor, kayıt tabloda ve yenilemeden sonra |
-| `f-calendar.spec.ts` | Outlook bağlanınca bugünkü toplantı Scheduled'da; bugünkü görev takvimde |
+| `f-calendar.spec.ts` | Outlook bağlanınca bugünkü toplantı Scheduled'da; bugünkü görev takvimde; takvim bugün şimdiki saatte açılıyor |
 | `h-spaces.spec.ts` | İki kişi iki cihazda: birinin yazdığı not öbüründe açılıyor, öbürünün eklediği geri geliyor |
 | `i-chat.spec.ts` | #general'da iki kişi yazışıyor; mesaj aramayla bulunuyor |
 | `j-notifications.spec.ts` | Kapatılan bildirim türü yenilemeden sonra kapalı |

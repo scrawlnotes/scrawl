@@ -1,0 +1,45 @@
+# The web app: its typecheck and unit tests, then the end-to-end tests (e2e/) on a computer's and a
+# phone's size against a server of their own. Only on GitHub's standard runner, which is free for a
+# public repository; nothing is uploaded, so no storage is used either.
+name: Web
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - apps/web/**
+      - apps/server/**
+      - packages/**
+      - e2e/**
+      - pnpm-lock.yaml
+      - .github/workflows/web.yml
+  pull_request:
+    paths:
+      - apps/web/**
+      - apps/server/**
+      - packages/**
+      - e2e/**
+      - pnpm-lock.yaml
+      - .github/workflows/web.yml
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.9.1
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --filter "@scrawlnotes/web..." --filter "@scrawlnotes/server..." --filter "@scrawlnotes/e2e..."
+      - run: pnpm --filter @scrawlnotes/web typecheck
+      - run: pnpm --filter @scrawlnotes/web test
+      # The runner's own Chrome: no browser to download.
+      - run: pnpm e2e
+        env:
+          E2E_CHANNEL: chrome

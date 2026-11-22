@@ -37,3 +37,18 @@ test('a task for today is on today in the calendar', async ({ app, phone }) => {
   await app.getByRole('tab', { name: view, exact: true }).or(app.getByRole('button', { name: view, exact: true })).first().click();
   await expect(app.getByText('Pay rent').first()).toBeVisible();
 });
+
+test('the calendar opens on today at the hour of now, not at the morning (U7, U9)', async ({ app, phone }) => {
+  await openScheduled(app, phone);
+  const view = phone ? 'Day' : 'Calendar';
+  await app.getByRole('tab', { name: view, exact: true }).or(app.getByRole('button', { name: view, exact: true })).first().click();
+  // A computer's calendar opens on Month; its hours are in Week and Day.
+  if (!phone) await app.getByRole('tab', { name: 'Week', exact: true }).click();
+  const hours = app.locator(phone ? '.mb-hours' : '.tg-scroll');
+  const line = hours.locator('.tg-now');
+  await expect(line).toBeVisible();
+  // The line of now is in the part of the hours on screen, whatever time it is.
+  const [box, seen] = await Promise.all([line.boundingBox(), hours.boundingBox()]);
+  expect(box!.y).toBeGreaterThanOrEqual(seen!.y);
+  expect(box!.y).toBeLessThanOrEqual(seen!.y + seen!.height);
+});

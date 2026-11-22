@@ -19,8 +19,8 @@ export default defineConfig({
   retries: 0,
   use: {
     baseURL: WEB,
-    // The Edge on this computer: no browser to download.
-    channel: 'msedge',
+    // The Edge on this computer, the Chrome on GitHub's runner: no browser to download.
+    channel: process.env.E2E_CHANNEL ?? 'msedge',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },

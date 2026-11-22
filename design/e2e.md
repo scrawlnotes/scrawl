@@ -1,6 +1,6 @@
-# Uygulama geneli e2e, kullanıcı gözüyle tarama ve öneriler (taslak)
+# Uygulama geneli e2e, kullanıcı gözüyle tarama ve öneriler
 
-Durum: taslak, onay bekliyor. PLAN.md ve Roadmap'e onaydan sonra yazılır.
+Durum: 22 Kasım 2026, onaylı; altı dilim bitti. Toplu raporda 7. dilim eklendi: 3. bölümde sayılıp testi olmayan akışlar. Sonuç `design/e2e-findings.md`.
 
 ## 1. Kapsam
 
@@ -114,5 +114,6 @@ Her dilim bir alan grubunu hem tarar hem teste bağlar: önce kullanıcı gibi k
 4. **Birlikte çalışma:** H, I, J, K (iki bağlam, yerel sunucu).
 5. **Telefon:** M ve önceki akışların telefon projesinde koşması.
 6. **Toplu rapor:** `design/e2e-findings.md` son hali, özellik önerileri listesi.
+7. **Testi olmayan akışlar:** toplu raporun Kapsam tablosunda "Testi yok" denenler, alan grubu grubu, aynı yöntemle.
 
 Takip: Roadmap'te bir faz ("E2E ve UX taraması"), her dilim bir kart; hata düzeltmeleri dilimin kartında, onaylanan UI/UX düzeltmeleri ve özellikler ayrı kart.
