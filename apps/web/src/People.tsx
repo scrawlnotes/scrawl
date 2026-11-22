@@ -32,15 +32,25 @@ export function ownerFirst(ref: { id?: string }, people: Person[] = []): string 
   return row ? ownerName(row, people)?.split(/\s+/)[0] : undefined;
 }
 
+let myId: string | undefined;
+/** Who uses the app, told by the app as it draws: their own work without a name is "You". */
+export const setMyId = (id: string | undefined) => {
+  myId = id;
+};
+const isMe = (ref: { id?: string }) => !!ref.id && ref.id === myId;
+/** What a person without a name is called: You for the one using the app, else Unnamed. */
+const unnamed = (ref: { id?: string }) => t(isMe(ref) ? 'settings.you' : 'settings.unnamed');
+
 /** What someone given a task is called now: an agent with whose it is; Unnamed for a person without a name. */
 export function assigneeLabel(ref: PersonRef, people: Person[] = []): string {
-  const name = refName(ref, people) ?? t('settings.unnamed');
+  const name = refName(ref, people) ?? unnamed(ref);
   const owner = ownerFirst(ref, people);
   return owner ? `${name} · ${owner}` : name;
 }
 
 /** The letter someone shows by: a person's initial, an agent's client's; `?` for one without a name. */
-export const initialOf = (ref: PersonRef, people: Person[] = []) => faceText(rowOf(ref.id, people)?.agent?.client ?? refName(ref, people));
+export const initialOf = (ref: PersonRef, people: Person[] = []) =>
+  faceText(rowOf(ref.id, people)?.agent?.client ?? refName(ref, people) ?? (isMe(ref) ? t('settings.you') : undefined));
 
 /** A round initial: of a person, or `?` for one without a name; an agent's is a square. */
 export function Who({ id, name, agent = false }: { id?: string; name: string | undefined; agent?: boolean }) {
@@ -72,13 +82,13 @@ export function NameOf({ who, people = [], first = false }: { who: PersonRef; pe
       </>
     );
   }
-  return <>{name ? (first && !isAgentId(who.id) ? name.split(/\s+/)[0] : name) : t('settings.unnamed')}</>;
+  return <>{name ? (first && !isAgentId(who.id) ? name.split(/\s+/)[0] : name) : unnamed(who)}</>;
 }
 
 /** The name of someone given a task, as a row shows them: a person's first name, an agent's name and whose it is; Unnamed for one without a name. */
 export function firstName(ref: PersonRef, people: Person[] = []): string {
   if (isAgentId(ref.id)) return assigneeLabel(ref, people);
-  return refName(ref, people)?.split(/\s+/)[0] ?? t('settings.unnamed');
+  return refName(ref, people)?.split(/\s+/)[0] ?? unnamed(ref);
 }
 
 /** Who a task or a card is given to, on its row: their initial and first name; an agent's square, name and whose it is. */

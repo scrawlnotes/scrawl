@@ -5949,25 +5949,10 @@ textarea.tt-edit {
   border-color: var(--sl-faint);
 }
 
-/* The card's priority in its colour, as its flag is in a menu. */
-.cpanel .fields select.prio.p1,
-.cpanel .fields select option.p1 {
-  color: var(--sl-p1);
-}
-
-.cpanel .fields select.prio.p2,
-.cpanel .fields select option.p2 {
-  color: var(--sl-p2);
-}
-
-.cpanel .fields select.prio.p3,
-.cpanel .fields select option.p3 {
-  color: var(--sl-p3);
-}
-
-.cpanel .fields select option.p4 {
-  color: var(--sl-fg);
-}
+/* The card's priority: its flag in its colour, as in the menu it is picked from. */
+.st-field.prio.p1 .icon { color: var(--sl-p1); }
+.st-field.prio.p2 .icon { color: var(--sl-p2); }
+.st-field.prio.p3 .icon { color: var(--sl-p3); }
 
 .cpanel .fields select option {
   background: var(--sl-side);

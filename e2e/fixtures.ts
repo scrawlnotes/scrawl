@@ -56,7 +56,15 @@ export const vaultFile = (page: Page, name: string) =>
       }
       return null;
     };
-    return find(await navigator.storage.getDirectory());
+    // A folder changing while it is walked (a file moving to the trash) is walked again.
+    for (let tries = 0; ; tries++) {
+      try {
+        return await find(await navigator.storage.getDirectory());
+      } catch (error) {
+        if (tries === 4) throw error;
+        await new Promise((done) => setTimeout(done, 100));
+      }
+    }
   }, name);
 
 // Opens a note's menu: the sidebar row's on a computer, the note's More on a phone (the note open).
@@ -64,6 +72,9 @@ export async function noteMenu(page: Page, phone: boolean, name: string) {
   if (phone) await page.getByRole('button', { name: 'More' }).click();
   else await page.getByRole('button', { name, exact: true }).first().click({ button: 'right' });
 }
+
+// The Undo of the notice (the status bar's or a toast), not the editor's Undo in its format bar.
+export const undoInNotice = (page: Page) => page.locator('.toast, .mb-toast, .notice').getByRole('button', { name: 'Undo' });
 
 // Browse on a phone; the sidebar is always there on a computer.
 export async function browse(page: Page, phone: boolean) {

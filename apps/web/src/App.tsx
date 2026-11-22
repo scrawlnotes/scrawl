@@ -252,7 +252,7 @@ import { onNotificationClick, startNotifications } from './notify';
 import { showComment } from './commentFocus';
 import type { Hit } from './messageSearch';
 import { PhoneUpcoming } from './PhoneUpcoming';
-import type { SpacePeople } from './People';
+import { setMyId, type SpacePeople } from './People';
 import { contentsText, quote, writtenText } from './text';
 import { LabelDot, type Labels, LabelSheet, LabelsContext, LabelsWindow } from './labels';
 import { type Choices, type FilterPlace, FilterSheet, type FilterStep, type FolderChoice as FilterFolder } from './FilterBar';
@@ -501,6 +501,8 @@ export function App() {
     session.subscribe,
     session.getSnapshot,
   );
+  // Before the screens draw: whose work is "You" when this person has no name yet.
+  setMyId(me?.id);
   // Which of Outlook's calendars show follows the personal space's choice, on every device.
   useEffect(() => {
     setCalendarChoice(calendarChoice);

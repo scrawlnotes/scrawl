@@ -2333,7 +2333,11 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
   // A new record's first box has the keyboard.
   // A new record starts at the field its rows come from, its list open: a workout's program; else at its first.
   const placedFields = layout.columns.flatMap((c) => c.sections.flatMap((s) => s.items)).filter((i): i is { field: string } => 'field' in i);
-  const firstKey = isNew ? (placedFields.find((i) => watched.some((w) => w.fields.includes(i.field))) ?? placedFields[0])?.field : undefined;
+  const rowsFrom = placedFields.find((i) => watched.some((w) => w.fields.includes(i.field)));
+  // The name shown as the window's title is the first box of a new one, not the field under it.
+  const titleFirst = isNew && !rowsFrom && !!schema.head && !!named;
+  const inHead = (key: string) => !!schema.head && (fields.get(key)?.type === 'name' || key === schema.head.steps);
+  const firstKey = isNew && !titleFirst ? (rowsFrom ?? placedFields.find((i) => !inHead(i.field)))?.field : undefined;
   // What is worked out (formulas, lookups, rollups) from what the form holds now; the rollups are the
   // record's, from what links to it, the rows typed in and not written yet among them: a new order's
   // total its new lines'.
@@ -2598,6 +2602,7 @@ export function RecordDialog({ collection, record, values, line, parent, today, 
             <div className="rm-head">
               <input
                 className="rm-title"
+                autoFocus={titleFirst}
                 aria-label={named?.label ?? t('collection.name')}
                 placeholder={(named && !named.optional ? named.label : recordTitle(recordWith(collection, id, toBe))) || t('collection.newOne', { singular: singularOf(schema) })}
                 value={named ? valueText(draft.values[named.key] ?? null) : ''}

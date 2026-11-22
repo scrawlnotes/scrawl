@@ -1,5 +1,5 @@
 import { type Page } from '@playwright/test';
-import { browse, expect, test } from '../fixtures';
+import { browse, expect, test, undoInNotice } from '../fixtures';
 
 async function openInbox(page: Page, phone: boolean) {
   await browse(page, phone);
@@ -38,7 +38,7 @@ test('a task ticked off goes, and Undo brings it back', async ({ app, phone }) =
   if (phone) await app.keyboard.press('Escape');
   await app.getByRole('checkbox', { name: /Water the plants/ }).click();
   await expect(row(app, 'Water the plants')).toBeHidden();
-  await app.getByRole('button', { name: 'Undo' }).last().click();
+  await undoInNotice(app).click();
   await expect(row(app, 'Water the plants')).toBeVisible();
 });
 

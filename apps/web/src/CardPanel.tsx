@@ -67,6 +67,7 @@ import { Sheet } from './sheets';
 import { StatusIcon } from './StatusIcon';
 import { Subtasks } from './Subtasks';
 import { dueClass, dueLabel } from './Tasks';
+import { DatePop } from './TaskComposer';
 import { dateLabel } from './TimeInputs';
 import { clockTime, pastDayLabel } from './text';
 
@@ -213,11 +214,60 @@ function MarkdownView({ text, viewer }: { text: string; viewer: Viewer }) {
 }
 
 const SAVE_DELAY_MS = 400;
-const PRIORITIES: Priority[] = [1, 2, 3, 4];
 /** How close to the window's edges the label picker may come. */
 const EDGE = 8;
 
 /** The card's status, its icon beside it; a click opens the picker of every status under it. */
+/** A card's priority, picked under its field from a task's priority menu. */
+function PriorityField({ priority, menu, onPick }: { priority: Priority; menu: CardPanelActions['menu']; onPick: (priority: Priority) => void }) {
+  return (
+    <button
+      id="card-priority"
+      type="button"
+      className={`st-field prio p${priority}`}
+      aria-haspopup="menu"
+      onClick={(event) => {
+        const box = event.currentTarget.getBoundingClientRect();
+        menu({ clientX: box.left, clientY: box.bottom + 4, preventDefault: () => event.preventDefault() } as MouseEvent, priorityItems(priority, onPick));
+      }}
+    >
+      <Icon name="flag" />
+      <span className="nm">{priority === 4 ? t('tasks.noPriority') : t('tasks.priorityN', { n: priority })}</span>
+      <span className="dd" aria-hidden="true">
+        ▾
+      </span>
+    </button>
+  );
+}
+
+/** A card's day, picked as a task's is: typed, a quick day, or from the months. */
+function DueField({ due, today, onPick }: { due: string | null; today: string; onPick: (due: string | null) => void }) {
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  return (
+    <>
+      <button id="card-due" type="button" className={due ? `st-field ${dueClass(due, today)}` : 'st-field'} aria-haspopup="dialog" aria-expanded={!!anchor} onClick={(event) => setAnchor(anchor ? null : event.currentTarget)}>
+        <Icon name="calendar" />
+        <span className="nm">{due ? dueLabel(due, today) : t('tasks.noDate')}</span>
+        <span className="dd" aria-hidden="true">
+          ▾
+        </span>
+      </button>
+      {anchor && (
+        <DatePop
+          anchor={anchor}
+          current={due}
+          today={today}
+          onPick={(day) => {
+            setAnchor(null);
+            onPick(day);
+          }}
+          onClose={() => setAnchor(null)}
+        />
+      )}
+    </>
+  );
+}
+
 function StatusField({ board, current, onMove }: { board: Board; current: string; onMove: (column: string) => void }) {
   const [open, setOpen] = useState(false);
   const field = useRef<HTMLButtonElement>(null);
@@ -739,17 +789,11 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
             </>
           )}
           <label htmlFor="card-priority">{t('card.priority')}</label>
-          <select id="card-priority" className={`prio p${card.priority}`} value={card.priority} onChange={(event) => update({ priority: Number(event.target.value) as Priority })}>
-            {PRIORITIES.map((p) => (
-              <option key={p} value={p} className={`p${p}`}>
-                {p === 4 ? t('tasks.noPriority') : t('tasks.priorityN', { n: p })}
-              </option>
-            ))}
-          </select>
+          <PriorityField priority={card.priority} menu={actions.menu} onPick={(priority) => update({ priority })} />
           <label htmlFor="card-labels">{t('card.labels')}</label>
           <LabelsField id="card-labels" path={path} labels={card.labels ?? []} onChange={(labels) => update({ labels })} />
           <label htmlFor="card-due">{closes(board) ? t('card.closes') : t('card.due')}</label>
-          <input id="card-due" type="date" value={card.due ?? ''} onChange={(event) => update({ due: event.target.value || null })} />
+          <DueField due={card.due ?? null} today={today} onPick={(due) => update({ due })} />
           <label htmlFor="card-assignee">{board.next ? t('card.owner') : t('card.assignee')}</label>
           {team ? (
             <AssigneeField team={team} current={card.assignee ?? null} onPick={(assignee) => update({ assignee })} />

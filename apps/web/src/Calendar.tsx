@@ -295,10 +295,14 @@ export function PhoneHours({ day, today, boxes, onOpen, onSwipe, onMove, onTarge
   // A box let go after it was held is not opened by the click that follows.
   const wasHeld = useRef(false);
   const now = useNow();
-  useLayoutEffect(() => {
-    if (scroll.current) scroll.current.scrollTop = OPENS_AT * PHONE_HOUR - 8;
-  }, [day]);
   const laid = layoutDay(boxes.map((box) => ({ item: box, start: box.start, end: box.end, minutes: box.minutes })), day);
+  // Today opens an hour above now, as what is next matters; another day at its first box; one with none at the morning.
+  const opensAt = day === today ? Math.max(0, Math.floor(now / 60) - 1) : laid.length ? Math.floor(Math.min(...laid.map((box) => box.from)) / 60) : OPENS_AT;
+  useLayoutEffect(() => {
+    // A little above the hour, so that its time shows whole. Only as the day changes: not while one scrolls.
+    if (scroll.current) scroll.current.scrollTop = Math.max(0, opensAt * PHONE_HOUR - 8);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [day]);
 
   const hold = (event: ReactPointerEvent, box: DayBox<CalendarBox>) => {
     if (!onMove || box.item.movable === false) return;

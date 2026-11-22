@@ -1,4 +1,4 @@
-import { browse, createNote, editor, expect, noteMenu, test, vaultFile } from '../fixtures';
+import { browse, createNote, editor, expect, noteMenu, test, undoInNotice, vaultFile } from '../fixtures';
 
 test('what is typed stays as typed, but a dash or a number at a line start makes a list (PLAN 4.2)', async ({ app, phone }) => {
   await createNote(app, phone, 'Typed');
@@ -44,7 +44,7 @@ test('a note deleted goes to Trash without asking, and Undo brings it back', asy
   await noteMenu(app, phone, 'Gone');
   await app.getByRole('menuitem', { name: 'Delete' }).click();
   await expect.poll(() => vaultFile(app, 'Gone.md')).toBeNull();
-  await app.getByRole('button', { name: 'Undo' }).last().click();
+  await undoInNotice(app).click();
   await expect.poll(() => vaultFile(app, 'Gone.md')).toBe('Kept');
 });
 

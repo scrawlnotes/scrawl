@@ -84,6 +84,8 @@ export function DescriptionField({ home, value, onChange, hint, host, autoFocus,
       changed.current(doc);
       window.setTimeout(() => look.current());
     }, hint);
+    // What it shows empty names it for a screen reader too, which has no label to read.
+    made.view.contentDOM.setAttribute('aria-label', hint);
     editor.current = made;
     if (autoFocus) focusOnCapital(made.view);
     return () => {
