@@ -1,4 +1,5 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import type { ChatOpenedEvent } from '@scrawlnotes/core';
 import webpush from 'web-push';
 import { Refused } from './auth';
 import type { Chats } from './chat';
@@ -42,7 +43,13 @@ export interface PushPayload {
   reaction?: boolean;
   /** What a click opens when it is not a message: a card or a task (design/notifications.md 6). */
   href?: string;
+  /** A notice's space and thing: opened on any device, its notification goes (design/notifications.md 19). */
+  space?: string;
+  item?: string;
 }
+
+/** How long an opening is kept to tell a device that comes back: as long as a push waits for it. */
+const OPENED_KEPT_MS = 24 * 60 * 60 * 1000;
 
 /** A card's or a task's notice for one person (design/notifications.md): what it says, what a click opens, and what it is about. */
 export interface NoticePush {
@@ -85,6 +92,8 @@ export class Push {
   private readonly waiting = new Set<ReturnType<typeof setTimeout>>();
   /** A card's or a task's notices waiting, by the person, the space and the thing. */
   private readonly noticesWaiting = new Map<string, Set<ReturnType<typeof setTimeout>>>();
+  /** When each person last opened a card or a task, by its space and itself; kept in the process, as what waits is. */
+  private readonly openedLately = new Map<string, Map<string, { space: string; item: string; at: number }>>();
   private readonly sender: Sender;
 
   constructor(
@@ -167,7 +176,11 @@ export class Push {
     this.noticesWaiting.set(key, (this.noticesWaiting.get(key) ?? new Set()).add(timer));
   }
 
-  /** Someone opened a card or a task on a device: what waits of it for their other devices is not sent. */
+  /**
+   * Someone opened a card or a task on a device: what waits of it for their other devices is not
+   * sent, and the devices on the live channel take its notifications away; one that comes back
+   * later hears of it as it connects (openedFor).
+   */
   opened(account: string, space: string, item: string) {
     const key = `${account}\n${space}\n${item}`;
     for (const timer of this.noticesWaiting.get(key) ?? []) {
@@ -175,10 +188,24 @@ export class Push {
       this.waiting.delete(timer);
     }
     this.noticesWaiting.delete(key);
+    const now = Date.now();
+    const lately = this.openedLately.get(account) ?? new Map<string, { space: string; item: string; at: number }>();
+    for (const [each, { at }] of lately) if (now - at > OPENED_KEPT_MS) lately.delete(each);
+    lately.set(`${space}\n${item}`, { space, item, at: now });
+    this.openedLately.set(account, lately);
+    const event: ChatOpenedEvent = { type: 'opened', items: [{ space, item, ago: 0 }] };
+    this.live.tell([account], event);
+  }
+
+  /** A device connected: the cards and tasks its person opened lately, whose notifications it may still show. */
+  openedFor(socket: { account: string; send(text: string): void }) {
+    const now = Date.now();
+    const items = [...(this.openedLately.get(socket.account)?.values() ?? [])].filter(({ at }) => now - at <= OPENED_KEPT_MS).map(({ space, item, at }) => ({ space, item, ago: now - at }));
+    if (items.length) socket.send(JSON.stringify({ type: 'opened', items } satisfies ChatOpenedEvent));
   }
 
   private async tellNotice(account: string, notice: NoticePush) {
-    const payload: PushPayload = { title: notice.title, body: notice.body, badge: this.chats.alertCount(account), count: 1, server: this.server, chat: '', message: '', tag: notice.tag, href: notice.href };
+    const payload: PushPayload = { title: notice.title, body: notice.body, badge: this.chats.alertCount(account), count: 1, server: this.server, chat: '', message: '', tag: notice.tag, href: notice.href, space: notice.space, item: notice.item };
     // The device in use heard it on the live channel.
     const rows = this.subscriptionsOf(account).filter((row) => !this.live.isDeviceActive(row.device_id));
     await Promise.all(rows.map((row) => this.deliver(row, payload, 'high')));

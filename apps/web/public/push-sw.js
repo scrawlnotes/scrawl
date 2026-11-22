@@ -34,7 +34,8 @@ self.addEventListener('push', (event) => {
         icon: '/icons/icon-192.png',
         badge: '/icons/favicon-32.png',
         timestamp: Date.now(),
-        data,
+        // When it was shown: a card opened after it, on any device, takes it away (design/notifications.md 19).
+        data: { ...data, shown: Date.now() },
       });
     })(),
   );

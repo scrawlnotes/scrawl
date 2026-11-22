@@ -269,3 +269,15 @@ Yayın: web ve sunucu; masaüstü kullanıcı söyleyince.
 - **Help:** Working together'a "Mentions and notifications" bölümü (dört tür, ajan, Settings, kaçan bildirim tutulmaz); Boards ve Task lists'e (telefon sayfaları dahil) @ ile mention cümlesi; Settings'e (telefon dahil) Notify me about.
 - **Testler:** ajan 2 (açıklama ve yorumda mention, pasif kişi ve ajan hariç; remind ve beş ret), sunucu 1 (`/mcp` üzerinden ajan atar, yorumda @Mert yazar, hatırlatır: Mert'e üç push gider).
 - **Tarayıcıda:** Help penceresinde Working together'ın yeni bölümü.
+
+## 19. Açılan iş her cihazda okunmuş olur
+
+22 Kasım 2026. Chat'te okunan konuşmanın bildirimi diğer cihazlarda kalkıyordu (`design/chat.md` 6); kartın ve görevin bildirimi kalmıyordu: telefonda açılan kartın bildirimi masaüstünde dururdu.
+
+- **Kural:** bir kart ya da görev herhangi bir cihazda açılınca (bildirimine dokunarak ya da kendisi açılarak), o işin o andan önce gelmiş bildirimleri kişinin bütün cihazlarından kalkar. Açıldıktan sonra gelen bildirim yenidir, kalır. Sabah 09:00 özeti tek bir işin değildir; bir kart açılınca kalkmaz.
+- **Sunucu:** `POST /opened` (9.3) artık canlı kanala `opened` olayını da söyler: `{ type: 'opened', items: [{ space, item, ago }] }`, kişinin bağlı bütün cihazlarına, açanınki dahil. Açılışlar 24 saat bellekte durur (push'un bekleme süresi kadar); sonradan bağlanan cihaz bağlanırken son açılanları aynı olayla alır, `ago` ne kadar önce açıldığını söyler (cihazın saati sunucununkinden farklı olabilir). Sunucu yeniden başlarsa bellek gider; o zaman bildirim bugünkü gibi kalır.
+- **Push yükü:** kartın ve görevin push'u `space` ve `item` da taşır; `push-sw.js` gösterdiği bildirime `shown` (ne zaman gösterildi) ekler.
+- **Masaüstü:** gösterdiği kart ve görev bildirimlerini aklında tutar; `opened` gelince açılmadan önce gösterilmişleri `chat_unnotify` ile kaldırır. Windows'ta kalkar; macOS'ta bildirim eklentisi kaldıramadığı için kalır (Chat'teki gibi).
+- **Tarayıcı ve telefon:** `opened` gelince push kaydının bildirimlerinden aynı space ve işe ait, açılmadan önce gösterilmiş olanları kapatır. Telefonda Scrawl kapalıyken kalkmaz, açılınca kalkar: iPhone'da Web Push sessiz gelemez, her push bir bildirim göstermek zorundadır, göstermezse abonelik iptal edilir (WebKit, "Meet Web Push"). Kapalıyken kaldırmak ancak gerçek bir iOS uygulamasıyla olur.
+- **Testler:** sunucu 2 (açılış canlı kanala gider, sonradan bağlanan alır, başkası almaz; push yükünde space ve iş).
+- **Denendi:** yerel sunucuda iki cihaz: açılış öbür cihaza hemen, sonradan bağlanana 1,5 sn önce açılmış olarak gitti. Claude'un tarayıcısında kart açılınca, işletim sisteminin bildirimleri taklit edilerek, yalnız açılmadan önce gelen bildirim kapandı; sonra gelen, başka kartın ve sabah özetininki kaldı.

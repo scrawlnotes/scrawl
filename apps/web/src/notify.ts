@@ -1,4 +1,4 @@
-import { type ChatInfo, type ChatMessage, type ChatNoticeEvent, chatLink, plainText, tellsMe } from '@scrawlnotes/core';
+import { type ChatInfo, type ChatMessage, type ChatNoticeEvent, type ChatOpenedEvent, chatLink, plainText, tellsMe } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
@@ -342,6 +342,7 @@ function heardReaction(url: string, message: ChatMessage, reacted: { by: string;
 function heardNotice(url: string, notice: ChatNoticeEvent) {
   if (stateNow() !== 'on') return;
   if (isDesktop) {
+    noticesShown.set(`${url}\n${notice.tag}`, { url, tag: notice.tag, space: notice.space, item: notice.item, shown: Date.now() });
     void invoke('chat_notify', { alert: { title: notice.title, body: notice.body, more: null, tag: notice.tag, group: groupOf(url), href: notice.href } }).catch(() => undefined);
     return;
   }
@@ -354,8 +355,42 @@ function heardNotice(url: string, notice: ChatNoticeEvent) {
         tag: notice.tag,
         icon: '/icons/icon-192.png',
         badge: '/icons/favicon-32.png',
-        data: { server: url, href: notice.href, tag: notice.tag },
+        data: { server: url, href: notice.href, tag: notice.tag, space: notice.space, item: notice.item, shown: Date.now() },
       });
+    })
+    .catch(() => undefined);
+}
+
+/** The cards' and tasks' notifications on screen on the desktop, by server and tag. */
+const noticesShown = new Map<string, { url: string; tag: string; space: string; item: string; shown: number }>();
+
+/**
+ * Cards and tasks opened, here or on another device (design/notifications.md 19): their
+ * notifications shown before go. A phone hears of it when Scrawl is open on it again.
+ */
+function heardOpened(url: string, opened: ChatOpenedEvent) {
+  const when = (space: string, item: string) => {
+    const one = opened.items.find((each) => each.space === space && each.item === item);
+    return one ? Date.now() - one.ago : null;
+  };
+  if (isDesktop) {
+    for (const [key, shown] of noticesShown) {
+      const at = shown.url === url ? when(shown.space, shown.item) : null;
+      if (at === null || shown.shown > at) continue;
+      noticesShown.delete(key);
+      void invoke('chat_unnotify', { tag: shown.tag, group: groupOf(url) }).catch(() => undefined);
+    }
+    return;
+  }
+  void registrations()
+    .then(async (found) => {
+      const registration = found.find((each) => each.url === url)?.registration;
+      for (const notification of (await registration?.getNotifications()) ?? []) {
+        const data = notification.data as { space?: string; item?: string; shown?: number } | null;
+        const at = data?.space && data.item ? when(data.space, data.item) : null;
+        // A notice that came after it was opened is new: it stays.
+        if (at !== null && (data?.shown ?? 0) <= at) notification.close();
+      }
     })
     .catch(() => undefined);
 }
@@ -470,6 +505,7 @@ export function startNotifications() {
   store.onNew = heardNew;
   store.onReacted = heardReaction;
   store.onNotice = heardNotice;
+  store.onOpened = heardOpened;
   let servers = '';
   store.subscribe(() => {
     const now = store.read();

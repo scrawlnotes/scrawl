@@ -8,6 +8,7 @@ import {
   type ChatKept,
   type ChatMessage,
   type ChatNoticeEvent,
+  type ChatOpenedEvent,
   newMessageId,
   RemoteOffline,
   ServerAccount,
@@ -355,6 +356,7 @@ class OneServer {
       if (event.reacted) store.onReacted?.(this.url, event.message, event.reacted);
     } else if (event.type === 'chat') void this.turn();
     else if (event.type === 'notice') store.onNotice?.(this.url, event);
+    else if (event.type === 'opened') store.onOpened?.(this.url, event);
     else if (event.type === 'wake') {
       // A server before `state` says only whether it went.
       const state = event.state ?? (event.ok ? 'sent' : 'failed');
@@ -847,6 +849,8 @@ class ChatStore {
   onReacted: ((url: string, message: ChatMessage, reacted: { by: string; emoji: string }) => void) | null = null;
   /** Told of a card's or a task's notice for this person (design/notifications.md): what shows it here. */
   onNotice: ((url: string, notice: ChatNoticeEvent) => void) | null = null;
+  /** Told of cards and tasks the person opened, here or on another device: what takes their notifications away (design/notifications.md 19). */
+  onOpened: ((url: string, opened: ChatOpenedEvent) => void) | null = null;
 
   /** Whether a conversation is on screen here, the window in front. */
   onScreen(url: string, chat: string): boolean {

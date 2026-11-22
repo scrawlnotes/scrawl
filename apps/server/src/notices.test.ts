@@ -137,6 +137,22 @@ describe('notices', () => {
     expect((await s.call(s.mert, 'POST', '/opened', JSON.stringify({ space: ACME, item: 'card1' }), { 'Content-Type': 'application/json' })).status).toBe(204);
     await s.minutePasses();
     expect(s.sent).toEqual([]);
+    // The devices on the live channel take its notifications away, and one connecting later hears of it.
+    expect(s.heard.at(-1)).toEqual({ type: 'opened', items: [{ space: ACME, item: 'card1', ago: 0 }] });
+    const later: object[] = [];
+    s.server.push.openedFor({ account: MERT, send: (text) => later.push(JSON.parse(text) as object) });
+    expect(later).toEqual([{ type: 'opened', items: [{ space: ACME, item: 'card1', ago: expect.any(Number) }] }]);
+    s.server.push.openedFor({ account: KAAN, send: (text) => later.push(JSON.parse(text) as object) });
+    expect(later).toHaveLength(1);
+  });
+
+  it('gives a notice’s push its space and card, which an opening elsewhere takes away', async () => {
+    const s = await start();
+    const was = addCard(roadmap(), { title: 'Export a board as CSV' }, at(0), kaan, 'card1');
+    await s.write(s.owner, BOARD, serializeBoard(was));
+    await s.write(s.owner, BOARD, serializeBoard(updateCard(was, 'card1', { assignee: { id: MERT, name: 'Mert Kaya' } }, at(1), kaan)));
+    await s.settle();
+    expect(s.sent.map((each) => [each.payload.space, each.payload.item])).toEqual([[ACME, 'card1']]);
   });
   it('tells Mert of a reminder of his card, with when it is due', async () => {
     const s2 = await start();

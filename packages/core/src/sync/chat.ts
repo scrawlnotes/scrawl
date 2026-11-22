@@ -140,7 +140,14 @@ export type ChatEvent =
   | { type: 'presence'; active: string[] }
   | { type: 'presence'; account: string; active: boolean }
   | ChatNoticeEvent
+  | ChatOpenedEvent
   | ChatWakeEvent;
+
+/** Cards and tasks the person opened on a device, how many ms ago: their notifications go everywhere (design/notifications.md 19). */
+export interface ChatOpenedEvent {
+  type: 'opened';
+  items: { space: string; item: string; ago: number }[];
+}
 
 /**
  * How the waking of an agent by a person's message goes (design/agent-wake.md 13), the line under

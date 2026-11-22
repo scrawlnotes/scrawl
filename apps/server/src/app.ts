@@ -181,6 +181,7 @@ export function createApp(parts: Parts) {
           live.add(socket);
           ws.send(JSON.stringify({ type: 'ready' }));
           live.presenceFor(socket);
+          push.openedFor(socket);
         },
         onClose() {
           clearTimeout(waiting);
@@ -434,7 +435,7 @@ export function createApp(parts: Parts) {
     return c.body(null, 204);
   });
   app.post('/api/v1/push/test', async (c) => c.json({ sent: await push.test(me(c).id, c.get('device')) }));
-  // A card or a task opened on a device: its notice waiting for the person's other devices is not sent (design/notifications.md 9.3).
+  // A card or a task opened on a device: its notice waiting for the person's other devices is not sent (design/notifications.md 9.3), and those shown go (19).
   app.post('/api/v1/opened', async (c) => {
     const body = (await json(c)) as { space?: unknown; item?: unknown };
     if (typeof body.space !== 'string' || typeof body.item !== 'string') throw new Refused(400, 'bad-opened', 'Which space and which card or task?');

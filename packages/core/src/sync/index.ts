@@ -15,6 +15,7 @@ export {
   type ChatKind,
   type ChatMessage,
   type ChatNoticeEvent,
+  type ChatOpenedEvent,
   type ChatWakeEvent,
   type WakeState,
   type ChatNotify,
