@@ -173,8 +173,8 @@ function AboutSource({ open }: { open: (url: string) => void }) {
 }
 
 /**
- * On the web: the version running, the desktop app's number, with when it went out on the web, and
- * under it how the updates stand, with Check for updates. A version found is kept on the device,
+ * On the web: the version running, the desktop app's number, with when it went out on the web and
+ * What's new, its release notes on GitHub, as the desktop's About has them; under it how the updates stand, with Check for updates. A version found is kept on the device,
  * and Reload goes over to it, as the status bar's Reload does.
  */
 /** How the web app's updates stand, and what can be done: Check for updates, or Reload once a new version is ready. */
@@ -253,6 +253,9 @@ function WebAbout({ onRestartUpdate }: Pick<SettingsValues, 'onRestartUpdate'>) 
         <div className="st-row">
           <span className="fl">{t('about.version')}</span>
           <span className="path plain">{t('about.webName', { version: APP_VERSION, date: new Date(PUBLISHED).toLocaleString(locale(), { dateStyle: 'medium', timeStyle: 'short' }) })}</span>
+          <button type="button" onClick={() => void window.open(releasePage(APP_VERSION), '_blank', 'noopener')}>
+            {t('about.whatsNew')}
+          </button>
         </div>
         <div className="st-sync">
           <span className="fl">{t('about.updates')}</span>
@@ -269,7 +272,7 @@ function WebAbout({ onRestartUpdate }: Pick<SettingsValues, 'onRestartUpdate'>) 
 }
 
 /**
- * Settings › About on a phone, as the web's: the version and when it went out, how the updates
+ * Settings › About on a phone, as the web's: the version, when it went out and What's new, how the updates
  * stand, and under it Check for updates, which is Reload once a new version is ready.
  */
 export function PhoneAbout({ onRestartUpdate }: Pick<SettingsValues, 'onRestartUpdate'>) {
@@ -286,6 +289,9 @@ export function PhoneAbout({ onRestartUpdate }: Pick<SettingsValues, 'onRestartU
             <span className="fl">{t('about.published')}</span>
             <span className="in">{new Date(PUBLISHED).toLocaleString(locale(), { dateStyle: 'medium', timeStyle: 'short' })}</span>
           </div>
+          <button type="button" className="mb-fr go" onClick={() => void window.open(releasePage(APP_VERSION), '_blank', 'noopener')}>
+            {t('about.whatsNew')}
+          </button>
         </div>
       </div>
       <div className="mb-sec">
