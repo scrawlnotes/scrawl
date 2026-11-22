@@ -406,6 +406,16 @@ import { accountToTake, knownServers, onServersChanged, personIn, rememberServer
 import { keptConnection } from './sync';
 
 const SAVE_DELAY_MS = 400;
+// What was typed but not yet written when the page went away: a write started then may not finish.
+const UNSAVED_KEY = 'scrawl.unsaved';
+
+function forgetUnsaved() {
+  try {
+    localStorage.removeItem(UNSAVED_KEY);
+  } catch {
+    // No storage, nothing kept.
+  }
+}
 
 /** What a link inside a space points at, by its path in the app: an item of the tree, or an attached file. */
 export interface LinkTarget {
@@ -1008,7 +1018,8 @@ export class Session {
       onAttachments: (removed, added) => this.attachmentsChanged(this.onScreen, removed, added),
       record: () => void this.startRecording(),
     });
-    window.addEventListener('pagehide', this.flush);
+    window.addEventListener('pagehide', this.goingAway);
+    document.addEventListener('visibilitychange', this.hidden);
 
     // The shell comes now, with last time's tabs: a space's are checked once it is read, as each
     // space's items come as they are read (`readOpening`). Those of a space no longer on this
@@ -1072,6 +1083,7 @@ export class Session {
     });
     // With no tabs from last time nothing is opened: the start page shows.
     const first = active && tabs.includes(active) ? active : this.touch ? undefined : tabs[0];
+    await this.writeUnsaved();
     const reading = this.readOpening(run, measure, first ?? null);
     if (first) await this.openFirst(first, measure);
     await reading;
@@ -1845,7 +1857,8 @@ export class Session {
     if (this.opening) window.clearTimeout(this.opening.timer);
     this.opening = null;
     this.stopRecording();
-    window.removeEventListener('pagehide', this.flush);
+    window.removeEventListener('pagehide', this.goingAway);
+    document.removeEventListener('visibilitychange', this.hidden);
     if (!this.editor) return;
     void this.flush();
     this.editor.destroy();
@@ -1878,6 +1891,9 @@ export class Session {
     this.timer = window.setTimeout(this.flush, SAVE_DELAY_MS);
   }
 
+  /** Notes being written by the save running now, until it is done. */
+  private writing = new Map<string, string>();
+
   /** The save running now, or the last one: saves go one at a time. */
   private saving: Promise<void> = Promise.resolve();
 
@@ -1888,11 +1904,42 @@ export class Session {
    */
   flush = (): Promise<void> => (this.saving = this.saving.then(this.save, this.save));
 
+  /** The page going away (closed, reloaded): unsaved notes are kept at once, then written as usual. */
+  private goingAway = () => {
+    const unsaved = new Map([...this.writing, ...this.pending]);
+    if (unsaved.size) {
+      try {
+        localStorage.setItem(UNSAVED_KEY, JSON.stringify(Object.fromEntries(unsaved)));
+      } catch {
+        // No storage: the write below is all there is.
+      }
+    }
+    void this.flush();
+  };
+
+  /** Out of sight, as a phone's app put away: written now, not in 400 ms, as it may not run again. */
+  private hidden = () => {
+    if (document.visibilityState === 'hidden') void this.flush();
+  };
+
+  /** Notes kept as the page went away last time are written before anything is read. */
+  private async writeUnsaved() {
+    let kept: Record<string, string> = {};
+    try {
+      kept = JSON.parse(localStorage.getItem(UNSAVED_KEY) ?? '{}');
+    } catch {
+      return;
+    }
+    for (const [path, text] of Object.entries(kept)) await this.fs.writeText(path, text).catch(() => undefined);
+    forgetUnsaved();
+  }
+
   private save = async () => {
     this.flushKeys();
     window.clearTimeout(this.timer);
     const writes = [...this.pending];
     this.pending.clear();
+    this.writing = new Map(writes);
     await Promise.all(
       writes.map(async ([path, doc]) => {
         const before = this.disk.get(path);
@@ -1925,6 +1972,9 @@ export class Session {
         if (dirname(path) in this.snapshot.collections) await this.reloadCollection(dirname(path));
       }),
     );
+    this.writing.clear();
+    // All written: nothing kept from a page that went away is newer than the files.
+    if (!this.pending.size) forgetUnsaved();
     this.markSaved();
     void this.trashUnlinkedFiles();
   };

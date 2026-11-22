@@ -9,6 +9,7 @@
     "desktop:build": "pnpm --filter @scrawlnotes/desktop build",
     "build": "pnpm --filter @scrawlnotes/web build",
     "test": "pnpm -r test",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "e2e": "pnpm --filter @scrawlnotes/e2e e2e"
   }
 }

@@ -7,3 +7,5 @@ gen/
 .claude/
 .wrangler/
 apps/mcp/bundle/
+e2e/report/
+e2e/results/
