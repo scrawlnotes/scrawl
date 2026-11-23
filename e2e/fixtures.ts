@@ -96,16 +96,18 @@ export async function openNote(page: Page, phone: boolean, name: string) {
 
 export const editor = (page: Page) => page.locator('[contenteditable="true"]').first();
 
-// A file of this device's vault, by its name, as saved: what the app wrote, not what it shows. Null when none.
+// A file of this device's vault, by its name, or the end of its path ("Archive/Plan.md"), as saved:
+// what the app wrote, not what it shows. Null when none.
 export const vaultFile = (page: Page, name: string) =>
   page.evaluate(async (name) => {
-    const find = async (dir: FileSystemDirectoryHandle): Promise<string | null> => {
+    const find = async (dir: FileSystemDirectoryHandle, at: string): Promise<string | null> => {
       // @ts-expect-error entries() is in every browser that has OPFS.
       for await (const [entry, handle] of dir.entries()) {
+        const path = `${at}/${entry}`;
         // A file moved (to the trash) while it is read is not there.
-        if (handle.kind === 'file' && entry === name) return (await handle.getFile().catch(() => null))?.text() ?? null;
+        if (handle.kind === 'file' && path.endsWith(`/${name}`)) return (await handle.getFile().catch(() => null))?.text() ?? null;
         if (handle.kind === 'directory') {
-          const found = await find(handle).catch(() => null);
+          const found = await find(handle, path).catch(() => null);
           if (found !== null) return found;
         }
       }
@@ -114,7 +116,7 @@ export const vaultFile = (page: Page, name: string) =>
     // A folder changing while it is walked (a file moving to the trash) is walked again.
     for (let tries = 0; ; tries++) {
       try {
-        return await find(await navigator.storage.getDirectory());
+        return await find(await navigator.storage.getDirectory(), '');
       } catch (error) {
         if (tries === 4) throw error;
         await new Promise((done) => setTimeout(done, 100));

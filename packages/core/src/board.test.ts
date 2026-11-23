@@ -307,8 +307,9 @@ describe('comments', () => {
 });
 
 describe('columns', () => {
-  it('are added after another or at the end, renamed and reordered', () => {
+  it('are added after another, an open one before Done, a finished one at the end; renamed and reordered', () => {
     let board = software();
+    expect(addColumn(board, 'QA', 'active', undefined, 'cx').columns.map((c) => c.id)).toEqual(['c1', 'c2', 'c3', 'c4', 'cx', 'c5']);
     board = addColumn(board, 'Test', 'active', 'c3', 'c6');
     expect(board.columns.map((c) => c.id)).toEqual(['c1', 'c2', 'c3', 'c6', 'c4', 'c5']);
     board = addColumn(board, 'Lost', 'dropped', undefined, 'c7');

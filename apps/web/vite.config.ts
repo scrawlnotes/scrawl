@@ -54,4 +54,7 @@ export default defineConfig({
   },
   // The desktop shell expects 5173; a preview that cannot have it passes another port in PORT.
   server: { port: Number(process.env.PORT) || 5173, strictPort: true },
+  // Loaded only when a note goes out as a PDF or a collection to or from Excel: bundled as dev starts,
+  // not found the first time, when dev stops and reloads every page open on it.
+  optimizeDeps: { include: ['pdfmake/build/pdfmake', 'xlsx'] },
 });

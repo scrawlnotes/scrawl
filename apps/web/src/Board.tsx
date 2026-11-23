@@ -1620,6 +1620,8 @@ export function BoardView({ path, board, name, embedded, today, actions, look, o
   const [statusFor, setStatusFor] = useState<Card | null>(null);
   /** + typing a card: the column it goes in. */
   const [quickAdding, setQuickAdding] = useState<string | null>(null);
+  /** + Column asking for the new column's name, in its place at the end of the columns. */
+  const [addingColumn, setAddingColumn] = useState(false);
   useEffect(() => {
     if (adding) setQuickAdding(board.columns[Math.min(onScreen, board.columns.length - 1)]?.id ?? null);
     // Only a press of + opens it, for the column on screen then.
@@ -1845,7 +1847,7 @@ export function BoardView({ path, board, name, embedded, today, actions, look, o
   const boardMenu = (event: MouseEvent) =>
     actions.menu(event, [
       { label: board.phasesOn ? t('board.phasesOff') : t('board.phasesOn'), run: () => actions.setPhasesOn(path, !board.phasesOn) },
-      { label: t('board.addColumn'), run: () => actions.addColumn(path, t('board.newColumn'), 'active') },
+      { label: t('board.addColumn'), run: () => (phone ? actions.addColumn(path, t('board.newColumn'), 'active') : setAddingColumn(true)) },
     ]);
 
   const counts = Object.fromEntries(board.columns.map((column) => [column.id, columnCards(board, column.id).filter(visible).length]));
@@ -2021,11 +2023,25 @@ export function BoardView({ path, board, name, embedded, today, actions, look, o
           />,
         ])}
         {columnDrop === board.columns.length && <div className="colm-drop" />}
-        {!phone && (
-          <button type="button" className="colm-add" onClick={() => actions.addColumn(path, t('board.newColumn'), 'active')}>
-            {t('board.addColumnRow')}
-          </button>
-        )}
+        {/* Named where it is asked for; it goes in before Done (design/e2e-findings.md U10). */}
+        {!phone &&
+          (addingColumn ? (
+            <div className="colm-add naming">
+              <LineInput
+                className="colm-edit"
+                placeholder={t('board.columnName')}
+                onDone={(name) => {
+                  actions.addColumn(path, name, 'active');
+                  setAddingColumn(false);
+                }}
+                onCancel={() => setAddingColumn(false)}
+              />
+            </div>
+          ) : (
+            <button type="button" className="colm-add" onClick={() => setAddingColumn(true)}>
+              {t('board.addColumnRow')}
+            </button>
+          ))}
       </div>
       )}
     </section>

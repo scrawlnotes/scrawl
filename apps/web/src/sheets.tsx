@@ -23,10 +23,12 @@ export const setPhoneFrame = (frame: HTMLElement | null) => {
   phoneFrame = frame;
 };
 /**
- * A menu drawn in the phone's frame, over the tab bar and the page's bar. Drawn inside a page, an
- * iPhone keeps what is fixed in its scrolled part under them, Cancel behind the tab bar.
+ * A menu drawn beside the phone's frame, over the tab bar and the page's bar. Drawn inside a page, an
+ * iPhone keeps what is fixed in its scrolled part under them, Cancel behind the tab bar. Not inside
+ * the frame: being fixed, it holds what is in it under a sheet drawn beside it, as Add task's, whose
+ * Priority menu then opened behind it.
  */
-const overAll = (menu: ReactNode) => (phoneFrame ? createPortal(menu, phoneFrame) : menu);
+const overAll = (menu: ReactNode) => (phoneFrame ? createPortal(menu, phoneFrame.parentElement ?? phoneFrame) : menu);
 
 /**
  * What a quick add sheet added last, said above it for a moment while the sheet stays open for

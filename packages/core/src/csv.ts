@@ -275,6 +275,8 @@ export function guessTargets(header: string[], rows: string[][], schema: Schema,
     }
     if ([simple(notesLabel), 'notes', 'note', 'body', 'description'].includes(n)) return { body: true };
     if (!n || n === 'id' || n.endsWith(' id')) return { skip: true };
+    // A field worked out from others, as an export writes it: nothing to bring in, and no second field of its name.
+    if (schema.fields.some((f) => isComputed(f.type) && (simple(f.label) === n || simple(f.key) === n))) return { skip: true };
     return { add: guessType(rows.map((r) => r[i] ?? '')) };
   });
 }

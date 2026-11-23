@@ -6,10 +6,10 @@ Plan: `design/e2e.md`. Hatalar sormadan düzeltilir ve burada kaydı tutulur; UI
 
 22 Kasım 2026, altı dilim bitti (aee3076, c4f4b63, 26ac234, 0ee9b4a, 8e8e302; hepsi web'de).
 
-- **Hata:** 10 bulundu, 10'u düzeltildi. En ağırı H1: yazdıktan hemen sonra kapanan ya da yenilenen sekmede son yazılan kayboluyordu. Dördü (H2, H3, H8–H10) ekran okuyucuya adsız düğme ve kutulardı.
-- **UI/UX:** 9 bulgu, 9'u onaylandı ve yapıldı.
+- **Hata:** 12 bulundu, 12'si düzeltildi. En ağırı H1: yazdıktan hemen sonra kapanan ya da yenilenen sekmede son yazılan kayboluyordu. Dördü (H2, H3, H8–H10) ekran okuyucuya adsız düğme ve kutulardı. 7. dilimde iki tane daha: telefonda görev eklerken menüler sayfanın arkasında açılıyordu (H11), CSV içe aktarma hesaplanan alanın adıyla ikinci bir alan açıyordu (H12).
+- **UI/UX:** 10 bulgu, 10'u onaylandı ve yapıldı.
 - **Özellik önerisi:** yok. Taranan ekranlarda değer katacak, eksik bir şey görmedim; liste doldurmak için uydurmadım.
-- **Test takımı:** `pnpm e2e`, 38 test iki boyutta 76 koşu; 65 geçer, 11'i bilerek tek boyutta. GitHub'da her push'ta çalışır (K2). 13 alanın her birinde en az bir akış testli; planda sayılan akışların bir kısmının testi yok (Kapsam).
+- **Test takımı:** `pnpm e2e`, 67 test iki boyutta 134 koşu; 109 geçer, 25'i bilerek tek boyutta. GitHub'da her push'ta çalışır (K2). Planda sayılan akışların çoğu testli; kalanlar Kapsam'da.
 
 ## Toplu raporun kararları
 
@@ -29,17 +29,17 @@ Planın 3. bölümündeki akışlar, testi olanlar ve olmayanlar. "Testi yok" ç
 | Alan | Testli | Testi yok |
 |---|---|---|
 | A İlk açılış | Welcome notu, başlangıç sayfası, OneDrive'a bağlama, telefonda boş ekran | — |
-| B Notlar | Yazınca liste, Bold, Rename, Trash ve Undo, History, Markdown dışa aktarma, Quick notes | Başlık, link, resim, kod, callout ve tablo; Excel'den yapıştırma; sekmeler; taşıma; PDF ve HTML dışa aktarma |
-| C Görevler | Ekleme, tamamlama ve Undo, Scheduled, eklemeden sonra tarihin boşalması | Alt görev, öncelik, bölümler, sürükleyerek sıralama, etiketler, filtreler, Favorites, Remind |
-| D Pano | Kart, sürükleme, telefonda Status, yorum, You, Priority ve Due | Şablondan pano, sütun düzenleme, faz kapatma, mention |
-| E Koleksiyon ve app'ler | CRM kurulumu (iki boyutta), kayıt formu, tablo | Gym ve öbür şablonlar, görünümler, kurallar, CSV/XLSX içe aktarma, hatalı girdi, Edit app |
-| F Takvim | Outlook'un bugünkü toplantısı, görevin takvimde günü | Google, takvimde taşıma |
-| G Arama | Kelimeyle bulup açma | Recent ve son aramalar |
-| H Space ve sync | Davetle katılma, iki cihaz arası sync | Çakışma, offline şeridi, space taşıma |
-| I Chat | #general'da yazışma, mesaj arama | DM, dosya, mention, ajanla DM |
+| B Notlar | Yazınca liste, Bold, Heading 1, kod bloğu, tablo, callout, link, resim, Excel'den tablo yapıştırma, sekmeler, Rename, yeni klasöre taşıma, Trash ve Undo, History, Markdown, PDF ve HTML dışa aktarma, Quick notes | — |
+| C Görevler | Ekleme, tamamlama ve Undo, Scheduled, eklemeden sonra tarihin boşalması, öncelik, etiket, alt görev, bölüm, sürükleyerek sıralama, etiketin görünümü, Favorites | Remind (iki kişi ister) |
+| D Pano | Kart, sürükleme, telefonda Status, yorum, You, Priority ve Due, Software şablonu, sütun ekleme (ad yerinde, Done'dan önce), faz kapatma ve bitmeyen kartın sonraki faza geçmesi | Mention (iki kişi ister) |
+| E Koleksiyon ve app'ler | CRM kurulumu (iki boyutta), Gym kurulumu, kayıt formu, tablo, tablo görünümü ekleme, CSV içe aktarma (yeni seçenek, hesaplanan sütun), CSV dışa aktarma | Kurallar (`_rules.js`, birim testlerinde), Edit app, XLSX içe aktarma, alan türüne uymayan değerin işaretlenmesi (Companies şablonunda tür alanı yok; birim testlerinde) |
+| F Takvim | Outlook ve Google'ın bugünkü işi, görevin takvimde günü, bugün şimdiki saatte açılış | Takvimde sürükleyip taşıma |
+| G Arama | Kelimeyle bulup açma, Recent searches | — |
+| H Space ve sync | Davetle katılma, iki cihaz arası sync, telefonda çevrimdışı şeridi | Çakışma, space'ler arası taşıma |
+| I Chat | #general'da yazışma, mesaj arama, doğrudan mesaj | Dosya, mention, ajanla DM |
 | J Bildirimler | Tür kapatma ayarı | Mention, atama, Remind ve son tarih bildiriminin gidişi (sunucu testlerinde, bkz. Notlar) |
 | K Ajan | OAuth, `create`, `write`, `save_task` ve arayüzde görünmesi | `tree`, `read`, `save_card`, `save_record` (ajan paketinin ve sunucunun birim testlerinde) |
-| L Diğer ekranlar | Settings › Appearance, Help | Keys, Files, Activity, People |
+| L Diğer ekranlar | Settings › Appearance, Help, Files'a yükleme, Keys (değer gizli, Show value, dosyada .env) | Activity, People |
 | M Telefon kabuğu | Bütün testler telefon boyutunda da; dokunma alanları ölçüldü | Klavye açıkken düzen (gerçek iPhone'da) |
 
 ## Hatalar
@@ -56,6 +56,8 @@ Planın 3. bölümündeki akışlar, testi olanlar ve olmayanlar. "Testi yok" ç
 | H8 | D Pano, E Koleksiyon | Kartın ve görevin açıklaması ve kartın yorum kutusu ekran okuyucuya adsız "textbox" olarak görünüyordu. | `Description.tsx`: boşken gösterdiği metin (Write a comment…, Add a description…) adı da olur. | Düzeltildi, `d-boards.spec.ts` |
 | H9 | I Chat | Chat'in mesaj kutusu da ekran okuyucuya adsız "textbox" idi. | `Chat.tsx`: "Message #general" gibi yer tutucusu adı da olur. | Düzeltildi, `i-chat.spec.ts` |
 | H10 | B Notlar, E Koleksiyon | Notun kendi editörü, Quick note'un gövdesi ve kaydın notları (bilgisayar ve telefon formu) da ekran okuyucuya adsızdı; H8'de kaydın notlarını düzelttim sanmıştım, ayrı bir bileşenmiş. | `session.ts`: notun ve Quick note'un editörü "Note"; `Collection.tsx`: kaydın notları "Add a note…". | Düzeltildi, `b-notes.spec.ts`, `e-apps.spec.ts` |
+| H11 | C Görevler, telefon | Telefonda görev eklerken Priority'ye basınca seçenekler ekleme sayfasının arkasında açılıyordu: yalnız Priority 1 görünüyor, 2–4 ve No priority arkada kalıyordu. Aynısı o sayfadan açılan öbür menüler için de (Date, Labels ve Record kendi sayfalarında açıldığı için etkilenmiyordu). Sebep: menüler telefonun çerçevesinin (`position: fixed`) içine çiziliyor, ekleme sayfası çerçevenin yanında; `fixed` kendi katmanını açtığı için menünün z-index'i çerçevenin içinde kalıyordu. | `sheets.tsx`: menüler çerçevenin içine değil yanına çizilir. | Düzeltildi, `c-tasks-more.spec.ts` |
+| H12 | E Koleksiyon | CSV içe aktarmada hesaplanan bir alanla (Companies'te Last contact) aynı adı taşıyan sütun, aynı adla ikinci bir metin alanı açıyordu; tabloda iki Last contact. Kendi CSV dışa aktarımımız hesaplanan sütunları da yazdığı için dışa aktarıp geri alan her seferinde bir kopya alan kazanıyordu. | `csv.ts` `guessTargets`: hesaplanan alana denk gelen sütun Nowhere'a gider (içe aktarma penceresinde değiştirilebilir). | Düzeltildi, `csv.test.ts`, `e-apps-more.spec.ts` |
 
 ## UI/UX bulguları
 
@@ -71,10 +73,11 @@ Karar sütunu kullanıcının; onaylananlar aynı dilimde yapıldı.
 | U6 | E App'ler, telefon | App kurulunca çıkan bildirim tek satırda kesiliyor: "CRM set up: 3 collections, 1 board, 1 n…". | Ne kurulduğunu söyleyen cümle yarım kalıyor. | Telefonda bildirim metni iki satıra kadar sarsın, Undo yanında kalsın. | Cila | Onaylandı, yapıldı (`phone.css`) |
 | U7 | F Takvim, telefon | Scheduled › Day bugün açılınca saat 07:00'dan başlıyor; akşam 18:30'da "şu an" görünmüyor, aşağı kaydırmak gerekiyor. | Bugüne bakan kişi önce şimdiyi ve sıradakini görmek ister. | Bugün açılınca görünüm şimdiki saatin biraz üstünden başlasın; başka bir gün açılınca o günün ilk işinden. | Cila | Onaylandı, yapıldı: iş olmayan gün yine 07:00 (`Calendar.tsx`) |
 | U8 | Telefon, boş ekranlar | U1'de boş Inbox ve Scheduled'dan ortadaki düğmeyi kaldırdık; aynı durum başka boş ekranlarda da var: boş koleksiyonda (Companies) "Add record", boş panoda ve sütunda "Add card", boş Keys'te "Add key", boş klasörde "Create" düğmesi köşedeki + ile yan yana. | U1'deki gibi aynı ekranda iki ekleme yeri; görevlerde kalktı, öbürlerinde duruyor: tutarsız. | Bu boş ekranlarda da ortadaki düğme kalksın, metin ve + kalsın. (Boş sütundaki "Add card" o sütuna ekler, + ilk sütuna: o düğme kalsın.) | Cila | Onaylandı, yapıldı: dördünde de + olduğu doğrulandı (klasör, alanı olan koleksiyon, pano, tablo görünümündeki Keys); sütunun Add card'ı ve alanı olmayan koleksiyonun Fields'ı kaldı (`Phone.tsx`, `PhoneCollection.tsx`, `Board.tsx`, `PhoneKeys.tsx`); `e-apps.spec.ts` |
+| U10 | D Pano, bilgisayar | Panoda + Column adı sormadan "New column" ekliyor ve onu Done'ın sağına, en sona koyuyor. Adı vermek için başlığa ayrıca tıklamak gerekiyor. | İki adım; yeni sütun çoğunlukla Done'dan önce olmalı (iş Done'da biter). Trello'nun ve Jira'nın sütun ekleme alanının adı önce sorduğu kanısındayım, ama doğrulamadım. | + Column'a basınca yerinde ad alanı açılsın (Enter ekler, Esc vazgeçer); yeni sütun Done'dan önce gelsin. | Cila | Onaylandı, yapıldı: + Column ve panonun menüsündeki Add column yerinde ad sorar (Enter ekler, Esc vazgeçer); yer verilmeden eklenen açık sütun ilk Done ya da Dropped sütunundan önce girer, Done ya da Dropped türündeki en sona (`board.ts`, `Board.tsx`, `styles.css`); `board.test.ts`, `d-boards-more.spec.ts` |
 
 ## Özellik önerileri (kararını bekliyor)
 
-2.–5. dilimde (ilk açılış, notlar, görevler, arama, Settings, Help, pano, app'ler, takvim, space ve sync, Chat, bildirim ayarları, ajan, telefon kabuğu) değer katacak bir eksik görmedim; uydurmadım.
+2.–7. dilimde (ilk açılış, notlar, görevler, arama, Settings, Help, pano, app'ler, takvim, space ve sync, Chat, bildirim ayarları, ajan, telefon kabuğu, Files, Keys) değer katacak bir eksik görmedim; uydurmadım.
 
 ## Notlar
 
@@ -83,11 +86,12 @@ Karar sütunu kullanıcının; onaylananlar aynı dilimde yapıldı.
 - **Telefonda dokunma alanları:** Browse, not, Inbox, ekleme sayfası, Scheduled, Search ve Settings ölçüldü; görünen her dokunma alanı 44 px ya da üstü. Tek istisna Search'teki All · Notes · Tasks… sekmeleri (32 px), iPhone'un segmentli seçicileri gibi.
 - **Test sunucusu:** her koşu boş bir klasörle başlar; sahibi `global-setup.ts` API'yle kurar. Her test kendi space'ini açar, her kişi kendi davetiyle (davet linki tek kullanımlık) ve kendi e-postasıyla katılır (aynı e-postayla dakikada 5 giriş sınırı). Test hesapları `e2e/server.ts`'te, yalnız bu yerel sunucu için.
 - **Bildirimlerin gidişi:** tarayıcı ve telefonda Web Push ile, tarayıcının dış servisi üzerinden gider; bu bilgisayardaki test oraya ulaşmaz. Gidişi sunucunun testleri (`notices.test.ts`, `push.test.ts`) ve gerçek cihaz denemesi kapsar; e2e ayarları kapsar.
+- **Geliştirme sunucusunda ağır paketler:** PDF (`pdfmake`) ve Excel (`xlsx`) yalnız kullanılınca yükleniyor; geliştirme sunucusu onları ilk kullanıldıklarında paketleyip açık sayfaları yeniden yüklüyordu, o anda açılan testler başlangıç ekranında kalıyordu. `vite.config.ts` `optimizeDeps` ile açılışta paketlenir; yayındaki uygulamayı etkilemez.
 - **Yazılan Markdown:** `#`, `**` gibi yazılanlar biçime dönmez, dosyada kaçırılır (PLAN 4.2); testler buna göre.
 
 ## Testler
 
-`pnpm e2e`: masaüstü ve telefon boyutunda 74 koşu (63 geçer, 11'i bilerek yalnız bir boyuta ait: bilgisayarın başlangıç sayfası, sürükle-bırak, dosya indirme, History penceresi, kartın yan alanları; telefonun Browse'u, Status'tan taşıma). Her test sonunda sayfada yakalanmamış hata olmaması da denetlenir.
+`pnpm e2e`: masaüstü ve telefon boyutunda 134 koşu (109 geçer, 25'i bilerek yalnız bir boyuta ait: bilgisayarda sürükle-bırak, dosya indirme ve yükleme, içe aktarma, sekmeler, sütun ve faz, History; telefonda Browse, Status'tan taşıma, çevrimdışı şeridi). Her test sonunda sayfada yakalanmamış hata olmaması da denetlenir.
 
 | Dosya | Ne |
 |---|---|
@@ -97,9 +101,15 @@ Karar sütunu kullanıcının; onaylananlar aynı dilimde yapıldı.
 | `c-tasks.spec.ts` | Görev ekleme ve yenileme; tamamlama ve Undo; bugünkü görev Scheduled'da; tarihli görevden sonra eklenen tarihsiz |
 | `g-search.spec.ts` | Bir kelimeyle bulup açma (Ctrl+K, telefonda Search) |
 | `l-screens.spec.ts` | Dark hemen uygulanıyor; Help'te konuya gitme |
+| `b-notes-blocks.spec.ts` | Heading 1, kod bloğu, tablo, callout, link, resim, Excel'den yapıştırma, PDF ve HTML, taşıma, sekmeler |
+| `c-tasks-more.spec.ts` | Öncelik, etiket, alt görev, bölüm, sürükleyerek sıralama, etiketin görünümü ve Favorites |
+| `d-boards-more.spec.ts` | Software şablonu, sütun ekleme, faz kapatma |
+| `e-apps-more.spec.ts` | CSV içe ve dışa aktarma, tablo görünümü, Gym |
+| `h-together.spec.ts` | Doğrudan mesaj, telefonda çevrimdışı şeridi |
+| `l-screens-more.spec.ts` | Recent searches, Files'a yükleme, Keys |
 | `d-boards.spec.ts` | Kart ekleme ve yenileme; sürükleyerek Doing'e; telefonda Status'tan Doing'e; yorum; adsız kişinin kartında You; kartın Priority ve Due seçicileri |
 | `e-apps.spec.ts` | CRM New app'ten kurulup Home'da açılıyor; şirket formu Name'de açılıyor, kayıt tabloda ve yenilemeden sonra |
-| `f-calendar.spec.ts` | Outlook bağlanınca bugünkü toplantı Scheduled'da; bugünkü görev takvimde; takvim bugün şimdiki saatte açılıyor |
+| `f-calendar.spec.ts` | Outlook ve Google bağlanınca bugünkü işleri Scheduled'da; bugünkü görev takvimde; takvim bugün şimdiki saatte açılıyor |
 | `h-spaces.spec.ts` | İki kişi iki cihazda: birinin yazdığı not öbüründe açılıyor, öbürünün eklediği geri geliyor |
 | `i-chat.spec.ts` | #general'da iki kişi yazışıyor; mesaj aramayla bulunuyor |
 | `j-notifications.spec.ts` | Kapatılan bildirim türü yenilemeden sonra kapalı |

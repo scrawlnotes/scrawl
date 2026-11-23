@@ -5791,6 +5791,15 @@ textarea.tt-edit {
   color: var(--sl-fg);
 }
 
+/* + Column asking for the name: as wide as a column's name, in the same box. */
+.colm-add.naming {
+  display: flex;
+  width: 180px;
+  padding: 7px 8px;
+  border-style: solid;
+  color: var(--sl-fg);
+}
+
 /* the card panel: beside the columns, the full height of the board tab */
 .bwrap {
   position: relative;

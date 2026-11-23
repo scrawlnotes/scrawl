@@ -43,6 +43,9 @@ describe('CSV', () => {
     expect(targets).toEqual([{ add: 'text' }, { field: 'status' }, { add: 'number' }, { add: 'date' }, { body: true }, { skip: true }, { field: 'name' }]);
     // Something's name goes to the name field when no column is called Name; another system's id goes nowhere.
     expect(guessTargets(['Company name', 'Internal id'], [], companies.schema, 'Notes')).toEqual([{ field: 'name' }, { skip: true }]);
+    // A worked-out field, as the export writes it, goes nowhere: not a second field of its name.
+    expect(companies.schema.fields.find((f) => f.label === 'Last contact')?.type).toMatch(/rollup|formula|last/);
+    expect(guessTargets(['Name', 'Last contact'], [['Acme', '2026-11-02']], companies.schema, 'Notes')).toEqual([{ field: 'name' }, { skip: true }]);
     expect(guessType(['yes', 'No'])).toBe('checkbox');
     expect(guessType(['14.10.2026', '29/02/2024'])).toBe('date');
     // A day that is not on the calendar is not one.

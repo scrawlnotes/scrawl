@@ -621,7 +621,10 @@ export function addColumn(board: Board, name: string, kind: ColumnKind, after?: 
   const clean = name.trim();
   if (!clean) return board;
   const column: Column = { id, name: clean, kind };
-  const at = after === undefined ? board.columns.length : board.columns.findIndex((c) => c.id === after) + 1;
+  // With no place given, an open column goes before the first finished one: work ends in Done.
+  const finished = (c: Column) => c.kind === 'done' || c.kind === 'dropped';
+  const end = finished(column) ? -1 : board.columns.findIndex(finished);
+  const at = after !== undefined ? board.columns.findIndex((c) => c.id === after) + 1 : end >= 0 ? end : board.columns.length;
   return { ...board, columns: [...board.columns.slice(0, at), column, ...board.columns.slice(at)] };
 }
 

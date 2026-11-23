@@ -52,3 +52,16 @@ test('the calendar opens on today at the hour of now, not at the morning (U7, U9
   expect(box!.y).toBeGreaterThanOrEqual(seen!.y);
   expect(box!.y).toBeLessThanOrEqual(seen!.y + seen!.height);
 });
+
+test("Google's events of today show in Scheduled once it is connected", async ({ app, phone }) => {
+  await openSettings(app, phone, 'Calendars');
+  await app.getByRole('button', { name: 'Connect Google Calendar' }).click();
+  // Dev's Google is a fake one, with Pilates today.
+  await expect(app.getByText('test@gmail.com').first()).toBeVisible();
+  if (phone) await app.getByRole('navigation', { name: 'Places' }).getByRole('button', { name: 'Scheduled' }).click();
+  else {
+    await app.keyboard.press('Escape');
+    await openScheduled(app, phone);
+  }
+  await expect(app.getByText('Pilates').first()).toBeVisible({ timeout: 15_000 });
+});

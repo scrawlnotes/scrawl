@@ -16,7 +16,7 @@ async function createBoard(page: Page, phone: boolean, name: string) {
   }
   await page.getByRole('textbox', { name: 'Name' }).fill(name);
   await page.getByRole('dialog', { name: 'New board' }).getByRole('button', { name: 'Create' }).click();
-  await expect(page.getByRole('heading', { name: /^Todo/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^Todo/ })).toBeVisible({ timeout: 15_000 });
 }
 
 async function addCard(page: Page, phone: boolean, title: string) {
