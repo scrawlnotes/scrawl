@@ -56,3 +56,19 @@ describe('saving a note', () => {
     expect(files.get('Plan.md')).toBe('One two three');
   });
 });
+
+describe('a change made here', () => {
+  it('asks for a sync turn soon, as a save does: a note moved to another space (H13)', async () => {
+    const s = new Session() as any;
+    const seen: boolean[] = [];
+    s.subscribe(() => seen.push(s.getSnapshot().saved));
+    Object.assign(s, {
+      at: (path: string) => ({ space: path.startsWith('sp-team/') ? 'sp-team' : null, fs: {}, local: path }),
+      isFolder: () => false,
+      moveAcross: async () => 'sp-team/Plan.md',
+    });
+    await s.move('Plan.md', 'sp-team/');
+    // Unsaved, then saved again: the sync service starts a turn on that.
+    expect(seen).toEqual([false, true]);
+  });
+});

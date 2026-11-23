@@ -1,6 +1,6 @@
 # Uygulama geneli e2e, kullanıcı gözüyle tarama ve öneriler
 
-Durum: 22 Kasım 2026, onaylı; altı dilim bitti. Toplu raporda 7. dilim eklendi: 3. bölümde sayılıp testi olmayan akışlar. Sonuç `design/e2e-findings.md`.
+Durum: 24 Kasım 2026, onaylı; yedi dilim de bitti (7. dilim toplu rapordan eklendi: 3. bölümde sayılıp testi olmayan akışlar). Sonuç `design/e2e-findings.md`.
 
 ## 1. Kapsam
 

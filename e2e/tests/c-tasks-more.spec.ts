@@ -142,3 +142,19 @@ test('a label in Filters & Labels shows its tasks, and a favorite one is a tap a
   await expect(app.getByText('Favorites', { exact: true }).first()).toBeVisible();
   await expect(app.getByRole('button', { name: /^home/ }).first()).toBeVisible();
 });
+
+test('a task’s Activity says who worked on it', async ({ app, phone }) => {
+  test.skip(phone, 'A computer’s row menu; the phone’s task page shows it under the task.');
+  await openInbox(app, phone);
+  await openComposer(app, phone);
+  await composerOf(app, phone).getByRole('textbox', { name: 'Task name' }).fill('File taxes');
+  await add(app, phone);
+  await app.keyboard.press('Escape');
+  await app.getByText('File taxes', { exact: true }).first().click({ button: 'right' });
+  await app.getByRole('menuitem', { name: 'Activity…' }).click();
+  const activity = app.getByRole('dialog', { name: 'Activity' });
+  // Made just now: You under Worked on, and nothing that mattered yet (made is not one).
+  await expect(activity.getByText('Worked on')).toBeVisible();
+  await expect(activity.getByText(/You/).first()).toBeVisible();
+  await expect(activity.getByText('Nothing yet.')).toBeVisible();
+});

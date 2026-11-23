@@ -1,5 +1,5 @@
 import { type Page } from '@playwright/test';
-import { expect, test } from '../fixtures';
+import { expect, test, vaultFile } from '../fixtures';
 
 async function openSettings(page: Page, phone: boolean, section: string) {
   if (phone) await page.getByRole('navigation', { name: 'Places' }).getByRole('button', { name: 'Settings' }).click();
@@ -64,4 +64,24 @@ test("Google's events of today show in Scheduled once it is connected", async ({
     await openScheduled(app, phone);
   }
   await expect(app.getByText('Pilates').first()).toBeVisible({ timeout: 15_000 });
+});
+
+test('a task dragged to another day in the month moves to that day', async ({ app, phone }) => {
+  test.skip(phone, 'Dragged on a computer; a phone moves it in Day by holding it.');
+  await openScheduled(app, phone);
+  await app.getByRole('button', { name: '+ Add task', exact: true }).click();
+  await app.locator('main').getByRole('textbox', { name: 'Task name' }).fill('Pay rent');
+  await app.locator('main').getByRole('button', { name: 'Add task', exact: true }).last().click();
+  await app.keyboard.press('Escape');
+  await app.getByRole('button', { name: 'Calendar', exact: true }).or(app.getByRole('tab', { name: 'Calendar', exact: true })).first().click();
+  // The day after today, as this computer's calendar has it.
+  const tomorrow = await app.evaluate(() => {
+    const day = new Date();
+    day.setDate(day.getDate() + 1);
+    return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+  });
+  await app.getByText('Pay rent', { exact: true }).first().dragTo(app.locator(`.cd[data-day="${tomorrow}"]`));
+  await expect
+    .poll(async () => JSON.parse((await vaultFile(app, 'Inbox.tasks.json')) ?? '{"tasks":[]}').tasks.find((task: { title: string }) => task.title === 'Pay rent')?.due)
+    .toBe(tomorrow);
 });

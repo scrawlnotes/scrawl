@@ -33,3 +33,15 @@ test("a task an agent adds shows in the person's list, made by the agent", async
   await list.click();
   await expect(app.getByText('Draft the announcement')).toBeVisible({ timeout: 20_000 });
 });
+
+test("a message an agent sends its person comes as a direct message, under the agent's name", async ({ app, phone }) => {
+  test.skip(phone, 'Read on a computer’s Chat; the phone’s list is the same.');
+  const space = await spaceWithInvite('Agent');
+  const ada = person('Ada');
+  await joinSpace(app, space.link, ada, phone);
+  const call = await agentOf(ada, 'Claude');
+  await call('send_message', { to: 'me', text: 'The report is ready' });
+  await app.getByRole('button', { name: 'Chat', exact: true }).click();
+  await app.getByRole('button', { name: /Claude/ }).first().click({ timeout: 20_000 });
+  await expect(app.getByText('The report is ready', { exact: true }).first()).toBeVisible();
+});

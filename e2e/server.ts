@@ -89,3 +89,9 @@ export async function agentOf(who: { email: string; password: string }, name = '
 
 /** A person of a test: their name and an email no other test uses. */
 export const person = (name: string) => ({ name, email: `${name.toLowerCase()}-${randomBytes(3).toString('hex')}@scrawl.test`, password: PASSWORD });
+
+/** A file of a shared space as the server has it, read as its owner; null when it has none. */
+export async function spaceFile(space: string, path: string): Promise<string | null> {
+  const response = await fetch(`${SERVER}/api/v1/spaces/${space}/files/${path.split('/').map(encodeURIComponent).join('/')}`, { headers: { authorization: `Bearer ${ownerToken()}` } });
+  return response.ok ? response.text() : null;
+}

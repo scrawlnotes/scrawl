@@ -79,3 +79,59 @@ test('Gym sets up from New app and opens on its Home', async ({ app, phone }) =>
   await app.getByRole('complementary').getByRole('button', { name: /^Gym/ }).first().click();
   await expect(app.getByRole('tablist', { name: 'Gym' })).toBeVisible();
 });
+
+test('Edit app shows what a change does before it is written, and Save writes it', async ({ app, phone }) => {
+  test.skip(phone, 'Edited on a computer.');
+  await app.getByRole('tablist').getByRole('button', { name: '+', exact: true }).click();
+  await app.getByRole('option', { name: /^7 App/ }).click();
+  const wizard = app.getByRole('dialog', { name: 'New app' });
+  await wizard.getByRole('radio', { name: 'Business' }).click();
+  await wizard.getByRole('checkbox', { name: /^CRM/ }).click();
+  for (const step of ['Next', 'Next', 'Next', 'Create']) await wizard.getByRole('button', { name: step, exact: true }).click();
+  await expect(wizard).toBeHidden();
+
+  await app.getByRole('complementary').getByRole('button', { name: /^CRM/ }).first().click({ button: 'right' });
+  await app.getByRole('menuitem', { name: 'Edit app…' }).click();
+  const edit = app.getByRole('dialog', { name: 'Edit CRM' });
+  // A second currency: the last page says what it changes, and Save writes it.
+  await edit.getByPlaceholder('Add a currency…').fill('EUR');
+  await app.keyboard.press('Enter');
+  await expect(edit.getByText('EUR').first()).toBeVisible();
+  // Next through the CRM's questions, as they are, to Changes.
+  const save = edit.getByRole('button', { name: 'Save', exact: true });
+  for (let step = 0; step < 6 && !(await save.isVisible()); step++) await edit.getByRole('button', { name: 'Next', exact: true }).click();
+  await expect(edit.getByText('Changed').first()).toBeVisible();
+  await save.click();
+  await expect(edit).toBeHidden();
+  await expect(app.getByText(/CRM: .*changed/).first()).toBeVisible();
+});
+
+test('a collection exported as Excel comes back in from that file', async ({ app, phone }) => {
+  test.skip(phone, 'Import is a computer’s: a file chosen from a folder.');
+  await createCompanies(app, 'Vendors');
+  await app.getByRole('button', { name: 'Add record' }).click();
+  const form = app.getByRole('dialog', { name: /New company|New record/ });
+  await form.getByRole('textbox', { name: 'Name' }).fill('Initech');
+  await form.getByRole('textbox', { name: 'Website' }).fill('initech.example');
+  await form.getByRole('button', { name: 'Create' }).click();
+  await expect(app.getByRole('table', { name: 'Vendors' }).getByText('Initech', { exact: true })).toBeVisible();
+  await app.getByRole('complementary').getByRole('button', { name: /^Vendors/ }).first().click({ button: 'right' });
+  const download = app.waitForEvent('download');
+  await app.getByRole('menuitem', { name: 'Export as Excel' }).click();
+  const file = await download;
+  expect(file.suggestedFilename()).toBe('Vendors.xlsx');
+  const { readFile } = await import('node:fs/promises');
+  const sheet = await readFile(await file.path());
+
+  await createCompanies(app, 'Suppliers');
+  await app.getByRole('complementary').getByRole('button', { name: /^Suppliers/ }).first().click({ button: 'right' });
+  const picking = app.waitForEvent('filechooser');
+  await app.getByRole('menuitem', { name: 'Import…' }).click();
+  await (await picking).setFiles({ name: 'Vendors.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: sheet });
+  await app.getByRole('button', { name: 'Import 1 row' }).click();
+  const table = app.getByRole('table', { name: 'Suppliers' });
+  await expect(table.getByText('Initech', { exact: true })).toBeVisible();
+  await expect(table.getByText('initech.example')).toBeVisible();
+  // The worked-out Last contact went nowhere (H12).
+  await expect(table.getByRole('columnheader', { name: 'Last contact' })).toHaveCount(1);
+});

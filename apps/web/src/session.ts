@@ -2078,6 +2078,21 @@ export class Session {
     if (!this.pending.size && !this.keysPending.size && this.copying === 0 && !this.snapshot.saved) this.set({ saved: true });
   }
 
+  /**
+   * Files were made, moved, renamed or taken away here: a sync turn soon, as after a save. Without
+   * it, the others saw it at the next turn of the minute (design/e2e-findings.md H13).
+   */
+  private changedHere() {
+    this.set({ saved: false });
+    this.markSaved();
+  }
+
+  /** A rename done: a sync turn soon. */
+  private renamedHere<T extends { path: string } | { error: string }>(done: T): T {
+    if ('path' in done) this.changedHere();
+    return done;
+  }
+
   /** Keeps `text` as an earlier version of the note at `path`, as `keepVersion` decides; in its own space's history. */
   private async keep(path: string, text: string, always = false) {
     const now = Date.now();
@@ -2719,6 +2734,7 @@ export class Session {
     } catch (error) {
       return error instanceof Error ? error.message : t('error.create');
     }
+    this.changedHere();
     await this.refreshTree();
     this.placed?.(dirname(shown), shown);
     return null;
@@ -3229,7 +3245,7 @@ export class Session {
 
   /** Gives a collection a name; its folder is renamed. Returns a message when the name cannot be used. */
   async renameCollection(dir: string, name: string): Promise<string | null> {
-    const done = await this.renamedCollection(dir, name);
+    const done = this.renamedHere(await this.renamedCollection(dir, name));
     return 'error' in done ? done.error : null;
   }
 
@@ -3322,6 +3338,7 @@ export class Session {
     await this.trashWithFiles(record.path, false, [...lines.keys()]);
     this.setCollection(dir, (current) => ({ ...current, records: current.records.filter((r) => r.id !== record.id) }));
     for (const { dir: at, line } of lines.values()) this.setCollection(at, (current) => ({ ...current, records: current.records.filter((r) => r.id !== line.id) }));
+    this.changedHere();
     await this.freshTrash();
   }
 
@@ -4523,6 +4540,7 @@ export class Session {
     } catch (error) {
       return error instanceof Error ? error.message : t('error.create');
     }
+    this.changedHere();
     await this.refreshTree();
     if (then) await then(path);
     else await this.open(kind === 'collection' ? collectionTab(path) : tabOf(path));
@@ -4803,6 +4821,7 @@ export class Session {
     await this.settle();
     await this.detach(tabOf(path));
     await this.trashWithFiles(path, false);
+    this.changedHere();
     await this.refreshTree();
   }
 
@@ -4820,6 +4839,7 @@ export class Session {
     // A collection's own tab, when the folder is one.
     await this.detach(collectionTab(path));
     await this.trashWithFiles(path, true);
+    this.changedHere();
     await this.refreshTree();
   }
 
@@ -4833,6 +4853,7 @@ export class Session {
   async restore(item: TrashItem) {
     if (item.kind === 'task' || item.kind === 'section' || item.kind === 'card') return this.putBack(item.from, item.path);
     await restoreFromTrash(...this.trashAt(item));
+    this.changedHere();
     await this.refreshTree();
   }
 
@@ -4840,11 +4861,13 @@ export class Session {
   async deleteForever(item: TrashItem) {
     const [fs, local] = this.trashAt(item);
     await deleteFromTrash(fs, local, this.openTexts(spaceOf(item.from)));
+    this.changedHere();
     await this.refreshTree();
   }
 
   async emptyTrash() {
     for (const [space, fs] of this.fs.all()) await emptyTrash(fs, this.openTexts(space));
+    this.changedHere();
     await this.refreshTree();
   }
 
@@ -5178,6 +5201,7 @@ export class Session {
         // Gone from the trash meanwhile.
       }
     }
+    this.changedHere();
     await this.refreshTree();
     return restored;
   }
@@ -5188,6 +5212,7 @@ export class Session {
       const [fs, local] = this.trashAt(item);
       await deleteFromTrash(fs, local, this.openTexts(spaceOf(item.from))).catch(() => undefined);
     }
+    this.changedHere();
     await this.refreshTree();
   }
 
@@ -5289,6 +5314,7 @@ export class Session {
       await this.repath(path, moved);
     }
     if (moved) this.placed?.(folder, moved, isFolder ? path : undefined);
+    this.changedHere();
   }
 
   /** The node of a space's tree at `path`, from the tree as it was last read. */
@@ -5469,14 +5495,14 @@ export class Session {
 
   /** Gives an item or a folder a name; returns where it is after, or why the name cannot be used. */
   async renamed(path: string, name: string): Promise<{ path: string } | { error: string }> {
-    if (path in this.snapshot.collections) return this.renamedCollection(path, name);
-    if (this.isFolder(path)) return this.renamedFolder(path, name);
+    if (path in this.snapshot.collections) return this.renamedHere(await this.renamedCollection(path, name));
+    if (this.isFolder(path)) return this.renamedHere(await this.renamedFolder(path, name));
     await this.settle();
     try {
       const { fs, space, local } = this.at(path);
       const target = inSpace(space, await renameItem(fs, local, name));
       await this.repath(path, target);
-      return { path: target };
+      return this.renamedHere({ path: target });
     } catch (error) {
       return { error: error instanceof Error ? error.message : t('error.rename') };
     }
@@ -5506,6 +5532,7 @@ export class Session {
     } catch (error) {
       return error instanceof Error ? error.message : t('error.createFolder');
     }
+    this.changedHere();
     await this.refreshTree();
     return null;
   }
