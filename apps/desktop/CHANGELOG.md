@@ -2,6 +2,27 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.35
+
+Links with a card in Chat, and many small fixes found by testing the whole app.
+
+- A web link in a message shows short, and under it a card of what its page says: the site, the title, a line about it and its picture. Whoever wrote the message takes the card off with the × beside it, or Remove preview in its menu.
+- A move, a rename, a delete or something new reaches your other devices at once, not up to a minute later.
+- What you typed in the last moment before closing a tab or the window is no longer lost.
+- Deleting a note no longer asks: it goes to the Trash, and Undo brings it back.
+- After a task is added in a list, the next one starts without the last one's date, priority and labels.
+- Your own work says You, not Unnamed.
+- A card's Priority and Due pick as a task's do.
+- + Column asks for the column's name where it goes, and puts it before Done.
+- The calendar's Day and Week open today at the hour of now.
+- An empty list, board or collection has one way to add, the +.
+- Bold text is sharp everywhere.
+- A new company opens with its Name to type in.
+- A CSV with a column named as a calculated field fills it, instead of making a second field.
+- A double click on an app wizard's Next no longer leaves Save doing nothing.
+- Settings › About has What's new on the web and on a phone too.
+- Buttons, boxes and the editor say what they are to a screen reader.
+
 ## 0.1.34
 
 Scheduled, files that go with their message, and names in any language.
