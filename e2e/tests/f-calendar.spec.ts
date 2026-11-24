@@ -67,7 +67,7 @@ test("Google's events of today show in Scheduled once it is connected", async ({
 });
 
 test('a task dragged to another day in the month moves to that day', async ({ app, phone }) => {
-  test.skip(phone, 'Dragged on a computer; a phone moves it in Day by holding it.');
+  test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   await openScheduled(app, phone);
   await app.getByRole('button', { name: '+ Add task', exact: true }).click();
   await app.locator('main').getByRole('textbox', { name: 'Task name' }).fill('Pay rent');

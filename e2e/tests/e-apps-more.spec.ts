@@ -1,5 +1,5 @@
 import { type Page } from '@playwright/test';
-import { expect, test } from '../fixtures';
+import { expect, test, wizardTo } from '../fixtures';
 
 // A collection made from the Companies template, from the tab bar's +.
 async function createCompanies(page: Page, name: string) {
@@ -11,7 +11,7 @@ async function createCompanies(page: Page, name: string) {
 }
 
 test('rows imported from a CSV become records; a new choice is added, a worked-out column goes nowhere', async ({ app, phone }) => {
-  test.skip(phone, 'Import is a computer’s: a file chosen from a folder.');
+  test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   await createCompanies(app, 'Clients');
   await app.getByRole('complementary').getByRole('button', { name: /^Clients/ }).first().click({ button: 'right' });
   const picking = app.waitForEvent('filechooser');
@@ -29,7 +29,7 @@ test('rows imported from a CSV become records; a new choice is added, a worked-o
 });
 
 test('a collection exported as CSV gives its records', async ({ app, phone }) => {
-  test.skip(phone, 'The phone shares the file instead of downloading it.');
+  test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   await createCompanies(app, 'Partners');
   await app.getByRole('button', { name: 'Add record' }).click();
   const form = app.getByRole('dialog', { name: /New company|New record/ });
@@ -49,7 +49,7 @@ test('a collection exported as CSV gives its records', async ({ app, phone }) =>
 });
 
 test('a table view added to a collection is a tab of its own, there after a reload', async ({ app, phone }) => {
-  test.skip(phone, 'Views are made on a computer; a phone opens them.');
+  test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   await createCompanies(app, 'Leads');
   await app.getByRole('button', { name: 'Add a view' }).click();
   await app.getByRole('menuitem', { name: 'Table' }).click();
@@ -62,26 +62,20 @@ test('a table view added to a collection is a tab of its own, there after a relo
 });
 
 test('Gym sets up from New app and opens on its Home', async ({ app, phone }) => {
-  test.skip(phone, 'Set up on a computer; the phone’s wizard is CRM’s test.');
+  test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   await app.getByRole('tablist').getByRole('button', { name: '+', exact: true }).click();
   await app.getByRole('option', { name: /^7 App/ }).click();
   const wizard = app.getByRole('dialog', { name: 'New app' });
   await wizard.getByRole('radio', { name: 'Personal' }).click();
   await wizard.getByRole('checkbox', { name: /^Gym/ }).click();
-  const go = wizard.getByRole('button', { name: /^(Next|Create)$/ });
-  for (let step = 0; step < 6; step++) {
-    await expect(go).toHaveCount(1);
-    const name = await go.textContent();
-    await go.click();
-    if (name === 'Create') break;
-  }
+  await (await wizardTo(wizard, 'Create')).click();
   await expect(wizard).toBeHidden();
   await app.getByRole('complementary').getByRole('button', { name: /^Gym/ }).first().click();
   await expect(app.getByRole('tablist', { name: 'Gym' })).toBeVisible();
 });
 
 test('Edit app shows what a change does before it is written, and Save writes it', async ({ app, phone }) => {
-  test.skip(phone, 'Edited on a computer.');
+  test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   await app.getByRole('tablist').getByRole('button', { name: '+', exact: true }).click();
   await app.getByRole('option', { name: /^7 App/ }).click();
   const wizard = app.getByRole('dialog', { name: 'New app' });
@@ -98,8 +92,7 @@ test('Edit app shows what a change does before it is written, and Save writes it
   await app.keyboard.press('Enter');
   await expect(edit.getByText('EUR').first()).toBeVisible();
   // Next through the CRM's questions, as they are, to Changes.
-  const save = edit.getByRole('button', { name: 'Save', exact: true });
-  for (let step = 0; step < 6 && !(await save.isVisible()); step++) await edit.getByRole('button', { name: 'Next', exact: true }).click();
+  const save = await wizardTo(edit, 'Save');
   await expect(edit.getByText('Changed').first()).toBeVisible();
   await save.click();
   await expect(edit).toBeHidden();
@@ -107,7 +100,7 @@ test('Edit app shows what a change does before it is written, and Save writes it
 });
 
 test('a collection exported as Excel comes back in from that file', async ({ app, phone }) => {
-  test.skip(phone, 'Import is a computer’s: a file chosen from a folder.');
+  test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   await createCompanies(app, 'Vendors');
   await app.getByRole('button', { name: 'Add record' }).click();
   const form = app.getByRole('dialog', { name: /New company|New record/ });

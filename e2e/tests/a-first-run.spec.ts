@@ -18,7 +18,7 @@ test('the phone opens on the welcome note, with Browse one tap away', async ({ a
 });
 
 test('the personal space syncs to OneDrive, and a note made before goes with it', async ({ app, phone }) => {
-  test.skip(phone, 'Same window on the phone; tried at desktop size.');
+  test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   await createNote(app, phone, 'Before sync');
 
   await app.getByRole('button', { name: 'Sync', exact: true }).click();

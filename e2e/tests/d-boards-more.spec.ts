@@ -37,7 +37,7 @@ test('a board from Software has its columns, with phases on', async ({ app, phon
 });
 
 test('a column added to a board is there with its name', async ({ app, phone }) => {
-  test.skip(phone, 'A phone shows one column at a time; columns are added on a computer.');
+  test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   await createBoard(app, phone, 'Hiring', 'Simple');
   // The welcome note's table has a + Column too, unseen in its tab.
   await app.getByRole('button', { name: '+ Column' }).filter({ visible: true }).click();
@@ -49,7 +49,7 @@ test('a column added to a board is there with its name', async ({ app, phone }) 
 });
 
 test('a phase closed with a card left moves the card to the next phase', async ({ app, phone }) => {
-  test.skip(phone, 'Phases are closed on a computer.');
+  test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   await createBoard(app, phone, 'Sprints', 'Software');
   // Two phases: the card is in the first, and goes to the next as the first closes.
   for (const name of ['First', 'Next']) {

@@ -133,6 +133,21 @@ export async function noteMenu(page: Page, phone: boolean, name: string) {
 // The Undo of the notice (the status bar's or a toast), not the editor's Undo in its format bar.
 export const undoInNotice = (page: Page) => page.locator('.toast, .mb-toast, .notice').getByRole('button', { name: 'Undo' });
 
+// Goes through a wizard (New app, Edit app) with Next, each time once the next step is on screen,
+// as a person reads it before going on, and stops at `last` (Create or Save) without pressing it.
+export async function wizardTo(wizard: Locator, last: 'Create' | 'Save') {
+  const go = wizard.getByRole('button', { name: new RegExp(`^(Next|${last})$`) });
+  for (let step = 0; step < 10; step++) {
+    // A phone's step slides in beside the one before it for a moment: read once one is left.
+    await expect(go).toHaveCount(1);
+    if ((await go.textContent()) === last) return go;
+    const before = await wizard.innerText();
+    await go.click();
+    await expect.poll(() => wizard.innerText()).not.toBe(before);
+  }
+  throw new Error(`No ${last} in ten steps`);
+}
+
 // Browse on a phone; the sidebar is always there on a computer.
 export async function browse(page: Page, phone: boolean) {
   if (!phone) return;

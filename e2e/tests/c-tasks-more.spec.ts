@@ -78,7 +78,7 @@ test('a subtask added in a task is saved under it', async ({ app, phone }) => {
 });
 
 test('a section added to a list is saved in it', async ({ app, phone }) => {
-  test.skip(phone, 'A section is added from the list’s menu on a phone; this is the computer’s row.');
+  test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   await openInbox(app, phone);
   await app.getByRole('button', { name: 'Add section' }).first().click();
   await app.getByRole('textbox', { name: 'Section name' }).fill('Errands');
@@ -87,7 +87,7 @@ test('a section added to a list is saved in it', async ({ app, phone }) => {
 });
 
 test('a task dragged above another goes before it', async ({ app, phone }) => {
-  test.skip(phone, 'Dragging is a computer’s; a phone holds a row to move it.');
+  test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   await openInbox(app, phone);
   for (const name of ['Alpha', 'Beta']) {
     await openComposer(app, phone);
@@ -144,7 +144,7 @@ test('a label in Filters & Labels shows its tasks, and a favorite one is a tap a
 });
 
 test('a task’s Activity says who worked on it', async ({ app, phone }) => {
-  test.skip(phone, 'A computer’s row menu; the phone’s task page shows it under the task.');
+  test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   await openInbox(app, phone);
   await openComposer(app, phone);
   await composerOf(app, phone).getByRole('textbox', { name: 'Task name' }).fill('File taxes');

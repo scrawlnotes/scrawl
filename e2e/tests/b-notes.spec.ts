@@ -60,7 +60,7 @@ test('a deleted note goes to Trash and comes back from it', async ({ app, phone 
 });
 
 test('History opens on the note and closes with Escape', async ({ app, phone }) => {
-  test.skip(phone, 'A page on the phone, closed with Back.');
+  test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   await createNote(app, phone, 'Versions');
   await typeInto(editor(app), 'Now');
   await noteMenu(app, phone, 'Versions');
@@ -72,7 +72,7 @@ test('History opens on the note and closes with Escape', async ({ app, phone }) 
 });
 
 test('Export as Markdown gives the note as written', async ({ app, phone }) => {
-  test.skip(phone, 'The phone shares the file instead of downloading it.');
+  test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   await createNote(app, phone, 'Exported');
   await typeInto(editor(app), '- one\ntwo');
   await expect.poll(() => vaultFile(app, 'Exported.md')).toBe('- one\n- two');

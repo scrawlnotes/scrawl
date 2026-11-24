@@ -4,7 +4,7 @@ import { invite, person, spaceWithInvite } from '../server';
 test.describe.configure({ timeout: 90_000 });
 
 test('a direct message reaches the one it is to', async ({ app, second, phone }) => {
-  test.skip(phone, 'Started from a computer’s Chat; a phone’s is its + menu.');
+  test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   const space = await spaceWithInvite('Direct');
   await joinSpace(app, space.link, person('Ada'), phone);
   await joinSpace(second, await invite(space.id), person('Ben'), phone);

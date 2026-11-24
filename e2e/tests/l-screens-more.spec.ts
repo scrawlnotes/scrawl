@@ -23,7 +23,7 @@ test('a search made once is offered again under Recent searches', async ({ app, 
 });
 
 test('a file uploaded in Files is listed there', async ({ app, phone }) => {
-  test.skip(phone, 'Upload is a computer’s Files; a phone adds a file from a note.');
+  test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   await app.getByRole('button', { name: /^Files/ }).first().click();
   const picking = app.waitForEvent('filechooser');
   await app.getByRole('button', { name: 'Upload' }).click();
@@ -32,7 +32,7 @@ test('a file uploaded in Files is listed there', async ({ app, phone }) => {
 });
 
 test('a key added to a Keys file is kept, its value hidden until shown', async ({ app, phone }) => {
-  test.skip(phone, 'Made on a computer here; the phone’s Keys has its own test of its empty screen.');
+  test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   await app.getByRole('tablist').getByRole('button', { name: '+', exact: true }).click();
   await app.getByRole('option', { name: /Keys/ }).click();
   await app.getByRole('textbox', { name: 'Name' }).fill('Servers');

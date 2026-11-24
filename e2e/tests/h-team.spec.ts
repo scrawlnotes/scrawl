@@ -28,7 +28,7 @@ async function teamBoard(app: Page, second: Page) {
 }
 
 test('a card given to someone can be reminded of, once in a while', async ({ app, second, phone }) => {
-  test.skip(phone, 'Given and reminded from a computer’s card; the phone’s rows have their own tests.');
+  test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   const card = await teamBoard(app, second);
   await card.locator('#card-assignee').click();
   await app.getByRole('option', { name: /Ben/ }).first().click();
@@ -39,7 +39,7 @@ test('a card given to someone can be reminded of, once in a while', async ({ app
 });
 
 test('@ in a comment offers the space’s people, and the one picked is written', async ({ app, second, phone }) => {
-  test.skip(phone, 'Written on a computer’s card.');
+  test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   const card = await teamBoard(app, second);
   const box = card.getByRole('textbox', { name: 'Write a comment…' });
   await box.click();
@@ -61,7 +61,7 @@ async function teamChat(app: Page, second: Page) {
 }
 
 test('a file sent in a message reaches the other person, with its name', async ({ app, second, phone }) => {
-  test.skip(phone, 'Sent from a computer; the phone’s + is the same menu.');
+  test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   await teamChat(app, second);
   const picking = app.waitForEvent('filechooser');
   // The message box's +; the list of conversations has an Add of its own, for rooms.
@@ -73,7 +73,7 @@ test('a file sent in a message reaches the other person, with its name', async (
 });
 
 test('@ in a message offers the room’s people, and the one picked is written', async ({ app, second, phone }) => {
-  test.skip(phone, 'Written on a computer.');
+  test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   await teamChat(app, second);
   const box = app.getByRole('textbox', { name: 'Message #general' });
   await box.click();
@@ -85,7 +85,7 @@ test('@ in a message offers the room’s people, and the one picked is written',
 });
 
 test('a shared space’s People lists who is in it', async ({ app, phone }) => {
-  test.skip(phone, 'A computer’s Settings; the phone’s Spaces page lists them the same.');
+  test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   const space = await spaceWithInvite('Crew');
   await joinSpace(app, space.link, person('Ada'), false);
   await app.getByRole('button', { name: 'Settings', exact: true }).click();

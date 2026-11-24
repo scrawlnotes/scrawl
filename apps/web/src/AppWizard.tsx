@@ -272,13 +272,20 @@ export function NewAppDialog({ folders, folder, adding, editing, toCalendar, onP
     // The name and the currencies are checked on their page; everything before the summary.
     if (step === 'app' || ahead === 'summary') {
       const made = await planned();
-      busy.current = false;
-      if (!made) return;
+      if (!made) {
+        busy.current = false;
+        return;
+      }
       setPlan(made);
-    } else busy.current = false;
+    }
     setProblems([]);
+    // Busy until the next step is drawn (the effect on `at`): a second Next before then, of a
+    // double click, took the step on screen for the one before and held Save off.
     setAt(at + 1);
   };
+  useEffect(() => {
+    busy.current = false;
+  }, [at]);
   // Whether what is chosen brings something to Today, worked out as the app's page opens, from its plan with the answers as they start.
   const askCalendar = !!toCalendar && !app && !blank && step === 'app';
   const choice = chosen.join(',');

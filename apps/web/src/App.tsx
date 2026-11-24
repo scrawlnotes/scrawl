@@ -1407,7 +1407,10 @@ export function App() {
     if (!collection) return;
     const name = `${collectionName(dir)}.csv`;
     try {
-      if (await saveTextFile(name, collectionCsv(collection, Object.values(collections), boards, t('collection.body'), today), 'text/csv', 'csv')) setNotice(t('import.exported', { name }));
+      const text = collectionCsv(collection, Object.values(collections), boards, t('collection.body'), today);
+      // On a phone to its share sheet, as a note's export goes.
+      if (phone) return await shareExported({ name, blob: new Blob([text], { type: 'text/csv' }), extension: 'csv' });
+      if (await saveTextFile(name, text, 'text/csv', 'csv')) setNotice(t('import.exported', { name }));
     } catch (error) {
       setNotice(error instanceof Error ? error.message : String(error));
     }
@@ -1419,6 +1422,7 @@ export function App() {
     const name = `${collectionName(dir)}.xlsx`;
     try {
       const blob = await writeSheet(collectionName(dir), collectionSheet(collection, Object.values(collections), boards, t('collection.body'), today));
+      if (phone) return await shareExported({ name, blob, extension: 'xlsx' });
       if (await saveFile(name, blob, 'xlsx')) setNotice(t('import.exported', { name }));
     } catch (error) {
       setNotice(error instanceof Error ? error.message : String(error));

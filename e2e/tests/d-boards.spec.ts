@@ -77,7 +77,7 @@ test('a card of someone with no name yet says You, not Unnamed', async ({ app, p
 });
 
 test("a card's priority and due day are picked as a task's are", async ({ app, phone }) => {
-  test.skip(phone, 'The phone has its own rows for them.');
+  test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   await createBoard(app, phone, 'Launch');
   await addCard(app, phone, 'Book the venue');
   await app.keyboard.press('Escape');

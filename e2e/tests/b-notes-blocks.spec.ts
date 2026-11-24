@@ -69,7 +69,7 @@ test('a table copied from Excel is pasted as a table', async ({ app, phone }) =>
 });
 
 test('PDF and HTML exports download the note', async ({ app, phone }) => {
-  test.skip(phone, 'The phone shares the file instead of downloading it.');
+  test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   await createNote(app, phone, 'Report');
   await typeInto(editor(app), 'Numbers');
   await expect.poll(() => vaultFile(app, 'Report.md')).toBe('Numbers');

@@ -25,7 +25,7 @@ test('a note written by one person shows on the other’s device in a shared spa
 });
 
 test('a note moved from the personal space to a shared one reaches the other person, the original in the trash', async ({ app, second, phone }) => {
-  test.skip(phone, 'Moved from a computer’s Move to; the phone’s is the same window.');
+  test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   const space = await spaceWithInvite('Team');
   await joinSpace(app, space.link, person('Ada'), phone);
   await joinSpace(second, await invite(space.id), person('Ben'), phone);
@@ -50,7 +50,7 @@ test('a note moved from the personal space to a shared one reaches the other per
 });
 
 test('the same line changed on two devices, one offline, keeps both: the other text in a conflict copy', async ({ app, second, phone }) => {
-  test.skip(phone, 'Sync is the same on a phone; tried on a computer.');
+  test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   const space = await spaceWithInvite('Team');
   await joinSpace(app, space.link, person('Ada'), phone);
   await joinSpace(second, await invite(space.id), person('Ben'), phone);

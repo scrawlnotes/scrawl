@@ -35,7 +35,7 @@ test("a task an agent adds shows in the person's list, made by the agent", async
 });
 
 test("a message an agent sends its person comes as a direct message, under the agent's name", async ({ app, phone }) => {
-  test.skip(phone, 'Read on a computer’s Chat; the phone’s list is the same.');
+  test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   const space = await spaceWithInvite('Agent');
   const ada = person('Ada');
   await joinSpace(app, space.link, ada, phone);
