@@ -253,6 +253,7 @@ import {
   serializeBoard,
   serializeList,
   setColumnKind,
+  setColumnNotify,
   setDone,
   setPhasesOn,
   type Section,
@@ -4454,6 +4455,10 @@ export class Session {
 
   setColumnKind(board: string, id: string, kind: ColumnKind) {
     this.changeBoard(board, (current) => setColumnKind(current, id, kind));
+  }
+
+  setColumnNotify(board: string, id: string, people: PersonRef[]) {
+    this.changeBoard(board, (current) => setColumnNotify(current, id, people));
   }
 
   moveColumn(board: string, id: string, after: string | null) {

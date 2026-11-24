@@ -21,6 +21,8 @@ Columns are added, renamed, deleted and dragged into order. Each has a kind, wha
 - **Review:** waiting for a person to look; an agent leaves what it finished here.
 - **Done** and **Dropped:** finished, or given up.
 
+With a Scrawl server, a column can tell people of a card that comes to it: testers of what reaches Test, say. In the column's **···** menu, **Notify me** turns it on for you; **Notify others…** finds people of the space by name and adds them, and × takes one off. A column that tells someone has a bell beside its name. Whoever moves or adds the card is not told.
+
 ## Fields
 
 **Fields**, at the top of the board, adds fields to every card: a number, a date, a choice, a link to a record of a collection, and more. The first link and the first number show on the card.

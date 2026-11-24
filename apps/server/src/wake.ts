@@ -423,7 +423,7 @@ export class Wakes {
   noticed(where: { space: string; spaceName: string; name: string }, notices: Notice[]) {
     const first = new Map<string, Notice>();
     for (const notice of notices) {
-      if (!isAgentId(notice.to) || notice.kind === 'remind' || notice.by.id !== ownerOf(notice.to)) continue;
+      if (!isAgentId(notice.to) || notice.kind === 'remind' || notice.kind === 'column' || notice.by.id !== ownerOf(notice.to)) continue;
       const key = `${notice.to}\n${notice.item.id}`;
       const had = first.get(key);
       if (!had || (notice.kind === 'assign' && had.kind !== 'assign')) first.set(key, notice);

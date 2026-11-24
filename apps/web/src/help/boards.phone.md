@@ -21,6 +21,8 @@ Each column has a kind, whatever its name:
 - **Review:** waiting for a person to look; an agent leaves what it finished here.
 - **Done** and **Dropped:** finished, or given up.
 
+With a Scrawl server, a column can tell people of a card that comes to it: testers of what reaches Test, say. Tap the column's **···**: **Notify me** turns it on for you; **Notify others…** finds people of the space by name and adds them. A column that tells someone has a bell beside its name.
+
 ## Fields
 
 A board can add fields to every card: a number, a date, a choice, a link to a record of a collection, and more.

@@ -29,6 +29,8 @@ export interface Column {
   id: string;
   name: string;
   kind: ColumnKind;
+  /** Who is told when a card comes to it, moved here or made here (design/notifications.md 20); left out when no one. */
+  notify?: PersonRef[];
 }
 
 /** A phase is an ordered unit of scope without dates; exactly one is current while any is open. */
@@ -375,7 +377,9 @@ function parseColumns(list: unknown): Column[] {
   for (const raw of list as Partial<Column>[]) {
     if (!raw || typeof raw.id !== 'string' || typeof raw.name !== 'string' || seen.has(raw.id)) continue;
     seen.add(raw.id);
-    out.push({ ...raw, id: raw.id, name: raw.name, kind: COLUMN_KINDS.includes(raw.kind as ColumnKind) ? (raw.kind as ColumnKind) : 'active' });
+    const { notify: rawNotify, ...rest } = raw;
+    const notify = Array.isArray(rawNotify) ? rawNotify.map(readPersonRef).filter((person): person is PersonRef => !!person?.id) : [];
+    out.push({ ...rest, id: raw.id, name: raw.name, kind: COLUMN_KINDS.includes(raw.kind as ColumnKind) ? (raw.kind as ColumnKind) : 'active', ...(notify.length && { notify }) });
   }
   return out;
 }
@@ -626,6 +630,23 @@ export function addColumn(board: Board, name: string, kind: ColumnKind, after?: 
   const end = finished(column) ? -1 : board.columns.findIndex(finished);
   const at = after !== undefined ? board.columns.findIndex((c) => c.id === after) + 1 : end >= 0 ? end : board.columns.length;
   return { ...board, columns: [...board.columns.slice(0, at), column, ...board.columns.slice(at)] };
+}
+
+/**
+ * Who a column tells of a card come to it (design/notifications.md 20): the people given, each
+ * once, by id; none takes the list away.
+ */
+export function setColumnNotify(board: Board, id: string, people: readonly PersonRef[]): Board {
+  const seen = new Set<string>();
+  const kept = people.filter((person) => person.id && !seen.has(person.id) && seen.add(person.id));
+  return {
+    ...board,
+    columns: board.columns.map((c) => {
+      if (c.id !== id) return c;
+      const { notify: _, ...rest } = c;
+      return kept.length ? { ...rest, notify: kept.map((person) => ({ id: person.id!, ...(person.name && { name: person.name }) })) } : rest;
+    }),
+  };
 }
 
 export function renameColumn(board: Board, id: string, name: string): Board {

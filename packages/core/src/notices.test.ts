@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addCard, addComment, editComment, moveCardToKind, newBoard, remindCard, serializeBoard, updateCard } from './board';
+import { addCard, addComment, editComment, moveCardToKind, newBoard, parseBoard, remindCard, serializeBoard, setColumnNotify, updateCard } from './board';
 import { dueWorkIn, dueWords, noticesFrom, noticeWords, tellsPeople } from './notices';
 import { addTask, remindTask, serializeList, setDone, updateTask } from './tasks';
 import { parseItemLink, personLink } from './sync/chat';
@@ -84,6 +84,47 @@ describe('noticesFrom', () => {
       ['assign', 'mert', 'scrawl:item/task/sp-1/Work%2FTasks.tasks.json?id=t1'],
       ['mention', 'elif', 'scrawl:item/task/sp-1/Work%2FTasks.tasks.json?id=t1'],
     ]);
+  });
+});
+
+describe('a column that tells people', () => {
+  const ELIF = { id: 'elif', name: 'Elif Demir' };
+  /** The board with its review column telling Mert and Elif. */
+  const told = () => {
+    const made = board();
+    const review = made.columns.find((c) => c.kind === 'review')!;
+    return { made: setColumnNotify(made, review.id, [MERT, ELIF, MERT, { name: 'No id' }]), review };
+  };
+
+  it('keeps who a column tells, each once and by id, and drops the list when no one is left', () => {
+    const { made, review } = told();
+    expect(made.columns.find((c) => c.id === review.id)!.notify).toEqual([MERT, ELIF]);
+    const read = parseBoard(serializeBoard(made));
+    expect(read.columns.find((c) => c.id === review.id)!.notify).toEqual([MERT, ELIF]);
+    expect('notify' in setColumnNotify(made, review.id, []).columns.find((c) => c.id === review.id)!).toBe(false);
+  });
+
+  it('tells them of a card moved there by someone else, not the one who moved it, nor of a card that stays', () => {
+    const { made } = told();
+    const moved = moveCardToKind(made, 'card1', 'review', at(5), ELIF);
+    const found = notices(serializeBoard(made), serializeBoard(moved), ELIF);
+    expect(found.map((n) => [n.kind, n.to, n.by.id, n.column])).toEqual([['column', 'mert', 'elif', { name: 'Review', added: false }]]);
+    expect(noticeWords(found[0]!, 'Roadmap').title).toBe(`Elif moved ${made.prefix}-1 to Review`);
+    // Edited where it is, it tells no one again.
+    expect(notices(serializeBoard(moved), serializeBoard(updateCard(moved, 'card1', { title: 'Export as CSV' }, at(6), ELIF)), ELIF)).toEqual([]);
+  });
+
+  it('tells them of a card made there, and one given a card there hears of the giving alone', () => {
+    const { made, review } = told();
+    const added = addCard(made, { title: 'Undo a move', column: review.id, assignee: ELIF }, at(5), KAAN, 'card2');
+    const found = notices(serializeBoard(made), serializeBoard(added));
+    expect(found.map((n) => [n.kind, n.to])).toEqual([['assign', 'elif'], ['column', 'mert']]);
+    expect(noticeWords(found[1]!, 'Roadmap').title).toBe(`Kaan added ${made.prefix}-2 to Review`);
+  });
+
+  it('tells no one of a column with no list', () => {
+    const plain = board();
+    expect(notices(serializeBoard(plain), serializeBoard(moveCardToKind(plain, 'card1', 'review', at(5), ELIF)), ELIF)).toEqual([]);
   });
 });
 

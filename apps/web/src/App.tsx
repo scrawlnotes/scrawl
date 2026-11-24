@@ -2468,6 +2468,7 @@ export function App() {
     addColumn: (board, name, kind, after) => session.addColumn(board, name, kind, after),
     renameColumn: (board, id, name) => session.renameColumn(board, id, name),
     setColumnKind: (board, id, kind) => session.setColumnKind(board, id, kind),
+    setColumnNotify: (board, id, people) => session.setColumnNotify(board, id, people),
     moveColumn: (board, id, after) => session.moveColumn(board, id, after),
     removeColumn: deleteColumn,
     addPhase: (board, name) => session.addPhase(board, name),

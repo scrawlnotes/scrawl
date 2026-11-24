@@ -4050,6 +4050,59 @@ body > .mb-lifted {
   margin-left: 0;
 }
 
+.mb .mb-bv .colm h3 .colm-bell {
+  width: 44px;
+  height: 44px;
+  margin: 0 -10px 0 auto;
+}
+
+.mb .mb-bv .colm h3 .colm-bell .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.mb .mb-bv .colm h3 .colm-bell + .more {
+  margin-left: 0;
+}
+
+/* Notify others… on a phone: a tall sheet, the box at its top, rows a finger tall. */
+.mb-sheet.dialog.col-notify {
+  min-height: 70%;
+  font-size: 16px;
+}
+
+.mb-sheet.dialog.col-notify .cn-box {
+  height: 42px;
+  border-radius: 10px;
+}
+
+.mb-sheet.dialog.col-notify .cn-box input {
+  font-size: 16px;
+}
+
+.mb-sheet.dialog.col-notify .cn-found {
+  position: static;
+  margin-top: 6px;
+  box-shadow: none;
+}
+
+.mb-sheet.dialog.col-notify .cn-found .r,
+.mb-sheet.dialog.col-notify .cn-who li {
+  min-height: 44px;
+}
+
+.mb-sheet.dialog.col-notify .cn-who .x {
+  width: 44px;
+  height: 44px;
+}
+
+.mb-sheet.dialog.col-notify .who {
+  width: 28px;
+  height: 28px;
+  font-size: 12px;
+  line-height: 28px;
+}
+
 .mb .mb-bv .colm-cards {
   --gap: 8px;
   display: flex;

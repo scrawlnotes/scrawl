@@ -5562,6 +5562,231 @@ textarea.tt-edit {
   color: var(--sl-fg);
 }
 
+/* A column that tells people of a card come to it (design/notifications.md 20): its bell, the accent when it tells you. */
+.colm h3 .colm-bell {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin: -3px -2px;
+  border-radius: 4px;
+  color: var(--sl-faint);
+}
+
+.colm h3 .colm-bell.me {
+  color: var(--sl-accent);
+}
+
+.colm h3 .colm-bell:hover {
+  background: var(--sl-code);
+}
+
+.colm h3 .colm-bell .icon {
+  width: var(--icon-12, 12px);
+  height: var(--icon-12, 12px);
+}
+
+/* Notify others…: who a column tells, found by name. */
+.dialog.col-notify {
+  width: min(400px, calc(100vw - 32px));
+  gap: 0;
+}
+
+.col-notify .cn-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.col-notify .cn-head .x {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin: -4px -4px -4px 0;
+  border-radius: 4px;
+  color: var(--sl-faint);
+}
+
+.col-notify .cn-head .x:hover {
+  background: var(--sl-code);
+  color: var(--sl-fg);
+}
+
+.col-notify .cn-t {
+  margin: 0 2px 2px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.col-notify .cn-sub {
+  margin: 0 2px 12px;
+  color: var(--sl-faint);
+  font-size: 12px;
+}
+
+.col-notify .cn-find {
+  position: relative;
+}
+
+.col-notify .cn-box {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--sl-line);
+  border-radius: 6px;
+  background: var(--sl-bg);
+}
+
+.col-notify .cn-box:focus-within {
+  border-color: var(--sl-accent);
+}
+
+.col-notify .cn-box .icon {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  color: var(--sl-faint);
+}
+
+.col-notify .cn-box input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--sl-fg);
+  font: inherit;
+}
+
+.col-notify .cn-found {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  border: 1px solid var(--sl-line);
+  border-radius: 7px;
+  background: var(--sl-side);
+  box-shadow: 0 10px 26px rgb(0 0 0 / 0.4);
+}
+
+.col-notify .cn-found .r {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 0 8px;
+  border-radius: 5px;
+  text-align: left;
+}
+
+.col-notify .cn-found .r.hot {
+  background: var(--sl-sel);
+}
+
+.col-notify .cn-cap {
+  margin: 14px 2px 4px;
+  color: var(--sl-dim);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.col-notify .cn-cap small {
+  margin-left: 6px;
+  color: var(--sl-faint);
+  letter-spacing: 0;
+}
+
+.col-notify .cn-who {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.col-notify .cn-who li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 2px;
+  border-radius: 5px;
+}
+
+.col-notify .cn-who li:hover {
+  background: var(--sl-sel);
+}
+
+.col-notify .cn-who .nm {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.col-notify .cn-who .nm small,
+.col-notify .cn-who .nm .of {
+  color: var(--sl-faint);
+}
+
+.col-notify .cn-who .x {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  color: var(--sl-faint);
+}
+
+.col-notify .cn-who .x:hover {
+  background: var(--sl-code);
+  color: var(--sl-fg);
+}
+
+.col-notify .cn-who .x .icon,
+.col-notify .cn-head .x .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.col-notify .who {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--sl-fg) 12%, transparent);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 20px;
+  text-align: center;
+  overflow: hidden;
+}
+
+.col-notify .who img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.col-notify .cn-none,
+.col-notify .cn-note {
+  margin: 8px 2px 0;
+  color: var(--sl-faint);
+  font-size: 12px;
+}
+
 @media (hover: none) {
   .colm h3 .more {
     opacity: 1;

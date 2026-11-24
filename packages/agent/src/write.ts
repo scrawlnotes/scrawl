@@ -30,13 +30,15 @@ import {
   markCreated,
   APP_FILE,
   basename,
+  isAgentId,
+  type PersonRef,
 } from '@scrawlnotes/core';
 import { checkOpen, cleanPath, type FileKind, fileKind, Refusal } from './paths';
 import { boardWithPart, checkPart, listWithSections, partOf, PARTS, renamedViews, schemaWithPart } from './parts';
 import { hashOf, MAX_TEXT } from './read';
 import { type AppArgs, createApp } from './apps';
 import { checkFile, checkRules } from './check';
-import { actorOf, type Agent, AGENT_DEVICE, type AgentSpace, type Client, clockOf, elementsOf, exists, filePathOf, foundPath, nowOf, pickPath, pickSpace } from './space';
+import { actorOf, type Agent, AGENT_DEVICE, type AgentSpace, type Client, clockOf, elementsOf, exists, filePathOf, foundPath, nowOf, personRefOf, pickPath, pickSpace, type Who } from './space';
 
 // Writing: a file as it is, a part of one, changes in a note, and a new element. A note the agent
 // writes over keeps its earlier text as a version, every time; nothing is deleted for good.
@@ -206,6 +208,25 @@ async function renameInRecords(fs: VaultFs, dir: string, schema: Schema, renames
  * part's hash: a card moved meanwhile does not stop a phase being written. The cards follow as
  * they do in the app.
  */
+/**
+ * A column as the agent wrote it, those it tells each made a person of the space: given by name,
+ * by "me", or as read, with their id. One who is not a person of the space is refused.
+ */
+async function notifyNamed(space: AgentSpace, column: unknown, me: Who['me']): Promise<unknown> {
+  if (!column || typeof column !== 'object' || !Array.isArray((column as { notify?: unknown }).notify)) return column;
+  const notify = await Promise.all(
+    (column as { notify: unknown[] }).notify.map(async (each) => {
+      const given = each as Partial<PersonRef> | string;
+      if (typeof given === 'object' && given && typeof given.id === 'string') return given;
+      const name = typeof given === 'string' ? given : (given?.name ?? '');
+      const ref = await personRefOf(space, name, { me });
+      if (!ref?.id || isAgentId(ref.id)) throw new Refusal(`A column tells people of the space; ${name || 'that'} is not one. Nothing was written`, { name });
+      return ref;
+    }),
+  );
+  return { ...column, notify };
+}
+
 async function writePart(agent: Agent, client: Client, space: AgentSpace, path: string, kind: FileKind, args: WriteArgs & { part: string; text: string }): Promise<{ data: Written }> {
   const { part } = args;
   checkPart(kind, part, path);
@@ -230,7 +251,10 @@ async function writePart(agent: Agent, client: Client, space: AgentSpace, path: 
   let text: string;
   let followed: string[] = [];
   if (kind === 'board') {
-    const by = actorOf(client, await agent.person());
+    const person = await agent.person();
+    const by = actorOf(client, person);
+    // Who a column tells is given by name, as `spaces` lists them: each becomes the person of the space (design/notifications.md 20.5).
+    if (part === 'columns' && Array.isArray(value)) value = await Promise.all(value.map((column) => notifyNamed(space, column, person)));
     const done = boardWithPart(parseBoard(raw), part, value, args.renames, nowOf(agent), by, args.unfinished);
     text = serializeBoard(done.board);
     followed = done.followed;

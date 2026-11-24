@@ -416,6 +416,7 @@ const NOTIFY_WORDS: Record<keyof NotifyChoices, [MessageKey, MessageKey]> = {
   assignments: ['notify.assignments', 'notify.assignmentsNote'],
   reminders: ['notify.reminders', 'notify.remindersNote'],
   due: ['notify.due', 'notify.dueNote'],
+  columns: ['notify.columns', 'notify.columnsNote'],
 };
 
 /**
@@ -455,7 +456,7 @@ function NotifyAbout({ url }: { url: string }) {
       <span className="st-label">{t('notify.about')}</span>
       {!isPhone() && note}
       <div className="st-space">
-        {NOTIFY_CHOICES.map((name) => (
+        {NOTIFY_CHOICES.filter((name) => name in about.choices).map((name) => (
           <label key={name} className="st-check">
             <input type="checkbox" checked={about.choices[name]} onChange={(event) => change(name, event.target.checked)} />
             <PhoneSwitch on={about.choices[name]} />

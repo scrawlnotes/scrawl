@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { addCard, addComment, addTask, newBoard, personLink, remindCard, serializeBoard, serializeList, ServerAccount, SYNC_LEVEL, updateCard, updateTask } from '@scrawlnotes/core';
+import { addCard, addComment, addTask, moveCardToKind, newBoard, personLink, remindCard, serializeBoard, serializeList, ServerAccount, setColumnNotify, SYNC_LEVEL, updateCard, updateTask } from '@scrawlnotes/core';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { Config } from './config';
 import type { LiveSocket } from './live';
@@ -161,6 +161,24 @@ describe('notices', () => {
     await s2.write(s2.owner, BOARD, serializeBoard(remindCard(was, 'card1', at(5), kaan)));
     await s2.settle();
     expect(s2.sent.map((each) => [each.payload.title, each.payload.body])).toEqual([[`Kaan reminded you about ${was.prefix}-1`, 'Export a board as CSV · Due Nov 10']]);
+  });
+
+  it('tells Mert of a card moved to a column that tells him, unless he turned Board columns off', async () => {
+    const s = await start();
+    const plain = addCard(roadmap(), { title: 'Export a board as CSV' }, at(0), kaan, 'card1');
+    const review = plain.columns.find((column) => column.kind === 'review')!;
+    // One not in the space is on the list too, and hears of nothing.
+    const was = setColumnNotify(plain, review.id, [{ id: MERT, name: 'Mert Kaya' }, { id: 'person-elif', name: 'Elif Demir' }]);
+    await s.write(s.owner, BOARD, serializeBoard(was));
+    const moved = moveCardToKind(was, 'card1', 'review', at(5), kaan);
+    await s.write(s.owner, BOARD, serializeBoard(moved));
+    await s.settle();
+    expect(s.sent.map((each) => [each.payload.title, each.payload.body, each.payload.href])).toEqual([[`Kaan moved ${was.prefix}-1 to Review`, 'Export a board as CSV', `scrawl:item/card/${ACME}/${BOARD}?id=card1`]]);
+    const json = { 'Content-Type': 'application/json' };
+    expect((await s.call(s.mert, 'PATCH', '/me', JSON.stringify({ notify: { columns: false } }), json)).body).toMatchObject({ notify: { columns: false, mentions: true } });
+    await s.write(s.owner, BOARD, serializeBoard(addCard(moved, { title: 'Undo a move', column: review.id }, at(6), kaan, 'card2')));
+    await s.settle();
+    expect(s.sent).toHaveLength(1);
   });
 
   it('tells Mert nothing of what he turned off, on every device of his, and the rest still', async () => {

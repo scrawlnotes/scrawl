@@ -43,7 +43,7 @@ Chat'in bildirimleri bugünkü gibi kalır (`design/chat.md` 6).
 ### 1.4 Ne yapmaz
 
 - E-posta göndermez.
-- Bir kartı "izlemek" (Trello'daki Watch, Jira'daki Watcher) yok: anılmadığın, sana verilmemiş işteki yorum bildirim vermez.
+- Bir kartı "izlemek" (Trello'daki Watch, Jira'daki Watcher) yok: anılmadığın, sana verilmemiş işteki yorum bildirim vermez. Kolonun bildirimi ayrı: yalnız kolona gelen kart (20).
 - Geciken iş için her gün yeniden bildirim yok.
 - Başlıkta mention yok. Notlarda ve kayıtlarda mention yok.
 - Görevlerde yorum yok; görevde mention yalnız açıklamada.
@@ -281,3 +281,69 @@ Yayın: web ve sunucu; masaüstü kullanıcı söyleyince.
 - **Tarayıcı ve telefon:** `opened` gelince push kaydının bildirimlerinden aynı space ve işe ait, açılmadan önce gösterilmiş olanları kapatır. Telefonda Scrawl kapalıyken kalkmaz, açılınca kalkar: iPhone'da Web Push sessiz gelemez, her push bir bildirim göstermek zorundadır, göstermezse abonelik iptal edilir (WebKit, "Meet Web Push"). Kapalıyken kaldırmak ancak gerçek bir iOS uygulamasıyla olur.
 - **Testler:** sunucu 2 (açılış canlı kanala gider, sonradan bağlanan alır, başkası almaz; push yükünde space ve iş).
 - **Denendi:** yerel sunucuda iki cihaz: açılış öbür cihaza hemen, sonradan bağlanana 1,5 sn önce açılmış olarak gitti. Claude'un tarayıcısında kart açılınca, işletim sisteminin bildirimleri taklit edilerek, yalnız açılmadan önce gelen bildirim kapandı; sonra gelen, başka kartın ve sabah özetininki kaldı.
+
+## 20. Kolona gelen kart
+
+Durum: 24 Kasım 2026'da onaylandı ve yazıldı (20.9). Mockup: `design/mockups.html` › Bildirimler › Kolon menüsü, Notify others, Kolon bildirimi, Settings, Telefon 3.
+
+Neden: bir kolona gelen kartı o kolonun işini yapanlar hemen görsün. Test'e gelen kartı testçiler, Done'a geleni PM görür. Bugün bunun için kartı birine vermek ya da yorumda anmak gerekiyor.
+
+### 20.1 Piyasada
+
+24 Kasım'da Asana'nın yardım sayfalarına bakıldı. Kart başka kolona taşınınca kendiliğinden kimseye bildirim gitmez. Otomasyonun (ücretli planlarda) "Task moved" tetikleyicisi kart bir kolona taşınınca ya da projeye eklenince çalışır; adımları kartı birine vermek, taşımak, yeni iş açmaktır. "Şunlara bildirim gönder" diye bir adım belgede yok; forumda bunun için karta yorum yazdırıldığı anlatılıyor. Trello'da listeyi izlemek (Watch) var. Bizimki ikisinin arası: kolonun kendi bildirim listesi.
+
+### 20.2 Ne olur
+
+- **Notify me:** kolonun ··· menüsünde tek tık. Açınca kolona gelen her kart sana bildirim verir; bir daha basınca kalkar. Ana yol budur: testçi Test'te, PM Done'da kendisi için bir kez açar. 100 kişilik space'te de kimse başkasının listesiyle uğraşmaz.
+- **Notify others…:** aynı menüde. Ortada küçük pencere: üstte arama kutusu, altında bildirim alanlar.
+  - Ad yazınca space'in kişileri süzülür (en çok 6 satır). Enter ya da tık ekler. Tam liste hiç gösterilmez.
+  - Eklenenler adıyla ve yüzüyle alt alta; × çıkarır. Kendin de listededir, "(you)" ile.
+  - Değişiklik hemen yazılır; Save yok, × ya da dışarı tık kapatır.
+  - Ajanlar ve pasif kişiler listede yok (ajanı yalnız sahibi uyandırır, `design/agent-wake.md`).
+- **Kolonun başlığında:** bildirimi açık kolonda sayının yanında küçük zil. Sende açıksa vurgu renginde. Üstüne gelince "Notifies you, Mert and 2 more"; tıklayınca Notify others… açılır.
+- **Ne zaman:** kart başka kolondan bu kolona taşınınca, ya da doğrudan bu kolonda açılınca. Board'lar arası taşımada gelen board'un kolonu sayılır. Aynı kolonda sırası değişen kart bildirim vermez.
+- **Kime gitmez:** kartı taşıyana ya da açana; space'in üyesi olmayana; Board columns'ı kapatana (20.3).
+- **Ne der:** "Kaan moved SCR-12 to Test", altında kartın başlığı. Yeni kartta "Kaan added SCR-12 to Test". Ajan taşıdıysa "Claude Code · Kaan moved SCR-12 to Test".
+- **Bir kişiye bir bildirim:** aynı yazmada kart hem sana verildi hem senin kolonuna geldiyse yalnız atama bildirimi gider.
+- **Dokununca:** kart açılır (6'daki gibi).
+- **Nerede çalışır:** yalnız sunucudaki space'lerde (1.2). OneDrive'daki ve cihazdaki space'lerde menüde Notify me ve Notify others… görünmez.
+
+### 20.3 Settings
+
+**Notify me about**'a beşinci seçim, açık başlar: **Board columns** — "When a card comes to a column that notifies you." Telefonda da switch'li satır.
+
+### 20.4 Telefon
+
+Kolonun menüsünde (sheet) aynı iki satır: **Notify me** sağında ✓, **Notify others…** sağında sayı. Notify others… tam sayfa açılır: üstte arama, altında liste, her satırda ×. Kolonun başlığında zil.
+
+### 20.5 Ajan
+
+Kolonlar `read`/`write` ile `part: "columns"` okunup yazılır; kolon `notify` alanını taşır. Ajan "Test kolonuna beni ekle" isteğini bununla yapar. Rehbere bir cümle. Ajanın taşıdığı kart da bildirim verir.
+
+### 20.6 Kodda
+
+- **Dosya:** `Column` yeni alan: `notify?: PersonRef[]`. Boşsa yazılmaz. Eski uygulama bilmediği alanı korur: `parseColumns` kolonun bütün alanlarını taşır. İleride grup gelince aynı listede `{ group: id }` durur.
+- **Core:** `board.ts`'te `setColumnNotify(board, columnId, people)`. `noticesFrom` board'da yeni tür `column`: kartın eski kolonu yoksa (yeni kart) ya da farklıysa ve yeni kolonun `notify`'ı varsa, listedekilere. Kim: kartın son `move` kaydının damgası, yoksa yazan. `Notice.kind`'e `'column'`, `Notice.column` (kolonun adı).
+- **Sunucu:** `notices.ts`'teki gönderim yolu aynı; `accounts.notify`'a `columns` (varsayılan açık), `PATCH /me` kabul eder. Başlık metni `noticeWords`'te.
+- **Web:** `Board.tsx` kolon menüsüne iki satır (yalnız sunucudaki space'te), `ColumnNotify.tsx` penceresi (arama `peopleChoices` ile, Mentions'ın süzmesi), başlıkta zil. Telefonda tam sayfa. `Settings.tsx` Notify me about'a satır. i18n.
+- **Masaüstü:** değişiklik yok; `notice` olayı bugünkü yoldan gösterilir.
+
+### 20.7 Testler
+
+- **Core:** taşınan kart listedekilere, taşıyana değil; yeni açılan kart; sırası değişen kart vermez; liste boşken vermez; atama ile aynı yazmada tek bildirim; ajanın taşıması.
+- **Sunucu:** Board columns kapalıyken gitmez; üye olmayana gitmez; `PATCH /me` `columns`.
+- **E2E (masaüstü ve telefon):** Ben Test'te Notify me der; Ada kartı Test'e taşır; Ben'in canlı kanalına bildirim gelir, Ada'ya gelmez. Notify others…'ta aramayla kişi eklenir, × ile çıkar; zil ve sayı görünür.
+
+### 20.8 Dilimler
+
+Tek dilim: dosya, core, sunucu, web, telefon, Settings, ajan rehberi, Help (Boards ve Working together). Yayın: web ve sunucu; masaüstü kullanıcı söyleyince.
+
+### 20.9 Yazılırken
+
+24 Kasım 2026.
+
+- **Core:** `Column.notify`, `setColumnNotify` (her kişi bir kez, kimliğiyle; boşsa alan kalkar), `parseColumns` listeyi `readPersonRef` ile okur, kimliksizleri atar. `noticesFrom`'da `column` türü; `Notice.column` `{ name, added }`; `NotifyChoices.columns`.
+- **Sunucu:** gönderim yolu aynı; kolon bildirimi ajanı uyandırmaz (`wake.ts`). Sürüm 0.2.48.
+- **Ajan:** `write` `part: "columns"`'ta `notify` adla (ya da "me") yazılır, `personRefOf` ile space'in kişisine çevrilir; kişi olmayan ya da ajan geri çevrilir. `spaces` kişileri adla verdiği için bu gerekli oldu.
+- **Web:** `ColumnNotify.tsx` (arama `peopleChoices` ve `membersOf` ile, en çok 6 sonuç); `Board.tsx` kolon menüsünde Notify me (✓) ve Notify others…, başlıkta zil (`colm-bell`, sende açıksa vurgu). Telefonda pencere bugünkü `Dialog` gibi uzun bir sheet (tam sayfa değil); menüde Notify others…'ın sağında sayı. Bilgisayarda menüde sayı yok, zilin üstünde yazar.
+- **Testler:** core 4, sunucu 1, ajan 1; e2e masaüstü (Notify me, aramayla ekleme, ×, öbür cihazda zil ve ✓) ve telefon (menü, sheet, zil).

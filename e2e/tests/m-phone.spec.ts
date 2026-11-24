@@ -501,3 +501,31 @@ test('on a phone a key added from + is kept, its value hidden until shown', asyn
   await expect(app.getByText('s3cret-value')).toHaveCount(0);
   await expect.poll(async () => (await vaultFile(app, 'Servers.env')) ?? '').toContain('API_TOKEN=s3cret-value');
 });
+
+test('on a phone a column notifies whoever asks, from its menu: Notify me, and others found by name', async ({ app, second, phone }) => {
+  test.skip(!phone);
+  const space = await phoneTeam(app, second, 'Team');
+  await browse(app, true);
+  await app.getByRole('button', { name: 'Create' }).last().click();
+  await app.getByRole('dialog', { name: 'Create' }).getByRole('button', { name: /^Board/ }).click();
+  await app.getByRole('button', { name: /^Template/ }).click();
+  await app.getByRole('button', { name: /^Simple/ }).click();
+  const dialog = app.getByRole('dialog', { name: 'New board' });
+  await dialog.getByRole('textbox', { name: 'Name' }).fill('Launch');
+  await dialog.getByRole('button', { name: /^Folder/ }).click();
+  await app.getByRole('option', { name: space.name }).or(app.getByRole('button', { name: space.name })).last().click();
+  await dialog.getByRole('button', { name: 'Create' }).click();
+  await expect(app.getByRole('heading', { name: 'Launch', level: 1 })).toBeVisible();
+
+  await app.getByRole('button', { name: 'Column menu' }).first().click();
+  await app.getByRole('button', { name: 'Notify me' }).or(app.getByRole('menuitem', { name: 'Notify me' })).first().click();
+  await expect(app.getByRole('button', { name: 'Notifies you' }).first()).toBeVisible();
+  await app.getByRole('button', { name: 'Column menu' }).first().click();
+  await app.getByRole('button', { name: /^Notify others/ }).or(app.getByRole('menuitem', { name: /^Notify others/ })).first().click();
+  const sheet = app.getByRole('dialog', { name: 'Notify others' });
+  await sheet.getByRole('combobox', { name: 'Add someone by name' }).fill('be');
+  await sheet.getByRole('option', { name: /Ben/ }).click();
+  await expect(sheet.getByRole('button', { name: /^Stop notifying Ben/ })).toBeVisible();
+  await sheet.getByRole('button', { name: 'Close' }).click();
+  await expect(app.getByRole('button', { name: 'Notifies you and Ben' }).first()).toBeVisible();
+});

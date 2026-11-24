@@ -19,7 +19,7 @@ export interface NoticeBy {
 
 /** One thing that tells one person. */
 export interface Notice {
-  kind: 'mention' | 'assign' | 'remind';
+  kind: 'mention' | 'assign' | 'remind' | 'column';
   /** The person told, by the id of their `me.json`; on a server, their account. */
   to: string;
   by: NoticeBy;
@@ -30,6 +30,8 @@ export interface Notice {
   text?: string;
   /** Where someone was mentioned, as written: the comment or the description; what an agent woken by it is shown (design/agent-wake.md 6.4). */
   said?: string;
+  /** The column a card came to, and whether it was made there rather than moved there. */
+  column?: { name: string; added: boolean };
   /** What a click opens: the card or the task, at the comment. */
   href: string;
 }
@@ -41,12 +43,14 @@ export interface NotifyChoices {
   reminders: boolean;
   /** The morning's notification. */
   due: boolean;
+  /** A card come to a column that tells them. */
+  columns: boolean;
 }
 
-export const NOTIFY_CHOICES = ['mentions', 'assignments', 'reminders', 'due'] as const satisfies readonly (keyof NotifyChoices)[];
+export const NOTIFY_CHOICES = ['mentions', 'assignments', 'reminders', 'due', 'columns'] as const satisfies readonly (keyof NotifyChoices)[];
 
 /** The choice each kind of notice follows. */
-export const CHOICE_OF: Record<Notice['kind'], keyof NotifyChoices> = { mention: 'mentions', assign: 'assignments', remind: 'reminders' };
+export const CHOICE_OF: Record<Notice['kind'], keyof NotifyChoices> = { mention: 'mentions', assign: 'assignments', remind: 'reminders', column: 'columns' };
 
 /** Whether a path's file is one whose changes can tell someone: a board or a task list. */
 export const tellsPeople = (path: string) => path.endsWith(BOARD_EXT) || path.endsWith(TASK_LIST_EXT);
@@ -150,6 +154,17 @@ function boardNotices(input: { space: string; path: string; before: string | nul
     }
     for (const to of newMentions(old?.description, card.description)) out.push({ kind: 'mention', to, by: worker, item, in: 'description', said: card.description, href: href() });
     for (const { to, by } of newReminders(old?.timeline, card.timeline)) out.push({ kind: 'remind', to, by: by ?? worker, item, href: href() });
+    // Come to a column that tells people: moved there, or made there (design/notifications.md 20).
+    const column = now.columns.find((each) => each.id === card.column);
+    if (column?.notify?.length && old?.column !== card.column) {
+      const moved = old ? [...card.timeline].reverse().find((each) => each.kind === 'move' && each.to === card.column) : undefined;
+      const by = (moved && stampBy(moved)) ?? worker;
+      // One told by a giving in the same write hears of that alone.
+      const told = new Set(out.filter((each) => each.kind === 'assign' && each.item.id === card.id).map((each) => each.to));
+      for (const person of column.notify) {
+        if (person.id && !told.has(person.id)) out.push({ kind: 'column', to: person.id, by, item, column: { name: column.name, added: !old }, href: href() });
+      }
+    }
   }
   return out;
 }
@@ -187,7 +202,11 @@ export function noticeWords(notice: Notice, where: string, nameOf: (id: string) 
     ? [notice.by.name?.split(' · ')[0]?.trim() || 'An agent', first(nameOf(ownerOf(by)))].filter(Boolean).join(' · ')
     : first((by && nameOf(by)) || notice.by.name) || 'Someone';
   const which = notice.item.key ?? notice.item.title;
-  const title = notice.kind === 'assign' ? `${who} assigned you ${which}` : notice.kind === 'remind' ? `${who} reminded you about ${which}` : `${who} mentioned you on ${which}`;
+  const title =
+    notice.kind === 'assign' ? `${who} assigned you ${which}`
+    : notice.kind === 'remind' ? `${who} reminded you about ${which}`
+    : notice.kind === 'column' ? `${who} ${notice.column?.added ? 'added' : 'moved'} ${which} to ${notice.column?.name ?? 'a column'}`
+    : `${who} mentioned you on ${which}`;
   const body = notice.text || (notice.item.key ? notice.item.title : where);
   // A reminder says when it is due as well.
   if (notice.kind === 'remind' && notice.item.due) return { title, body: `${body} · Due ${new Date(`${notice.item.due}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })}` };

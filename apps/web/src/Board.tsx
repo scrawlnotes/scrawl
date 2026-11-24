@@ -4,6 +4,9 @@ import {
   choosesAnything,
   type Board,
   type Person,
+  type PersonRef,
+  refOf,
+  spaceOf,
   type BoardLook,
   columnStatus,
   type ColumnStatus,
@@ -53,6 +56,8 @@ import { PictureOr } from './ChatFaces';
 import { type FilterPlace, type FilterStep, PhoneFilterChips, SearchBox, useFilter } from './FilterBar';
 import { Cell, usedValues, type ValueContext } from './Collection';
 import { BoardFieldsDialog } from './Fields';
+import { ColumnNotify } from './ColumnNotify';
+import { membersOf } from './Mentions';
 import { isPhone, pageBox } from './device';
 import type { MenuItem } from './dialogs';
 import { Icon, type IconName } from './Icon';
@@ -80,6 +85,8 @@ export interface BoardActions extends CardPanelActions {
   addColumn: (board: string, name: string, kind: ColumnKind, after?: string) => void;
   renameColumn: (board: string, id: string, name: string) => void;
   setColumnKind: (board: string, id: string, kind: ColumnKind) => void;
+  /** Who a column tells of a card come to it (design/notifications.md 20). */
+  setColumnNotify: (board: string, id: string, people: PersonRef[]) => void;
   moveColumn: (board: string, id: string, after: string | null) => void;
   /** Asks first when the column has cards, then deletes it. */
   removeColumn: (board: string, column: Column) => void;
@@ -505,6 +512,16 @@ function ColumnBlock({ board, path, column, cards, shown, lane, today, actions, 
   const [composing, setComposing] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [showOld, setShowOld] = useState(false);
+  const [notifying, setNotifying] = useState(false);
+  // Who it tells of a card come to it: only in a space on a server, where notifications go.
+  const team = actions.people?.(path) ?? null;
+  const notifies = !!team?.me && (actions.onServer?.(path) ?? false);
+  const told = column.notify ?? [];
+  const mine = !!team?.me && told.some((person) => person.id === team.me);
+  const toggleMe = () => {
+    const me = team?.people.find((person) => person.id === team.me);
+    actions.setColumnNotify(path, column.id, mine ? told.filter((person) => person.id !== team?.me) : [...told, me ? refOf(me) : { id: team!.me! }]);
+  };
   const inLane = lane !== undefined;
   const index = board.columns.findIndex((c) => c.id === column.id);
   const lastDone = column.kind === 'done' && board.columns.filter((c) => c.kind === 'done').length === 1;
@@ -521,6 +538,12 @@ function ColumnBlock({ board, path, column, cards, shown, lane, today, actions, 
           apart: i === 0,
           run: () => actions.setColumnKind(path, column.id, kind),
         })),
+        ...(notifies
+          ? [
+              { label: t('board.notifyMe'), icon: 'bell' as const, apart: true, checked: mine, run: toggleMe },
+              { label: t('board.notifyOthersMenu'), icon: 'people' as const, value: phone && told.length ? String(told.length) : undefined, run: () => setNotifying(true) },
+            ]
+          : []),
         { label: t('board.addColumnAfter'), icon: 'plus' as const, apart: true, run: () => actions.addColumn(path, t('board.newColumn'), 'active', column.id) },
         ...(index > 0 ? [{ label: t('board.moveLeft'), icon: 'back' as const, run: () => actions.moveColumn(path, column.id, index >= 2 ? board.columns[index - 2]!.id : null) }] : []),
         ...(index < board.columns.length - 1 ? [{ label: t('board.moveRight'), icon: 'chevron' as const, run: () => actions.moveColumn(path, column.id, board.columns[index + 1]!.id) }] : []),
@@ -600,6 +623,17 @@ function ColumnBlock({ board, path, column, cards, shown, lane, today, actions, 
             {formatNumber(sum, sumField!.format)}
           </span>
         )}
+        {!inLane && told.length > 0 && (
+          <button
+            type="button"
+            className={mine ? 'colm-bell me' : 'colm-bell'}
+            title={toldWords(told, team)}
+            aria-label={toldWords(told, team)}
+            onClick={() => notifies && setNotifying(true)}
+          >
+            <Icon name="bell" />
+          </button>
+        )}
         {!inLane && (
           <button type="button" className="more" title={t('board.columnMenu')} aria-label={t('board.columnMenu')} onClick={menu}>
             ···
@@ -626,8 +660,26 @@ function ColumnBlock({ board, path, column, cards, shown, lane, today, actions, 
           </button>
         )
       )}
+      {notifying && team && (
+        <ColumnNotify
+          column={column}
+          board={titleOfBoard(path)}
+          team={team}
+          members={membersOf(spaceOf(path))}
+          onChange={(people) => actions.setColumnNotify(path, column.id, people)}
+          onClose={() => setNotifying(false)}
+        />
+      )}
     </div>
   );
+}
+
+/** Who a column tells, as its bell says: "Notifies you, Mert and 2 more". */
+function toldWords(told: PersonRef[], team: SpacePeople | null): string {
+  // You first: "Notifies you, Mert and 2 more".
+  const names = [...told].sort((a, b) => Number(b.id === team?.me) - Number(a.id === team?.me)).map((person) => (person.id === team?.me ? t('board.notifyYou') : (person.name ?? assigneeLabel(person, team?.people)).split(/\s+/)[0]!));
+  const shown = names.length <= 3 ? names.join(', ').replace(/, ([^,]*)$/, ` ${t('board.notifyAnd')} $1`) : t('board.notifyMore', { names: names.slice(0, 2).join(', '), count: names.length - 2 });
+  return t('board.notifies', { names: shown });
 }
 
 const STRIP_GAP = 4;

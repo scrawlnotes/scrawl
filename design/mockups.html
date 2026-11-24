@@ -4802,6 +4802,49 @@ p { margin: 0; max-width: 68ch; }
 /* ---------- notifications (design/notifications.md) ---------- */
 .mock .mb-tabbar.ch5.nf5 { grid-template-columns: repeat(5, 1fr); }
 .nf-at { padding: 0 3px; border-radius: 3px; background: color-mix(in srgb, var(--m-accent) 18%, transparent); color: var(--m-accent); font-weight: 500; }
+/* Column notifications (design/notifications.md 20): the bell in a column's head, Notify others…, a phone's page. */
+.colm h3 .nc-bell { display: inline-flex; margin-left: auto; color: var(--m-faint); }
+.colm h3 .nc-bell.me { color: var(--m-accent); }
+.mock .colm h3 .nc-bell svg { width: 12px; height: 12px; }
+.colm h3 .nc-bell + .more { margin-left: 4px; }
+.colm h3 .nc-bell.hover { position: relative; }
+.colm h3 .nc-tip { position: absolute; top: 18px; right: -6px; z-index: 5; padding: 4px 8px; border-radius: 5px; background: var(--m-fg); color: var(--m-bg); font-weight: 400; white-space: nowrap; }
+.cmenu span .nc-ck { width: 12px; padding: 0; color: var(--m-accent); }
+.cmenu span.nc-ln kbd { padding: 0; }
+.cmenu span.nc-ln { justify-content: flex-start; gap: 6px; }
+.cmenu span.nc-ln kbd { margin-left: auto; }
+.fp.nc-dlg { width: 400px; }
+.nc-dlg .nc-t { margin: 0 0 2px; font-size: 14px; font-weight: 600; }
+.nc-dlg .nc-s { margin: 0 0 12px; color: var(--m-faint); font-size: 12px; }
+.nc-find { position: relative; }
+.nc-find .field { display: flex; align-items: center; gap: 7px; height: 30px; padding: 0 9px; border: 1px solid var(--m-line); border-radius: 6px; background: var(--m-bg); color: var(--m-fg); }
+.nc-find .field.on { border-color: var(--m-accent); }
+.nc-find .field .ph { color: var(--m-faint); }
+.mock .nc-find .field svg { width: 14px; height: 14px; color: var(--m-faint); }
+.nc-find .caret { display: inline-block; width: 1.5px; height: 15px; margin-left: -6px; background: var(--m-accent); }
+.nc-find .ch-pop { left: 0; right: 0; top: 34px; bottom: auto; width: auto; }
+.nc-find .ch-pop .r b { font-weight: 600; }
+.nc-cap { margin: 14px 2px 4px; color: var(--m-dim); font-size: 11px; font-weight: 500; letter-spacing: .07em; text-transform: uppercase; }
+.nc-cap small { margin-left: 6px; color: var(--m-faint); letter-spacing: 0; }
+.nc-who { display: flex; flex-direction: column; }
+.nc-who .r { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 0 4px 0 2px; border-radius: 5px; }
+.nc-who .r small { color: var(--m-faint); }
+.nc-who .r .x { margin-left: auto; color: var(--m-faint); font-size: 15px; }
+.nc-who .r.hot { background: var(--m-sel); }
+.nc-who .r.hot .x { color: var(--m-fg); }
+.nc-note { margin: 10px 2px 0; color: var(--m-faint); font-size: 12px; }
+.mb-ncw { padding: 4px 16px 0; }
+.mb-ncw .f { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border-radius: 10px; background: var(--m-bg); color: var(--m-faint); font-size: 16px; }
+.mb-ncw .f.on { color: var(--m-fg); }
+.mock .mb-ncw .f svg { width: 18px; height: 18px; }
+.mb-ncw .f .caret { display: inline-block; width: 2px; height: 20px; margin-left: -6px; background: var(--m-accent); }
+.mb-ncl .mb-fr .nm { flex: 1; min-width: 0; color: var(--m-fg); }
+.mb-ncl .mb-fr .nm small { margin-left: 6px; color: var(--m-faint); }
+.mb-ncl .mb-fr .x { color: var(--m-faint); font-size: 20px; }
+.mb-ncl .mb-fr.add { color: var(--m-accent); }
+.mb-colh .nc-bell { display: inline-flex; margin-left: auto; color: var(--m-accent); }
+.mock .mb-colh .nc-bell svg { width: 16px; height: 16px; }
+.mb-colh .nc-bell + .more { margin-left: 0; }
 /* the comment box with the @ list under it */
 .nf-cw { position: relative; }
 .nf-typed { color: var(--m-fg) !important; border-color: var(--m-accent) !important; }
@@ -6340,6 +6383,7 @@ p { margin: 0; max-width: 68ch; }
         <span class="letter">BİLDİRİMLER · TASLAK</span>
         <h2>Mention, atama, hatırlatma ve son tarih</h2>
         <p>Yalnız sunucudaki space'lerde. Kartın açıklamasında ve yorumunda, görevin açıklamasında <b>@</b> yazınca space'in kişileri çıkar (Chat'teki liste; ajanlar yok); seçilen ad çip olur ve anılan kişiye bildirim gider. Kart ya da görev birine verilince ona gider. Başkasına verilmiş işte <b>Remind Mert</b>: kartta Assignee'nin altında, görevde ··· menüsünde, telefonda kartın sayfasında ve görevin sheet'inde; saatte bir. Sabah 09:00'da tek bildirim: <b>2 due today, 1 due tomorrow</b> ve adları. Bildirime dokununca tam yeri açılır: yorumdaki mention o yoruma gider ve onu bir an işaretler; son tarih Today'i açar. Kaçırılan bildirim için liste yok. Settings › Notifications'ta <b>Notify me about</b>. Teknik tasarım <code>design/notifications.md</code>.</p>
+        <p><b>Kolona gelen kart (20, taslak):</b> kolonun ··· menüsünde <b>Notify me</b> (tek tık, kendin için) ve <b>Notify others…</b>: ortada küçük pencere, üstte arama, altında bildirim alanlar, × ile çıkar; tam liste hiç gösterilmez. Bildirimi açık kolonun başlığında zil, sende açıksa vurgu renginde. Kart o kolona taşınınca ya da orada açılınca listedekilere "Mert moved SCR-31 to Test" gider; taşıyana gitmez. Settings › Notify me about'a <b>Board columns</b>. Telefonda kolon menüsünde aynı iki satır, Notify others… tam sayfa.</p>
         <ul class="traits"><li>açıklamada ve kart yorumunda @</li><li>atama</li><li>Remind</li><li>sabah 09:00</li><li>tam yerini açar</li><li>liste yok</li><li>telefonda da</li></ul>
       </div>
       <span class="pick" role="group" aria-label="Bildirim görünümü">
@@ -6351,6 +6395,11 @@ p { margin: 0; max-width: 68ch; }
         <button type="button" data-nfview="nfset">Settings</button>
         <button type="button" data-nfview="nfphone">Telefon</button>
         <button type="button" data-nfview="nfphone2">Telefon 2</button>
+        <button type="button" data-nfview="nccol">Kolon menüsü</button>
+        <button type="button" data-nfview="ncwin">Notify others</button>
+        <button type="button" data-nfview="ncpick">Notify others: arama</button>
+        <button type="button" data-nfview="nctoast">Kolon bildirimi</button>
+        <button type="button" data-nfview="ncphone">Telefon 3</button>
       </span>
     </div>
     <div class="scroller"><div class="mock dir-a"></div></div>
@@ -20197,6 +20246,7 @@ p { margin: 0; max-width: 68ch; }
       opt('Assignments', 'When someone gives you a card or a task.') +
       opt('Reminders', 'When someone reminds you of a card or a task given to you.') +
       opt('Due dates', 'At 9:00, what is due today and tomorrow.') +
+      opt('Board columns', 'When a card comes to a column that notifies you.') +
       '<div class="st-label" style="margin-top: 14px">In each conversation</div>' +
       '<p class="st-note" style="margin: 0">The bell at the top of a room or a direct message picks All, Mentions or Off. Direct messages and private rooms start on All, public rooms on Mentions.</p>' +
       '</div></div></div></div>';
@@ -20214,8 +20264,92 @@ p { margin: 0; max-width: 68ch; }
         nfToast('now', 'Mert mentioned you on SCR-31', '@Kaan can you check the CSV headers before I ship it?'));
     },
     nfopen: function () { return nfApp('board', nfBoard(), '14 cards', nfCard({ flash: true, remind: true })); },
-    nfset: function () { return nfApp('today', nfToday(), '4 tasks', nfSettings()); }
+    nfset: function () { return nfApp('today', nfToday(), '4 tasks', nfSettings()); },
+    nccol: function () { return nfApp('board', ncBoard({ menu: true }), '14 cards'); },
+    ncwin: function () { return nfApp('board', ncBoard(), '14 cards', ncWin()); },
+    ncpick: function () { return nfApp('board', ncBoard(), '14 cards', ncWin({ q: true })); },
+    nctoast: function () { return nfApp('board', ncBoard({ moved: true, tip: true }), '14 cards', nfToast('now', 'Mert moved SCR-31 to Test', 'Export a board as CSV')); }
   };
+  // A column that notifies (design/notifications.md 20): Roadmap's Test, which tells Kaan, Mert and
+  // Ahmet when a card comes to it. The space has some hundred people; Notify others… finds them by name.
+  /** A face of someone found by name, in a color of their own. */
+  function ncF(ini, c) { return '<span class="ch-f sm" style="--fc:' + c + '">' + ini + '</span>'; }
+  var NC_WHO = [['K', 'Kaan Arslan', true], ['M', 'Mert Kaya'], ['A', 'Ahmet Yıldız']];
+  function ncBell(me, tip) {
+    return '<span class="nc-bell' + (me ? ' me' : '') + (tip ? ' hover' : '') + '" title="Notifies you, Mert and Ahmet">' + CI.bell + (tip ? '<span class="nc-tip">Notifies you, Mert and Ahmet</span>' : '') + '</span>';
+  }
+  /** Roadmap with a Test column: its bell in its head; o.menu its ··· menu open; o.tip the bell under the pointer. */
+  function ncBoard(o) {
+    o = o || {};
+    var test = '<div class="colm"><h3><i class="kind review"></i>Test<small>' + (o.moved ? 2 : 1) + '</small>' + ncBell(true, o.tip) + '<span class="more">···</span></h3>' +
+      (o.moved ? acFace({ key: 'SCR-31', p: 'p2', title: 'Export a board as CSV', meta: '<span>Nov 10</span>' + lbl('board'), who: 'M', on: true }) : '') +
+      acFace({ key: 'SCR-29', p: 'p3', title: 'Undo for a card moved by mistake', meta: lbl('board'), who: 'E' }) +
+      '<div class="qa">+ Add card</div></div>';
+    var menu = o.menu ? '<div class="cmenu" style="left: 742px; top: 118px">' +
+      '<span>Rename</span><i></i>' +
+      '<span>○ Kind: Backlog</span><span>○ Kind: Active</span><span>● Kind: Review</span><span>○ Kind: Done</span><span>○ Kind: Dropped</span><i></i>' +
+      '<span class="nc-ln hot"><span class="nc-ck">✓</span>Notify me</span>' +
+      '<span class="nc-ln"><span class="nc-ck"></span>Notify others…<kbd>3</kbd></span><i></i>' +
+      '<span>Add column after</span><span>Move left</span><span>Move right</span><span class="red">Delete column…</span></div>' : '';
+    return '<div class="bv" style="position: relative">' + boardHead('board') + '<div class="bwrap"><div class="board">' +
+      colm('backlog', 'Backlog', 1, acFace({ key: 'SCR-36', title: 'Undo a column moved by mistake', meta: lbl('board') })) +
+      colm('active', 'Todo', 1, acFace({ key: 'SCR-34', p: 'p2', title: 'Import cards from a CSV', meta: lbl('board'), who: 'E' })) +
+      colm('active', 'Doing', o.moved ? 1 : 2, acFace({ key: 'SCR-30', p: 'p1', title: 'Calendar: drag to reschedule', meta: '<span class="today">Today</span>' + lbl('tasks'), who: 'K' }) +
+        (o.moved ? '' : acFace({ key: 'SCR-31', p: 'p2', title: 'Export a board as CSV', meta: '<span>Nov 10</span>' + lbl('board'), who: 'M' }))) +
+      test +
+      colm('done', 'Done', 4, acFace({ key: 'SCR-28', title: 'Callouts in notes', done: true, who: 'K' }), { fold: '3 older cards' }) +
+      '</div></div>' + menu + '</div>';
+  }
+  /** Notify others…: who Test tells; o.q a name being typed, the people it finds under the box. */
+  function ncWin(o) {
+    o = o || {};
+    var found = o.q ? '<div class="ch-pop"><div class="r hot">' + ncF('E', '#e07a8f') + '<span><b>Ec</b>e Tunç</span></div>' +
+      '<div class="r">' + ncF('E', '#7fb3d5') + '<span>Elif <b>Ec</b>evit</span></div>' +
+      '<div class="r">' + ncF('B', '#a3be6c') + '<span>Burak <b>Ec</b>emiş</span></div></div>' : '';
+    var box = o.q ? '<div class="field on">' + ICON.find + 'Ec<span class="caret"></span></div>' : '<div class="field">' + ICON.find + '<span class="ph">Add someone by name</span></div>';
+    return '<div class="fp-ovl"><div class="fp nc-dlg"><h3>Notify others<small>×</small></h3>' +
+      '<p class="nc-t">When a card comes to Test</p><p class="nc-s">Roadmap · Scrawl</p>' +
+      '<div class="nc-find">' + box + found + '</div>' +
+      '<div class="nc-cap">Notified<small>3</small></div><div class="nc-who">' +
+      NC_WHO.map(function (w, i) { return '<div class="r' + (!o.q && i === 1 ? ' hot' : '') + '">' + chF(w[0], { sz: 'sm' }) + '<span>' + w[1] + (w[2] ? ' <small>(you)</small>' : '') + '</span><span class="x" title="Stop notifying">×</span></div>'; }).join('') +
+      '</div><p class="nc-note">They are told when a card is moved here or added here, unless they did it.</p></div></div>';
+  }
+  /** On a phone: the column's menu, the page of Notify others…, the notification, Settings. */
+  function ncmBoard() {
+    var test = '<div class="mb-colh"><i class="mb-k review"></i>Test<small>2</small><span class="nc-bell">' + CI.bell + '</span><span class="more">' + ICON.dots3 + '</span></div>' +
+      mbCard({ key: 'SCR-31', p: 'p2', title: 'Export a board as CSV', who: 'M', meta: mi('cal', 'Nov 10') + mbLbl('board') }) +
+      mbCard({ key: 'SCR-29', p: 'p3', title: 'Undo for a card moved by mistake', who: 'E', meta: mbLbl('board') });
+    return mbPage(mbNav('Scrawl', ['dots']) + mbBoardHead('Roadmap') +
+      mbCtabs([['', 'Backlog', 1], ['active', 'Todo', 1], ['active', 'Doing', 1], ['review', 'Test', 2], ['done', 'Done', 4]], 'Test'),
+      '<div class="mb-board"><div class="mb-col">' + test + '</div></div>');
+  }
+  function ncmPage() {
+    return mbPage(mbNav('Roadmap', ['Done']) + mbHead('Notify others', 'When a card comes to Test'),
+      '<div class="mb-ncw"><div class="f">' + ICON.find + 'Add someone by name</div></div>' +
+      '<div class="mb-form"><div class="mb-cap">Notified · 3</div><div class="mb-group mb-ncl">' +
+      NC_WHO.map(function (w) { return '<div class="mb-fr">' + mbWho(w[0]) + '<span class="nm">' + w[1] + (w[2] ? '<small>(you)</small>' : '') + '</span><span class="x">×</span></div>'; }).join('') +
+      '</div><p class="mb-p">They are told when a card is moved here or added here, unless they did it.</p></div>');
+  }
+  function ncmLock() {
+    function n(title, body, t) { return '<div class="nf-ln"><div class="ap"><span class="ch-lg">S</span>SCRAWL<small>' + t + '</small></div><b>' + title + '</b><p>' + body + '</p></div>'; }
+    return '<div class="nf-lock"><div class="nf-date">Monday, November 9</div><div class="nf-clock">9:41</div><div class="nf-ns">' +
+      n('Mert moved SCR-31 to Test', 'Export a board as CSV', 'now') +
+      n('Elif added SCR-29 to Test', 'Undo for a card moved by mistake', '1h ago') + '</div></div>';
+  }
+  function ncPhone() {
+    ICON.people = ICON.people || CI.people;
+    return [
+      mbPhone('Kolonun menüsü: Notify me ve Notify others…', ncmBoard(), MB_DIM + mbActions('board', 'Test', 'Column in Roadmap', [
+        [{ icon: 'pen', label: 'Rename' }],
+        [{ icon: 'board', label: 'Kind: Review', on: '✓' }],
+        [{ icon: 'person', label: 'Notify me', on: '✓' }, { icon: 'people', label: 'Notify others…', on: '3' }],
+        [{ icon: 'plus', label: 'Add column after' }, { icon: 'trash', label: 'Delete column…', red: true }]
+      ])),
+      mbPhone('Notify others…: tam sayfa, aramayla', ncmPage(), ''),
+      mbPhone('Kolona gelen kart: kilit ekranında', ncmLock(), ''),
+      mbPhone('Settings › Notifications: Board columns', nfmSettings(), '')
+    ].join('');
+  }
   function nfTabs(on) {
     function t(id, icon, label) { return '<span' + (id === on ? ' class="on"' : '') + '>' + icon + label + '</span>'; }
     return '<nav class="mb-tabbar ch5 nf5">' + t('recent', ICON.clock, 'Recent') + t('browse', ICON.folder, 'Browse') + t('today', ICON.day, 'Today') + t('search', ICON.find, 'Search') + t('chat', CI.chat, 'Chat') + '</nav>';
@@ -20305,7 +20439,8 @@ p { margin: 0; max-width: 68ch; }
         tr('Mentions', 'When someone writes @Kaan on a card or a task.') +
         tr('Assignments', 'When someone gives you a card or a task.') +
         tr('Reminders', 'When someone reminds you of a card or a task given to you.') +
-        tr('Due dates', 'At 9:00, what is due today and tomorrow.') + '</div>' +
+        tr('Due dates', 'At 9:00, what is due today and tomorrow.') +
+        tr('Board columns', 'When a card comes to a column that notifies you.') + '</div>' +
       '<p class="mb-p">For the spaces on ' + SRV_HOST + ', on every device you use.</p>' +
       '<div class="mb-cap">In each conversation</div><p class="mb-p" style="margin-top: 0">On a room’s or a direct message’s Info page, Notifications picks All, Mentions or Off.</p></div>');
   }
@@ -20338,9 +20473,9 @@ p { margin: 0; max-width: 68ch; }
   function renderNf(section, view) {
     var mock = section.querySelector('.mock');
     mock.dataset.mode = document.documentElement.dataset.theme || 'dark';
-    if (view === 'nfphone' || view === 'nfphone2') {
+    if (view === 'nfphone' || view === 'nfphone2' || view === 'ncphone') {
       mock.className = 'mock dir-a phones four mbs';
-      mock.innerHTML = nfPhone(view === 'nfphone2');
+      mock.innerHTML = view === 'ncphone' ? ncPhone() : nfPhone(view === 'nfphone2');
     } else {
       mock.className = 'mock dir-a wider';
       mock.innerHTML = NF_VIEWS[view]();

@@ -135,7 +135,7 @@ export function MentionList({ caption, choices, picked, onChoose, face, at }: {
 }
 
 /** Those in a space on its server, as its general room has everyone in it; null for a space on no server here. */
-function membersOf(space: string | null): Set<string> | null {
+export function membersOf(space: string | null): Set<string> | null {
   const general = space ? store.read().servers.flatMap((server) => server.chats).find((chat) => chat.general && chat.space === space) : undefined;
   return general ? new Set(general.members.map((person) => person.id).filter((id) => !general.gone.includes(id))) : null;
 }

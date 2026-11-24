@@ -38,6 +38,37 @@ test('a card given to someone can be reminded of, once in a while', async ({ app
   await expect(card.getByRole('button', { name: 'Reminded just now' })).toBeDisabled();
 });
 
+test('a column notifies whoever asks, found by name, and the other device shows its bell', async ({ app, second, phone }) => {
+  test.skip(phone, 'The phone’s menu: m-phone.spec.ts.');
+  await teamBoard(app, second);
+  await app.keyboard.press('Escape');
+  const doing = app.locator('.colm', { has: app.getByRole('heading', { name: /^Doing/ }) });
+  await doing.getByRole('button', { name: 'Column menu' }).click();
+  await app.getByRole('menuitem', { name: 'Notify me' }).click();
+  await expect(doing.getByRole('button', { name: 'Notifies you' })).toBeVisible();
+
+  // Others, found by name: Ben is added, then taken off, then added again.
+  await doing.getByRole('button', { name: 'Notifies you' }).click();
+  const window = app.getByRole('dialog', { name: 'Notify others' });
+  await expect(window.getByText('When a card comes to Doing')).toBeVisible();
+  await window.getByRole('combobox', { name: 'Add someone by name' }).fill('be');
+  await window.getByRole('option', { name: /Ben/ }).click();
+  await expect(window.getByRole('button', { name: /^Stop notifying Ben/ })).toBeVisible();
+  await window.getByRole('combobox', { name: 'Add someone by name' }).fill('zz');
+  await expect(window.getByText('No one else in this space has that name.')).toBeVisible();
+  await window.getByRole('button', { name: /^Stop notifying Ada/ }).click();
+  await expect(window.getByRole('button', { name: /^Stop notifying Ada/ })).toHaveCount(0);
+  await window.getByRole('button', { name: 'Close' }).click();
+  await expect(doing.getByRole('button', { name: 'Notifies Ben' })).toBeVisible();
+
+  // Ben's device has the board as Ada left it: the bell is his, the menu's Notify me ticked.
+  await second.getByText('Launch', { exact: true }).first().click();
+  const his = second.locator('.colm', { has: second.getByRole('heading', { name: /^Doing/ }) });
+  await expect(his.getByRole('button', { name: 'Notifies you' })).toBeVisible({ timeout: 20_000 });
+  await his.getByRole('button', { name: 'Column menu' }).click();
+  await expect(second.getByRole('menuitem', { name: 'Notify me ✓' })).toBeVisible();
+});
+
 test('@ in a comment offers the space’s people, and the one picked is written', async ({ app, second, phone }) => {
   test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   const card = await teamBoard(app, second);

@@ -1340,6 +1340,18 @@ describe('mentions and reminders', () => {
     expect((await loadList(shared, list)).tasks[0]!.description).toBe('Ask [@Kaan Arslan](scrawl:person/me)');
   });
 
+  it('writes who a column tells by name, each made a person of the space, and refuses one who is not', async () => {
+    const { shared, board, as } = await team();
+    const read = await readTool(as, { path: board, part: 'columns' });
+    const columns = JSON.parse(read.text) as { name: string; notify?: unknown[] }[];
+    const told = columns.map((c) => (c.name === 'Review' ? { ...c, notify: ['Mert', 'me'] } : c));
+    await writeTool(as, { path: board, part: 'columns', text: JSON.stringify(told), ifMatch: read.data.hash }, CLIENT);
+    expect((await loadBoard(shared, board)).columns.find((c) => c.name === 'Review')!.notify).toEqual([{ id: 'mert', name: 'Mert Kaya' }, { id: 'me', name: 'Kaan Arslan' }]);
+    const wrong = columns.map((c) => (c.name === 'Review' ? { ...c, notify: ['Claude Code (KAAN-PC)'] } : c));
+    expect((await refusal(writeTool(as, { path: board, part: 'columns', text: JSON.stringify(wrong) }, CLIENT))).message).toContain('A column tells people of the space');
+    expect((await refusal(writeTool(as, { path: board, part: 'columns', text: JSON.stringify(columns.map((c) => (c.name === 'Review' ? { ...c, notify: ['Zeynep'] } : c))) }, CLIENT))).message).toContain('No one called Zeynep');
+  });
+
   it('reminds whoever a card or a task is given to, once an hour, and refuses what cannot be reminded', async () => {
     const { shared, list, board, as, later } = await team();
     await saveCardTool(as, CLIENT, { board: 'Scrawl', items: [{ title: 'Export', assignee: 'Mert' }, { title: 'Mine', assignee: 'Kaan' }, { title: 'Nobody' }] });
