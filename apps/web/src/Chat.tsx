@@ -1,4 +1,4 @@
-import { type ChatFile, type ChatInfo, type ChatMessage, chatLink, continues, parseChatLink, personLink, plainText, ROOM_MENTION, tellsMe } from '@scrawlnotes/core';
+import { type ChatFile, type ChatInfo, type ChatMessage, chatLink, continues, parseChatLink, personLink, plainText, readableText, ROOM_MENTION, tellsMe } from '@scrawlnotes/core';
 import {
   createEditor,
   editorTakesEnter,
@@ -808,7 +808,7 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
   };
   const messageMenu = (event: MouseEvent, message: ChatMessage) => {
     const image = imageAt(message, event.target);
-    // What is selected in the message is taken as the menu opens: Copy text copies it instead of the whole.
+    // What is selected in the message is taken as the menu opens: Copy copies it.
     const selected = selectionIn((event.currentTarget as Element).closest('.ch-m'));
     if (!image) return menu(event, actionsOf(message, selected));
     // On a photo, what is done with it first, as Slack's: Copy image, Download; then what is done with the message.
@@ -828,11 +828,18 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
   const imageActions = (image: ChatFile): MenuItem[] => [
     { label: t('chat.copyImage'), icon: 'copy', run: () => void copyImage(server.url, image).catch(() => links.say(t('chat.imageNotCopied'))) },
   ];
-  /** What is done with a message: Edit for whoever wrote it, Copy text, To task and To card, Delete. */
+  /**
+   * What is done with a message, as Claude Code's: Copy for what is selected in it; Edit for whoever
+   * wrote it; Copy message as it reads and as Markdown; To task and To card; Delete.
+   */
   const actionsOf = (message: ChatMessage, selected = ''): MenuItem[] => {
     const items: MenuItem[] = [];
-    if (mine(message) && !message.forwarded) items.push({ label: t('chat.edit'), icon: 'pen', run: () => setEditing(message.id) });
-    items.push({ label: t('chat.copyText'), icon: 'copy', run: () => void copy(selected || message.body).catch(() => undefined) });
+    if (selected) items.push({ label: t('chat.copy'), icon: 'copy', run: () => void copy(selected).catch(() => undefined) });
+    if (mine(message) && !message.forwarded) items.push({ label: t('chat.edit'), icon: 'pen', apart: !!selected, run: () => setEditing(message.id) });
+    if (message.body.trim()) {
+      items.push({ label: t('chat.copyMessage'), icon: 'copy', apart: !!selected && items.length === 1, run: () => void copy(readableText(message.body), message.body).catch(() => undefined) });
+      items.push({ label: t('chat.copyMarkdown'), icon: 'copy', run: () => void copy(message.body).catch(() => undefined) });
+    }
     if (message.author === server.me && message.preview) items.push({ label: t('chat.removePreview'), icon: 'close', run: () => void one?.removePreview(message.id).catch(() => undefined) });
     const task = made(message);
     items.push({ label: t('chat.toTask'), icon: 'tasks', apart: true, run: () => links.toTask(task.title, task.description, task.from) });

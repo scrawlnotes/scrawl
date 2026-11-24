@@ -49,3 +49,39 @@ test('a message is found by a word in it', async ({ app, phone }) => {
   await app.keyboard.press('Enter');
   await expect(app.getByRole('mark', { name: /Atlas/i }).or(app.locator('mark', { hasText: /atlas/i })).first()).toBeVisible({ timeout: 15_000 });
 });
+
+test('a message’s menu copies it as it reads or as Markdown, and Copy copies what is selected', async ({ app, phone }) => {
+  test.skip(phone, 'A phone selects no words in a message; its menu has Copy message.');
+  const space = await spaceWithInvite('Chat');
+  await joinSpace(app, space.link, person('Ada'), phone);
+  await openChat(app, phone);
+  // Bold as the box makes it: what is typed with ** is kept as it was typed.
+  await app.getByRole('textbox', { name: 'Message #general' }).click();
+  await app.keyboard.type('The ');
+  await app.keyboard.press('Control+b');
+  await app.keyboard.type('plan');
+  await app.keyboard.press('Control+b');
+  await app.keyboard.type(' is ready');
+  await app.keyboard.press('Enter');
+  // Sent, not still on its way (that row has no data-id): only then has it a menu.
+  const message = app.locator('.ch-m[data-id]', { hasText: 'The plan is ready' }).last();
+  await expect(message).toBeVisible({ timeout: 20_000 });
+  // What the page put on the clipboard.
+  await app.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  const copied = () => app.evaluate(() => navigator.clipboard.readText());
+
+  await message.locator('.bd').click({ button: 'right' });
+  await expect(app.getByRole('menuitem', { name: 'Copy', exact: true })).toHaveCount(0);
+  await app.getByRole('menuitem', { name: 'Copy message', exact: true }).click();
+  await expect.poll(copied).toBe('The plan is ready');
+
+  await message.locator('.bd').click({ button: 'right' });
+  await app.getByRole('menuitem', { name: 'Copy message as Markdown' }).click();
+  await expect.poll(copied).toBe('The **plan** is ready');
+
+  await message.locator('.bd strong').dblclick();
+  await message.locator('.bd strong').click({ button: 'right' });
+  await app.getByRole('menuitem', { name: 'Copy', exact: true }).click();
+  // A double click on Windows takes the space after the word too, as Ctrl+C would copy it.
+  await expect.poll(copied).toMatch(/^plan ?$/);
+});

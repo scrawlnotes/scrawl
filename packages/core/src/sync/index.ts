@@ -40,6 +40,7 @@ export {
   parseItemLink,
   personLink,
   plainText,
+  readableText,
   ROOM_MENTION,
   withMentions,
   withMessages,

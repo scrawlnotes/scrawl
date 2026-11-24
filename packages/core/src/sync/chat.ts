@@ -475,21 +475,25 @@ export function parseChatLink(href: string): { server: string; chat: string; mes
 // ---------- reading a message ----------
 
 /**
- * A message as plain text, for a quote, a list's line and a notification: its words without
- * Markdown's marks, a mention as `@Name`, lines run together.
+ * A message's words as they read, as Copy message puts them: without Markdown's marks, a link as
+ * its words, a mention as `@Name`, its lines and its lists' marks kept; `lists: false` drops those marks.
  */
-export function plainText(body: string): string {
+export function readableText(body: string, lists = true): string {
   return body
     .replace(/```[^\n]*\n([\s\S]*?)(```|$)/g, '$1')
     .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/`([^`]*)`/g, '$1')
     .replace(/(\*\*|__|~~)(.+?)\1/g, '$2')
-    .replace(/(^|[^\w*])[*_]([^*_\n]+)[*_](?=[^\w*]|$)/g, '$1$2')
-    .replace(/^\s{0,3}(#{1,6}\s+|>\s?|[-*+]\s+|\d+[.)]\s+)/gm, '')
+    .replace(/(^|[^\w*])[*_]([^*_\n]+)[*_](?=[^\w*]|$)/gm, '$1$2')
+    .replace(lists ? /^[ \t]{0,3}(#{1,6}[ \t]+|>[ \t]?)/gm : /^\s{0,3}(#{1,6}\s+|>\s?|[-*+]\s+|\d+[.)]\s+)/gm, '')
     .replace(/\\([\\`*_{}[\]()#+\-.!>~|])/g, '$1')
-    .replace(/\s+/g, ' ')
     .trim();
+}
+
+/** A message as plain text, for a quote, a list's line and a notification: as it reads, lines run together. */
+export function plainText(body: string): string {
+  return readableText(body, false).replace(/\s+/g, ' ').trim();
 }
 
 /** How long a person's messages run on under one face. */

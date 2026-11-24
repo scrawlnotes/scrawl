@@ -243,7 +243,7 @@ Mockup: `design/mockups.html`, Mesajlaşma.
   - Başlıkta ad, konu, kişi sayısı, Search, zil ve Info.
   - Mesajlar arasında gün ayırıcıları (Today, Yesterday, Thursday, Oct 22) ve "New" çizgisi.
   - Aynı kişinin beş dakika içindeki mesajları başlıksız, alt alta durur.
-  - Mesajın üstüne gelince sağda düğmeler: React, Reply, Forward, ···. ··· menüsünde Edit, Copy text, To task, To card ve Delete.
+  - Mesajın üstüne gelince sağda düğmeler: React, Reply, Forward, ···. ··· menüsünde (Claude Code gibi) yazı seçiliyse önce Copy, sonra Edit, Copy message (biçimsiz, okunduğu gibi), Copy message as Markdown, To task, To card ve Delete.
   - Altta yazma kutusu: "Message #dev", +, Aa, @, emoji, mikrofon ve Send.
 - **Info penceresi** ortada açılır. Bölümleri: Settings (ad, konu, public ya da private, açan ve ne zaman; 7 Kasım 2026'ya kadar adı About'tu), People (yalnız private room'da ve DM'de, private'ta Add people… ve Remove; public room'da yoktur, space'teki herkes katılıp okuyabilir; 8 Kasım 2026), Media, Files, Voice, Links. Altta bildirim seçimi, Export…, Leave room ve Archive room.
 - New room, Browse rooms, New message ve Forward ortada açılan pencerelerdir.
@@ -579,7 +579,7 @@ Kodda netleşenler:
 - **Liste:** önce her space'in room'ları ada göre, sonra Direct (en yeni üstte), arşivliler ve gizliler yok. Satırda son mesaj: "Kaan: …", kendininki "You: …", iki kişilik DM'de yalnız metin, taslak varsa "Draft: …" (vurgulu). Dosya için "Photo", "Video", "Voice message · 0:14" ya da dosyanın adı. Saat bugünse saat, bu hafta gün kısaltması, öncesi tarih. Bildirim veren okunmamış varsa sayı rozeti, Off'ta zil işareti.
 - **+ (FAB):** listede New message, New room, Browse rooms (birden çok sunucuda her biri sunucusuyla). Tasarımda New message ve New room vardı; telefonda public room'a katılmanın başka yolu olmadığı için Browse rooms da eklendi. Pencereler telefonda sheet olarak açılır.
 - **Konuşma sayfası:** altında tab bar yoktur; yazma kutusu oradadır. Üst çubukta geri, ortada ad ve kişi sayısı (DM'de Active), sağda ⓘ; ada dokunmak da Info'yu açar.
-- **Basılı tutmak:** mesaj 450 ms sonra öne çıkar, cihaz titreşimi destekliyorsa kısa titrer. Üstte altı tepki ve + (tam liste), altta Reply, Forward, Copy text, To task, To card, (kendininkinde) Edit ve Delete. Parmağı kaldırınca gelen dokunuş altındakini açmaz. Mesajlarda yazı seçilmez; kopyalamak Copy text'le.
+- **Basılı tutmak:** mesaj 450 ms sonra öne çıkar, cihaz titreşimi destekliyorsa kısa titrer. Üstte altı tepki ve + (tam liste), altta Reply, Forward, Copy message, Copy message as Markdown, To task, To card, (kendininkinde) Edit ve Delete. Parmağı kaldırınca gelen dokunuş altındakini açmaz. Mesajlarda yazı seçilmez; kopyalamak Copy message'la.
 - **Sağa çekmek:** 56 pikselden sonra bırakınca cevaplar; çekilirken solda cevap oku belirir. Yukarı aşağı kaydırma çekmeyi bırakır.
 - **Yazma kutusu:** solda + (Photo library, Camera, File…), ortada yazı, sağda yazı ya da ek varken Send, yokken mikrofon. Return alt satıra geçer. Mention listesi bilgisayardaki gibi; Aa, @ ve emoji düğmeleri yoktur (klavyede var). Not, görev ve kart çipi telefonda eklenmez (+ menüsü tasarımdaki gibi).
 - **Basılı tutarak ses kaydı:** kırmızı nokta, süre, "Slide to cancel" ve parmağın altında büyük mikrofon; üstte kilit. 110 piksel sola çekmek vazgeçer, 80 piksel yukarı çekmek kilitler ve bilgisayardaki kayıt çubuğu (Cancel, Send) açılır; bırakınca gider. 0,6 saniyeden kısa dokunuş göndermez, "Hold to record a voice message" der.
