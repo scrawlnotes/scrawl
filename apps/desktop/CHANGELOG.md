@@ -2,6 +2,22 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
+## 0.1.36
+
+Sections beside a list's tasks, columns that tell people, and a word when your server can be updated.
+
+- A list's sections are a panel beside its tasks: All, No section and each section with how many are open. Pick one to see only its tasks and to add to it there; drag a task onto a section to move it. In a narrow window the sections are a row over the tasks.
+- In All, each task says its section.
+- An open task's bar has where it is, to move it, and Add subtask, its menu and Delete.
+- An empty new task box closes when you click elsewhere; one with something in it stays.
+- What you typed and did not add yet is still there when you come back from another tab.
+- A task's description is written in the task's type, not the notes'.
+- A board's column can tell you, or others, when a card comes to it: Notify me and Notify others… in the column's menu.
+- When a newer version of your server is out, its owner and admins see Server update in the status bar; it opens Help on updating.
+- A message's menu has Copy, Copy message and Copy message as Markdown.
+- @ while changing a message offers the conversation's people, its agents and @room.
+- Check for updates looks again when the version it found was replaced by a newer one while it came down.
+
 ## 0.1.35
 
 Links with a card in Chat, and many small fixes found by testing the whole app.
