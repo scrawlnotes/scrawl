@@ -30,7 +30,9 @@ const add = (page: Page, phone: boolean) => composerOf(page, phone).getByRole('b
 /** The Inbox's tasks as written. */
 async function inbox(page: Page): Promise<{ tasks: Saved[]; sections: { id: string; name: string }[] }> {
   const text = await vaultFile(page, 'Inbox.tasks.json');
-  return text ? JSON.parse(text) : { tasks: [], sections: [] };
+  const saved = text ? JSON.parse(text) : {};
+  // A list with no section yet is written without `sections`.
+  return { tasks: saved.tasks ?? [], sections: saved.sections ?? [] };
 }
 /** Titles in the order the list shows them: by `order`. */
 const ordered = (tasks: Saved[]) => [...tasks].sort((a, b) => a.order - b.order).map((task) => task.title);
