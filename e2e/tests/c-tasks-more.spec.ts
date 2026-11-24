@@ -88,6 +88,86 @@ test('a section added to a list is saved in it', async ({ app, phone }) => {
   await expect.poll(async () => (await inbox(app)).sections.map((section) => section.name)).toEqual(['Errands']);
 });
 
+/** The Inbox with a task in no section and a section Errands; the rail of its sections. */
+async function withErrands(page: Page) {
+  await openInbox(page, false);
+  await openComposer(page, false);
+  await composerOf(page, false).getByRole('textbox', { name: 'Task name' }).fill('Call mom');
+  await add(page, false);
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Add section' }).first().click();
+  await page.getByRole('textbox', { name: 'Section name' }).fill('Errands');
+  await page.keyboard.press('Enter');
+  const rail = page.getByRole('navigation', { name: 'Sections' });
+  await expect(rail.getByRole('button', { name: /^Errands/ })).toBeVisible();
+  return rail;
+}
+
+test('a section picked in the rail shows its tasks, a task added there goes in it, and All names its section', async ({ app, phone }) => {
+  test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
+  const rail = await withErrands(app);
+  await rail.getByRole('button', { name: /^Errands/ }).click();
+  await expect(app.getByText('Call mom', { exact: true })).toHaveCount(0);
+  await openComposer(app, false);
+  await composerOf(app, false).getByRole('textbox', { name: 'Task name' }).fill('Buy milk');
+  await add(app, false);
+  await app.keyboard.press('Escape');
+  await expect.poll(async () => {
+    const { tasks, sections } = await inbox(app);
+    return tasks.find((task) => task.title === 'Buy milk')?.section === sections.find((section) => section.name === 'Errands')?.id;
+  }).toBe(true);
+  await rail.getByRole('button', { name: /^All/ }).click();
+  await expect(app.getByText('Call mom', { exact: true })).toBeVisible();
+  await expect(app.locator('[data-row="task"]').filter({ hasText: 'Buy milk' }).getByText('Errands', { exact: true })).toBeVisible();
+});
+
+test('a task dragged onto a section in the rail goes into it', async ({ app, phone }) => {
+  test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
+  const rail = await withErrands(app);
+  const task = app.getByText('Call mom', { exact: true }).first();
+  await task.hover();
+  const grip = (await app.locator('[data-row="task"]').filter({ has: task }).getByTitle('Drag to move').boundingBox())!;
+  const errands = (await rail.getByRole('button', { name: /^Errands/ }).boundingBox())!;
+  await app.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+  await app.mouse.down();
+  await app.mouse.move(errands.x + 20, errands.y + errands.height / 2, { steps: 10 });
+  await app.mouse.up();
+  await expect.poll(async () => {
+    const { tasks, sections } = await inbox(app);
+    return tasks.find((each) => each.title === 'Call mom')?.section === sections.find((section) => section.name === 'Errands')?.id;
+  }).toBe(true);
+});
+
+test('an open task’s bar moves it to another section and deletes it', async ({ app, phone }) => {
+  test.skip(phone, 'A phone’s task opens as a sheet with all of these.');
+  await withErrands(app);
+  const errands = async () => {
+    const { tasks, sections } = await inbox(app);
+    return tasks.find((task) => task.title === 'Call mom')?.section === sections.find((section) => section.name === 'Errands')?.id;
+  };
+  await app.getByText('Call mom', { exact: true }).first().click();
+  const bar = app.locator('.edit-bar');
+  await bar.getByRole('button', { name: 'Inbox', exact: true }).click();
+  await app.getByRole('option', { name: /^Errands/ }).click();
+  await expect.poll(errands).toBe(true);
+  await app.getByText('Call mom', { exact: true }).first().click();
+  await bar.getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect.poll(async () => (await inbox(app)).tasks.some((task) => task.title === 'Call mom')).toBe(false);
+});
+
+test('an empty add box closes on a click elsewhere, one with a name does not', async ({ app, phone }) => {
+  test.skip(phone, 'A phone adds in a sheet of its own.');
+  await openInbox(app, false);
+  const name = composerOf(app, false).getByRole('textbox', { name: 'Task name' });
+  await openComposer(app, false);
+  await app.locator('.th b').click();
+  await expect(name).toBeHidden();
+  await openComposer(app, false);
+  await name.fill('Water plants');
+  await app.locator('.th b').click();
+  await expect(name).toBeVisible();
+});
+
 test('a task dragged above another goes before it', async ({ app, phone }) => {
   test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   await openInbox(app, phone);

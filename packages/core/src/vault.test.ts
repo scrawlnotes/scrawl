@@ -657,6 +657,23 @@ describe('attachments, folders and the workspace', () => {
     });
   });
 
+  it('keeps the section picked in a list, its tasks in none too, and not a section that is not one', async () => {
+    const fs = new MemoryFs();
+    const empty = { tabs: [], active: null, boards: {}, keys: {}, collections: {} };
+    await saveWorkspace(fs, {
+      ...empty,
+      lists: {
+        'Work.tasks.json': { section: 'sec-1' },
+        'Home.tasks.json': { section: null, filter: { due: 'any', priorities: [1], text: '' } },
+        'Bad.tasks.json': { section: 4 as unknown as string },
+      },
+    });
+    expect((await loadWorkspace(fs)).lists).toEqual({
+      'Work.tasks.json': { section: 'sec-1' },
+      'Home.tasks.json': { section: null, filter: { due: 'any', priorities: [1], text: '' } },
+    });
+  });
+
   it('keeps what a board is filtered by with how it is looked at', async () => {
     const fs = new MemoryFs();
     const empty = { tabs: [], active: null, keys: {}, collections: {} };

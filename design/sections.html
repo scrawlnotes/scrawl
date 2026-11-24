@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Görev listesinde bölümler</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #1e2229; --side: #181b21; --line: #2b303a; --fg: #d5d9e0; --dim: #8b93a1;
+  --faint: #5a6270; --accent: #e0a84a; --page: #101215; --sel: #34435a; --raise: #252a33;
+  --ui: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--fg); font: 13.5px var(--ui); }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
+
+/* ---------- the page around the mockups ---------- */
+.bar { position: sticky; top: 0; z-index: 9; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 10px 16px; background: var(--page); border-bottom: 1px solid var(--line); }
+.bar .pick { padding: 5px 12px; border: 1px solid var(--line); border-radius: 6px; color: var(--dim); font-size: 13px; }
+.bar .pick.on { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.bar .new { margin-left: 4px; color: var(--faint); font-size: 12px; }
+.stage { padding: 16px; }
+.cap { margin: 22px 0 10px; color: var(--dim); font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.legend { max-width: 900px; margin: 0 16px 40px; color: var(--dim); font-size: 13.5px; line-height: 1.6; }
+.legend h3 { margin: 18px 0 4px; color: var(--fg); font-size: 15px; }
+.legend p { margin: 4px 0; }
+.legend b { color: var(--fg); font-weight: 600; }
+.legend ul { margin: 4px 0; padding-left: 20px; }
+
+/* ---------- the computer: app sidebar and the list ---------- */
+.fit { overflow: hidden; }
+.fit > .window { width: 1440px; transform-origin: top left; }
+.window { position: relative; display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 500px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--bg); }
+.app-side { padding: 10px 8px; background: var(--side); border-right: 1px solid var(--line); }
+.app-side .find { margin: 0 2px 10px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 6px; color: var(--faint); }
+.app-side .it { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 28px; padding: 0 10px; border-radius: 6px; color: var(--dim); }
+.app-side .it:hover { background: var(--raise); }
+.app-side .it.on { background: var(--sel); color: var(--fg); }
+.app-side .it small { margin-left: auto; color: var(--faint); font-size: 12px; }
+.app-side .it.on small { color: var(--dim); }
+.app-side .space { margin-top: 10px; color: var(--fg); font-weight: 600; }
+.app-side .l1 { padding-left: 26px; }
+.app-side .l2 { padding-left: 44px; font-size: 13px; }
+.app-side .chev { width: 10px; color: var(--faint); font-size: 10px; }
+
+.main { min-width: 0; }
+.th { display: flex; align-items: center; gap: 10px; padding: 16px 26px 10px; color: var(--dim); font-size: 12px; }
+.th b { margin-right: 4px; color: var(--fg); font-size: 19px; font-weight: 700; }
+.th .search { margin-left: auto; width: 170px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px; color: var(--faint); }
+.th .btn { padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px; color: var(--dim); white-space: nowrap; }
+.th .add { padding: 4px 12px; border-radius: 6px; background: var(--accent); color: var(--bg); font-weight: 600; white-space: nowrap; }
+.tl { padding: 0 26px 24px; }
+
+.task { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 2px 10px; align-items: start; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.cb { width: 16px; height: 16px; margin-top: 2px; border: 2px solid var(--faint); border-radius: 50%; }
+.lbl { display: inline-block; margin-top: 3px; padding: 0 6px; border-radius: 9px; background: #4a3326; color: #f0a070; font-size: 11px; }
+.where { padding-top: 1px; color: var(--faint); font-size: 12px; white-space: nowrap; }
+.qa { display: block; padding: 8px 0; color: var(--faint); }
+.n { color: var(--faint); font-weight: 400; font-size: 12px; }
+.empty { padding: 26px 0; color: var(--faint); }
+
+/* Şimdi */
+.now .sec { display: flex; align-items: center; gap: 8px; margin: 0 -8px; padding: 14px 8px 6px; border-bottom: 1px solid var(--line); font-weight: 700; }
+.now .sec .c { color: var(--faint); font-size: 10px; width: 10px; }
+.now .gap { height: 30px; }
+
+/* İki panel */
+.panes { display: grid; grid-template-columns: 200px minmax(0, 1fr); }
+.rail { padding: 2px 10px 16px 18px; }
+.rail .it { display: flex; align-items: center; width: 100%; min-height: 30px; padding: 0 10px; border-radius: 6px; color: var(--dim); }
+.rail .it:hover { background: var(--raise); color: var(--fg); }
+.rail .it.on { background: var(--raise); color: var(--fg); font-weight: 600; }
+.rail .it small { margin-left: auto; color: var(--faint); font-weight: 400; font-size: 12px; }
+.rail .sep { height: 1px; margin: 6px 10px; background: var(--line); }
+.rail .addsec { padding: 6px 10px; color: var(--faint); }
+.panes .tl { padding-left: 8px; }
+
+/* Kartlar */
+.cards { columns: 2 340px; column-gap: 14px; margin-top: 6px; }
+.card { display: inline-block; width: 100%; margin-bottom: 14px; break-inside: avoid; border: 1px solid var(--line); border-radius: 10px; background: #22272f; }
+.card .ch { display: flex; align-items: baseline; gap: 8px; padding: 11px 14px 9px; font-size: 14px; font-weight: 700; }
+.card .ch.loose { color: var(--dim); font-weight: 600; }
+.card .ch .more { margin-left: auto; color: var(--faint); font-weight: 400; }
+.card .task { padding: 8px 14px; border-bottom: 0; border-top: 1px solid var(--line); }
+.card .qa { padding: 8px 14px 10px; border-top: 1px solid var(--line); }
+
+/* Başlıklar */
+.heads .hd { display: flex; align-items: baseline; gap: 8px; margin-top: 26px; padding-bottom: 7px; border-bottom: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); color: var(--accent); font-size: 14px; font-weight: 600; }
+.heads .hd .act { margin-left: auto; color: var(--faint); font-weight: 400; }
+.heads .hd .act span { margin-left: 14px; }
+.heads .hd + .hd { margin-top: 22px; }
+
+/* ---------- the phone ---------- */
+.phones { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; }
+.ph-wrap { display: flex; flex-direction: column; gap: 8px; }
+.ph-wrap > span { color: var(--dim); font-size: 12.5px; }
+.phone { position: relative; width: 340px; height: 690px; overflow: hidden; border: 7px solid #07080a; border-radius: 42px; background: var(--bg); font-size: 16px; }
+.ph-status { display: flex; justify-content: space-between; height: 40px; padding: 12px 26px 0; font-size: 14px; font-weight: 600; }
+.ph-nav { display: flex; align-items: center; height: 44px; padding: 0 12px; color: var(--accent); }
+.ph-nav .r { margin-left: auto; font-size: 20px; }
+.ph-h1 { margin: 0; padding: 2px 16px 8px; font-size: 30px; font-weight: 700; line-height: 1.15; }
+.ph-sub { padding: 0 16px 6px; margin-top: -6px; color: var(--faint); font-size: 14px; }
+.ph-body { height: calc(100% - 84px - 64px); overflow: hidden; }
+.pr { position: relative; display: flex; gap: 13px; padding: 12px 16px; }
+.pr + .pr::before { content: ''; position: absolute; top: 0; left: 51px; right: 0; border-top: 1px solid var(--line); }
+.pr .cb { flex: none; width: 22px; height: 22px; margin: 0; }
+.pr .t { min-width: 0; line-height: 1.35; }
+.pr .t small { display: block; margin-top: 2px; color: var(--faint); font-size: 13px; }
+.pr .lbl { font-size: 12px; }
+.p-qa { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 16px; color: var(--faint); font-size: 15px; }
+.p-sec { display: flex; align-items: center; gap: 8px; min-height: 46px; margin-top: 8px; padding: 0 12px 0 14px; border-bottom: 1px solid var(--line); font-weight: 600; }
+.p-sec .n { font-size: 14px; }
+.p-sec .r { margin-left: auto; color: var(--faint); }
+.p-head { display: flex; align-items: baseline; gap: 8px; margin: 22px 16px 0; padding-bottom: 7px; border-bottom: 1px solid color-mix(in srgb, var(--accent) 40%, transparent); color: var(--accent); font-weight: 600; }
+.p-head .r { margin-left: auto; color: var(--faint); font-weight: 400; font-size: 20px; line-height: 1; }
+.chips { display: flex; gap: 8px; padding: 2px 16px 12px; overflow: hidden; }
+.chips span { flex: none; padding: 6px 13px; border-radius: 16px; background: var(--raise); color: var(--dim); font-size: 14px; white-space: nowrap; }
+.chips span.on { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); font-weight: 600; }
+.group { margin: 4px 16px 16px; border-radius: 12px; background: var(--side); overflow: hidden; }
+.gr { position: relative; display: flex; align-items: center; min-height: 46px; padding: 0 14px; }
+.gr + .gr::before { content: ''; position: absolute; top: 0; left: 14px; right: 0; border-top: 1px solid var(--line); }
+.gr .n { margin-left: auto; font-size: 15px; }
+.gr .go { margin-left: 10px; color: var(--faint); }
+.gr.sub { padding-left: 34px; color: var(--dim); }
+.gr.sub + .gr::before, .gr + .gr.sub::before { left: 34px; }
+.p-card { margin: 12px 16px 0; border: 1px solid var(--line); border-radius: 12px; background: #22272f; overflow: hidden; }
+.p-card .ch { display: flex; align-items: baseline; gap: 8px; padding: 11px 14px 8px; font-weight: 700; }
+.p-card .ch .r { margin-left: auto; color: var(--faint); font-weight: 400; }
+.p-card .pr { padding: 10px 14px; border-top: 1px solid var(--line); }
+.p-card .pr::before { display: none; }
+.p-card .p-qa { border-top: 1px solid var(--line); padding: 0 14px; }
+.fab { position: absolute; right: 16px; bottom: 80px; display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--accent); color: var(--bg); font-size: 30px; box-shadow: 0 6px 18px rgb(0 0 0 / .35); }
+.tabbar { position: absolute; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(4, 1fr); height: 64px; padding-top: 8px; border-top: 1px solid var(--line); background: color-mix(in srgb, var(--bg) 92%, black); }
+.tabbar span { display: flex; flex-direction: column; align-items: center; gap: 2px; color: var(--faint); font-size: 10.5px; }
+.tabbar span b { font-size: 19px; font-weight: 400; line-height: 1.1; }
+.tabbar span.on { color: var(--accent); }
+
+/* ---------- adding ---------- */
+.step { margin: 22px 0 8px; color: var(--fg); font-size: 14px; font-weight: 600; }
+.step small { margin-left: 8px; color: var(--dim); font-size: 13px; font-weight: 400; }
+.comp { position: relative; margin: 6px 0 4px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--side); }
+.comp .r1 { display: flex; align-items: center; gap: 10px; }
+.comp .r1 .cb { margin: 0; border-style: dashed; }
+.comp .caret { display: inline-block; width: 1px; height: 16px; margin-left: 1px; background: var(--fg); vertical-align: -3px; }
+.comp .desc { margin: 2px 0 7px; padding-left: 26px; color: var(--faint); }
+.comp .chips2 { display: flex; gap: 6px; padding-left: 26px; }
+.comp .chip { padding: 2px 8px; border: 1px solid var(--line); border-radius: 6px; color: var(--dim); font-size: 11.5px; }
+.comp .foot { display: flex; align-items: center; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); color: var(--dim); font-size: 12px; }
+.comp .foot .wh { margin-right: auto; padding: 2px 6px; border-radius: 5px; }
+.comp .foot .wh.open { background: var(--sel); color: var(--fg); }
+.comp .foot .ghost, .comp .foot .primary { padding: 3px 11px; border: 1px solid var(--line); border-radius: 6px; }
+.comp .foot .primary { border-color: var(--accent); background: var(--accent); color: var(--bg); font-weight: 600; }
+.placepop { position: absolute; left: 8px; top: calc(100% - 4px); z-index: 4; width: 300px; padding: 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--side); box-shadow: 0 10px 28px rgb(0 0 0 / .45); }
+.placepop .pp-find { margin-bottom: 4px; padding: 5px 8px; border: 1px solid var(--line); border-radius: 6px; color: var(--faint); }
+.placepop .pp-g { padding: 6px 8px 2px; color: var(--faint); font-size: 11.5px; font-weight: 600; }
+.placepop .pp { display: flex; align-items: center; gap: 6px; min-height: 28px; padding: 0 8px; border-radius: 5px; color: var(--dim); }
+.placepop .pp.sub { padding-left: 26px; }
+.placepop .pp.at { background: var(--sel); color: var(--fg); }
+.placepop .pp .ok { margin-left: auto; color: var(--accent); }
+.drop-on { outline: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent) !important; color: var(--fg) !important; }
+.lifted { opacity: .35; }
+.ghostdrag { position: absolute; z-index: 6; padding: 5px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); box-shadow: 0 8px 22px rgb(0 0 0 / .5); white-space: nowrap; }
+.newrow { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+
+.p-dim { position: absolute; inset: 0; z-index: 6; background: rgb(0 0 0 / .5); }
+.p-sheet { position: absolute; left: 0; right: 0; bottom: 216px; z-index: 7; padding: 8px 16px 12px; border-radius: 14px 14px 0 0; background: var(--side); }
+.p-sheet.tall { bottom: 0; padding-bottom: 28px; }
+.p-sheet .grab { width: 36px; height: 5px; margin: 0 auto 10px; border-radius: 3px; background: var(--faint); }
+.p-sheet .tt { font-size: 17px; }
+.p-sheet .tt.ph { color: var(--faint); }
+.p-sheet .ds { margin: 6px 0 12px; color: var(--faint); font-size: 15px; }
+.p-sheet .mchips { display: flex; gap: 8px; overflow: hidden; }
+.p-sheet .mchips span { flex: none; padding: 5px 11px; border: 1px solid var(--line); border-radius: 16px; color: var(--dim); font-size: 14px; }
+.p-sheet .ft { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.p-sheet .ft .wh { min-width: 0; margin-right: auto; overflow: hidden; color: var(--accent); font-size: 15px; white-space: nowrap; text-overflow: ellipsis; }
+.p-sheet .ft .addb { padding: 7px 16px; border-radius: 16px; background: var(--accent); color: var(--bg); font-weight: 600; font-size: 15px; }
+.p-sheet h4 { margin: 0 0 8px; text-align: center; font-size: 16px; }
+.p-sheet .sg { margin: 10px 0 4px; color: var(--faint); font-size: 13px; font-weight: 600; }
+.p-sheet .so { position: relative; display: flex; align-items: center; min-height: 44px; padding: 0 4px; font-size: 16px; }
+.p-sheet .so + .so::before { content: ''; position: absolute; top: 0; left: 4px; right: 0; border-top: 1px solid var(--line); }
+.p-sheet .so.sub { padding-left: 24px; color: var(--dim); }
+.p-sheet .so .ok { margin-left: auto; color: var(--accent); }
+.p-kb { position: absolute; left: 0; right: 0; bottom: 0; z-index: 7; height: 216px; padding: 8px 4px; background: #2b2e34; }
+.p-kb div { display: flex; justify-content: center; gap: 5px; margin-bottom: 9px; }
+.p-kb i { width: 28px; height: 40px; border-radius: 5px; background: #4a4e56; }
+</style>
+</head>
+<body>
+<div class="bar">
+  <button class="pick" data-show="now">Şimdi</button>
+  <button class="pick" data-show="panes">İki panel</button>
+  <button class="pick on" data-show="panesAdd">İki panel · ekleme</button>
+  <button class="pick" data-show="side">Kenar çubuğunda</button>
+  <button class="pick" data-show="sideAdd">Kenar çubuğunda · ekleme</button>
+  <span class="new">öteki:</span>
+  <button class="pick" data-show="cards">Kartlar</button>
+  <button class="pick" data-show="heads">Başlıklar</button>
+</div>
+<p style="margin:12px 16px 0;color:var(--fg);font-size:13.5px"><b>24 Kasım: İki panel onaylandı</b> (bilgisayarda bölüm paneli, telefonda çipler; PLAN 4.3 ve 4.9). Öteki seçenekler karşılaştırma için duruyor.</p><div class="stage" id="stage"></div>
+<div class="legend" id="legend"></div>
+
+<script>
+const LONG = "dış entegrasyonlar için agent'ın entegrasyon kodunu yazabileceği (hem clientlara hem serverlara) bir altyapı. örneğin eticaret için amazon, trndyol vs entegrasyonu, kargo entegrasyonları, tv showları veya filmlerin themoviedb'den alınması gibi";
+const SHORT = "dış entegrasyonlar için agent'ın entegrasyon kodunu yazabileceği bir altyapı…";
+const LOOSE = ['test'];
+const SECTIONS = [
+  { name: 'Scrawl', tasks: [{ t: LONG, p: SHORT, lbl: true }] },
+  { name: 'Sağlık Bakanlığı', tasks: [{ t: 'Ekrem abinin tfs ve dbye erisimi kapatilacak' }] },
+  { name: 'OzBI', tasks: [] },
+  { name: 'Klinitra', tasks: [] },
+];
+const TOTAL = LOOSE.length + SECTIONS.reduce((n, s) => n + s.tasks.length, 0);
+const state = { pane: 'All', side: 'All' };
+const cnt = (k) => (k ? `<small class="n">${k}</small>` : '');
+const body = (x) => x.t + (x.lbl ? '<br><span class="lbl">in-progress</span>' : '');
+const task = (html, where = '') => `<div class="task"><span class="cb"></span><div>${html}</div>${where ? `<span class="where">${where}</span>` : '<span></span>'}</div>`;
+const allTasks = (withWhere) => LOOSE.map((t) => task(t)).join('') + SECTIONS.flatMap((s) => s.tasks.map((x) => task(body(x), withWhere ? s.name : ''))).join('');
+
+function sidebar(expand = false, picked = 'All', dropOn = '') {
+  const kids = !expand ? '' : SECTIONS.map((s) => `<button class="it l2${picked === s.name ? ' on' : ''}${dropOn === s.name ? ' drop-on' : ''}" data-side="${s.name}">${s.name}${s.tasks.length ? `<small>${s.tasks.length}</small>` : ''}</button>`).join('');
+  return `<div class="app-side"><div class="find">⌕ Search</div>
+    <div class="it">Scheduled</div><div class="it">Filters &amp; Labels</div><div class="it">Quick notes</div>
+    <div class="it space"><span class="chev">▾</span>Personal</div>
+    <div class="it l1">Inbox</div>
+    <button class="it l1${!expand || picked === 'All' ? ' on' : ''}" data-side="All">${expand ? '<span class="chev" style="margin-left:-16px;margin-right:2px">▾</span>' : ''}Banim tasklarım<small>${TOTAL}</small></button>
+    ${kids}
+    <div class="it space"><span class="chev">▾</span>Scrawl</div>
+    <div class="it l1">Yapılacaklar</div><div class="it l1">Roadmap</div></div>`;
+}
+const header = (title, sub, addSection = true) => `<div class="th"><b>${title}</b><span>${sub}</span>
+  <span class="search">⌕ Search</span><span class="btn">⏷ Filter</span>${addSection ? '<span class="btn">Add section</span>' : ''}<span class="add">Add task</span></div>`;
+const win = (side, main, cls = '') => `<div class="window ${cls}">${side}<div class="main">${main}</div></div>`;
+
+/* ---------- phone pieces ---------- */
+const phone = (back, title, inner, opts = {}) => `<div class="phone"><div class="ph-status"><span>9:41</span><span>●●● ▮</span></div>
+  <div class="ph-nav">‹ ${back}<span class="r">···</span></div>
+  <div class="ph-body">${title ? `<h1 class="ph-h1">${title}</h1>` : ''}${opts.sub ? `<div class="ph-sub">${opts.sub}</div>` : ''}${inner}</div>
+  ${opts.fab === false ? '' : '<div class="fab">+</div>'}
+  ${opts.tabbar === false ? '' : '<div class="tabbar"><span><b>◷</b>Scheduled</span><span class="on"><b>▤</b>Browse</span><span><b>✉</b>Chat</span><span><b>⌕</b>Search</span></div>'}${opts.over ?? ''}</div>`;
+const pr = (t, sub = '', lbl = false) => `<div class="pr"><span class="cb"></span><div class="t">${t}${lbl ? '<br><span class="lbl">in-progress</span>' : ''}${sub ? `<small>${sub}</small>` : ''}</div></div>`;
+const pAll = (withWhere) => LOOSE.map((t) => pr(t)).join('') + SECTIONS.flatMap((s) => s.tasks.map((x) => pr(x.p ?? x.t, withWhere ? s.name : '', x.lbl))).join('');
+const pw = (label, html) => `<div class="ph-wrap">${html}<span>${label}</span></div>`;
+
+/* ---------- adding ---------- */
+const TYPED = 'Kargo firmalarının API’lerini listele';
+const placePop = () => `<div class="placepop"><div class="pp-find">Type a list or section</div><div class="pp-g">Personal</div>
+  <div class="pp">▤ Inbox</div><div class="pp">▤ Banim tasklarım<span class="ok">✓</span></div>
+  ${SECTIONS.map((s) => `<div class="pp sub${s.name === 'Scrawl' ? ' at' : ''}">${s.name}</div>`).join('')}
+  <div class="pp-g">Scrawl</div><div class="pp">▤ Yapılacaklar</div></div>`;
+const comp = (place, typed, open = false) => `<div class="comp"><div class="r1"><span class="cb"></span><span>${typed}<span class="caret"></span></span></div>
+  <div class="desc">Description</div>
+  <div class="chips2"><span class="chip">▦ Date</span><span class="chip">⚑ Priority</span><span class="chip">⌂ Labels</span><span class="chip">▤ Record</span><span class="chip">⎘</span></div>
+  <div class="foot"><span class="wh${open ? ' open' : ''}">◎ ${place} ⌄</span><span class="ghost">Cancel</span><span class="primary">Add task</span></div>${open ? placePop() : ''}</div>`;
+const scrawlTasks = () => SECTIONS[0].tasks.map((x) => task(body(x))).join('');
+const lifted = () => LOOSE.map((t) => task(t)).join('') + task(body(SECTIONS[0].tasks[0]), 'Scrawl') + task('Ekrem abinin tfs ve dbye erisimi kapatilacak', 'Sağlık Bakanlığı').replace('class="task"', 'class="task lifted"');
+const GHOST = '<div class="ghostdrag">Ekrem abinin tfs ve dbye erisimi kapatilacak</div>';
+
+function panesDesk(sel, list, dropOn = '') {
+  const item = (label, k) => `<div class="it${sel === label ? ' on' : ''}${dropOn === label ? ' drop-on' : ''}">${label}${k ? `<small>${k}</small>` : ''}</div>`;
+  const rail = `<div class="rail">${item('All', TOTAL)}<div class="sep"></div>${item('No section', LOOSE.length)}${SECTIONS.map((s) => item(s.name, s.tasks.length)).join('')}<div class="addsec">+ Add section</div></div>`;
+  return win(sidebar(), header('Banim tasklarım', 'Personal', false) + `<div class="panes">${rail}<div class="tl">${list}</div></div>`, dropOn ? 'dragging' : '') ;
+}
+function sideDesk(sel, list, dropOn = '') {
+  const head = sel === 'All' ? header('Banim tasklarım', 'Personal') : header(sel, 'Banim tasklarım', false);
+  return win(sidebar(true, sel, dropOn), head + `<div class="tl">${list}</div>`);
+}
+const phoneChips = (on) => `<div class="chips">${['All ' + TOTAL, 'No section', 'Scrawl', 'Sağlık Bakanlığı', 'OzBI'].map((c) => `<span${c.startsWith(on) ? ' class="on"' : ''}>${c}</span>`).join('')}</div>`;
+const KB = `<div class="p-kb">${[10, 9, 7].map((k) => `<div>${'<i></i>'.repeat(k)}</div>`).join('')}<div><i style="width:200px"></i></div></div>`;
+const addPhones = () =>
+  pw('1 · Scrawl çipi seçiliyken + : yer Scrawl', phone('Personal', 'Banim tasklarım', phoneChips('Scrawl') + SECTIONS[0].tasks.map((x) => pr(x.p, '', x.lbl)).join(''), {
+    fab: false, tabbar: false,
+    over: `<div class="p-dim"></div><div class="p-sheet"><div class="grab"></div><div class="tt">${TYPED}</div><div class="ds">Description</div>
+      <div class="mchips"><span>▦ Date</span><span>⚑ Priority</span><span>⌂ Labels</span><span>▤ Record</span></div>
+      <div class="ft"><span class="wh">◎ Banim tasklarım · Scrawl ›</span><span class="addb">Add</span></div></div>${KB}`,
+  }))
+  + pw('2 · All’dayken yere dokununca: bölüm seçilir', phone('Personal', 'Banim tasklarım', phoneChips('All') + pAll(true), {
+    fab: false, tabbar: false,
+    over: `<div class="p-dim"></div><div class="p-sheet tall"><div class="grab"></div><h4>Where</h4>
+      <div class="sg">PERSONAL</div><div class="so">Inbox</div><div class="so">Banim tasklarım<span class="ok">✓</span></div>
+      ${SECTIONS.map((s) => `<div class="so sub">${s.name}</div>`).join('')}
+      <div class="sg">SCRAWL</div><div class="so">Yapılacaklar</div></div>`,
+  }));
+const step = (title, note, html) => `<div class="step">${title}<small>${note}</small></div><div class="fit">${html}</div>`;
+
+const VIEWS = {
+  panesAdd: () => ({
+    desk: step('1 · Bir bölüm seçiliyken', 'Scrawl seçili; "+ Add task" ya da üstteki Add task kutuyu Scrawl’a ayarlı açar.', panesDesk('Scrawl', scrawlTasks() + comp('Banim tasklarım · Scrawl', TYPED)))
+      + step('2 · All seçiliyken', 'Kutu bölümsüz açılır; yer düğmesinden bölüm seçilir.', panesDesk('All', allTasks(true) + comp('Banim tasklarım', TYPED, true) + '<div style="height:190px"></div>'))
+      + step('3 · Başka bölüme taşımak', 'Görev sürüklenip soldaki bölümün üstüne bırakılır.', panesDesk('All', lifted() + GHOST, 'OzBI')),
+    phones: addPhones(),
+    legend: `<h3>İki panel'de görev ekleme</h3>
+      <ul><li><b>Bölüm seçiliyken:</b> listenin sonundaki "+ Add task" ya da üstteki Add task, kutuyu o bölüme ayarlı açar. Eklenen görev hemen o listede.</li>
+      <li><b>All'dayken:</b> kutu bölümsüz açılır. Yer düğmesinden ("Banim tasklarım ⌄") bölüm seçilir; eklenen görev listede sağında bölüm adıyla görünür.</li>
+      <li><b>Taşımak:</b> görevi soldaki panelde bir bölümün üstüne sürükle; bölüm vurgulanır, bırakınca oraya geçer.</li></ul>
+      <h3>Telefonda</h3><p>Sağ alttaki + bugünkü ekleme ekranını açar; yeri seçili çipin bölümü. All'dayken bölümsüz açılır, yere dokununca bölüm seçilir. İki seçenekte de telefon aynı.</p>`,
+  }),
+  sideAdd: () => ({
+    desk: step('1 · Bir bölüm seçiliyken', 'Kenar çubuğunda Scrawl seçili; kutu Scrawl’a ayarlı açılır.', sideDesk('Scrawl', scrawlTasks() + comp('Banim tasklarım · Scrawl', TYPED)))
+      + step('2 · Liste seçiliyken (hepsi)', 'Kutu bölümsüz açılır; yer düğmesinden bölüm seçilir.', sideDesk('All', allTasks(true) + comp('Banim tasklarım', TYPED, true) + '<div style="height:190px"></div>'))
+      + step('3 · Başka bölüme taşımak', 'Görev sürüklenip kenar çubuğundaki bölümün üstüne bırakılır.', sideDesk('All', lifted() + GHOST, 'OzBI')),
+    phones: addPhones(),
+    legend: `<h3>Kenar çubuğunda görev ekleme</h3>
+      <ul><li><b>Bölüm seçiliyken:</b> kutu o bölüme ayarlı açılır; başlıkta bölümün adı yazdığı için nereye eklediğin belli.</li>
+      <li><b>Liste seçiliyken:</b> kutu bölümsüz açılır, yer düğmesinden bölüm seçilir.</li>
+      <li><b>Taşımak:</b> görev uygulamanın kenar çubuğundaki bölüm satırına sürüklenir. Satırlar daha küçük, kenar çubuğu başka listelerle dolu olduğu için hedef İki panel'e göre daha dar.</li></ul>
+      <h3>Telefonda</h3><p>İki panel'deki gibi: çipler ve + ile ekleme. İki seçenekte de telefon aynı.</p>`,
+  }),
+
+  now: () => ({
+    desk: win(sidebar(), header('Banim tasklarım', 'Personal') + `<div class="tl now">${task('test')}<div class="qa">+ Add task</div>${SECTIONS.map((s) => `<div class="gap"></div><div class="sec"><span class="c">▾</span>${s.name} ${cnt(s.tasks.length) || '<small class="n">0</small>'}</div>${s.tasks.map((x) => task(body(x))).join('')}<div class="qa">+ Add task</div>`).join('')}</div>`),
+    phones: pw('Bugün telefonda', phone('Personal', 'Banim tasklarım', pr('test') + SECTIONS.map((s) => `<div class="p-sec"><span style="color:var(--faint)">⌄</span>${s.name} ${cnt(s.tasks.length) || '<small class="n">0</small>'}<span class="r">···</span></div>${s.tasks.map((x) => pr(x.p ?? x.t, '', x.lbl)).join('')}<div class="p-qa">+ Add task</div>`).join(''))),
+    legend: `<h3>Şimdi</h3><p>Her bölüm bir ada: başlık, görevler, kendi "+ Add task" satırı, sonra boşluk. Ekranın çoğunu görevler değil, bölümlerin çevresi kaplıyor. Telefonda da aynı.</p>`,
+  }),
+
+  panes: () => {
+    const item = (label, k) => `<button class="it${state.pane === label ? ' on' : ''}" data-pane="${label}">${label}${k ? `<small>${k}</small>` : ''}</button>`;
+    const rail = `<div class="rail">${item('All', TOTAL)}<div class="sep"></div>${item('No section', LOOSE.length)}${SECTIONS.map((s) => item(s.name, s.tasks.length)).join('')}<div class="addsec">+ Add section</div></div>`;
+    let list;
+    if (state.pane === 'All') list = allTasks(true);
+    else if (state.pane === 'No section') list = LOOSE.map((t) => task(t)).join('');
+    else { const s = SECTIONS.find((x) => x.name === state.pane); list = s.tasks.length ? s.tasks.map((x) => task(body(x))).join('') : '<div class="empty">Nothing here yet.</div>'; }
+    const chips = `<div class="chips"><span class="on">All ${TOTAL}</span><span>No section</span><span>Scrawl</span><span>Sağlık Bakanlığı</span><span>OzBI</span></div>`;
+    const sectionsPage = `<div class="group"><div class="gr">All<span class="n">${TOTAL}</span><span class="go">›</span></div></div>
+      <div class="group"><div class="gr">No section<span class="n">1</span><span class="go">›</span></div>${SECTIONS.map((s) => `<div class="gr">${s.name}${s.tasks.length ? `<span class="n">${s.tasks.length}</span>` : '<span class="n"></span>'}<span class="go">›</span></div>`).join('')}</div>
+      <div class="p-qa" style="padding:0 32px">+ Add section</div>`;
+    return {
+      desk: win(sidebar(), header('Banim tasklarım', 'Personal', false) + `<div class="panes">${rail}<div class="tl">${list}<div class="qa">+ Add task</div></div></div>`),
+      phones: pw('a · Bölümler başlığın altında çip', phone('Personal', 'Banim tasklarım', chips + pAll(true)))
+        + pw('b · Önce bölümler, dokununca görevleri', phone('Personal', 'Banim tasklarım', sectionsPage, { fab: false }))
+        + pw('b · Scrawl’a dokununca', phone('Banim tasklarım', 'Scrawl', SECTIONS[0].tasks.map((x) => pr(x.p, '', x.lbl)).join(''))),
+      legend: `<h3>İki panel</h3>
+        <p>Bölümler listenin solunda kendi panelinde, yanlarında görev sayısıyla. Seçilen bölüm sağda düz bir liste. <b>All</b> hepsini tek listede gösterir; her görevin sağında bölüm adı soluk yazıyla durur. Görev soldaki bir bölüme sürüklenince oraya taşınır. Bölümü olmayan listede panel çıkmaz, bugünkü düz liste kalır.</p>
+        <h3>Telefonda</h3>
+        <ul><li><b>a · Çipler:</b> sol panel, başlığın altında yana kayan çiplere dönüşür. Açılışta All seçili, görevler hemen görünür. Bir çipe dokununca yalnız o bölüm kalır, + oraya ekler.</li>
+        <li><b>b · Önce bölümler:</b> liste açılınca bölümler iPhone ayarlarındaki gibi satır satır gelir; birine dokununca görevleri açılır. Bir görevi görmek için her seferinde bir dokunuş daha gerekir.</li></ul>
+        <p>Telefonda önerim <b>a</b>: görevler ilk ekranda, bölüm değiştirmek tek dokunuş.</p>`,
+    };
+  },
+
+  side: () => {
+    const s = SECTIONS.find((x) => x.name === state.side);
+    const main = state.side === 'All'
+      ? header('Banim tasklarım', 'Personal') + `<div class="tl">${allTasks(true)}<div class="qa">+ Add task</div></div>`
+      : header(s.name, 'Banim tasklarım', false) + `<div class="tl">${s.tasks.length ? s.tasks.map((x) => task(body(x))).join('') : '<div class="empty">Nothing here yet.</div>'}<div class="qa">+ Add task</div></div>`;
+    const browse = `<div class="group"><div class="gr">Inbox<span class="n"></span><span class="go">›</span></div>
+      <div class="gr">⌄ Banim tasklarım<span class="n">${TOTAL}</span><span class="go">›</span></div>
+      ${SECTIONS.map((x) => `<div class="gr sub">${x.name}${x.tasks.length ? `<span class="n">${x.tasks.length}</span>` : '<span class="n"></span>'}<span class="go">›</span></div>`).join('')}
+      </div><div class="group"><div class="gr">Yapılacaklar<span class="n"></span><span class="go">›</span></div><div class="gr">Roadmap<span class="n"></span><span class="go">›</span></div></div>`;
+    return {
+      desk: win(sidebar(true, state.side), main),
+      phones: pw('Browse’ta liste ve bölümleri', phone('Spaces', 'Personal', browse, { fab: false }))
+        + pw('Listeye dokununca: hepsi', phone('Personal', 'Banim tasklarım', pAll(true))),
+      legend: `<h3>Kenar çubuğunda</h3>
+        <p>İki panelin ikinci paneli yok: bölümler uygulamanın kendi kenar çubuğunda, listenin altında girintili duruyor; klasörün altındaki dosyalar gibi. Listeye tıklayınca hepsi tek düz listede, her görevin sağında bölüm adı. Bölüme tıklayınca yalnız onun görevleri; başlıkta bölümün adı, altında listenin adı. Görev kenar çubuğundaki bir bölüme sürüklenince oraya taşınır.</p>
+        <p>İyi yanı: ekran hep bölümsüz liste kadar sade, fazladan panel yok. Zayıf yanı: çok bölümlü birkaç liste açıkken kenar çubuğu uzar; listenin okuyla bölümler katlanır.</p>
+        <h3>Telefonda</h3>
+        <p>Browse'ta liste satırının altında bölümleri girintili satırlar olarak görünür. Listeye dokununca hepsi, bölüme dokununca yalnız o bölüm açılır. Listenin içinde ayrıca bölüm seçici yok.</p>`,
+    };
+  },
+
+  cards: () => ({
+    desk: win(sidebar(), header('Banim tasklarım', 'Personal') + `<div class="tl">
+      <div class="cards"><div class="card"><div class="ch loose">No section</div>${LOOSE.map((t) => task(t)).join('')}<div class="qa">+ Add task</div></div>${SECTIONS.map((s) => `<div class="card"><div class="ch">${s.name}${cnt(s.tasks.length)}<span class="more">···</span></div>${s.tasks.map((x) => task(body(x))).join('')}<div class="qa">+ Add task</div></div>`).join('')}</div></div>`),
+    phones: pw('Kartlar alt alta', phone('Personal', 'Banim tasklarım', `<div class="p-card" style="margin-top:4px"><div class="ch" style="color:var(--dim);font-weight:600">No section</div>${pr('test')}<div class="p-qa">+ Add task</div></div>` + SECTIONS.map((s) => `<div class="p-card"><div class="ch">${s.name}${cnt(s.tasks.length)}<span class="r">···</span></div>${s.tasks.map((x) => pr(x.p ?? x.t, '', x.lbl)).join('')}<div class="p-qa">+ Add task</div></div>`).join(''))),
+    legend: `<h3>Kartlar</h3>
+      <p>Her bölüm kendi kartında; kartlar geniş ekranda yan yana dizilir. Kartın içinde görevler ve en altta o karta ekleyen "+ Add task". Bölümsüz görevler ilk kartta. Görev karttan karta sürüklenerek taşınır.</p>
+      <p>İyi yanı: hangi görevin hangi bölümde olduğu kartın çerçevesinden belli; hepsi aynı anda görünür. Zayıf yanı: uzun görev adları kartın genişliğinde kırılır; çok görevli bir kart yanındakinden çok uzun kalır.</p>
+      <h3>Telefonda</h3><p>Kartlar tam genişlikte alt alta.</p>`,
+  }),
+
+  heads: () => ({
+    desk: win(sidebar(), header('Banim tasklarım', 'Personal') + `<div class="tl heads">${LOOSE.map((t) => task(t)).join('')}<div class="qa">+ Add task</div>
+      ${SECTIONS.map((s) => `<div class="hd">${s.name}${cnt(s.tasks.length)}<span class="act"><span>+</span><span>···</span></span></div>${s.tasks.map((x) => task(body(x))).join('')}`).join('')}</div>`),
+    phones: pw('Başlıklar telefonda', phone('Personal', 'Banim tasklarım', pr('test') + SECTIONS.map((s) => `<div class="p-head">${s.name}${cnt(s.tasks.length)}<span class="r">+</span></div>${s.tasks.map((x) => pr(x.p ?? x.t, '', x.lbl)).join('')}`).join(''))),
+    legend: `<h3>Başlıklar</h3>
+      <p>Tek liste; bölüm adı vurgu renginde bir ara başlık, altında ince bir çizgi. Görev satırları bölümsüz listedekiyle aynı. Bölüm başına ekleme satırı yok: başlığın sağındaki + o bölüme ekler. Boş bölüm yalnız başlığıyla durur.</p>
+      <p>İyi yanı: bugünkü ekrana en yakın, ama bölümler renkle ayrıldığı için adacık hissi yok. Zayıf yanı: çok sayıda boş bölüm alt alta başlık yığını olur.</p>
+      <h3>Telefonda</h3><p>Aynı başlıklar, + başlığın sağında.</p>`,
+  }),
+};
+
+function fit() {
+  for (const box of stage.querySelectorAll('.fit')) {
+    const w = box.firstElementChild;
+    const k = Math.min(1, box.clientWidth / 1440);
+    w.style.transform = `scale(${k})`;
+    box.style.height = w.offsetHeight * k + 'px';
+  }
+}
+// A dragged task's picture sits by the section it is over.
+function placeGhosts() {
+  for (const w of stage.querySelectorAll('.window')) {
+    const g = w.querySelector('.ghostdrag');
+    const t = w.querySelector('.drop-on');
+    if (!g || !t) continue;
+    let x = 0, y = 0;
+    for (let e = t; e && e !== w; e = e.offsetParent) { x += e.offsetLeft; y += e.offsetTop; }
+    g.style.left = x + t.offsetWidth - 60 + 'px';
+    g.style.top = y + t.offsetHeight / 2 + 4 + 'px';
+    w.appendChild(g);
+  }
+}
+addEventListener("resize", () => fit());
+let kind = 'panesAdd';
+const stage = document.getElementById('stage');
+const legend = document.getElementById('legend');
+function draw() {
+  const v = VIEWS[kind]();
+  const many = v.desk.startsWith('<div class="step"');
+  stage.innerHTML = `<div class="cap">Bilgisayar · 1440 px genişlikte çizildi, buraya sığdırıldı</div>${many ? v.desk : `<div class="fit">${v.desk}</div>`}<div class="cap">Telefon</div><div class="phones">${v.phones}</div>`;
+  legend.innerHTML = v.legend;
+  placeGhosts();
+  fit();
+  document.querySelectorAll('.pick').forEach((x) => x.classList.toggle('on', x.dataset.show === kind));
+}
+document.querySelectorAll('.pick').forEach((b) => b.addEventListener('click', () => { kind = b.dataset.show; draw(); }));
+stage.addEventListener('click', (event) => {
+  const p = event.target.closest('[data-pane]');
+  const s = event.target.closest('[data-side]');
+  if (p) state.pane = p.dataset.pane;
+  if (s) state.side = s.dataset.side;
+  if (p || s) draw();
+});
+draw();
+</script>
+</body>
+</html>

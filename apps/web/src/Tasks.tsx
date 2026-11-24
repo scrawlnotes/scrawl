@@ -54,7 +54,6 @@ import { locale, t } from '@scrawlnotes/i18n';
 import {
   type CSSProperties,
   type DragEvent,
-  Fragment,
   type KeyboardEvent,
   type MouseEvent,
   type PointerEvent as ReactPointerEvent,
@@ -72,7 +71,7 @@ import { choiceColor } from './Calendar';
 import { isPhone, onPage, pageBox, pageWindow } from './device';
 import type { MenuHead, MenuItem, TaskPlaceChoice } from './dialogs';
 import { priorityItems } from './PhoneTasks';
-import { DatePop, forgetKept, TaskComposer, useKept } from './TaskComposer';
+import { DatePop, forgetKept, PlacePop, placeName, TaskComposer, useKept } from './TaskComposer';
 import { AttachButton, type DescriptionHost, DescriptionField } from './Description';
 import { remindLabel, remindOf } from './Remind';
 import { ContextMenu } from './dialogs';
@@ -84,6 +83,7 @@ import { boardHeading, boardLabel, boardWhere, collectionLabel, collectionWhere,
 import { TaskActivity } from './Activity';
 import { AssigneeChip, NameOf, PersonPicker, type SpacePeople, WhoOf } from './People';
 import { Empty, liftUntilTouch, suppressClick } from './sheets';
+import { useHold } from './Phone';
 import { holdToDrag, pressOnField } from './touchDrag';
 
 /** A task in its list, or a card on its board: something with a day to move. */
@@ -146,12 +146,15 @@ export interface TaskActions {
   /** Adds a section: at the end, or after the section `after` names, at the top for null. */
   addSection: (list: string, name: string, after?: string | null) => void;
   renameSection: (list: string, id: string, name: string) => void;
-  foldSection: (list: string, id: string, collapsed: boolean) => void;
   /** Asks first, then deletes the section with its tasks. */
   removeSection: (list: string, section: Section) => void;
   moveTask: (list: string, id: string, place: TaskPlace) => void;
   /** Asks where to, then moves the task to another list or section. */
   moveTo: (list: string, id: string) => void;
+  /** Where a task can go: every list of its space and their sections, its own place marked. */
+  places: (list: string, id: string) => TaskPlaceChoice[];
+  /** Moves a task, with its subtasks, to the end of a list or of one of its sections. */
+  moveToPlace: (list: string, id: string, target: string, section: string | null) => void;
   /** What the note at a path is called, or null when it is not there any more. */
   noteTitle: (path: string) => string | null;
   openNote: (path: string) => void;
@@ -560,6 +563,8 @@ interface ItemProps {
   drag?: DragHandlers;
   /** In a filtered list, the tasks it shows: true for one that matches, false for one shown only for a subtask under it that does. */
   picks?: Map<string, boolean> | null;
+  /** In a list's All, the section the task is in. */
+  section?: string;
 }
 
 /** A task's title and description while they are edited. */
@@ -590,7 +595,7 @@ const HOLD_MS = 450;
  * Pulled right it is done; pulled left it shows Date and More. Held, it lifts: let go where it is,
  * its actions open; carried, it moves.
  */
-function PhoneTaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, byDay, drag, picks }: ItemProps) {
+function PhoneTaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, byDay, drag, picks, section }: ItemProps) {
   const row = useRef<HTMLDivElement>(null);
   /** How far a finger has pulled the row, while it does. */
   const [pull, setPull] = useState<number | null>(null);
@@ -720,6 +725,7 @@ function PhoneTaskItem({ list, task, tasks, today, showDone, actions, flat, grou
         {listWhere(list)}
       </span>
     ),
+    section && <span key="section">{section}</span>,
     progress.total > 0 && <span key="progress">{t('tasks.progress', { done: progress.done, total: progress.total })}</span>,
     described.files > 0 && (
       <span key="files" className="clips" title={t('count.files', { count: described.files })}>
@@ -840,7 +846,7 @@ function PhoneTaskItem({ list, task, tasks, today, showDone, actions, flat, grou
   );
 }
 
-function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, byDay, drag, picks }: ItemProps) {
+function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, byDay, drag, picks, section }: ItemProps) {
   // A name or description being changed, and a subtask being typed, outlive the view too.
   const [editing, setEditing] = useKept<Draft | null>(`edit\u0000${list}\u0000${task.id}`, null);
   // The record button, while its list of records is open under it.
@@ -854,7 +860,7 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
   const labelAnchor = useRef<HTMLElement | null>(null);
   const [labeling, setLabeling] = useState(false);
   // While it is edited: the picker open from its bar, and the button that opened it.
-  const [pop, setPop] = useState<{ kind: 'date' | 'priority' | 'labels' | 'assignee' | 'record'; anchor: HTMLElement } | null>(null);
+  const [pop, setPop] = useState<{ kind: 'date' | 'priority' | 'labels' | 'assignee' | 'record' | 'place'; anchor: HTMLElement } | null>(null);
   const popAnchor = useRef<HTMLElement | null>(null);
   popAnchor.current = pop?.anchor ?? null;
   // A press outside the row while a picker is open is leaving it: once the picker closes, it saves.
@@ -906,7 +912,7 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
     const down = (event: PointerEvent) => {
       const target = event.target as HTMLElement;
       // The picker's own menu, list or window is not elsewhere.
-      leaving.current = !!target.closest('.app') && !rowRef.current?.contains(target) && !target.closest('[role="menu"], [role="listbox"], [role="dialog"]');
+      leaving.current = !!target.closest('.app') && !rowRef.current?.contains(target) && !target.closest('[role="menu"], [role="listbox"], [role="dialog"], .place-pop');
     };
     window.addEventListener('pointerdown', down, true);
     return () => window.removeEventListener('pointerdown', down, true);
@@ -1053,6 +1059,11 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
     </div>
   );
   const chipClass = (on: boolean, extra?: string | false) => ['chip', on && 'on', extra].filter(Boolean).join(' ');
+  // Where it is, as the new task box says it: its list, and its section, its top task's for a subtask.
+  const places = editing ? actions.places(list, task.id) : [];
+  let top = task;
+  for (let up = tasks.find((each) => each.id === top.parent); up; up = tasks.find((each) => each.id === top.parent)) top = up;
+  const here = { list, section: top.section && places.some((each) => each.list === list && each.section === top.section) ? top.section : null };
   const bar = editing && (
     <div className="edit-bar">
       <button
@@ -1129,9 +1140,55 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
         <span>{task.record ? actions.recordTitle(task.record) : t('tasks.record')}</span>
       </button>
       <AttachButton className="chip ic" iconOnly onFiles={(files) => attacher.current?.(files)} />
-      <button type="button" className="ghost" onMouseDown={keepFocus} onClick={cancel}>
-        {t('dialog.cancel')}
+      <button type="button" className="chip" aria-haspopup="listbox" aria-expanded={pop?.kind === 'place'} onMouseDown={keepFocus} onClick={openPop('place')}>
+        <Icon name="tasks" />
+        <span>{placeName(places, here.list, here.section)}</span>
       </button>
+      {/* What the row's buttons do besides: a subtask, its menu, Delete; then Cancel. */}
+      <span className="eb-end">
+        {canNest && (
+          <button
+            type="button"
+            className="chip ic"
+            title={t('tasks.addSubtask')}
+            aria-label={t('tasks.addSubtask')}
+            onMouseDown={keepFocus}
+            onClick={() => {
+              save();
+              setOpen(true);
+              setAdding(true);
+            }}
+          >
+            <Icon name="subtask" />
+          </button>
+        )}
+        <button
+          type="button"
+          className="chip ic"
+          title={t('tasks.more')}
+          aria-label={t('tasks.more')}
+          onMouseDown={keepFocus}
+          onClick={(event) => actions.menu(event, [...remindItem, { label: t('tasks.activityMenu'), run: () => setActivity(true) }])}
+        >
+          ···
+        </button>
+        <button
+          type="button"
+          className="chip ic del"
+          title={t('tasks.delete')}
+          aria-label={t('tasks.delete')}
+          onMouseDown={keepFocus}
+          onClick={() => {
+            cancel();
+            actions.remove(list, task.id);
+          }}
+        >
+          <Icon name="trash" />
+        </button>
+        <button type="button" className="ghost" onMouseDown={keepFocus} onClick={cancel}>
+          {t('dialog.cancel')}
+        </button>
+      </span>
     </div>
   );
   const className = ['task', task.done && 'done', editing && 'editing', picks?.get(task.id) === false && 'kin'].filter(Boolean).join(' ');
@@ -1216,6 +1273,8 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
             {meta}
           </div>
         )}
+        {/* Where the actions show on hover: in a list's All, the section it is in. */}
+        {section && !editing && <span className="task-where">{section}</span>}
         <div className="task-actions">
           {canNest && (
             <IconButton
@@ -1301,6 +1360,20 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
           onPick={(assignee) => {
             actions.update(list, task.id, { assignee });
             closePop();
+          }}
+          onClose={closePop}
+        />
+      )}
+      {pop?.kind === 'place' && (
+        <PlacePop
+          anchor={pop.anchor}
+          places={places}
+          current={here}
+          onPick={(chosen) => {
+            // Its own place, for a task at the top level, is where it is already.
+            if (chosen.list === here.list && chosen.section === here.section && task.parent === null) return closePop();
+            save();
+            actions.moveToPlace(list, task.id, chosen.list, chosen.section);
           }}
           onClose={closePop}
         />
@@ -1439,22 +1512,26 @@ interface Dragging {
   lifted: HTMLElement[];
 }
 
-/** Where a drag would land: the line that shows it, or the folded section it would go into. */
+/** Where a drag would land: the line among the rows that shows it, or a section of the rail. */
 interface Drop {
   line?: { top: number; left: number };
-  into?: string;
-  /** For a task. */
+  /** For a task: the place among the rows. */
   place?: TaskPlace;
+  /** For a task let go on a section of the rail: its id, null for no section. */
+  to?: string | null;
   /** For a section: the one it would follow, null for the top. */
   after?: string | null;
+  /** For a section: the line between two of the rail's, from the rail's top. */
+  railLine?: number;
 }
 
 const sameDrop = (a: Drop | null, b: Drop) =>
   a !== null &&
   a.line?.top === b.line?.top &&
   a.line?.left === b.line?.left &&
-  a.into === b.into &&
+  a.to === b.to &&
   a.after === b.after &&
+  a.railLine === b.railLine &&
   a.place?.parent === b.place?.parent &&
   a.place?.section === b.place?.section &&
   a.place?.after === b.place?.after;
@@ -1475,7 +1552,7 @@ function dragImage(event: DragEvent<HTMLElement>, label: string, checkbox?: stri
   requestAnimationFrame(() => ghost.remove());
 }
 
-/** The rows a drag can land between, in order: task rows and section headers, not its own. */
+/** The task rows a drag can land between, in order, not its own. */
 function dropRows(container: HTMLElement, d: Dragging): HTMLElement[] {
   return [...container.querySelectorAll<HTMLElement>('[data-row]')].filter(
     (row) => !d.lifted.some((lifted) => lifted === row || lifted.contains(row)),
@@ -1488,45 +1565,30 @@ const depthOfRow = (row: HTMLElement) => Number(row.dataset.depth ?? 0);
 const margin = (container: HTMLElement) => parseFloat(getComputedStyle(container).paddingLeft) || 0;
 
 /**
- * Where a dragged task would land. The pointer's height picks the gap between two rows; how far
- * it moved right or left since the task was picked up picks the level, from the top level up to
- * one below the task above. A folded section's header takes the task in at its end.
+ * Where a dragged task would land among `rows`, at the top level in `section`. The pointer's height
+ * picks the gap between two rows; how far it moved right or left since the task was picked up picks
+ * the level, from the top level up to one below the task above.
  */
-function taskDrop(container: HTMLElement, d: Dragging, event: { clientX: number; clientY: number }, list: List): Drop {
+function taskDrop(container: HTMLElement, rows: HTMLElement[], d: Dragging, event: { clientX: number; clientY: number }, section: string | null): Drop {
   const box = container.getBoundingClientRect();
-  const rows = dropRows(container, d);
-  const y = event.clientY;
-  const folded = rows.find((row) => {
-    if (row.dataset.row !== 'section' || row.dataset.collapsed !== 'true') return false;
-    const r = row.getBoundingClientRect();
-    return y >= r.top && y < r.bottom;
-  });
-  if (folded) {
-    const section = folded.dataset.id!;
-    const last = sectionTasks(list, section).filter((t) => t.id !== d.id).pop();
-    return { into: section, place: { parent: null, section, after: last?.id ?? null } };
-  }
-
   let index = rows.findIndex((row) => {
     const r = row.getBoundingClientRect();
-    return y < r.top + r.height / 2;
+    return event.clientY < r.top + r.height / 2;
   });
   if (index < 0) index = rows.length;
   const above = rows.slice(0, index);
   const prev = above[above.length - 1];
   const next = rows[index];
-  const prevTask = prev?.dataset.row === 'task' ? prev : null;
-  const max = prevTask ? Math.min(depthOfRow(prevTask) + 1, MAX_DEPTH - d.height) : 0;
-  const min = Math.min(next?.dataset.row === 'task' ? depthOfRow(next) : 0, max);
+  const max = prev ? Math.min(depthOfRow(prev) + 1, MAX_DEPTH - d.height) : 0;
+  const min = Math.min(next ? depthOfRow(next) : 0, max);
   const level = Math.max(min, Math.min(max, d.depth + Math.round(onPage(event.clientX - d.startX) / INDENT)));
 
   // Walking up from the gap: the first row at the level is the task it follows, the first one
-  // above the level is its parent. A section header ends the walk.
+  // above the level is its parent.
   let parent: string | null = null;
   let after: string | null = null;
   for (let i = above.length - 1; i >= 0; i--) {
     const row = above[i]!;
-    if (row.dataset.row === 'section') break;
     const depth = depthOfRow(row);
     if (depth === level && after === null) after = row.dataset.id!;
     if (depth < level) {
@@ -1534,29 +1596,26 @@ function taskDrop(container: HTMLElement, d: Dragging, event: { clientX: number;
       break;
     }
   }
-  const header = [...above].reverse().find((row) => row.dataset.row === 'section');
-  const section = level === 0 ? (header?.dataset.id ?? null) : null;
-  // Before a task the line is at its top. At the end of a section it is right under the section's
-  // last row, above the section's add row, not at the next section's header.
-  const edge =
-    next?.dataset.row === 'task'
-      ? next.getBoundingClientRect().top
-      : (prev?.getBoundingClientRect().bottom ?? next?.getBoundingClientRect().top ?? box.top);
-  return { line: { top: onPage(edge - box.top), left: margin(container) + level * INDENT }, place: { parent, section, after } };
+  // Before a task the line is at its top; after the last one, right under it.
+  const edge = next ? next.getBoundingClientRect().top : (prev?.getBoundingClientRect().bottom ?? box.top);
+  return { line: { top: onPage(edge - box.top), left: margin(container) + level * INDENT }, place: { parent, section: level === 0 ? section : null, after } };
 }
 
-/** Where a dragged section would land: before the header under the pointer's half, or at the end. */
-function sectionDrop(container: HTMLElement, d: Dragging, event: { clientX: number; clientY: number }): Drop {
-  const box = container.getBoundingClientRect();
-  const headers = dropRows(container, d).filter((row) => row.dataset.row === 'section');
-  let index = headers.findIndex((row) => {
-    const r = row.getBoundingClientRect();
-    return event.clientY < r.top + r.height / 2;
+/**
+ * Where a section dragged in the rail would land: before the one under the pointer's half, or at
+ * the end; across, when a narrow list has the rail as a row.
+ */
+function railSectionDrop(rail: HTMLElement, d: Dragging, event: { clientX: number; clientY: number }): Drop {
+  const items = [...rail.querySelectorAll<HTMLElement>('[data-rail-section]')].filter((item) => !d.lifted.includes(item));
+  const across = getComputedStyle(rail).flexDirection === 'row';
+  let index = items.findIndex((item) => {
+    const r = item.getBoundingClientRect();
+    return across ? event.clientX < r.left + r.width / 2 : event.clientY < r.top + r.height / 2;
   });
-  if (index < 0) index = headers.length;
-  const after = index > 0 ? headers[index - 1]!.dataset.id! : null;
-  const top = onPage(index < headers.length ? headers[index]!.getBoundingClientRect().top - box.top : box.height);
-  return { line: { top, left: margin(container) }, after };
+  if (index < 0) index = items.length;
+  const last = items[items.length - 1];
+  const railLine = index < items.length ? items[index]!.offsetTop : last ? last.offsetTop + last.offsetHeight : 0;
+  return { after: index > 0 ? items[index - 1]!.dataset.railSection! : null, railLine };
 }
 
 /** The row a new section's name is typed into. */
@@ -1596,125 +1655,180 @@ function SectionComposer({ onAdd, onClose }: { onAdd: (name: string) => void; on
   );
 }
 
+/** The part of a list with sections that shows: a section's id, null for the tasks in none, undefined for All. */
+type Picked = string | null | undefined;
+
+/** How many top-level tasks of a list are open: in all, in no section, and in each section by its id. */
+interface OpenCounts {
+  all: number;
+  none: number;
+  by: Map<string, number>;
+}
+
+/** A section's name typed in the rail: Enter or leaving it keeps it, Esc drops it. */
+function RailField({ initial, onDone, onCancel }: { initial: string; onDone: (name: string) => void; onCancel: () => void }) {
+  const [name, setName] = useState(initial);
+  const finished = useRef(false);
+  const finish = (keep: boolean) => {
+    if (finished.current) return;
+    finished.current = true;
+    if (keep && name.trim() && name.trim() !== initial) onDone(name.trim());
+    else onCancel();
+  };
+  return (
+    <input
+      className="rl-edit"
+      aria-label={t('sections.name')}
+      placeholder={t('sections.name')}
+      autoFocus
+      value={name}
+      onChange={(event) => setName(event.target.value)}
+      onBlur={() => finish(true)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') finish(true);
+        else if (event.key === 'Escape') finish(false);
+      }}
+    />
+  );
+}
+
+/** A section's menu: Rename, then Delete in red. */
+function sectionMenu(list: string, section: Section, actions: TaskActions, rename: () => void): [MenuItem[], MenuHead] {
+  return [
+    [
+      { label: t('menu.rename'), icon: 'pen', run: rename },
+      { label: t('sections.delete'), icon: 'trash', danger: true, run: () => actions.removeSection(list, section) },
+    ],
+    { icon: 'tasks', title: section.name, sub: t('phone.sectionIn', { list: listLabel(list) }) },
+  ];
+}
+
 /**
- * A section of a list: its header, which folds it and offers its menu, then its tasks and the
- * row that adds one, after the Sections view of design/mockups.html (direction A).
+ * The sections of a list with any, in a rail beside its tasks: All, the tasks in no section while
+ * there are any, each section with how many of its tasks are open, and Add section. A click shows
+ * one; a task dragged onto one goes into it; a section is dragged to another place among them.
  */
-function SectionBlock({ list, section, top, item, actions, drag, dropInto, adding }: {
+function SectionRail({ list, sections, open, picked, carrying, drop, drag, actions, railRef, onPick }: {
   list: string;
-  section: Section;
-  /** Its top-level tasks, as far as they are shown. */
-  top: Task[];
-  item: (task: Task) => ReactNode;
-  actions: TaskActions;
+  sections: Section[];
+  open: OpenCounts;
+  picked: Picked;
+  /** A task is being carried: no section shows then, to drop it there. */
+  carrying: boolean;
+  drop: Drop | null;
   drag: DragHandlers;
-  /** A task dragged over the folded section would go in at its end. */
-  dropInto: boolean;
-  /** How its add row adds, and what a new task starts with in a filtered list. */
-  adding: Adding;
+  actions: TaskActions;
+  railRef: Ref<HTMLElement>;
+  onPick: (picked: Picked) => void;
 }) {
   const [renaming, setRenaming] = useState<string | null>(null);
-  const [composing, setComposing] = useKept(`open\u0000${list}\u0000${section.id}`, false);
-  const open = !section.collapsed;
-  const rename = () => {
-    if (renaming !== null) actions.renameSection(list, section.id, renaming);
-    setRenaming(null);
-  };
-  const phone = isPhone();
-  // On a phone the name is changed in a sheet.
-  const startRenaming = () => (phone && actions.nameSection ? actions.nameSection(list, section) : setRenaming(section.name));
-  const menu = (event: MouseEvent) =>
-    actions.menu(
-      event,
-      [
-        { label: t('menu.rename'), icon: 'pen', run: startRenaming },
-        {
-          label: t('tasks.add'),
-          icon: 'plus',
-          run: () => {
-            if (!open) actions.foldSection(list, section.id, false);
-            if (phone && actions.quickAdd) actions.quickAdd(list, section.id);
-            else setComposing(true);
-          },
-        },
-        { label: t('sections.delete'), icon: 'trash', danger: true, run: () => actions.removeSection(list, section) },
-      ],
-      { icon: 'tasks', title: section.name, sub: t('phone.sectionIn', { list: listLabel(list) }) },
-    );
+  const [adding, setAdding] = useState(false);
+  const dropOn = (pick: Picked) => drop?.to !== undefined && drop.to === pick;
+  const row = (key: string, label: string, count: number, pick: Picked) => (
+    <button key={key} type="button" className={dropOn(pick) ? 'rl drop-on' : 'rl'} data-rail={key} aria-current={picked === pick} onClick={() => onPick(pick)}>
+      <span className="nm">{label}</span>
+      {count > 0 && <small>{count}</small>}
+    </button>
+  );
   return (
-    <div className="section">
-      <div
-        className={['sec fold', phone && 'mb-tsec', !open && 'closed', dropInto && 'drop-into', renaming !== null && 'composing'].filter(Boolean).join(' ')}
-        data-row="section"
-        data-id={section.id}
-        data-collapsed={!open}
-        onPointerDown={renaming === null ? (event) => !pressOnField(event) && drag.hold(event, { section }) : undefined}
-        onContextMenu={menu}
-      >
-        {renaming === null && <Grip title={t('sections.drag')} onGrab={(event) => drag.grab(event, { section })} onRelease={drag.release} />}
-        <button
-          type="button"
-          className="chev"
-          aria-expanded={open}
-          aria-label={t(open ? 'sections.fold' : 'sections.unfold', { name: section.name })}
-          onClick={() => actions.foldSection(list, section.id, open)}
-        >
-          {phone ? <Icon name="chevron" /> : open ? '▾' : '▸'}
-        </button>
-        {renaming === null ? (
-          <button type="button" className="sec-name" onClick={startRenaming}>
-            {section.name}
-          </button>
-        ) : (
-          <>
-            <input
-              className="sec-edit"
-              aria-label={t('sections.name')}
-              autoFocus
-              value={renaming}
-              onChange={(event) => setRenaming(event.target.value)}
-              onBlur={rename}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') rename();
-                else if (event.key === 'Escape') setRenaming(null);
+    <nav ref={railRef} className="sec-rail" aria-label={t('sections.title')}>
+      {row('all', t('sections.all'), open.all, undefined)}
+      <div className="sep" />
+      {(open.none > 0 || picked === null || carrying) && row('none', t('sections.none'), open.none, null)}
+      {sections.map((section) => {
+        if (renaming === section.id) {
+          return (
+            <RailField
+              key={section.id}
+              initial={section.name}
+              onDone={(name) => {
+                actions.renameSection(list, section.id, name);
+                setRenaming(null);
               }}
+              onCancel={() => setRenaming(null)}
             />
-            <div className="edit-foot">
-              <button type="button" className="ghost" onMouseDown={keepTyping} onClick={() => setRenaming(null)}>
-                {t('dialog.cancel')}
-              </button>
-            </div>
-          </>
-        )}
-        {renaming === null && (
-          <>
-            <small>{top.filter((task) => !task.done).length}</small>
+          );
+        }
+        const count = open.by.get(section.id) ?? 0;
+        const menu = (event: MouseEvent) => actions.menu(event, ...sectionMenu(list, section, actions, () => setRenaming(section.id)));
+        return (
+          <div
+            key={section.id}
+            className={['rl-row', dropOn(section.id) && 'drop-on'].filter(Boolean).join(' ')}
+            data-rail={section.id}
+            data-rail-section={section.id}
+            draggable
+            onDragStart={(event) => drag.grab(event, { section })}
+            onDragEnd={drag.release}
+            onContextMenu={menu}
+          >
+            <button type="button" className="rl" aria-current={picked === section.id} onClick={() => onPick(section.id)}>
+              <span className="nm">{section.name}</span>
+              {count > 0 && <small>{count}</small>}
+            </button>
             <button type="button" className="more" title={t('sections.menu')} aria-label={t('sections.menu')} onClick={menu}>
               ···
             </button>
-          </>
-        )}
-      </div>
-      {open && (
-        <>
-          {top.map(item)}
-          {composing ? (
-            adding.box(section.id, section.id, () => setComposing(false))
-          ) : phone ? (
-            // On a phone a task is typed above the keyboard, this section chosen.
-            actions.quickAdd && (
-              <button type="button" className="qa mb-sec-add" onClick={() => actions.quickAdd!(list, section.id)}>
-                <Icon name="plus" />
-                {t('tasks.add')}
-              </button>
-            )
-          ) : (
-            <button type="button" className="qa" onClick={() => setComposing(true)}>
-              {t('tasks.addRow')}
-            </button>
-          )}
-        </>
+          </div>
+        );
+      })}
+      {adding ? (
+        <RailField
+          initial=""
+          onDone={(name) => {
+            actions.addSection(list, name);
+            setAdding(false);
+          }}
+          onCancel={() => setAdding(false)}
+        />
+      ) : (
+        <button type="button" className="rl add" onClick={() => setAdding(true)}>
+          {t('sections.addRow')}
+        </button>
       )}
+      {drop?.railLine !== undefined && <div className="drop-line" style={{ top: drop.railLine, left: 6 }} />}
+    </nav>
+  );
+}
+
+/** A section as a chip over a phone's list; held, its menu opens. The one picked scrolls into sight. */
+function SectionChip({ label, count, on, onPick, onHold }: { label: string; count: number; on: boolean; onPick: () => void; onHold?: () => void }) {
+  const chip = useRef<HTMLButtonElement>(null);
+  const hold = useHold(onHold && (() => onHold()));
+  useEffect(() => {
+    if (on) chip.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [on]);
+  return (
+    <button ref={chip} type="button" role="tab" aria-selected={on} className={on ? 'on' : undefined} onClick={onPick} {...hold}>
+      {label}
+      {count > 0 && <small>{count}</small>}
+    </button>
+  );
+}
+
+/** The sections of a list with any, over its tasks on a phone: All, no section while it has tasks, then each section. */
+function SectionChips({ list, sections, open, picked, actions, onPick }: {
+  list: string;
+  sections: Section[];
+  open: OpenCounts;
+  picked: Picked;
+  actions: TaskActions;
+  onPick: (picked: Picked) => void;
+}) {
+  return (
+    <div className="mb-secchips" role="tablist" aria-label={t('sections.title')}>
+      <SectionChip label={t('sections.all')} count={open.all} on={picked === undefined} onPick={() => onPick(undefined)} />
+      {(open.none > 0 || picked === null) && <SectionChip label={t('sections.none')} count={open.none} on={picked === null} onPick={() => onPick(null)} />}
+      {sections.map((section) => (
+        <SectionChip
+          key={section.id}
+          label={section.name}
+          count={open.by.get(section.id) ?? 0}
+          on={picked === section.id}
+          onPick={() => onPick(section.id)}
+          onHold={() => actions.menu(NO_POINTER, ...sectionMenu(list, section, actions, () => actions.nameSection?.(list, section)))}
+        />
+      ))}
     </div>
   );
 }
@@ -1761,10 +1875,12 @@ const asAdded = (input: NewTask): Task => ({
 });
 
 /**
- * One task list, with the folder it is in beside its name. Tasks in no section come first,
- * without a header; then each section; then the row that adds a section. Search and Filter in the
+ * One task list, with the folder it is in beside its name. With sections, they are a rail beside
+ * the tasks on a computer and chips over them on a phone: All shows every task, those in no section
+ * first and then section by section, each with its section's name; a section picked shows its own,
+ * and a task added there goes in it. The device keeps the one picked. Search and Filter in the
  * header narrow it where it is (design/filters.md 2): a task shows when it matches or a subtask
- * under it does, a section when a task in it shows.
+ * under it does.
  */
 export function TaskList({ list, tasks, sections, today, actions, places, reveal = null, look, onLook, onStatus }: {
   list: string;
@@ -1772,17 +1888,18 @@ export function TaskList({ list, tasks, sections, today, actions, places, reveal
   sections: Section[];
   today: string;
   actions: TaskActions;
-  /** Every list and section a task can go in: in a list with sections, the header's Add task asks where. */
+  /** Every list and section a task can go in, for the add box's place. */
   places?: TaskPlaceChoice[];
-  /** A task found by the search window: shown, done or in a folded section as it may be, brought into sight and marked for a moment. `at` tells one ask from the next. */
+  /** A task found by the search window: shown, done or in another section as it may be, brought into sight and marked for a moment. `at` tells one ask from the next. */
   reveal?: { id: string; at: number } | null;
-  /** How the list is looked at: what it is filtered by and the text searched for; the device keeps the first. */
+  /** How the list is looked at: what it is filtered by, the text searched for and the section picked; the device keeps the first and the last. */
   look?: ListLook;
   onLook?: (look: ListLook) => void;
   /** What the status bar says while the list is filtered; null when it is not. */
   onStatus?: (status: string[] | null) => void;
 }) {
   const [showDone, setShowDone] = useState(false);
+  const phone = isPhone();
   // What the list is filtered by, with the text searched for: the device's look, which a phone's sheet changes too.
   const asked = look?.filter ?? NO_CHOICES;
   const team = actions.people?.(list) ?? null;
@@ -1792,6 +1909,21 @@ export function TaskList({ list, tasks, sections, today, actions, places, reveal
   // A done task matches only while what is done shows, so that a task is not kept for a subtask that is hidden.
   const picks = asksAnything(asked) ? taskPicks(tasks, (task) => (showDone || !task.done) && taskMatches(asked, task, today, team?.me)) : null;
   const clear = () => choose(NO_CHOICES);
+
+  // The section shown: All until one is picked, and All again once the one picked is gone.
+  const known = new Set(sections.map((section) => section.id));
+  const wanted = look?.section;
+  const picked: Picked = sections.length === 0 || wanted === undefined ? undefined : wanted === null || known.has(wanted) ? wanted : undefined;
+  const pick = (next: Picked) => onLook?.({ section: next });
+  const byId = new Map(tasks.map((task) => [task.id, task]));
+  /** The section a task is in, its top task's; null for none. */
+  const sectionOf = (id: string): string | null => {
+    let task = byId.get(id);
+    while (task?.parent) task = byId.get(task.parent);
+    return task?.section && known.has(task.section) ? task.section : null;
+  };
+  const inView = (task: Task) => picked === undefined || sectionOf(task.id) === picked;
+
   const adding: Adding = {
     start: picks ? filteredStart(asked, today, team) : undefined,
     add: (input) => {
@@ -1803,8 +1935,8 @@ export function TaskList({ list, tasks, sections, today, actions, places, reveal
       return (
         <TaskComposer
           key={key}
-          // Kept by its place, not its opening: opened there again, what was typed is back.
-          keep={`${list}\u0000${String(key).split(':')[0]}`}
+          // Kept by its place: opened there again, what was typed is back.
+          keep={`${list}\u0000${key}`}
           start={{ due: start?.due ?? null, list, section, priority: start?.priority, labels: start?.labels, assignee: start?.assignee }}
           today={today}
           places={places ?? []}
@@ -1825,15 +1957,12 @@ export function TaskList({ list, tasks, sections, today, actions, places, reveal
   useEffect(() => onStatus?.(status), [statusKey]);
   useEffect(() => () => onStatus?.(null), []);
   const [composing, setComposing] = useKept(`open\u0000${list}\u0000end`, false);
-  // The header's Add task in a list with sections: a new task with the place it goes, chosen at its
-  // foot, at first the top of the list; the count tells one opening from the next.
-  const [placing, setPlacing] = useKept(`open\u0000${list}\u0000placing`, 0);
-  // A new section's name, being typed where it goes: at the end, from the header's Add section, or
-  // between two sections, after the one `after` names (null for the top), from the line there.
-  const [addingSection, setAddingSection] = useState<{ after?: string | null } | null>(null);
+  // The first section's name, from the header's Add section; after it the rail adds them.
+  const [addingSection, setAddingSection] = useState(false);
   const whole: List = { sections, tasks };
   const shown = (task: Task) => (showDone || !task.done) && (!picks || picks.has(task.id));
   const rows = useRef<HTMLDivElement>(null);
+  const rail = useRef<HTMLElement>(null);
   useEffect(() => {
     if (!reveal) return;
     const task = tasks.find((each) => each.id === reveal.id);
@@ -1841,11 +1970,8 @@ export function TaskList({ list, tasks, sections, today, actions, places, reveal
     if (task.done) setShowDone(true);
     // A task the filter hides is found all the same: the filter goes.
     if (picks && !picks.has(task.id)) clear();
-    // A subtask is in its top task's section.
-    let top = task;
-    for (let parent = tasks.find((each) => each.id === top.parent); parent; parent = tasks.find((each) => each.id === top.parent)) top = parent;
-    const section = sections.find((each) => each.id === top.section);
-    if (section?.collapsed) actions.foldSection(list, section.id, false);
+    // One in another section than the one picked shows in All.
+    if (!inView(task)) pick(undefined);
     let row: Element | null = null;
     const timer = window.setTimeout(() => {
       row = rows.current?.querySelector(`[data-row="task"][data-id="${CSS.escape(reveal.id)}"]`) ?? null;
@@ -1865,14 +1991,17 @@ export function TaskList({ list, tasks, sections, today, actions, places, reveal
   const [drop, setDrop] = useState<Drop | null>(null);
   // The same, for a finger letting go, which comes before the state is drawn.
   const dropping = useRef<Drop | null>(null);
+  // A task is being carried: the rail shows no section, to drop it there.
+  const [carrying, setCarrying] = useState(false);
 
   const release = () => {
     dragging.current = null;
     dropping.current = null;
     setDrop(null);
-    for (const lifted of rows.current?.querySelectorAll('.lifted') ?? []) lifted.classList.remove('lifted');
+    setCarrying(false);
+    for (const lifted of [...(rows.current?.querySelectorAll('.lifted') ?? []), ...(rail.current?.querySelectorAll('.lifted') ?? [])]) lifted.classList.remove('lifted');
   };
-  /** Picks up a task or a section from an element of its row, the pointer or the finger at `x`. */
+  /** Picks up a task from an element of its row, or a section from the rail, the pointer or the finger at `x`. */
   const pickUp = (handle: HTMLElement, x: number, what: { task: Task } | { section: Section }) => {
     if ('task' in what) {
       const { task } = what;
@@ -1881,19 +2010,33 @@ export function TaskList({ list, tasks, sections, today, actions, places, reveal
       const subs = row.nextElementSibling?.classList.contains('subs') ? (row.nextElementSibling as HTMLElement) : null;
       const lifted = [row, ...(subs ? [subs] : [])];
       dragging.current = { kind: 'task', id: task.id, depth: depthOf(tasks, task.id), height: subtaskLevels(tasks, task.id), startX: x, lifted };
+      setCarrying(true);
     } else {
-      const block = handle.closest<HTMLElement>('.section')!;
-      dragging.current = { kind: 'section', id: what.section.id, depth: 0, height: 0, startX: x, lifted: [block] };
+      const item = handle.closest<HTMLElement>('[data-rail]')!;
+      dragging.current = { kind: 'section', id: what.section.id, depth: 0, height: 0, startX: x, lifted: [item] };
     }
   };
   const lift = () => {
     for (const element of dragging.current?.lifted ?? []) element.classList.add('lifted');
   };
-  /** Where it would land, the pointer or the finger here. */
+  /** Where it would land, the pointer or the finger here: a section of the rail, or a gap among the rows. */
   const over = (point: { clientX: number; clientY: number }) => {
     const d = dragging.current;
-    if (!d || !rows.current) return;
-    const next = d.kind === 'task' ? taskDrop(rows.current, d, point, whole) : sectionDrop(rows.current, d, point);
+    if (!d) return;
+    let next: Drop = {};
+    if (d.kind === 'section') {
+      if (rail.current) next = railSectionDrop(rail.current, d, point);
+    } else {
+      const onRail = document.elementFromPoint(point.clientX, point.clientY)?.closest<HTMLElement>('[data-rail]');
+      if (onRail) {
+        if (onRail.dataset.rail !== 'all') next = { to: onRail.dataset.rail === 'none' ? null : onRail.dataset.rail! };
+      } else if (rows.current) {
+        // In All a task keeps to its own section's tasks; to another section it goes by the rail.
+        const own = picked === undefined ? sectionOf(d.id) : picked;
+        const among = dropRows(rows.current, d).filter((row) => picked !== undefined || sectionOf(row.dataset.id!) === own);
+        next = taskDrop(rows.current, among, d, point, own);
+      }
+    }
     dropping.current = next;
     setDrop((current) => (sameDrop(current, next) ? current : next));
   };
@@ -1901,7 +2044,9 @@ export function TaskList({ list, tasks, sections, today, actions, places, reveal
     const d = dragging.current;
     const at = dropping.current;
     if (d && at) {
-      if (d.kind === 'task' && at.place) actions.moveTask(list, d.id, at.place);
+      if (d.kind === 'task' && at.to !== undefined) {
+        if (at.to !== sectionOf(d.id)) actions.moveTask(list, d.id, { parent: null, section: at.to, after: sectionTasks(whole, at.to).filter((task) => task.id !== d.id).pop()?.id ?? null });
+      } else if (d.kind === 'task' && at.place) actions.moveTask(list, d.id, at.place);
       if (d.kind === 'section' && at.after !== undefined) actions.moveSection(list, d.id, at.after);
     }
     release();
@@ -1939,53 +2084,103 @@ export function TaskList({ list, tasks, sections, today, actions, places, reveal
     },
   };
 
-  const onDragOver = (event: DragEvent<HTMLDivElement>) => {
-    if (!dragging.current) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
-    over(event);
-  };
-  const onDrop = (event: DragEvent<HTMLDivElement>) => {
-    if (!dragging.current || !dropping.current) return;
-    event.preventDefault();
-    land();
+  const dropHandlers = {
+    onDragOver: (event: DragEvent<HTMLDivElement>) => {
+      if (!dragging.current) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+      over(event);
+    },
+    onDrop: (event: DragEvent<HTMLDivElement>) => {
+      if (!dragging.current || !dropping.current) return;
+      event.preventDefault();
+      land();
+    },
+    onDragLeave: (event: DragEvent<HTMLDivElement>) => !event.currentTarget.contains(event.relatedTarget as Node | null) && setDrop(null),
   };
 
-  const item = (task: Task) => (
-    <TaskItem key={task.id} list={list} task={task} tasks={tasks} today={today} showDone={showDone} actions={actions} drag={drag} picks={picks} />
+  const item = (task: Task, section?: string) => (
+    <TaskItem key={task.id} list={list} task={task} tasks={tasks} today={today} showDone={showDone} actions={actions} drag={drag} picks={picks} section={section} />
   );
-  const completed = tasks.filter((task) => task.done).length;
-  const nothing = !tasks.some(shown);
+  // In All, the tasks in no section and then each section's, each named; else the section picked.
+  const groups: { id: string | null; name?: string }[] = picked === undefined ? [{ id: null }, ...sections.map((section) => ({ id: section.id, name: section.name }))] : [{ id: picked }];
+  const top = groups.flatMap((group) => sectionTasks(whole, group.id).filter(shown).map((task) => item(task, picked === undefined ? group.name : undefined)));
+  const open: OpenCounts = { all: 0, none: 0, by: new Map() };
+  for (const task of childrenOf(tasks, null)) {
+    if (task.done) continue;
+    const section = sectionOf(task.id);
+    open.all++;
+    if (section === null) open.none++;
+    else open.by.set(section, (open.by.get(section) ?? 0) + 1);
+  }
+  const completed = tasks.filter((task) => task.done && inView(task)).length;
+  const nothing = !tasks.some((task) => shown(task) && inView(task));
+  const railed = !phone && sections.length > 0;
+  const showCompleted = completed > 0 && (
+    <button type="button" className="qa" aria-expanded={showDone} onClick={() => setShowDone(!showDone)}>
+      {t(showDone ? 'tasks.hideCompleted' : 'tasks.showCompleted', { count: completed })}
+    </button>
+  );
+  const rowsEl = (
+    <div ref={rows} className="rows" {...(railed ? {} : dropHandlers)}>
+      {!phone && nothing && picks && (
+        <p className="task-empty fx-empty">
+          {t('filter.nothingHere')}
+          <button type="button" onClick={clear}>
+            {t('filter.clearFilter')}
+          </button>
+        </p>
+      )}
+      {top}
+      {!phone && nothing && !picks && picked !== undefined && !composing && <p className="task-empty">{t('sections.empty')}</p>}
+      {!phone &&
+        (composing ? (
+          adding.box(picked ?? null, `end-${picked === undefined ? 'all' : (picked ?? 'none')}`, () => setComposing(false))
+        ) : (
+          <button type="button" className="qa" onClick={() => setComposing(true)}>
+            {t('tasks.addRow')}
+          </button>
+        ))}
+      {drop?.line && <div className="drop-line" style={{ top: drop.line.top, left: drop.line.left }} />}
+    </div>
+  );
   return (
     <TaskPage
       title={listName(list)}
       detail={folderLabel(dirname(list))}
-      // A new section goes at the end, where its name is typed, and is dragged up from there.
       extra={
-        !isPhone() && (
+        !phone && (
           <>
             <SearchBox value={asked.text} onChange={(text) => choose({ ...asked, text })} />
             {filter.button}
-            <button type="button" className="ghost" onClick={() => setAddingSection({})}>
-              {t('sections.add')}
-            </button>
+            {/* The first section; once there are sections, the rail adds them. */}
+            {sections.length === 0 && (
+              <button type="button" className="ghost" onClick={() => setAddingSection(true)}>
+                {t('sections.add')}
+              </button>
+            )}
           </>
         )
       }
-      bar={isPhone() ? <PhoneFilterChips place={place} choices={asked} onChange={choose} onOpen={(step) => actions.pickFilter?.(list, step)} /> : filter.chips}
-      onAddClick={() => (sections.length > 0 && places ? setPlacing(placing + 1) : setComposing(true))}
-      footer={
-        completed > 0 && (
-          <button type="button" className="qa" aria-expanded={showDone} onClick={() => setShowDone(!showDone)}>
-            {t(showDone ? 'tasks.hideCompleted' : 'tasks.showCompleted', { count: completed })}
-          </button>
+      bar={
+        phone ? (
+          <>
+            {sections.length > 0 && <SectionChips list={list} sections={sections} open={open} picked={picked} actions={actions} onPick={pick} />}
+            <PhoneFilterChips place={place} choices={asked} onChange={choose} onOpen={(step) => actions.pickFilter?.(list, step)} />
+          </>
+        ) : (
+          filter.chips
         )
       }
+      onAddClick={() => setComposing(true)}
+      footer={!railed && showCompleted}
     >
       {filter.menu}
-      {isPhone() && nothing && (picks || sections.length === 0) && (
+      {phone && nothing && (
         picks ? (
           <Empty icon="filter" title={t('filter.nothingHere')} text={t('filter.nothingHereText')} action={{ label: t('filter.clearFilter'), run: clear }} />
+        ) : picked !== undefined ? (
+          <Empty icon="tasks" title={t('sections.empty')} />
         ) : (
           <Empty
             icon="tasks"
@@ -1994,84 +2189,18 @@ export function TaskList({ list, tasks, sections, today, actions, places, reveal
           />
         )
       )}
-      {!isPhone() && nothing && picks && (
-        <p className="task-empty fx-empty">
-          {t('filter.nothingHere')}
-          <button type="button" onClick={clear}>
-            {t('filter.clearFilter')}
-          </button>
-        </p>
+      {railed ? (
+        <div className="sec-split" {...dropHandlers}>
+          <SectionRail list={list} sections={sections} open={open} picked={picked} carrying={carrying} drop={drop} drag={drag} actions={actions} railRef={rail} onPick={pick} />
+          <div className="sec-main">
+            {rowsEl}
+            {showCompleted}
+          </div>
+        </div>
+      ) : (
+        rowsEl
       )}
-      {placing > 0 && adding.box(null, `placing:${placing}`, () => setPlacing(0))}
-      <div
-        ref={rows}
-        className="rows"
-        onDragOver={onDragOver}
-        onDrop={onDrop}
-        onDragLeave={(event) => !event.currentTarget.contains(event.relatedTarget as Node | null) && setDrop(null)}
-      >
-        {sectionTasks(whole, null).filter(shown).map(item)}
-        {composing ? (
-          adding.box(null, 'end', () => setComposing(false))
-        ) : !isPhone() ? (
-          // The tasks in no section end with their own add row, as each section does.
-          <button type="button" className="qa" onClick={() => setComposing(true)}>
-            {t('tasks.addRow')}
-          </button>
-        ) : (
-          // On a phone + adds; with sections, the tasks in none have their row too, as each section has.
-          sections.length > 0 &&
-          actions.quickAdd && (
-            <button type="button" className="qa mb-sec-add" onClick={() => actions.quickAdd!(list, null)}>
-              <Icon name="plus" />
-              {t('tasks.add')}
-            </button>
-          )
-        )}
-        {sections.map((section, index) => {
-          // Before each section, Add section shows when the pointer is there, as Todoist's: a new
-          // section goes in between.
-          const after = index === 0 ? null : sections[index - 1]!.id;
-          const top = sectionTasks(whole, section.id).filter(shown);
-          // Filtered, a section with nothing that shows is left out.
-          if (picks && top.length === 0) return null;
-          return (
-            <Fragment key={section.id}>
-              {addingSection?.after === after ? (
-                <SectionComposer onAdd={(name) => actions.addSection(list, name, after)} onClose={() => setAddingSection(null)} />
-              ) : (
-                !isPhone() && (
-                  <button type="button" className="sec-gap" onClick={() => setAddingSection({ after })}>
-                    {t('sections.add')}
-                  </button>
-                )
-              )}
-              <SectionBlock
-                list={list}
-                section={section}
-                top={top}
-                item={item}
-                actions={actions}
-                drag={drag}
-                dropInto={drop?.into === section.id}
-                adding={adding}
-              />
-            </Fragment>
-          );
-        })}
-        {drop?.line && <div className="drop-line" style={{ top: drop.line.top, left: drop.line.left }} />}
-      </div>
-      {/* At the end, from the header's Add section or the line under the list, which shows as the one
-          between two sections does, and only once there are sections: the first comes from the
-          header. On a phone a section comes from the list's menu. */}
-      {addingSection && addingSection.after === undefined && (
-        <SectionComposer onAdd={(name) => actions.addSection(list, name)} onClose={() => setAddingSection(null)} />
-      )}
-      {!addingSection && !isPhone() && sections.length > 0 && (
-        <button type="button" className="sec-gap end" onClick={() => setAddingSection({})}>
-          {t('sections.add')}
-        </button>
-      )}
+      {addingSection && <SectionComposer onAdd={(name) => actions.addSection(list, name)} onClose={() => setAddingSection(false)} />}
     </TaskPage>
   );
 }

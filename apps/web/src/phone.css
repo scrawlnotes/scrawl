@@ -2600,20 +2600,55 @@ body > .mb-lifted {
 }
 
 /* a section: folds by its arrow, its menu by ··· */
-/* A section's own add row: under its tasks, as quiet as a task's details. */
-.mb-tasks .qa.mb-sec-add {
+/* A list's sections, chips over its tasks that scroll sideways: the one picked in the accent. A
+   finger's 44 px reach past the chip's edge. */
+.mb-secchips {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 44px;
-  padding: 0 16px;
-  color: var(--sl-faint);
-  font-size: 15px;
+  gap: 8px;
+  padding: 2px 16px 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
-.mb .mb-tasks .qa.mb-sec-add .icon {
-  width: 18px;
-  height: 18px;
+.mb-secchips::-webkit-scrollbar {
+  display: none;
+}
+
+.mb-secchips button {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 17px;
+  background: color-mix(in srgb, var(--sl-fg) 8%, transparent);
+  color: var(--sl-dim);
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.mb-secchips button::after {
+  content: '';
+  position: absolute;
+  inset: -5px -4px;
+}
+
+.mb-secchips button small {
+  color: var(--sl-faint);
+  font-size: 13px;
+}
+
+.mb-secchips button.on {
+  background: color-mix(in srgb, var(--sl-accent) 20%, transparent);
+  color: var(--sl-accent);
+  font-weight: 600;
+}
+
+.mb-secchips button.on small {
+  color: inherit;
+  font-weight: 400;
 }
 
 .mb-tasks .sec.mb-tsec {

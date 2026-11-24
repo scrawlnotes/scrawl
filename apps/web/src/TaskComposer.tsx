@@ -40,7 +40,7 @@ const chipDay = (day: string, today: string) => (day === today ? t('day.today') 
 const weekday = (day: string) => toDate(day).toLocaleDateString(locale(), { weekday: 'short' });
 
 /** Where a task goes, as its button says it: its list, and its section after it. */
-function placeName(places: TaskPlaceChoice[], list: string, section: string | null): string {
+export function placeName(places: TaskPlaceChoice[], list: string, section: string | null): string {
   const name = listLabel(list);
   const sectionName = section ? places.find((p) => p.list === list && p.section === section)?.label : undefined;
   return sectionName ? `${name} · ${sectionName}` : name;
@@ -461,8 +461,34 @@ export function TaskComposer({ keep, start, today, places, recordChoices, record
     setDue(picked);
   };
 
+  // Empty, nothing typed and nothing set but what it opened with, a press anywhere else closes it;
+  // not one in its pickers and menus.
+  const box = useRef<HTMLDivElement>(null);
+  const empty =
+    !title.trim() &&
+    !description.trim() &&
+    due === start.due &&
+    priority === (start.priority ?? 4) &&
+    record === null &&
+    labels.join('\u0000') === (start.labels ?? []).join('\u0000') &&
+    assignee?.id === start.assignee?.id;
+  const away = useRef({ empty, open: !!open, onClose });
+  away.current = { empty, open: !!open, onClose };
+  useEffect(() => {
+    const down = (event: globalThis.MouseEvent) => {
+      const target = event.target as Element;
+      const now = away.current;
+      if (!now.empty || now.open || box.current?.contains(target)) return;
+      if (target.closest('.pick-pop, .lbl-picker, [role="menu"], [role="listbox"], [role="dialog"]')) return;
+      now.onClose();
+    };
+    window.addEventListener('mousedown', down);
+    return () => window.removeEventListener('mousedown', down);
+  }, []);
+
   return (
     <div
+      ref={box}
       className="task-composer"
       onKeyDown={(event) => {
         if (event.key !== 'Escape' || open) return;

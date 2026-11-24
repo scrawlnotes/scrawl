@@ -2076,7 +2076,11 @@ export function App() {
     }
     if (id === UPCOMING) return setQuickAdd({ list: INBOX_TASKS, section: null, due: upcomingView === 'calendar' ? upDay : today });
     const list = listOf(id);
-    if (list !== null) setQuickAdd({ list, section: null, due: null });
+    if (list === null) return;
+    // Into the section picked over the list, if it is still there; from All, into none.
+    const picked = listLooks[list]?.section;
+    const section = picked && (sections[list] ?? []).some((each) => each.id === picked) ? picked : null;
+    setQuickAdd({ list, section, due: null });
   };
   /** The people of the space a path is in, to give a task or a card to; none in the personal space, which is only you. */
   const peopleOf = (path: string): SpacePeople | null => {
@@ -2310,11 +2314,12 @@ export function App() {
     },
     addSection: (list, name, after) => session.addSection(list, name, after),
     renameSection: (list, id, name) => session.renameSection(list, id, name),
-    foldSection: (list, id, collapsed) => session.foldSection(list, id, collapsed),
     removeSection: deleteSection,
     moveTask: (list, id, place) => session.moveTask(list, id, place),
     moveSection: (list, id, after) => session.moveSection(list, id, after),
     moveTo: (list, id) => setDialog({ kind: 'moveTask', list, id }),
+    places: taskPlaces,
+    moveToPlace: (list, id, target, section) => session.moveTaskTo(list, id, target, section),
     noteTitle: (path) => titles[path] ?? null,
     openNote: (path) => void session.open(path),
     cardLabel: (ref) => {

@@ -94,7 +94,6 @@ import {
   dirname,
   displayTitle,
   editComment,
-  foldSection,
   emptyTrash,
   INBOX_TASKS,
   isScratchNote,
@@ -2476,11 +2475,13 @@ export class Session {
     // Lists, boards, keys files and collections that are gone are forgotten; while the spaces are
     // still read, one not read yet is not gone: the opening forgets those once it has them all.
     const there = (path: string, items: Record<string, unknown>) => path in items || this.opening !== null || reading.size > 0;
-    // A list and a board keep what they are filtered by, not the text searched for, which goes when the app does.
+    // A list and a board keep what they are filtered by, not the text searched for, which goes when
+    // the app does; a list keeps the section picked too.
     const lists = Object.fromEntries(
       Object.entries(listLooks).flatMap(([path, look]) => {
         const filter = look.filter && { ...look.filter, text: '' };
-        return there(path, tasks) && filter && asksAnything(filter) ? [[path, { filter }]] : [];
+        const kept: ListLook = { ...(filter && asksAnything(filter) && { filter }), ...(look.section !== undefined && { section: look.section }) };
+        return there(path, tasks) && Object.keys(kept).length > 0 ? [[path, kept]] : [];
       }),
     );
     void saveWorkspace(this.personal, {
@@ -2592,10 +2593,16 @@ export class Session {
     this.lookAtBoard(path, { ...(this.snapshot.boardLooks[path] ?? { view: 'board' }), filter });
   }
 
-  /** Remembers what a task list is filtered by, and the text searched for until the app closes; a filter that asks nothing is forgotten. */
+  /**
+   * Remembers what a task list is filtered by, and the text searched for until the app closes, and
+   * the section picked; `look` changes what it gives, `section: undefined` goes back to All. A
+   * filter that asks nothing is forgotten.
+   */
   lookAtList(path: string, look: ListLook) {
-    const { [path]: _was, ...rest } = this.snapshot.listLooks;
-    this.set({ listLooks: look.filter && choosesAnything(look.filter) ? { ...rest, [path]: look } : rest });
+    const { [path]: was, ...rest } = this.snapshot.listLooks;
+    const now = { ...was, ...look };
+    const kept: ListLook = { ...(now.filter && choosesAnything(now.filter) && { filter: now.filter }), ...(now.section !== undefined && { section: now.section }) };
+    this.set({ listLooks: Object.keys(kept).length > 0 ? { ...rest, [path]: kept } : rest });
     this.saveWorkspace();
   }
 
@@ -3697,10 +3704,6 @@ export class Session {
 
   renameSection(list: string, id: string, name: string) {
     this.changeList(list, (current) => renameSection(current, id, name));
-  }
-
-  foldSection(list: string, id: string, collapsed: boolean) {
-    this.changeList(list, (current) => foldSection(current, id, collapsed));
   }
 
   /** Moves a task, with its subtasks, where it was dropped. */

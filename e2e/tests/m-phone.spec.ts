@@ -104,6 +104,26 @@ test('on a phone a section is added from the list’s menu', async ({ app, phone
   await expect.poll(async () => ((await inboxFile(app)).sections ?? []).map((section) => section.name)).toEqual(['Errands']);
 });
 
+test('on a phone the sections are chips over the list, and + adds to the one picked', async ({ app, phone }) => {
+  test.skip(!phone);
+  await openInbox(app);
+  await addTask(app, 'Call mom');
+  await app.getByRole('button', { name: 'More' }).click();
+  await app.getByRole('menuitem', { name: 'Add section' }).click();
+  await app.getByRole('textbox', { name: 'Section name' }).fill('Errands');
+  await app.getByRole('button', { name: /^(Save|Add)$/ }).last().click();
+  const chips = app.getByRole('tablist', { name: 'Sections' });
+  await chips.getByRole('tab', { name: /^Errands/ }).click();
+  await expect(app.getByText('Call mom', { exact: true })).toHaveCount(0);
+  await addTask(app, 'Buy milk');
+  await expect.poll(async () => {
+    const saved = JSON.parse((await vaultFile(app, 'Inbox.tasks.json')) ?? '{}') as { tasks?: { title: string; section?: string | null }[]; sections?: { id: string; name: string }[] };
+    return saved.tasks?.find((task) => task.title === 'Buy milk')?.section === saved.sections?.find((section) => section.name === 'Errands')?.id;
+  }).toBe(true);
+  await chips.getByRole('tab', { name: /^All/ }).click();
+  await expect(app.getByText('Call mom', { exact: true })).toBeVisible();
+});
+
 test('on a phone a task held and moved above another goes before it', async ({ app, phone }) => {
   test.skip(!phone);
   await openInbox(app);

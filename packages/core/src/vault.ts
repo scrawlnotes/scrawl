@@ -79,9 +79,11 @@ export interface BoardLook {
   filter?: PlaceChoices;
 }
 
-/** How a task list was last looked at on this device: what it is filtered by, the text it is searched for left out (design/filters.md 2.5). */
+/** How a task list was last looked at on this device: what it is filtered by, the text it is searched for left out (design/filters.md 2.5), and the section picked. */
 export interface ListLook {
   filter?: PlaceChoices;
+  /** In a list with sections, the one shown: its id, null for the tasks in none; left out for All. */
+  section?: string | null;
 }
 
 /** How a keys file was last looked at on this device: as a table or as its text. */
@@ -1229,12 +1231,15 @@ export async function loadWorkspace(fs: VaultFs): Promise<Workspace> {
         };
       }
     }
-    // A list filtered by nothing is not kept, nor is the text it was searched for.
+    // A list filtered by nothing is not kept, nor is the text it was searched for; the section picked is.
     const lists: Record<string, ListLook> = {};
     if (data.lists && typeof data.lists === 'object') {
       for (const [path, look] of Object.entries(data.lists as Record<string, unknown>)) {
-        const filter = { ...readChoices((look as Partial<ListLook> | null)?.filter), text: '' };
-        if (asksAnything(filter)) lists[path] = { filter };
+        const read = look && typeof look === 'object' ? (look as Partial<ListLook>) : null;
+        const filter = { ...readChoices(read?.filter), text: '' };
+        const section = read?.section;
+        const kept: ListLook = { ...(asksAnything(filter) && { filter }), ...((typeof section === 'string' || section === null) && { section }) };
+        if (Object.keys(kept).length > 0) lists[path] = kept;
       }
     }
     const labelLooks: Record<string, PlaceChoices> = {};
