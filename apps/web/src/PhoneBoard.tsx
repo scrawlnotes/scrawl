@@ -238,6 +238,37 @@ export const cardHead = (_board: Board, card: Card, key: string, boardName: stri
   sub: t('phone.cardIn', { board: boardName }),
 });
 
+/** A new column's name, asked before it is added, as + Column asks on a computer (design/e2e-findings.md U11). */
+export function ColumnSheet({ onAdd, onClose }: { onAdd: (name: string) => void; onClose: () => void }) {
+  const [name, setName] = useState('');
+  const add = (event?: FormEvent) => {
+    event?.preventDefault();
+    if (!name.trim()) return;
+    onAdd(name.trim());
+    onClose();
+  };
+  return (
+    <Sheet label={t('board.newColumn')} className="mb-create" onClose={onClose}>
+      <div className="mb-sh three">
+        <button type="button" className="cancel" onClick={onClose}>
+          {t('dialog.cancel')}
+        </button>
+        <b>{t('board.newColumn')}</b>
+        <button type="button" className="ok" disabled={!name.trim()} onMouseDown={(event) => event.preventDefault()} onClick={() => add()}>
+          {t('phone.add')}
+        </button>
+      </div>
+      <form className="mb-form" onSubmit={add}>
+        <div className="mb-group">
+          <label className="mb-fr">
+            <input className="in" autoFocus enterKeyHint="done" aria-label={t('board.columnName')} placeholder={t('board.columnName')} value={name} onChange={(event) => setName(event.target.value)} />
+          </label>
+        </div>
+      </form>
+    </Sheet>
+  );
+}
+
 /** Who a card is on, typed in a sheet: Cancel, Save, and the name. Empty is nobody. */
 export function AssigneeSheet({ value, onSave, onClose }: { value: string; onSave: (value: string | null) => void; onClose: () => void }) {
   const [name, setName] = useState(value);

@@ -147,6 +147,7 @@ import { HistoryDialog, HistoryList, versionLabel, VersionView } from './History
 import { PhoneCardPage } from './CardPanel';
 import { LinkActions, LinkSheet, PhoneFormatBar } from './PhoneNote';
 import { DateSheet, QuickAdd, RecordSheet, SectionSheet, TaskSheet } from './PhoneTasks';
+import { ColumnSheet } from './PhoneBoard';
 import { Icon, type IconName, isIconName } from './Icon';
 import { type KeysActions, KeysView } from './Keys';
 import { type CollectionActions, CollectionView, RecordDialog, recordDeleteText } from './Collection';
@@ -1385,7 +1386,7 @@ export function App() {
       markdown.push(
         { label: t('phone.fieldsMenu'), icon: 'settings', run: () => setBoardFields((n) => n + 1) },
         { label: t('phone.phases'), icon: 'phase', value: board.phasesOn ? t('phone.on') : t('phone.off'), run: () => session.setPhasesOn(path, !board.phasesOn) },
-        { label: t('board.addColumn'), icon: 'plus', run: () => session.addColumn(path, t('board.newColumn'), 'active') },
+        { label: t('board.addColumn'), icon: 'plus', run: () => setColumnSheet(path) },
       );
     }
     if (markdown.length + items.length === 0) return;
@@ -1753,6 +1754,7 @@ export function App() {
   // On a phone a day for some tasks at once is chosen in a sheet: what is overdue, rescheduled.
   const [dayPicker, setDayPicker] = useState<{ title: string; onPick: (due: string | null) => void } | null>(null);
   // On a phone a section is named in a sheet: a new one from the list's menu, or one renamed.
+  const [columnSheet, setColumnSheet] = useState<string | null>(null);
   const [sectionSheet, setSectionSheet] = useState<{ list: string; section: Section | null } | null>(null);
 
   // Export (PLAN 4.7): how many files the note links to, for the window's Markdown, once read.
@@ -1997,6 +1999,7 @@ export function App() {
       setTaskPicker(null);
       setDayPicker(null);
       setSectionSheet(null);
+      setColumnSheet(null);
       setFilterSheet(null);
       setLabelsOpen(null);
       setLinkTap(null);
@@ -3579,6 +3582,7 @@ export function App() {
               );
             })()}
           {dayPicker && <DateSheet title={dayPicker.title} current={null} today={today} onPick={dayPicker.onPick} onClose={() => setDayPicker(null)} />}
+          {columnSheet !== null && <ColumnSheet onAdd={(name) => session.addColumn(columnSheet, name, 'active')} onClose={() => setColumnSheet(null)} />}
           {sectionSheet && (
             <SectionSheet
               list={sectionSheet.list}

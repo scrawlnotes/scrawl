@@ -1847,7 +1847,7 @@ export function BoardView({ path, board, name, embedded, today, actions, look, o
   const boardMenu = (event: MouseEvent) =>
     actions.menu(event, [
       { label: board.phasesOn ? t('board.phasesOff') : t('board.phasesOn'), run: () => actions.setPhasesOn(path, !board.phasesOn) },
-      { label: t('board.addColumn'), run: () => (phone ? actions.addColumn(path, t('board.newColumn'), 'active') : setAddingColumn(true)) },
+      { label: t('board.addColumn'), run: () => setAddingColumn(true) },
     ]);
 
   const counts = Object.fromEntries(board.columns.map((column) => [column.id, columnCards(board, column.id).filter(visible).length]));

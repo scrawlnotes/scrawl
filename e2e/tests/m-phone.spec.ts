@@ -184,12 +184,16 @@ async function phoneBoard(page: Page, name: string, template: 'Simple' | 'Softwa
 const boardFile = async (page: Page, name: string) =>
   JSON.parse((await vaultFile(page, `${name}.board.json`)) ?? '{"columns":[],"cards":[]}') as { columns: { name: string }[]; phases?: { id: string; name: string; state?: string }[]; cards: { title: string; phase?: string | null }[] };
 
-test('on a phone a column is added from the board’s menu, before Done', async ({ app, phone }) => {
+test('on a phone a column is added from the board’s menu with the name asked, before Done', async ({ app, phone }) => {
   test.skip(!phone);
   await phoneBoard(app, 'Hiring', 'Simple');
   await app.getByRole('button', { name: 'More' }).click();
   await app.getByRole('menuitem', { name: 'Add column' }).click();
-  await expect.poll(async () => (await boardFile(app, 'Hiring')).columns.map((column) => column.name)).toEqual(['Todo', 'Doing', 'New column', 'Done']);
+  // Its name is asked first, in a sheet (design/e2e-findings.md U11).
+  const sheet = app.getByRole('dialog', { name: 'New column' });
+  await sheet.getByRole('textbox', { name: 'Column name' }).fill('Interview');
+  await sheet.getByRole('button', { name: 'Add', exact: true }).click();
+  await expect.poll(async () => (await boardFile(app, 'Hiring')).columns.map((column) => column.name)).toEqual(['Todo', 'Doing', 'Interview', 'Done']);
 });
 
 test('on a phone a phase is added from + Phase, and closed with its unfinished card going to the next', async ({ app, phone }) => {
