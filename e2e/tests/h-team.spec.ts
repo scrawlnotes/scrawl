@@ -84,6 +84,26 @@ test('@ in a message offers the room’s people, and the one picked is written',
   await expect(second.getByText(/Thanks @Ben/).first()).toBeVisible({ timeout: 20_000 });
 });
 
+test('@ in a message being changed offers the room’s people too', async ({ app, second, phone }) => {
+  test.skip(phone, 'Desktop only.');
+  await teamChat(app, second);
+  const box = app.getByRole('textbox', { name: 'Message #general' });
+  await box.click();
+  await app.keyboard.type('See you');
+  await app.keyboard.press('Enter');
+  // Sent, not still on its way: only then is it there to change.
+  await expect(second.getByText('See you').first()).toBeVisible({ timeout: 20_000 });
+  await app.locator('.ch-m', { hasText: 'See you' }).last().click({ button: 'right' });
+  await app.getByRole('menuitem', { name: 'Edit' }).click();
+  await expect(app.locator('.ch-edit-box .cm-content')).toBeFocused();
+  await app.keyboard.type(' @Be');
+  await app.getByRole('option', { name: /Ben/ }).first().click();
+  // The click on the list keeps the change going; Enter keeps it.
+  await expect(app.locator('.ch-editing')).toBeVisible();
+  await app.keyboard.press('Enter');
+  await expect(second.getByText(/See you @Ben/).first()).toBeVisible({ timeout: 20_000 });
+});
+
 test('a shared space’s People lists who is in it', async ({ app, phone }) => {
   test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   const space = await spaceWithInvite('Crew');

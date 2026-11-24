@@ -1012,7 +1012,7 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
                     quoted={message.replyTo ? messages.find((each) => each.id === message.replyTo!.id) : undefined}
                     nameOf={nameOf}
                     me={server.me}
-                    editing={editing === message.id}
+                    editing={editing === message.id ? { server, chat } : null}
                     reacting={reacting === message.id}
                     flash={flash === message.id}
                     onEdit={async (body) => {
@@ -1172,7 +1172,8 @@ const MessageRow = memo(function MessageRow(props: {
   quoted: ChatMessage | undefined;
   nameOf: (id: string) => string;
   me: string;
-  editing: boolean;
+  /** While the message is changed: the conversation, whose people its @ offers. */
+  editing: { server: ChatServer; chat: ChatInfo } | null;
   reacting: boolean;
   flash: boolean;
   onEdit: (body: string) => void;
@@ -1212,7 +1213,7 @@ const MessageRow = memo(function MessageRow(props: {
   const body = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (body.current) shape(body.current, props.chipState);
-  }, [html, props.chipState, props.editing]);
+  }, [html, props.chipState, !!props.editing]);
   const fold = useFold(body, html, !!props.onHold);
   return (
     <div
@@ -1253,7 +1254,7 @@ const MessageRow = memo(function MessageRow(props: {
         {message.deleted ? (
           <div className="ch-del">{t('chat.deleted')}</div>
         ) : props.editing ? (
-          <MessageEditor body={message.body} onSave={props.onEdit} onCancel={props.onCancelEdit} />
+          <MessageEditor body={message.body} server={props.editing.server} chat={props.editing.chat} onSave={props.onEdit} onCancel={props.onCancelEdit} />
         ) : (
           message.body.trim() !== '' && (
             <>
@@ -1634,11 +1635,47 @@ function ReactionPicker({ onPick, onClose, startWide = false }: { onPick: (emoji
   );
 }
 
-/** A message's words changed where they are: Enter or a click away keeps them, Esc or Cancel leaves them. */
-function MessageEditor({ body, onSave, onCancel }: { body: string; onSave: (body: string) => void; onCancel: () => void }) {
+/** The @ of a conversation's boxes: its people, the person's agents they wake, and in a room @room. */
+function useChatMentions(editor: RefObject<ScrawlEditor | null>, server: ChatServer, chat: ChatInfo) {
+  const agents = useWakeable(server.url);
+  return useMentions(editor, (query) => [
+    ...others(chat, server.me)
+      .filter((person) => !chat.gone.includes(person.id) && person.name.toLowerCase().split(/\s+/).some((word) => word.startsWith(query)))
+      .map((person) => ({ key: person.id, label: person.name, insert: personLink(person.name, person.id) })),
+    ...agentChoices(agents, query, t('mention.yourAgent')),
+    ...(chat.kind !== 'direct' && 'room'.startsWith(query) ? [{ key: '@room', label: '@room', sub: t('chat.notifyRoom', { name: `#${chat.name}` }), insert: ROOM_MENTION }] : []),
+  ]);
+}
+
+/** That list: over the box that sends; at the @ in a message being changed. */
+function ChatMentionList({ mentions, server, chat, atCaret = false }: { mentions: ReturnType<typeof useMentions>; server: ChatServer; chat: ChatInfo; atCaret?: boolean }) {
+  if (!mentions.open) return null;
+  return (
+    <MentionList
+      caption={chat.kind === 'direct' ? t('chat.inDirect') : t('chat.inRoom', { name: `#${chat.name}` })}
+      choices={mentions.choices}
+      picked={mentions.picked}
+      onChoose={mentions.choose}
+      face={(choice) =>
+        choice.key === '@room' ? (
+          <span className="atr">
+            <Icon name="people" />
+          </span>
+        ) : (
+          <Face id={choice.key} name={choice.label} size="sm" online={server.active.includes(choice.key)} agent={choice.agent} />
+        )
+      }
+      {...(atCaret && { at: mentions.caret() })}
+    />
+  );
+}
+
+/** A message's words changed where they are: Enter or a click away keeps them, Esc or Cancel leaves them; @ mentions as in the box that sends. */
+function MessageEditor({ body, server, chat, onSave, onCancel }: { body: string; server: ChatServer; chat: ChatInfo; onSave: (body: string) => void; onCancel: () => void }) {
   const box = useRef<HTMLDivElement>(null);
   const editor = useRef<ScrawlEditor | null>(null);
   const done = useRef(false);
+  const mentions = useChatMentions(editor, server, chat);
   const finish = (save: boolean) => {
     if (done.current) return;
     done.current = true;
@@ -1647,12 +1684,13 @@ function MessageEditor({ body, onSave, onCancel }: { body: string; onSave: (body
   };
   useEffect(() => {
     // On a phone, a sentence begins with a capital, as in a note. No `/` menu: a message is not a note.
-    const made = createEditor({ parent: box.current!, doc: body, touch: isPhone(), slash: false });
+    const made = createEditor({ parent: box.current!, doc: body, touch: isPhone(), slash: false, onChange: () => window.setTimeout(mentions.look) });
     editor.current = made;
     made.view.focus();
     made.view.dispatch({ selection: { anchor: made.view.state.doc.length } });
     const away = (event: globalThis.MouseEvent) => {
-      if (!box.current?.parentElement?.contains(event.target as Node)) finish(true);
+      // The @ list is put on the page's body, apart from the box: a click on it is not away.
+      if (!box.current?.parentElement?.contains(event.target as Node) && !(event.target as Element).closest?.('.ch-pop')) finish(true);
     };
     window.addEventListener('mousedown', away);
     return () => {
@@ -1663,6 +1701,7 @@ function MessageEditor({ body, onSave, onCancel }: { body: string; onSave: (body
   const onKeyDownCapture = (event: KeyboardEvent) => {
     const view = editor.current?.view;
     if (!view) return;
+    if (mentions.onKeyDown(event)) return;
     if (event.key === 'Escape') {
       event.preventDefault();
       finish(false);
@@ -1673,7 +1712,8 @@ function MessageEditor({ body, onSave, onCancel }: { body: string; onSave: (body
     }
   };
   return (
-    <div className="ch-editing" onKeyDownCapture={onKeyDownCapture}>
+    <div className="ch-editing" onKeyDownCapture={onKeyDownCapture} onKeyUp={mentions.look} onMouseUp={mentions.look}>
+      <ChatMentionList mentions={mentions} server={server} chat={chat} atCaret />
       <div className="ch-edit-box" ref={box} />
       <button type="button" className="ch-cancel" onMouseDown={(event) => event.preventDefault()} onClick={() => finish(false)}>
         {t('dialog.cancel')}
@@ -1937,15 +1977,7 @@ export function Composer({ server, chat, replyTo, nameOf, menu, links, dropping,
     window.setTimeout(() => editor.current && focusOnCapital(editor.current.view));
   };
 
-  // @: the conversation's people, the person's agents they wake, and in a room @room.
-  const agents = useWakeable(server.url);
-  const mentions = useMentions(editor, (query) => [
-    ...others(chat, server.me)
-      .filter((person) => !chat.gone.includes(person.id) && person.name.toLowerCase().split(/\s+/).some((word) => word.startsWith(query)))
-      .map((person) => ({ key: person.id, label: person.name, insert: personLink(person.name, person.id) })),
-    ...agentChoices(agents, query, t('mention.yourAgent')),
-    ...(chat.kind !== 'direct' && 'room'.startsWith(query) ? [{ key: '@room', label: '@room', sub: t('chat.notifyRoom', { name: `#${chat.name}` }), insert: ROOM_MENTION }] : []),
-  ]);
+  const mentions = useChatMentions(editor, server, chat);
   const look = mentions.look;
 
   useEffect(() => {
@@ -2086,23 +2118,7 @@ export function Composer({ server, chat, replyTo, nameOf, menu, links, dropping,
           </button>
         </div>
       )}
-      {mentions.open && (
-        <MentionList
-          caption={chat.kind === 'direct' ? t('chat.inDirect') : t('chat.inRoom', { name: `#${chat.name}` })}
-          choices={mentions.choices}
-          picked={mentions.picked}
-          onChoose={mentions.choose}
-          face={(choice) =>
-            choice.key === '@room' ? (
-              <span className="atr">
-                <Icon name="people" />
-              </span>
-            ) : (
-              <Face id={choice.key} name={choice.label} size="sm" online={server.active.includes(choice.key)} agent={choice.agent} />
-            )
-          }
-        />
-      )}
+      <ChatMentionList mentions={mentions} server={server} chat={chat} />
       {formatting && (
         <div className="fmt" onMouseDown={(event) => event.preventDefault()}>
           {FORMATS.map((item) => (
