@@ -64,6 +64,7 @@ const store = calendarAccount({
   connect: { prompt: 'consent', scope: `${SCOPES} ${WRITE}` },
   renew: (email) => ({ prompt: 'consent', ...(email ? { login_hint: email } : {}) }),
   renewsByLeaving: false,
+  back: () => '/',
   reader: (token) => new GoogleReader({ token }),
   writer: (token, timeZone) => new GoogleWriter({ token }, timeZone),
   // For an account connected before writing was asked for with reading, or one whose writing was left unticked:

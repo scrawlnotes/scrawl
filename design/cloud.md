@@ -151,7 +151,7 @@ Adaptör, sync servisi ve ekranlar aynıdır. Değişen giriştir: tarayıcıda 
   - **Dönüş:** sayfa `/onedrive`'a döner, adres `/`'e temizlenir. Anahtar `web: true` ile saklanır; böyle anahtar açılışta yenilenmez.
   - **Eski anahtar:** sayfanın kendi aldığı anahtar eskisi gibi sayfadan yenilenir; açılışta 20 saatten eskiyse yapılan gidiş dönüş artık `/onedrive`'a döner ve Worker'ın 90 günlük anahtarını getirir. Kullanıcı bir şey yapmaz.
   - **Kendi kaydını kullanan** eskisi gibi sayfadan, 24 saatlik anahtarla gider: Worker'da onun secret'ı yok.
-  - **Outlook takvimi** (`calendarAccount.ts`) hâlâ sayfadan, 24 saatlik anahtarla; aynı yola sonra geçebilir.
+  - **Outlook takvimi** (`outlook.ts`, `calendarAccount.ts`) aynı yoldan gider: aynı kayıt, aynı `/onedrive` dönüşü (takvimin dönüşü OneDrive'ınkinden önce, kendi `state`'iyle alınır), anahtarı `web: true` ve 90 gün; eskisi açılışta bir kez yenilenince geçer.
 - **Graph istekleri** masaüstünde de web tarafından gider; tarayıcıda değişmez.
 - **Kendi kaydını kullanma** web'de de vardır; kendi kaydına aynı platform eklenmelidir.
 - **Geliştirirken** tarayıcı yine `FakeGraph`'a bağlanır. `VITE_ONEDRIVE=real` ile gerçek OneDrive'a bağlanır.

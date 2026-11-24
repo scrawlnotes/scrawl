@@ -51,8 +51,8 @@ const CLIENT = 'scrawl.onedriveClient';
 /** In the browser: the key and when it was given, and a sign-in waiting for the page to come back. */
 const BROWSER_KEY = 'scrawl.onedriveKey';
 const PENDING = 'scrawl.signIn';
-/** In the browser: where the sign-in comes back, as Scrawl's web app is registered (design/cloud.md 2.4). */
-const BACK = '/onedrive';
+/** In the browser: where Microsoft's sign-in comes back, OneDrive's and Outlook's, as Scrawl's web app is registered (design/cloud.md 8b). */
+export const BACK = '/onedrive';
 /** The Worker that adds Scrawl's web secret to the sign-in: its `/token` and `/refresh`. */
 const WORKER = 'https://app.scrawlnotes.com/microsoft';
 /** In the browser: the sign-in was renewed on opening in this session already, or tried. */
@@ -384,7 +384,7 @@ interface BrowserKey {
 }
 
 /** Whether a sign-in here goes through the Worker: with Scrawl's own registration, whose web secret it holds. */
-const throughWorker = () => clientId() === DEFAULT_CLIENT_ID;
+export const throughWorker = () => clientId() === DEFAULT_CLIENT_ID;
 
 /** In the browser: the page goes to Microsoft and comes back; the key is in the browser's storage. */
 class BrowserCloud extends SignedCloud implements Cloud {

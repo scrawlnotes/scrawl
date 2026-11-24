@@ -50,12 +50,14 @@ export interface CalendarProvider {
   authorizeUrl(redirect: string, state: string, challenge: string, extra: Record<string, string>): string;
   /** The address the desktop's listener on `port` takes the answer at. */
   desktopRedirect(port: number): string;
-  /** Asks for tokens: for a code, or with the key. */
-  tokens(form: Record<string, string>): Promise<Tokens>;
+  /** Asks for tokens: for a code, or with the key; `web` when the browser's sign-in came back to `back` and goes through the Worker. */
+  tokens(form: Record<string, string>, web: boolean): Promise<Tokens>;
+  /** In the browser, where the sign-in comes back; another than the root goes through the Worker and lasts. */
+  back(): string;
   /** What a first sign-in adds to the address, and one that renews it. */
   connect: Record<string, string>;
   renew(email?: string): Record<string, string>;
-  /** In the browser, whether the key lasts a day only and is renewed by signing in again (Microsoft's). */
+  /** In the browser, whether a key the page got lasts a day only and is renewed by signing in again (Microsoft's). */
   renewsByLeaving: boolean;
   reader(token: (fresh: boolean) => Promise<string>): CalendarSource;
   /** Writing Scrawl's work to its "Scrawl" calendar there, in the device's zone. */
@@ -122,12 +124,19 @@ export function calendarAccount(p: CalendarProvider) {
     return readJson<{ key: string }>(localStorage, BROWSER_KEY)?.key ?? null;
   }
 
+  /** In the browser: whether the kept key came through the Worker, and lasts. */
+  const keptIsWeb = () => !isDesktop && readJson<{ web?: boolean }>(localStorage, BROWSER_KEY)?.web === true;
+  /** Whether the sign-in being finished came back through the Worker's address. */
+  let signingWeb = false;
+
   async function keepKey(key: string, fresh: boolean) {
     if (isDesktop) return invoke('secret_set', { name: p.secret, value: key });
-    // A renewed key ends when the first one does, a day after the sign-in, where keys do.
-    const since = fresh ? Date.now() : (readJson<{ since: number }>(localStorage, BROWSER_KEY)?.since ?? Date.now());
+    // A page's renewed key ends when the first one does, a day after the sign-in, where keys do.
+    const was = readJson<{ since: number; web?: boolean }>(localStorage, BROWSER_KEY);
+    const since = fresh ? Date.now() : (was?.since ?? Date.now());
+    const web = fresh ? signingWeb : was?.web === true;
     try {
-      localStorage.setItem(BROWSER_KEY, JSON.stringify({ key, since }));
+      localStorage.setItem(BROWSER_KEY, JSON.stringify({ key, since, ...(web && { web }) }));
     } catch {
       // Not kept: the next reading asks to sign in again.
     }
@@ -154,7 +163,7 @@ export function calendarAccount(p: CalendarProvider) {
   async function renew(): Promise<string> {
     const key = await keptKey();
     if (!key) throw new RemoteSignedOut();
-    const answer = await p.tokens({ grant_type: 'refresh_token', refresh_token: key });
+    const answer = await p.tokens({ grant_type: 'refresh_token', refresh_token: key }, keptIsWeb());
     if (answer.refresh_token && answer.refresh_token !== key) await keepKey(answer.refresh_token, false);
     keepAccess(answer);
     return answer.access_token;
@@ -185,7 +194,7 @@ export function calendarAccount(p: CalendarProvider) {
   async function leave(intent: Pending['intent'], email?: string, more: Record<string, string> = {}): Promise<boolean> {
     const { verifier, challenge } = await pkce();
     const at = randomText(16);
-    const redirect = `${window.location.origin}/`;
+    const redirect = `${window.location.origin}${p.back()}`;
     try {
       sessionStorage.setItem(PENDING, JSON.stringify({ verifier, state: at, intent, redirect } satisfies Pending));
     } catch {
@@ -203,7 +212,8 @@ export function calendarAccount(p: CalendarProvider) {
     const redirect = p.desktopRedirect(port);
     await invoke('open_url', { url: p.authorizeUrl(redirect, at, challenge, { ...p.connect, ...more }) });
     const code = await invoke<string>('oauth_wait', { port, state: at, pages: { done: t(`${p.id}.browserDone`), failed: t('cloud.browserFailed') } });
-    await signedInWith(await p.tokens({ grant_type: 'authorization_code', code, redirect_uri: redirect, code_verifier: verifier }));
+    signingWeb = false;
+    await signedInWith(await p.tokens({ grant_type: 'authorization_code', code, redirect_uri: redirect, code_verifier: verifier }, false));
   }
 
   /**
@@ -217,11 +227,13 @@ export function calendarAccount(p: CalendarProvider) {
     const pending = readJson<Pending>(sessionStorage, PENDING);
     if (pending && (params.has('code') || params.has('error')) && params.get('state') === pending.state) {
       sessionStorage.removeItem(PENDING);
-      window.history.replaceState(null, '', window.location.pathname + window.location.hash);
+      // Back at the Worker's address, the app goes on at its root.
+      window.history.replaceState(null, '', '/' + window.location.hash);
       const code = params.get('code');
+      signingWeb = new URL(pending.redirect).pathname !== '/';
       if (code) {
         void p
-          .tokens({ grant_type: 'authorization_code', code, redirect_uri: pending.redirect, code_verifier: pending.verifier })
+          .tokens({ grant_type: 'authorization_code', code, redirect_uri: pending.redirect, code_verifier: pending.verifier }, signingWeb)
           .then(signedInWith)
           .catch((error: unknown) => fail(error));
       } else if (pending.intent === 'renew') {
@@ -231,7 +243,8 @@ export function calendarAccount(p: CalendarProvider) {
       }
       return true;
     }
-    if (!p.renewsByLeaving) return true;
+    // The Worker's key lasts and is renewed as it is used: only a page's, a day's, is renewed by leaving.
+    if (!p.renewsByLeaving || keptIsWeb()) return true;
     const since = readJson<{ since: number }>(localStorage, BROWSER_KEY)?.since ?? null;
     if (since === null || !navigator.onLine || Date.now() - since < RENEW_AFTER_MS) return true;
     try {

@@ -1,14 +1,14 @@
 import { addDays, type CalendarEvent, dayIn, OutlookReader, OutlookWriter } from '@scrawlnotes/core';
-import { AUTHORITY, clientId, postFromPage, postFromShell, tokenRequest } from './cloud';
+import { AUTHORITY, BACK, clientId, postFromPage, postFromShell, postViaWorker, throughWorker, tokenRequest } from './cloud';
 import { calendarAccount, type CalendarSource } from './calendarAccount';
 import { isDesktop } from './storage';
 
 // Outlook's calendar in Scrawl (design/outlook-calendar.md): Microsoft's sign-in for it, apart
-// from OneDrive's, through the app's registration. In the browser its key lasts a day, and is
-// renewed on opening as OneDrive's is (cloud.ts).
+// from OneDrive's, through the app's registration. In the browser it comes back where OneDrive's
+// does and goes through the Worker, its key lasting 90 days; a key a page got for itself lasts a
+// day, and is renewed on opening as it was, once (cloud.ts, design/cloud.md 8b).
 
 const SCOPES = 'Calendars.ReadWrite offline_access User.Read';
-const post = isDesktop ? postFromShell : postFromPage;
 
 export const outlook = calendarAccount({
   id: 'outlook',
@@ -26,7 +26,8 @@ export const outlook = calendarAccount({
       ...extra,
     })}`,
   desktopRedirect: (port) => `http://localhost:${port}`,
-  tokens: (form) => tokenRequest(post, { ...form, scope: SCOPES }),
+  tokens: (form, web) => tokenRequest(isDesktop ? postFromShell : web ? postViaWorker : postFromPage, { ...form, scope: SCOPES }),
+  back: () => (throughWorker() ? BACK : '/'),
   connect: { prompt: 'select_account' },
   renew: (email) => ({ prompt: 'none', ...(email ? { login_hint: email } : {}) }),
   renewsByLeaving: true,
