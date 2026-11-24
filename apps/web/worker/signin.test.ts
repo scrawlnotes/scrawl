@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { handle } from './google';
+import { handle } from './signin';
 
 // The Worker that adds the web client's secret to Google's sign-in (design/cloud.md 10.6), with a
 // stand-in for Google: what it passes on, to whom it answers, and that Google's answer comes back.
@@ -65,6 +65,23 @@ describe('the Google sign-in Worker', () => {
     expect((await handle(post('/google/revoke', { token: 't' }), env, send)).status).toBe(404);
     expect((await handle(new Request(`${APP}/google/token`, { headers: { Origin: APP } }), env, send)).status).toBe(405);
     expect(sent).toHaveLength(0);
+  });
+
+  it("turns OneDrive's code into a key with its own secret, coming back to /onedrive, and renews it with its scope", async () => {
+    const { sent, send } = google();
+    const ms = { ...env, MICROSOFT_CLIENT_ID: 'ms-id', MICROSOFT_CLIENT_SECRET: 'ms-secret' };
+    await handle(post('/microsoft/token', { client_id: 'page', code: 'c', code_verifier: 'v', scope: 'Files.ReadWrite offline_access', redirect_uri: `${APP}/` }), ms, send);
+    await handle(post('/microsoft/refresh', { refresh_token: 'r', scope: 'Files.ReadWrite offline_access', code: 'c' }), ms, send);
+    expect(sent).toEqual([
+      {
+        url: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+        form: { client_id: 'ms-id', client_secret: 'ms-secret', grant_type: 'authorization_code', code: 'c', code_verifier: 'v', scope: 'Files.ReadWrite offline_access', redirect_uri: `${APP}/onedrive` },
+      },
+      { url: 'https://login.microsoftonline.com/common/oauth2/v2.0/token', form: { client_id: 'ms-id', client_secret: 'ms-secret', grant_type: 'refresh_token', refresh_token: 'r', scope: 'Files.ReadWrite offline_access' } },
+    ]);
+    // Without its secret it is not set up; Google's goes on.
+    expect((await handle(post('/microsoft/token', { code: 'c' }), env, send)).status).toBe(503);
+    expect((await handle(post('/microsoft/token/more', { code: 'c' }), ms, send)).status).toBe(404);
   });
 
   it('says it is not set up while the secret is missing, and that Google is out of reach', async () => {

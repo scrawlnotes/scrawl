@@ -144,7 +144,14 @@ Adaptör, sync servisi ve ekranlar aynıdır. Değişen giriştir: tarayıcıda 
 - **24 saat:** Microsoft tarayıcı uygulamalarına verdiği yenileme anahtarını 24 saatte bitirir; kullanıldıkça uzamaz.
   - Uygulama açılırken giriş 20 saatten eskiyse, daha bir şey gösterilmeden sayfa Microsoft'a gidip döner (`prompt=none`, hesabın e-postasıyla). Microsoft'un kendi oturumu sürdükçe bir şey yazmak gerekmez; bir iki saniyelik bir gidiş dönüştür. Oturum bittiyse Microsoft bir şey sormadan hata döner, sayfa döngüye girmez, durum "Sign in to OneDrive again" olur.
   - Uygulama açıkken 24 saat dolarsa sayfa kendiliğinden gitmez, yazılan kesilmesin: durum çubuğunda ve sync panelinde "Sign in to OneDrive again" çıkar. Basınca önce yazılan kaydedilir, sonra aynı gidiş dönüş yapılır.
-- **Saklama:** yenileme anahtarı ve alındığı zaman `localStorage`'da durur, erişim anahtarı yalnızca bellektedir. Anahtarın ömrü 24 saattir ve uygulama başka bir kaynaktan betik yüklemez.
+- **Saklama:** yenileme anahtarı ve alındığı zaman `localStorage`'da durur, erişim anahtarı yalnızca bellektedir. Uygulama başka bir kaynaktan betik yüklemez.
+- **90 gün, Worker'la (24 Kasım 2026):** 24 saat kullanıcıya her gün "Sign in to OneDrive again" gösteriyordu: sekme bir günden uzun açık kalınca, telefonda Scrawl arka plandan dönünce. Microsoft web uygulamasına (gizli anahtarı olan) verdiği yenileme anahtarını 90 gün tutar ve her kullanımda yeniler (Microsoft Learn, "Refresh tokens in the Microsoft identity platform"). Bu yüzden Scrawl'ın kendi kaydıyla tarayıcıdaki giriş, Google'daki gibi (10.6), app.scrawlnotes.com'daki Worker'dan geçer.
+  - **Kayıt:** Scrawl'ın Microsoft kaydına "Web" platformu: `https://app.scrawlnotes.com/onedrive` (geliştirirken `http://localhost:5173/onedrive`) ve bir client secret. Single-page application adresleri, eski anahtarlar bir kez yenilenene kadar kalır.
+  - **Worker:** `/microsoft/token` ve `/microsoft/refresh` (`worker/signin.ts`); sayfanın gönderdiği koddan, doğrulayıcıdan, anahtardan ve izinlerden başka bir şey geçmez; secret `wrangler secret put MICROSOFT_CLIENT_SECRET` ile Cloudflare'de durur, hiçbir şey saklanmaz ve loglanmaz.
+  - **Dönüş:** sayfa `/onedrive`'a döner, adres `/`'e temizlenir. Anahtar `web: true` ile saklanır; böyle anahtar açılışta yenilenmez.
+  - **Eski anahtar:** sayfanın kendi aldığı anahtar eskisi gibi sayfadan yenilenir; açılışta 20 saatten eskiyse yapılan gidiş dönüş artık `/onedrive`'a döner ve Worker'ın 90 günlük anahtarını getirir. Kullanıcı bir şey yapmaz.
+  - **Kendi kaydını kullanan** eskisi gibi sayfadan, 24 saatlik anahtarla gider: Worker'da onun secret'ı yok.
+  - **Outlook takvimi** (`calendarAccount.ts`) hâlâ sayfadan, 24 saatlik anahtarla; aynı yola sonra geçebilir.
 - **Graph istekleri** masaüstünde de web tarafından gider; tarayıcıda değişmez.
 - **Kendi kaydını kullanma** web'de de vardır; kendi kaydına aynı platform eklenmelidir.
 - **Geliştirirken** tarayıcı yine `FakeGraph`'a bağlanır. `VITE_ONEDRIVE=real` ile gerçek OneDrive'a bağlanır.

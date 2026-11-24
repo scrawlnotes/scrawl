@@ -1,19 +1,23 @@
 // The web app on Cloudflare, at app.scrawlnotes.com: its built files, and every address that is not
-// a file opens the app. The Worker runs only for /google/*: it adds the web client's secret to
-// Google's sign-in (worker/google.ts, design/cloud.md 10.6); the secret is set with
-// `wrangler secret put GOOGLE_CLIENT_SECRET`, never written here. Published with
+// a file opens the app. The Worker runs only for /google/* and /microsoft/*: it adds the web
+// client's secret to Google's and to OneDrive's sign-in (worker/signin.ts, design/cloud.md 10.6 and
+// 2.4); the secrets are set with `wrangler secret put GOOGLE_CLIENT_SECRET` and
+// `wrangler secret put MICROSOFT_CLIENT_SECRET`, never written here. Published with
 // `pnpm --filter @scrawlnotes/web run release`.
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "scrawl-web",
   "compatibility_date": "2026-10-09",
-  "main": "./worker/google.ts",
+  "main": "./worker/signin.ts",
   "assets": {
     "directory": "./dist",
     "not_found_handling": "single-page-application",
-    "run_worker_first": ["/google/*"]
+    "run_worker_first": ["/google/*", "/microsoft/*"]
   },
-  "vars": { "GOOGLE_CLIENT_ID": "498960667148-tbn2glc3lolfqq8rcbf986bp8qqi0f4m.apps.googleusercontent.com" },
+  "vars": {
+    "GOOGLE_CLIENT_ID": "498960667148-tbn2glc3lolfqq8rcbf986bp8qqi0f4m.apps.googleusercontent.com",
+    "MICROSOFT_CLIENT_ID": "fb9dd1e9-b9b0-40ad-ace0-f47a28240fe4"
+  },
   // It keeps no logs: the keys pass through it.
   "observability": { "enabled": false },
   "routes": [{ "pattern": "app.scrawlnotes.com", "custom_domain": true }],

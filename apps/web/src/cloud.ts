@@ -7,9 +7,11 @@ import { isDesktop } from './storage';
 // goes on in the system browser, its return is caught on this computer and the tokens are asked for
 // by the desktop shell, since Microsoft refuses to give a desktop app's tokens to a web page; the
 // long-lived key stays in the system's credential store. In the browser the page goes to Microsoft
-// and comes back, the tokens are asked for by the page, and the key, which lasts a day there, stays
-// in the browser's storage. The access token is only ever in memory. See design/cloud.md, sections
-// 2 and 8b.
+// and comes back to /onedrive, the tokens are asked for through the Worker at app.scrawlnotes.com,
+// which adds Scrawl's web secret, and the key, which lasts 90 days that way and is renewed with each
+// use, stays in the browser's storage. A key a page got for itself lasts a day; one kept from before
+// is renewed on opening as it was, once, and is a Worker's from then on. The access token is only
+// ever in memory. See design/cloud.md, sections 2, 2.4 and 8b.
 
 /** Scrawl's own app registration: public, as every desktop app's is. */
 export const DEFAULT_CLIENT_ID = 'fb9dd1e9-b9b0-40ad-ace0-f47a28240fe4';
@@ -49,6 +51,10 @@ const CLIENT = 'scrawl.onedriveClient';
 /** In the browser: the key and when it was given, and a sign-in waiting for the page to come back. */
 const BROWSER_KEY = 'scrawl.onedriveKey';
 const PENDING = 'scrawl.signIn';
+/** In the browser: where the sign-in comes back, as Scrawl's web app is registered (design/cloud.md 2.4). */
+const BACK = '/onedrive';
+/** The Worker that adds Scrawl's web secret to the sign-in: its `/token` and `/refresh`. */
+const WORKER = 'https://app.scrawlnotes.com/microsoft';
 /** In the browser: the sign-in was renewed on opening in this session already, or tried. */
 const RENEWED = 'scrawl.signInRenewed';
 /** Microsoft ends a browser's key a day after it was given; it is renewed on opening after this long. */
@@ -128,6 +134,17 @@ export const postFromShell: TokenPost = async (form) => {
     if (String(error).includes('offline')) throw new RemoteOffline();
     throw error;
   }
+};
+
+/** In the browser, for Scrawl's own registration: through the Worker, which adds the web secret; the key lasts 90 days. */
+export const postViaWorker: TokenPost = async (form) => {
+  let response: Response;
+  try {
+    response = await fetch(`${WORKER}/${form.grant_type === 'refresh_token' ? 'refresh' : 'token'}`, { method: 'POST', body: new URLSearchParams(form) });
+  } catch {
+    throw new RemoteOffline();
+  }
+  return { status: response.status, body: await response.text() };
 };
 
 /** In the browser the page sends it; Microsoft takes it for the addresses registered as a single-page application. */
@@ -359,23 +376,43 @@ export function readJson<T>(storage: Storage, key: string): T | null {
   }
 }
 
-/** In the browser: the page goes to Microsoft and comes back; the key, a day's, is in the browser's storage. */
+/** A key kept in the browser: when it was given, and whether the Worker got it (90 days) or the page (a day). */
+interface BrowserKey {
+  key: string;
+  since: number;
+  web?: boolean;
+}
+
+/** Whether a sign-in here goes through the Worker: with Scrawl's own registration, whose web secret it holds. */
+const throughWorker = () => clientId() === DEFAULT_CLIENT_ID;
+
+/** In the browser: the page goes to Microsoft and comes back; the key is in the browser's storage. */
 class BrowserCloud extends SignedCloud implements Cloud {
   readonly redirects = true;
+  /** Whether the sign-in being finished came back to the Worker's address. */
+  private signingWeb = false;
 
   constructor() {
-    super(postFromPage);
+    // A code that came back to /onedrive, and a key the Worker gave, go through the Worker; a key a page got goes as it came.
+    super((form) => (form.redirect_uri ? form.redirect_uri.endsWith(BACK) : this.keptIsWeb()) ? postViaWorker(form) : postFromPage(form));
   }
 
   protected async keptKey() {
-    return readJson<{ key: string }>(localStorage, BROWSER_KEY)?.key ?? null;
+    return readJson<BrowserKey>(localStorage, BROWSER_KEY)?.key ?? null;
   }
 
-  // A renewed key ends when the first one does: the time kept is that of the sign-in.
+  /** Whether the kept key is the Worker's, which lasts and is renewed as it is used. */
+  keptIsWeb(): boolean {
+    return readJson<BrowserKey>(localStorage, BROWSER_KEY)?.web === true;
+  }
+
+  // A page's renewed key ends when the first one does: the time kept is that of the sign-in.
   protected async keepKey(key: string, fresh: boolean) {
-    const since = fresh ? Date.now() : (readJson<{ since: number }>(localStorage, BROWSER_KEY)?.since ?? Date.now());
+    const was = readJson<BrowserKey>(localStorage, BROWSER_KEY);
+    const since = fresh ? Date.now() : (was?.since ?? Date.now());
+    const web = fresh ? this.signingWeb : was?.web === true;
     try {
-      localStorage.setItem(BROWSER_KEY, JSON.stringify({ key, since }));
+      localStorage.setItem(BROWSER_KEY, JSON.stringify({ key, since, ...(web && { web }) } satisfies BrowserKey));
     } catch {
       // Not kept: the next turn asks to sign in again.
     }
@@ -401,7 +438,7 @@ class BrowserCloud extends SignedCloud implements Cloud {
   async leave(intent: Pending['intent'], email?: string, before = performance.now()): Promise<boolean> {
     const { verifier, challenge } = await pkce();
     const state = randomText(16);
-    const redirect = `${window.location.origin}/`;
+    const redirect = `${window.location.origin}${throughWorker() ? BACK : '/'}`;
     try {
       sessionStorage.setItem(PENDING, JSON.stringify({ verifier, state, intent, redirect, leftAt: Date.now(), before } satisfies Pending));
     } catch {
@@ -434,7 +471,8 @@ class BrowserCloud extends SignedCloud implements Cloud {
     if (!code && !error) return null;
     const pending = readJson<Pending>(sessionStorage, PENDING);
     sessionStorage.removeItem(PENDING);
-    window.history.replaceState(null, '', window.location.pathname + window.location.hash);
+    // Back at /onedrive, the app goes on at its root.
+    window.history.replaceState(null, '', (window.location.pathname === BACK ? '/' : window.location.pathname) + window.location.hash);
     if (!pending || pending.state !== params.get('state')) return null;
     return { pending, code, error, description: params.get('error_description') };
   }
@@ -452,6 +490,7 @@ class BrowserCloud extends SignedCloud implements Cloud {
       return failed(reason);
     }
     const asked = performance.now();
+    this.signingWeb = pending.redirect.endsWith(BACK);
     try {
       await this.signedInWith(
         await tokenRequest(this.post, { grant_type: 'authorization_code', code: code!, redirect_uri: pending.redirect, code_verifier: pending.verifier, scope: scopesFor(pending.intent) }),
@@ -578,7 +617,8 @@ export async function prepareSignIn(connectedAs: string | null): Promise<boolean
     );
     return true;
   }
-  if (connectedAs === null || !navigator.onLine) return true;
+  // The Worker's key lasts 90 days and is renewed as it is used: only a page's, a day's, is renewed on opening.
+  if (connectedAs === null || !navigator.onLine || here.keptIsWeb()) return true;
   const since = here.keySince();
   let tried = false;
   try {
