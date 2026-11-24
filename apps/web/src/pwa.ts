@@ -59,7 +59,7 @@ function found(worker: ServiceWorker | null) {
  * Looks for a new version now, from Settings › About: the service worker is fetched again, and a
  * new one is kept on the device before it is offered, as when the app finds it by itself.
  */
-export async function checkForWebUpdate() {
+export async function checkForWebUpdate(again = 1) {
   if (!registration || waiting) return;
   checked = { state: 'checking' };
   tell();
@@ -80,6 +80,8 @@ export async function checkForWebUpdate() {
   worker.addEventListener('statechange', () => {
     if (worker.state === 'installed') found(worker);
     else if (worker.state === 'redundant') {
+      // A newer version went out while this one came down, and its files went with it: look once more.
+      if (again > 0) return void checkForWebUpdate(again - 1);
       checked = { state: 'failed', offline: !navigator.onLine, reason: 'the new version could not be kept on this device' };
       tell();
     }
