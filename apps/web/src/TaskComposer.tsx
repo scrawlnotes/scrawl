@@ -339,6 +339,24 @@ export function PlacePop({ anchor, places, current, onPick, onClose }: {
   );
 }
 
+// An add row open, and what is typed in it, outlive the view: another tab gone to and back, it is all
+// as it was left. Cancel forgets it; a task added leaves the row empty. The page loaded again starts afresh.
+const kept = new Map<string, unknown>();
+
+/** As useState, but kept under `key` for the next time the view is made. */
+export function useKept<T>(key: string | null, initial: T): [T, (next: T | ((was: T) => T)) => void] {
+  const [value, setValue] = useState<T>(() => (key !== null && kept.has(key) ? (kept.get(key) as T) : initial));
+  useEffect(() => {
+    if (key !== null) kept.set(key, value);
+  }, [key, value]);
+  return [value, setValue];
+}
+
+/** Forgets all kept under keys that start so. */
+export function forgetKept(prefix: string) {
+  for (const key of kept.keys()) if (key.startsWith(prefix)) kept.delete(key);
+}
+
 /** Where adding starts: the day set, and the list and section it goes in. */
 export interface ComposerStart {
   due: string | null;
@@ -359,7 +377,9 @@ export interface ComposerStart {
  * date picked, or the chip's ×, leaves those words as they are. A record is one of the list's space, as a
  * task's links do not reach another space.
  */
-export function TaskComposer({ start, today, places, recordChoices, recordName, menu, description: host, onAdd, onClose }: {
+export function TaskComposer({ keep, start, today, places, recordChoices, recordName, menu, description: host, onAdd, onClose: close }: {
+  /** Where what is typed is kept while the view is away: the same for the same row. */
+  keep?: string;
   start: ComposerStart;
   today: string;
   places: TaskPlaceChoice[];
@@ -370,19 +390,25 @@ export function TaskComposer({ start, today, places, recordChoices, recordName, 
   onAdd: (list: string, task: NewTask) => void;
   onClose: () => void;
 }) {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
+  const at0 = keep === undefined ? null : `${keep}\u0000`;
+  const k = (name: string) => (at0 === null ? null : at0 + name);
+  const onClose = () => {
+    if (at0 !== null) forgetKept(at0);
+    close();
+  };
+  const [title, setTitle] = useKept(k('title'), '');
+  const [description, setDescription] = useKept(k('description'), '');
   // The description's editor is made anew once a task is added, and for a list in another
   // space, whose attachments its files go to; what was written comes along.
   const [added, setAdded] = useState(0);
-  const [due, setDue] = useState(start.due);
-  const [priority, setPriority] = useState<Priority>(start.priority ?? 4);
-  const [record, setRecord] = useState<TaskRecord | null>(null);
-  const [labels, setLabels] = useState<string[]>(start.labels ?? []);
-  const [place, setPlace] = useState({ list: start.list, section: start.section });
-  const [assignee, setAssignee] = useState(start.assignee);
+  const [due, setDue] = useKept(k('due'), start.due);
+  const [priority, setPriority] = useKept<Priority>(k('priority'), start.priority ?? 4);
+  const [record, setRecord] = useKept<TaskRecord | null>(k('record'), null);
+  const [labels, setLabels] = useKept<string[]>(k('labels'), start.labels ?? []);
+  const [place, setPlace] = useKept(k('place'), { list: start.list, section: start.section });
+  const [assignee, setAssignee] = useKept(k('assignee'), start.assignee);
   // The words of a day in the name that are to stay words: the date was picked or taken off.
-  const [kept, setKept] = useState<string | null>(null);
+  const [kept, setKept] = useKept<string | null>(k('kept'), null);
   const inName = dayInText(title, today);
   const named = inName && title.slice(inName.from, inName.to).toLowerCase() !== kept ? inName : null;
   const day = named ? named.day : due;

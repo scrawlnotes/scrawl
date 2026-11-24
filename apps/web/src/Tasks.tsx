@@ -72,7 +72,7 @@ import { choiceColor } from './Calendar';
 import { isPhone, onPage, pageBox, pageWindow } from './device';
 import type { MenuHead, MenuItem, TaskPlaceChoice } from './dialogs';
 import { priorityItems } from './PhoneTasks';
-import { DatePop, TaskComposer } from './TaskComposer';
+import { DatePop, forgetKept, TaskComposer, useKept } from './TaskComposer';
 import { AttachButton, type DescriptionHost, DescriptionField } from './Description';
 import { remindLabel, remindOf } from './Remind';
 import { ContextMenu } from './dialogs';
@@ -394,7 +394,9 @@ const keptOf = ({ labels: _labels, ...kept }: TaskStart = {}): TaskStart => kept
  * beside its buttons. In a filtered list it starts with what `start` gives, shown there too; a
  * click takes one off.
  */
-export function Composer({ placeholder, addLabel = t('tasks.add'), labelsAt, start, people, today, onAdd, onClose }: {
+export function Composer({ keep, placeholder, addLabel = t('tasks.add'), labelsAt, start, people, today, onAdd, onClose: close }: {
+  /** Where what is typed is kept while the view is away: the same for the same row. */
+  keep?: string;
   placeholder: string;
   addLabel?: string;
   labelsAt?: string;
@@ -406,9 +408,14 @@ export function Composer({ placeholder, addLabel = t('tasks.add'), labelsAt, sta
   onAdd: (title: string, labels: string[], kept: TaskStart) => void;
   onClose: () => void;
 }) {
-  const [title, setTitle] = useState('');
-  const [picked, setPicked] = useState<string[]>(start?.labels ?? []);
-  const [kept, setKept] = useState<TaskStart>(() => keptOf(start));
+  const at0 = keep === undefined ? null : `${keep}\u0000`;
+  const onClose = () => {
+    if (at0 !== null) forgetKept(at0);
+    close();
+  };
+  const [title, setTitle] = useKept(at0 && `${at0}title`, '');
+  const [picked, setPicked] = useKept<string[]>(at0 && `${at0}labels`, start?.labels ?? []);
+  const [kept, setKept] = useKept<TaskStart>(at0 && `${at0}start`, keptOf(start));
   const field = useRef<HTMLTextAreaElement>(null);
   const at = useAtLabels({ path: labelsAt ?? '', field, value: title, onValue: setTitle, picked, onPick: (name) => setPicked((now) => [...now, name]) });
   const add = () => {
@@ -834,10 +841,11 @@ function PhoneTaskItem({ list, task, tasks, today, showDone, actions, flat, grou
 }
 
 function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, grouped, byDay, drag, picks }: ItemProps) {
-  const [editing, setEditing] = useState<Draft | null>(null);
+  // A name or description being changed, and a subtask being typed, outlive the view too.
+  const [editing, setEditing] = useKept<Draft | null>(`edit\u0000${list}\u0000${task.id}`, null);
   // The record button, while its list of records is open under it.
   const [picking, setPicking] = useState<HTMLElement | null>(null);
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useKept(`open\u0000${list}\u0000sub\u0000${task.id}`, false);
   const [open, setOpen] = useState(true);
   const datePicker = useRef<HTMLInputElement>(null);
   const rowRef = useRef<HTMLDivElement>(null);
@@ -1318,6 +1326,7 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
           ))}
           {adding && (
             <Composer
+              keep={`${list}\u0000sub\u0000${task.id}`}
               placeholder={t('tasks.subtaskName')}
               labelsAt={list}
               onAdd={(title, picked) => actions.add(list, { title, parent: task.id, ...(picked.length > 0 && { labels: picked }) })}
@@ -1605,7 +1614,7 @@ function SectionBlock({ list, section, top, item, actions, drag, dropInto, addin
   adding: Adding;
 }) {
   const [renaming, setRenaming] = useState<string | null>(null);
-  const [composing, setComposing] = useState(false);
+  const [composing, setComposing] = useKept(`open\u0000${list}\u0000${section.id}`, false);
   const open = !section.collapsed;
   const rename = () => {
     if (renaming !== null) actions.renameSection(list, section.id, renaming);
@@ -1794,6 +1803,8 @@ export function TaskList({ list, tasks, sections, today, actions, places, reveal
       return (
         <TaskComposer
           key={key}
+          // Kept by its place, not its opening: opened there again, what was typed is back.
+          keep={`${list}\u0000${String(key).split(':')[0]}`}
           start={{ due: start?.due ?? null, list, section, priority: start?.priority, labels: start?.labels, assignee: start?.assignee }}
           today={today}
           places={places ?? []}
@@ -1813,10 +1824,10 @@ export function TaskList({ list, tasks, sections, today, actions, places, reveal
   const statusKey = status?.join('\u0000') ?? '';
   useEffect(() => onStatus?.(status), [statusKey]);
   useEffect(() => () => onStatus?.(null), []);
-  const [composing, setComposing] = useState(false);
+  const [composing, setComposing] = useKept(`open\u0000${list}\u0000end`, false);
   // The header's Add task in a list with sections: a new task with the place it goes, chosen at its
   // foot, at first the top of the list; the count tells one opening from the next.
-  const [placing, setPlacing] = useState(0);
+  const [placing, setPlacing] = useKept(`open\u0000${list}\u0000placing`, 0);
   // A new section's name, being typed where it goes: at the end, from the header's Add section, or
   // between two sections, after the one `after` names (null for the top), from the line there.
   const [addingSection, setAddingSection] = useState<{ after?: string | null } | null>(null);

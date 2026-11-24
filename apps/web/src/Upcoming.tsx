@@ -30,7 +30,7 @@ import { type CalendarRange, loadCalendarRange, loadUpcomingView, pageBox, pageW
 import type { TaskPlaceChoice } from './dialogs';
 import { StillOpening } from './Loading';
 import { Icon } from './Icon';
-import { dateWords, DatePop, TaskComposer } from './TaskComposer';
+import { dateWords, DatePop, TaskComposer, useKept } from './TaskComposer';
 import { useCalendarEvents } from './calendars';
 import { AllDayEvents, EventBox, eventBoxes, EventChip, openEventBox } from './OutlookEvents';
 import {
@@ -162,6 +162,16 @@ export function CompletedToday({ lists, today, actions }: { lists: Record<string
 }
 
 /** The header's Add task, pressed: `asked` counts the presses, and a view opens adding at each new one. */
+/** Runs `then` when `value` changes, not when the view is made: a day window kept open comes back with it. */
+function useChanged(value: string, then: () => void) {
+  const seen = useRef(value);
+  useEffect(() => {
+    if (value === seen.current) return;
+    seen.current = value;
+    then();
+  }, [value]);
+}
+
 function useAsked(asked: number, open: () => void) {
   const seen = useRef(asked);
   useEffect(() => {
@@ -258,7 +268,7 @@ interface Adding {
 }
 
 function UpcomingList({ lists, boards, today, actions, places, onAdd, onStatus, asked }: Props & { asked: number }) {
-  const [adding, setAdding] = useState<Adding | null>(null);
+  const [adding, setAdding] = useKept<Adding | null>('open\u0000upcoming', null);
   const [rescheduling, setRescheduling] = useState<HTMLElement | null>(null);
   const due = dueToday(lists, today);
   const cards = splitDueCards(boards, today);
@@ -288,6 +298,7 @@ function UpcomingList({ lists, boards, today, actions, places, onAdd, onStatus, 
   const composer = adding && (
     <TaskComposer
       key={`composer:${adding.n}`}
+      keep={`upcoming\u0000${adding.at}`}
       start={{ due: adding.due, list: INBOX_TASKS, section: null }}
       today={today}
       places={places}
@@ -417,7 +428,7 @@ const CELL_PADDING = 8;
 function UpcomingCalendar({ lists, boards, today, actions, places, onAdd, onStatus, month, asked }: Props & { month: string; asked: number }) {
   const grid = useRef<HTMLDivElement>(null);
   const [fit, setFit] = useState(3);
-  const [opened, setOpened] = useState<Opened | null>(null);
+  const [opened, setOpened] = useKept<Opened | null>('open\u0000month', null);
   const [dragging, setDragging] = useState<{ item: Dated; from: string } | null>(null);
   const [dropOn, setDropOn] = useState<string | null>(null);
   const days = monthDays(month);
@@ -443,7 +454,7 @@ function UpcomingCalendar({ lists, boards, today, actions, places, onAdd, onStat
   const openDay = (day: string) => setOpened((was) => (was?.day === day ? was : { day, adding: false, n: (was?.n ?? 0) + 1 }));
   const addOn = (day: string) => setOpened((was) => ({ day, adding: true, n: (was?.n ?? 0) + 1 }));
   // Another month closes the day open in this one; Add task, which may come with this month again, opens today after.
-  useEffect(() => setOpened(null), [month]);
+  useChanged(month, () => setOpened(null));
   useAsked(asked, () => addOn(today));
 
   const inMonth = (day: string) => day.slice(0, 7) === month;
@@ -568,7 +579,7 @@ function UpcomingCalendar({ lists, boards, today, actions, places, onAdd, onStat
           );
         })}
       </div>
-      {opened && (
+      {opened && days.includes(opened.day) && (
         <DayWindow
           key={opened.day}
           grid={grid}
@@ -661,7 +672,7 @@ function DayChip({ entry, day, today, boards, lifted, onDragStart, onDragEnd, on
  */
 function UpcomingWeek({ lists, boards, today, actions, places, onAdd, onStatus, days, asked }: Props & { days: string[]; asked: number }) {
   const grid = useRef<HTMLDivElement>(null);
-  const [opened, setOpened] = useState<Opened | null>(null);
+  const [opened, setOpened] = useKept<Opened | null>('open\u0000week', null);
   const [dragging, setDragging] = useState<{ item: Dated; from: string } | null>(null);
   const [dropOn, setDropOn] = useState<string | null>(null);
   const { tasks, cards, subtasks, records, byDay } = datedByDay(lists, boards, today, actions.dueSubtasks(), actions.dueRecords());
@@ -673,7 +684,7 @@ function UpcomingWeek({ lists, boards, today, actions, places, onAdd, onStatus, 
 
   const openDay = (day: string) => setOpened((was) => (was?.day === day ? was : { day, adding: false, n: (was?.n ?? 0) + 1 }));
   const addOn = (day: string) => setOpened((was) => ({ day, adding: true, n: (was?.n ?? 0) + 1 }));
-  useEffect(() => setOpened(null), [days[0]]);
+  useChanged(days[0]!, () => setOpened(null));
   useAsked(asked, () => addOn(days.includes(today) ? today : days[0]!));
 
   const shown = (day: string) => day >= days[0]! && day <= days.at(-1)!;
@@ -782,7 +793,7 @@ function UpcomingWeek({ lists, boards, today, actions, places, onAdd, onStatus, 
   return (
     <div className="up-week">
       <TimeGrid days={days} today={today} allDay={cell} boxes={boxes} onOpen={openBox} onMove={moveBox} onResize={stretchBox} gridRef={grid} />
-      {opened && (
+      {opened && days.includes(opened.day) && (
         <DayWindow
           key={opened.day}
           grid={grid}
@@ -897,6 +908,7 @@ function DayWindow({ grid, opened, entries, lists, boards, today, actions, place
       {opened.adding ? (
         <TaskComposer
           key={`composer:${opened.n}`}
+          keep={`day\u0000${day}`}
           start={{ due: day, list: INBOX_TASKS, section: null }}
           today={today}
           places={places}

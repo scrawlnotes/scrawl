@@ -66,6 +66,7 @@ import { LabelChip } from './labels';
 import { Chip } from './choices';
 import { Empty, liftUntilTouch, Sheet, SheetClose, suppressClick } from './sheets';
 import { dueClass, dueLabel, toDate } from './Tasks';
+import { forgetKept, useKept } from './TaskComposer';
 import { holdToDrag } from './touchDrag';
 import { SubtaskCount } from './Subtasks';
 
@@ -190,8 +191,13 @@ function LineInput({ className, placeholder, initial = '', action, onDone, onCan
 }
 
 /** The row a new card is typed into. Add card, or Enter, adds it and keeps the row for the next one, as Trello does. */
-function CardComposer({ onAdd, onClose }: { onAdd: (title: string) => void; onClose: () => void }) {
-  const [title, setTitle] = useState('');
+function CardComposer({ keep, onAdd, onClose: close }: { keep: string; onAdd: (title: string) => void; onClose: () => void }) {
+  // What is typed outlives the view, another tab gone to and back; Cancel forgets it.
+  const [title, setTitle] = useKept(keep, '');
+  const onClose = () => {
+    forgetKept(keep);
+    close();
+  };
   const add = () => {
     if (!title.trim()) return;
     onAdd(title);
@@ -232,8 +238,13 @@ function CardComposer({ onAdd, onClose }: { onAdd: (title: string) => void; onCl
 }
 
 /** The line a card is typed into in the list, under its group's header. Add, or Enter, adds it and keeps the line for the next one, as the board's columns do. */
-function ListComposer({ onAdd, onClose }: { onAdd: (title: string) => void; onClose: () => void }) {
-  const [title, setTitle] = useState('');
+function ListComposer({ keep, onAdd, onClose: close }: { keep: string; onAdd: (title: string) => void; onClose: () => void }) {
+  // What is typed outlives the view, another tab gone to and back; Cancel forgets it.
+  const [title, setTitle] = useKept(keep, '');
+  const onClose = () => {
+    forgetKept(keep);
+    close();
+  };
   const add = () => {
     if (!title.trim()) return;
     onAdd(title);
@@ -509,7 +520,7 @@ function ColumnBlock({ board, path, column, cards, shown, lane, today, actions, 
   /** The column's header is dragged to another place; not in the lanes. */
   onGrabColumn?: (event: DragEvent<HTMLElement>, column: Column) => void;
 }) {
-  const [composing, setComposing] = useState(false);
+  const [composing, setComposing] = useKept(`open\u0000${path}\u0000${column.id}\u0000${lane ?? ''}`, false);
   const [renaming, setRenaming] = useState(false);
   const [showOld, setShowOld] = useState(false);
   const [notifying, setNotifying] = useState(false);
@@ -652,7 +663,7 @@ function ColumnBlock({ board, path, column, cards, shown, lane, today, actions, 
         </button>
       )}
       {composing ? (
-        <CardComposer onAdd={add} onClose={() => setComposing(false)} />
+        <CardComposer keep={`${path}\u0000${column.id}\u0000${lane ?? ''}`} onAdd={add} onClose={() => setComposing(false)} />
       ) : (
         !phone && (
           <button type="button" className="qa" onClick={() => setComposing(true)}>
@@ -1216,7 +1227,7 @@ function BoardList({ board, path, today, actions, openCard, visible, toggled, in
    * The group a card is being typed into, and the card added last from its line: the next goes
    * after it, and the line stays right under it.
    */
-  const [adding, setAdding] = useState<{ group: string; after: string | null } | null>(null);
+  const [adding, setAdding] = useKept<{ group: string; after: string | null } | null>(`open\u0000${path}\u0000list`, null);
   const toggle = (field: Sort['field']) =>
     setSort((now) => (now?.field === field ? (now.desc ? null : { field, desc: true }) : { field, desc: false }));
   const groups: ListGroup[] = board.phasesOn
@@ -1358,7 +1369,7 @@ function BoardList({ board, path, today, actions, openCard, visible, toggled, in
         const lines = rows.map(row);
         if (typing) {
           const at = adding.after ? rows.findIndex((card) => card.id === adding.after) + 1 : 0;
-          lines.splice(at, 0, <ListComposer key="composer" onAdd={(title) => addTo(group, title)} onClose={() => setAdding(null)} />);
+          lines.splice(at, 0, <ListComposer key="composer" keep={`${path}\u0000list\u0000${group.id}`} onAdd={(title) => addTo(group, title)} onClose={() => setAdding(null)} />);
         }
         return (
           <div key={group.id}>
