@@ -26,9 +26,16 @@ It writes the space as it is now, a plain folder tree in a zip, to take it to On
 
 ## Updating
 
+When a newer version is out, Scrawl tells the server's owner and admins: in the status bar, and on the server's page in **Settings › Spaces**. The server looks for one on GitHub once a day.
+
+Back it up first, then update:
+
 ```
+docker compose exec scrawl scrawl-server backup
 docker compose pull && docker compose up -d
 ```
+
+On Coolify, open the server's resource and press **Redeploy**; with the image's `latest` tag it takes the new version.
 
 The database is brought to the new version as the server starts. Put a version such as `0.2` in the compose file to update only when you choose.
 

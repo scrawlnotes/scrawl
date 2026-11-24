@@ -16,6 +16,7 @@ import { Push, type Sender, vapidKeys } from './push';
 import { Spaces } from './spaces';
 import { type LinkOptions, previewOf, Unfurls } from './unfurl';
 import { type VideoTools, Videos } from './video';
+import { Updates } from './updates';
 import { type WakeSend, Wakes } from './wake';
 
 /** The server's parts on its data folder, and its app; for running it and for tests. */
@@ -34,6 +35,8 @@ export function makeServer(
     links?: LinkOptions | null;
     /** What sends an agent's wake; a test gives its own receiver. */
     wakeSend?: WakeSend;
+    /** What reads the newest version out from GitHub; a test gives its own. */
+    fetchUpdates?: typeof fetch;
   } = {},
 ) {
   const now = options.now ?? Date.now;
@@ -82,6 +85,8 @@ export function makeServer(
   files.onWrite = (space, path, before, after, by) => notices.written(space, path, before, after, by);
   // Each morning at nine, the work due today and tomorrow.
   const due = new Due(db, blobs, push, now);
-  const app = createApp({ config, blobs, files, accounts, spaces, live, invites, oauth, chats, push, wakes, now, ...(options.minSyncLevel !== undefined && { minSyncLevel: options.minSyncLevel }) });
-  return { db, blobs, files, accounts, spaces, live, invites, oauth, chats, push, wakes, notices, due, app };
+  // The newest version out, which `serve` reads now and each day.
+  const updates = new Updates(options.fetchUpdates);
+  const app = createApp({ config, blobs, files, accounts, spaces, live, invites, oauth, chats, push, wakes, updates, now, ...(options.minSyncLevel !== undefined && { minSyncLevel: options.minSyncLevel }) });
+  return { db, blobs, files, accounts, spaces, live, invites, oauth, chats, push, wakes, notices, due, updates, app };
 }

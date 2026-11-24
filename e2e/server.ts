@@ -95,3 +95,11 @@ export async function spaceFile(space: string, path: string): Promise<string | n
   const response = await fetch(`${SERVER}/api/v1/spaces/${space}/files/${path.split('/').map(encodeURIComponent).join('/')}`, { headers: { authorization: `Bearer ${ownerToken()}` } });
   return response.ok ? response.text() : null;
 }
+
+/** Makes the person with this email an admin of the test server, as its owner does. */
+export async function makeAdmin(email: string): Promise<void> {
+  const people = await call<{ id: string; email: string }[]>('/api/v1/accounts', { token: ownerToken() });
+  const person = people.find((each) => each.email === email);
+  if (!person) throw new Error(`No account for ${email}`);
+  await call(`/api/v1/accounts/${encodeURIComponent(person.id)}`, { method: 'PATCH', body: { role: 'admin' }, token: ownerToken() });
+}

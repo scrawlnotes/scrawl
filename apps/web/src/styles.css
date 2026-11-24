@@ -1561,6 +1561,12 @@ input:focus {
   font-weight: 600;
 }
 
+/* A newer version of a server the person owns or runs: Help's Updating opens. */
+.status .srv-update {
+  color: var(--sl-accent);
+  font-weight: 600;
+}
+
 /* A space waiting for a sign-in, beside sync while sync speaks of another: it signs in. */
 .status .sign-in {
   display: flex;
@@ -24397,4 +24403,9 @@ svg.sign.small {
 .face-gpt {
   font-size: 0.78em;
   letter-spacing: -0.02em;
+}
+
+/* A newer version of a server out, on its page and in the list of servers. */
+.srv-out {
+  color: var(--sl-accent);
 }

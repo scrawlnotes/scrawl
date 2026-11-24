@@ -402,7 +402,7 @@ import {
   setCarriedSeen,
 } from './storage';
 import { pictureSession } from './pictures';
-import { accountToTake, knownServers, onServersChanged, personIn, rememberServer, serverAccount, serverKey, tellTimeZones } from './servers';
+import { accountToTake, knownServers, lookForServerUpdates, onServersChanged, personIn, rememberServer, serverAccount, serverKey, tellTimeZones } from './servers';
 import { keptConnection } from './sync';
 
 const SAVE_DELAY_MS = 400;
@@ -977,6 +977,8 @@ export class Session {
     await this.openSpaces();
     // The servers hear the person's time zone, for an agent's "today" there; nothing waits for them.
     tellTimeZones();
+    // The servers the person owns or runs say whether a newer version of them is out.
+    lookForServerUpdates();
     const workspace = await loadWorkspace(this.personal);
     // The onboarding note opens each time until it is closed on this device, for those who had
     // the app before it too, with this version's text. It is kept under `.scrawl`, where the folder

@@ -17,6 +17,7 @@ import { zipInto } from './export';
 import { joinPage, type JoinFound, readyPage } from './pages';
 import type { Spaces } from './spaces';
 import type { Wakes } from './wake';
+import { isAfter } from './updates';
 
 // The server's API: what the sync engine asks of a remote, and what the app asks to set the
 // server up, sign in and open spaces. Every answer is JSON but a file's content; what cannot be
@@ -34,6 +35,8 @@ export interface Parts {
   chats: Chats;
   push: Push;
   wakes: Wakes;
+  /** The newest version out, for /server to say when it is newer than this one. */
+  updates?: { latest: string | null };
   /** The server's clock, for what is measured against it. */
   now: () => number;
   /** The lowest sync level a device must tell to sync here; `MIN_SYNC_LEVEL` unless a test gives another. */
@@ -72,7 +75,7 @@ function pathIn(c: Context, space: string): string {
 const unquote = (tag: string) => tag.trim().replace(/^W\//, '').replace(/^"|"$/g, '');
 
 export function createApp(parts: Parts) {
-  const { config, blobs, files, accounts, spaces, live, invites, oauth, chats, push, minSyncLevel = MIN_SYNC_LEVEL } = parts;
+  const { config, blobs, files, accounts, spaces, live, invites, oauth, chats, push, updates, minSyncLevel = MIN_SYNC_LEVEL } = parts;
   const app = new Hono<Env>();
 
   app.use(
@@ -117,7 +120,7 @@ export function createApp(parts: Parts) {
   // `personal`: it keeps personal spaces, so the app offers it for one (design/spaces.md); `chat`:
   // it has messaging, so the app shows Chat (design/chat.md, 1.2); `maxFileMb`: the largest file it
   // takes, which a message's file is weighed against before it is sent (design/chat.md, 4).
-  app.get('/api/v1/server', (c) => c.json({ version: VERSION, new: accounts.isNew(), setupOpen: accounts.setupOpen(), personal: true, chat: true, push: true, maxFileMb: Math.round(config.maxFileBytes / (1024 * 1024)) }));
+  app.get('/api/v1/server', (c) => c.json({ version: VERSION, new: accounts.isNew(), setupOpen: accounts.setupOpen(), personal: true, chat: true, push: true, maxFileMb: Math.round(config.maxFileBytes / (1024 * 1024)), ...(updates?.latest && isAfter(updates.latest, VERSION) && { latest: updates.latest }) }));
   app.post('/api/v1/setup', async (c) => c.json(await accounts.setUp(await json(c))));
   app.post('/api/v1/sessions', async (c) => c.json(await accounts.signIn(await json(c), addressOf(c))));
 

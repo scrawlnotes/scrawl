@@ -241,7 +241,7 @@ import { BootGoes, LoadingView, Spin, stillOpening } from './Loading';
 import { AppView, PhoneAppHome } from './AppView';
 import { AppMenuDialog } from './AppMenuDialog';
 import { openingDrawn, openingFailed } from './opening';
-import { pendingJoin } from './servers';
+import { hostOf, pendingJoin, useServerUpdates } from './servers';
 import { type FavoriteRow, Sidebar } from './Sidebar';
 import type { Exported, ExportFormat } from './exporting';
 import { type SearchAction, SearchWindow, type Target, type Thing, thingsOf } from './Search';
@@ -1744,6 +1744,7 @@ export function App() {
   const [newFilter, setNewFilter] = useState<FilterChoices>(EVERYTHING);
   const [filterDrafts, setFilterDrafts] = useState<Record<string, FilterChoices>>({});
   const [quickAdd, setQuickAdd] = useState<{ list: string; section: string | null; due: string | null } | null>(null);
+  const serverUpdates = useServerUpdates();
   // On a phone, how Upcoming shows, and the day chosen in its month, which + adds to there; tomorrow until one is chosen.
   const [upcomingView, setUpcomingView] = useState(loadUpcomingView);
   // A phone shows a day or the month; a week chosen on a computer is a day there.
@@ -3793,6 +3794,17 @@ export function App() {
                   t('status.saving')
                 )}
               </span>
+            )}
+            {/* A newer version of a server the person owns or runs: Help says how to update it. */}
+            {serverUpdates[0] && (
+              <button
+                type="button"
+                className="srv-update"
+                title={t('server.updateTitle', { host: hostOf(serverUpdates[0].url), version: serverUpdates[0].version, latest: serverUpdates[0].latest })}
+                onClick={() => setDialog({ kind: 'help', page: 'server-running', heading: 'Updating' })}
+              >
+                {t('server.updateOut', { latest: serverUpdates[0].latest })}
+              </button>
             )}
             {showingEditor && (
               <button

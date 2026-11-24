@@ -228,3 +228,49 @@ export async function signOutOf(url: string) {
   markForgotten(url, true);
   keepServers(knownServers().filter((each) => each.url !== url));
 }
+
+/** A server this device's account owns or runs, with a newer version out than the one it runs. */
+export interface ServerUpdate {
+  url: string;
+  version: string;
+  latest: string;
+}
+
+const LOOK_EVERY_MS = 6 * 3_600_000;
+let updates: ServerUpdate[] = [];
+const updateListeners = new Set<() => void>();
+let looking: ReturnType<typeof setInterval> | null = null;
+
+/**
+ * Asks each server this device's account owns or runs whether a newer version is out, which the
+ * server reads from GitHub each day: as the app opens, then every six hours. Members are not told;
+ * they cannot update it. A server not reached says nothing.
+ */
+export function lookForServerUpdates() {
+  const look = async () => {
+    const found = await Promise.all(
+      knownServers()
+        .filter((server) => server.role !== 'member')
+        .map(async (server) => {
+          const status = await serverAccount(server.url)
+            .status()
+            .catch(() => null);
+          return status?.latest ? { url: server.url, version: status.version, latest: status.latest } : null;
+        }),
+    );
+    updates = found.filter((each): each is ServerUpdate => each !== null);
+    updateListeners.forEach((listener) => listener());
+  };
+  void look();
+  if (looking === null) looking = setInterval(() => void look(), LOOK_EVERY_MS);
+}
+
+/** The servers with a newer version out, as last asked. */
+export const useServerUpdates = () =>
+  useSyncExternalStore(
+    (listener) => {
+      updateListeners.add(listener);
+      return () => updateListeners.delete(listener);
+    },
+    () => updates,
+  );

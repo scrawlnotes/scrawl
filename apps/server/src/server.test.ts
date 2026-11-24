@@ -13,7 +13,7 @@ import {
   type SyncDevice,
 } from '@scrawlnotes/core';
 import { afterEach, describe, expect, it } from 'vitest';
-import { SETUP_MS, type Config } from './config';
+import { SETUP_MS, type Config, VERSION } from './config';
 import { openDb } from './db';
 import { makeServer } from './server';
 
@@ -57,6 +57,17 @@ async function owner(s: ReturnType<typeof start>) {
 }
 
 const refusal = (promise: Promise<unknown>) => promise.then(() => null, (error: unknown) => error);
+
+describe('a newer version out', () => {
+  it('is said by /server only when it is newer than this one', async () => {
+    const s = start();
+    expect(await s.account().status()).not.toHaveProperty('latest');
+    s.server.updates.latest = '0.0.1';
+    expect(await s.account().status()).not.toHaveProperty('latest');
+    s.server.updates.latest = '99.0.0';
+    expect(await s.account().status()).toMatchObject({ version: VERSION, latest: '99.0.0' });
+  });
+});
 
 describe('setting up and signing in', () => {
   it('lets the first to connect set up a new server and become its owner, once', async () => {

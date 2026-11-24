@@ -11,7 +11,7 @@ import { dueLabel } from './Tasks';
 import { ago, CloudIcon, FolderPicker, OwnApp, personalPlace, placeWords, providerName, ServerIcon, sourcePlace, SpaceSyncRow, SyncRow, ThisDevice, useTicking } from './SyncViews';
 import { paletteOf, type Shade, THEMES, type Theme, themeById } from './themes';
 import { ConnectStep, serverFailure, signInWords } from './ServerConnect';
-import { ROLE_WORD, ServerMembers, ServerPage, useSpaceRename } from './ServerPeople';
+import { ROLE_WORD, ServerMembers, ServerOut, ServerPage, useSpaceRename } from './ServerPeople';
 import { hostOf, knownServers, type KnownServer, noteRole, pendingJoin, serverAccount, type SignInWhy, signInWhy, tookJoin, useKnownServers } from './servers';
 import { Agents } from './Agents';
 import { LogsSection } from './Logs';
@@ -1195,7 +1195,7 @@ function ProfilePicture({ me }: { me: Me | null }) {
  * the sidebar's order, Add space under them. Each row opens the space's page: a shared space's has
  * its name, its folder, its sync, its people and the way out of this device.
  */
-function Spaces(values: Pick<SettingsValues, 'me' | 'onSaveProfile' | 'spaceName' | 'onRenameSpace' | 'spaces' | 'onRenameSpaceById' | 'onAddSpace' | 'onRemoveSpace' | 'onMoveSpace' | 'onPersonActive' | 'onSection' | 'onChangeSpaceFolder' | 'initialSpace' | 'addingAs' | 'initialAdding' | 'folder' | 'defaultFolder' | 'onChangeFolder' | 'onUseDefaultFolder' | 'sync' | 'syncService'>) {
+function Spaces(values: Pick<SettingsValues, 'me' | 'onSaveProfile' | 'spaceName' | 'onRenameSpace' | 'spaces' | 'onRenameSpaceById' | 'onAddSpace' | 'onRemoveSpace' | 'onMoveSpace' | 'onPersonActive' | 'onSection' | 'onHelp' | 'onChangeSpaceFolder' | 'initialSpace' | 'addingAs' | 'initialAdding' | 'folder' | 'defaultFolder' | 'onChangeFolder' | 'onUseDefaultFolder' | 'sync' | 'syncService'>) {
   const { spaces, onMoveSpace, onRemoveSpace, initialSpace, addingAs, sync, syncService } = values;
   // The page open: a space by its id, null for the personal space, undefined for the list.
   const [page, setPage] = useState<string | null | undefined>(initialSpace);
@@ -1260,6 +1260,7 @@ function Spaces(values: Pick<SettingsValues, 'me' | 'onSaveProfile' | 'spaceName
           }}
           onBack={() => setServerPage(null)}
           {...(values.onSection && { onAgents: () => values.onSection!('agents') })}
+          {...(values.onHelp && { onHelp: () => values.onHelp!('server-running', 'Updating', 'spaces') })}
           onSignOut={() => {
             setServerPage(null);
             void syncService.signOutOfServer(onServer.url);
@@ -1355,6 +1356,7 @@ function Spaces(values: Pick<SettingsValues, 'me' | 'onSaveProfile' | 'spaceName
                   <b>{hostOf(server.url)}</b>
                   <small>
                     {server.email} · {t(ROLE_WORD[server.role])}
+                    <ServerOut url={server.url} />
                   </small>
                 </span>
                 <span className="r">{t('server.spacesHere', { count: spaces.filter((space) => space.source?.provider === 'server' && space.source.place.url === server.url).length })}</span>

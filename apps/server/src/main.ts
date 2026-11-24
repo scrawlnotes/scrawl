@@ -60,6 +60,8 @@ if (command === 'backup') {
   server.due.start();
   // Watches that ended without being renewed, told to their owners (design/agent-wake.md 15).
   server.wakes.start();
+  // Whether a newer version is out, for the app to tell the owner and admins.
+  server.updates.start();
   // Videos sent before, or left half done when it stopped, are looked at now (design/chat.md 27).
   void server.chats.lookAtVideos();
   // So are links left unread (design/chat.md 29).

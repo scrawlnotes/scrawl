@@ -1,4 +1,4 @@
-import { dayOf, type Me, RemoteSignedOut, type ServerAccountInfo, type ServerAgent, type ServerLink, type ServerMember, type ServerPerson, type ServerSharedSpace, type ServerSpace } from '@scrawlnotes/core';
+import { dayOf, type Me, RemoteSignedOut, type ServerAccountInfo, type ServerAgent, type ServerLink, type ServerMember, type ServerPerson, type ServerSharedSpace, type ServerSpace, type ServerStatus } from '@scrawlnotes/core';
 import { PictureOr } from './ChatFaces';
 import { locale, t } from '@scrawlnotes/i18n';
 import { Fragment, type MouseEvent, useCallback, useEffect, useRef, useState } from 'react';
@@ -6,7 +6,7 @@ import { ConfirmDialog, ContextMenu, Dialog, type MenuItem } from './dialogs';
 import { Icon } from './Icon';
 import { writeClipboard } from './Keys';
 import { serverFailure } from './ServerConnect';
-import { hostOf, type KnownServer, knownServers, noteRole, serverAccount, useKnownServers } from './servers';
+import { hostOf, type KnownServer, knownServers, noteRole, serverAccount, useKnownServers, useServerUpdates } from './servers';
 import type { SpaceView } from './session';
 import { ActionSheet } from './sheets';
 import { ServerIcon } from './SyncViews';
@@ -413,9 +413,12 @@ function useServerPage(server: KnownServer) {
   const [spaces, setSpaces] = useState<ServerSpace[] | null>(null);
   const [shared, setShared] = useState<ServerSharedSpace[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Its version, and a newer one out when there is one.
+  const [status, setStatus] = useState<ServerStatus | null>(null);
   const load = useCallback(async () => {
     try {
       const account = serverAccount(server.url);
+      setStatus(await account.status().catch(() => null));
       const mine = await account.me();
       setMe(mine);
       noteRole(server.url, mine.role);
@@ -446,6 +449,9 @@ function useServerPage(server: KnownServer) {
     host,
     me,
     role,
+    /** Its version; and, for its owner and admins, the newer one out. */
+    version: status?.version ?? null,
+    latest: role !== 'member' ? (status?.latest ?? null) : null,
     people,
     agents,
     error,
@@ -530,7 +536,18 @@ function ServerSpaces({ p, onDevice, onAdd }: { p: ReturnType<typeof useServerPa
   );
 }
 
-export function ServerPage({ server, onDevice, onAdd, onBack, onSignOut, onAgents }: {
+/** In a list of servers: a newer version of this one is out, for its owner and admins. */
+export function ServerOut({ url }: { url: string }) {
+  const update = useServerUpdates().find((each) => each.url === url);
+  return update ? (
+    <>
+      {' · '}
+      <span className="srv-out">{t('server.listOut', { latest: update.latest })}</span>
+    </>
+  ) : null;
+}
+
+export function ServerPage({ server, onDevice, onAdd, onBack, onSignOut, onAgents, onHelp }: {
   server: KnownServer;
   /** The ids of the spaces on this device. */
   onDevice: string[];
@@ -539,6 +556,8 @@ export function ServerPage({ server, onDevice, onAdd, onBack, onSignOut, onAgent
   onBack: () => void;
   onSignOut: () => void;
   onAgents?: () => void;
+  /** Help's page on running a server, at Updating. */
+  onHelp?: () => void;
 }) {
   const p = useServerPage(server);
   // The people whose spaces are shown under them, by id.
@@ -580,6 +599,19 @@ export function ServerPage({ server, onDevice, onAdd, onBack, onSignOut, onAgent
             <span />
           )}
         </div>
+        {p.version && (
+          <div className="st-row">
+            <span className="fl">{t('server.version')}</span>
+            <span className={p.latest ? 'path plain srv-out' : 'path plain'}>{p.latest ? t('server.versionOut', { version: p.version, latest: p.latest }) : p.version}</span>
+            {p.latest && onHelp ? (
+              <button type="button" onClick={onHelp}>
+                {t('server.howToUpdate')}
+              </button>
+            ) : (
+              <span />
+            )}
+          </div>
+        )}
         <p className="st-note">{t('server.signOutText')}</p>
       </div>
       {p.error && (
@@ -672,7 +704,7 @@ export function ServerPage({ server, onDevice, onAdd, onBack, onSignOut, onAgent
 }
 
 /** The server's page on a phone: the account and Sign out, and for its owner and admins the people, each with a sheet. */
-export function PhoneServerPage({ server, onDevice, onSignOut, onAgents }: { server: KnownServer; onDevice: string[]; onSignOut: () => void; onAgents?: () => void }) {
+export function PhoneServerPage({ server, onDevice, onSignOut, onAgents, onHelp }: { server: KnownServer; onDevice: string[]; onSignOut: () => void; onAgents?: () => void; onHelp?: () => void }) {
   const p = useServerPage(server);
   const [held, setHeld] = useState<ServerPerson | null>(null);
   const [removing, setRemoving] = useState<ServerPerson | null>(null);
@@ -692,6 +724,19 @@ export function PhoneServerPage({ server, onDevice, onSignOut, onAgents }: { ser
               <Icon name="chevron" />
             </button>
           )}
+          {p.version &&
+            (p.latest && onHelp ? (
+              <button type="button" className="mb-fr" onClick={onHelp}>
+                <span className="fl">{t('server.version')}</span>
+                <span className="in srv-out">{t('server.versionOut', { version: p.version, latest: p.latest })}</span>
+                <Icon name="chevron" />
+              </button>
+            ) : (
+              <div className="mb-fr">
+                <span className="fl">{t('server.version')}</span>
+                <span className="in">{p.version}</span>
+              </div>
+            ))}
         </div>
       </div>
       {p.error && <p className="mb-p err">{p.error}</p>}

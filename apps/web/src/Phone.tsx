@@ -1661,6 +1661,7 @@ export function Phone(props: PhoneProps) {
             server={server}
             onDevice={props.spaces.map((space) => space.id)}
             onAgents={() => push({ kind: 'section', section: 'agents' })}
+            onHelp={() => push({ kind: 'helpNote', id: 'server-running' })}
             onSignOut={() => {
               pop();
               void syncService.signOutOfServer(server.url);

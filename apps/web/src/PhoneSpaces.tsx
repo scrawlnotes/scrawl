@@ -12,7 +12,7 @@ import { OwnAppSheet, PhoneFolderSheet } from './PhoneSync';
 import { ActionSheet, Sheet, SheetClose, suppressClick, useActsPlace } from './sheets';
 import { CloudIcon, personalPlace, placeWords, providerName, ServerIcon, shortOf, sourcePlace } from './SyncViews';
 import { ConnectServerSheet, signInWords } from './ServerConnect';
-import { PhoneServerMembers, ROLE_WORD, useSpaceRename } from './ServerPeople';
+import { PhoneServerMembers, ROLE_WORD, ServerOut, useSpaceRename } from './ServerPeople';
 import { hostOf, type KnownServer, useKnownServers } from './servers';
 
 // The spaces on a phone, after the Phone spaces views of design/mockups.html: Settings › Spaces as
@@ -123,6 +123,7 @@ export function PhoneSpacesList({ values, reordering, onOpen, onAdd, onServer }:
                   <b>{hostOf(server.url)}</b>
                   <small>
                     {server.email} · {t(ROLE_WORD[server.role])}
+                    <ServerOut url={server.url} />
                   </small>
                 </span>
                 <Icon name="chevron" />

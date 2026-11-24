@@ -222,6 +222,8 @@ export interface ServerStatus {
   maxFileMb?: number;
   /** It sends notifications by Web Push (design/chat.md, 11.4); a server from before them leaves it out. */
   push?: boolean;
+  /** A newer version of the server is out: this one; left out when there is none, or by a server from before it said so. */
+  latest?: string;
 }
 
 export interface ServerAccountInfo {
