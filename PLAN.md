@@ -236,7 +236,8 @@ Teknik tasarımı `design/chat.md` (24 Ekim'de onaylandı); taslak: `design/mock
 - **Ekranlar:** kenar çubuğunda Scheduled'un altında Chat; tek sekmedir, solda her space'in room'ları ve Direct, sağda konuşma. Info, New room, Browse rooms, New message ve Forward ortada açılan pencerelerdir. Telefonda Chat, tab bar'da Settings'ten önceki sekmedir; konuşma bir sayfadır, mesaja basılı tutunca tepkiler ve işlemler açılır, sağa kaydırmak cevaplar.
 - **Ajan:** sunucunun `/mcp`'sinde `messages` (konuşmalar, mesajlar, arama) ve `send_message`. Ajan kişinin gördüğünü görür, DM'ler dahil; okuması okundu sayılmaz; ek gönderemez. Bilgisayardaki `scrawl-mcp`'de bu araçlar yoktur.
 - **Dışa aktarma:** her konuşmanın Info'sunda Export…: ay başına bir markdown dosyası, ekleriyle bir zip. `scrawl-server export` space'in room'larını da alır, DM'leri almaz. Sunucunun yedeği mesajları zaten kapsar.
-- **Yapmayacaklarımız:** thread, workflow, zamanlanmış mesaj, hatırlatma, durum emojisi, dış link önizlemesi, uçtan uca şifreleme, misafir hesap, mesaj sabitleme ve kaydetme. Bot ile sesli ve görüntülü arama sonraya kaldı.
+- **Link (24 Kasım, `design/chat.md` 29):** mesajda yazıldığı gibi duran adres kısa görünür (site, yol 40 karakterde kesilir, `?` sonrası yok); altında ilk linkin kartı: site, başlık, iki satır açıklama, küçük resim. Sayfayı ve resmi sunucu okur ve saklar, cihaz siteye gitmez; sunucu iç ağına hiç gitmez. Kartı mesajı yazan kaldırır (×, Remove preview).
+- **Yapmayacaklarımız:** thread, workflow, zamanlanmış mesaj, hatırlatma, durum emojisi, uçtan uca şifreleme, misafir hesap, mesaj sabitleme ve kaydetme. Bot ile sesli ve görüntülü arama sonraya kaldı.
 
 ### 4.11 Dış entegrasyonlar
 

@@ -1,7 +1,7 @@
 import { serve } from '@hono/node-server';
 import { WebSocketServer } from 'ws';
 import { backup, backups, NoSuchBackup, restore } from './backup';
-import { addressProblem, configFromEnv, dataProblem, VERSION } from './config';
+import { addressProblem, configFromEnv, dataProblem, isLocal, VERSION } from './config';
 import { exportSpace, NoSuchSpace } from './export';
 import { makeServer } from './server';
 import { ffmpegTools } from './video';
@@ -54,13 +54,16 @@ if (command === 'backup') {
     console.error(problem);
     process.exit(1);
   }
-  const server = makeServer(config, { videoTools: await ffmpegTools() });
+  // A server tried on this computer reads links' pages on it too; one on the internet never reads its own network's.
+  const server = makeServer(config, { videoTools: await ffmpegTools(), links: { loopback: isLocal(config.url) } });
   // The morning's notification of work due (design/notifications.md 5).
   server.due.start();
   // Watches that ended without being renewed, told to their owners (design/agent-wake.md 15).
   server.wakes.start();
   // Videos sent before, or left half done when it stopped, are looked at now (design/chat.md 27).
   void server.chats.lookAtVideos();
+  // So are links left unread (design/chat.md 29).
+  void server.chats.lookAtLinks();
   const sockets = new WebSocketServer({ noServer: true });
   const http = serve({ fetch: server.app.fetch, port: config.port, websocket: { server: sockets } }, () => {
     console.log(`Scrawl server ${VERSION} at ${config.url} (port ${config.port}, data in ${config.data})`);

@@ -14,6 +14,7 @@ export {
   type ChatKept,
   type ChatKind,
   type ChatMessage,
+  type LinkPreview,
   type ChatNoticeEvent,
   type ChatOpenedEvent,
   type ChatWakeEvent,

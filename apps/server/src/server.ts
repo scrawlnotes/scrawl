@@ -14,6 +14,7 @@ import { Notices } from './notices';
 import { OAuth } from './oauth';
 import { Push, type Sender, vapidKeys } from './push';
 import { Spaces } from './spaces';
+import { type LinkOptions, previewOf, Unfurls } from './unfurl';
 import { type VideoTools, Videos } from './video';
 import { type WakeSend, Wakes } from './wake';
 
@@ -29,6 +30,8 @@ export function makeServer(
     minSyncLevel?: number;
     /** ffmpeg's, which `serve` finds; none in a test that does not give its own. */
     videoTools?: VideoTools | null;
+    /** Reading the pages of messages' links for their cards, which `serve` turns on; off in a test that does not. */
+    links?: LinkOptions | null;
     /** What sends an agent's wake; a test gives its own receiver. */
     wakeSend?: WakeSend;
   } = {},
@@ -51,6 +54,18 @@ export function makeServer(
   // A video that a computer cannot play gets a copy that plays everywhere (design/chat.md 27).
   const videos = options.videoTools ? new Videos(blobs, options.videoTools, (skip) => chats.nextVideo(skip), (hash, result) => chats.videoDone(hash, result)) : null;
   chats.videos = videos;
+  // A web link in a message gets a card of what its page says (design/chat.md 29).
+  const links = options.links;
+  if (links) {
+    chats.links = new Unfurls(
+      (url) => {
+        const kept = chats.keptPreview(url);
+        return kept !== undefined ? Promise.resolve(kept) : previewOf(url, blobs, links);
+      },
+      (skip) => chats.nextLink(skip),
+      (id, url, preview) => chats.linkDone(id, url, preview),
+    );
+  }
   // A push service takes an https address or an email as who sends.
   const subject = config.url.startsWith('https://') ? config.url : 'mailto:push@scrawlnotes.com';
   const push = new Push(db, live, chats, vapidKeys(join(config.data, 'vapid.json')), subject, config.url, options.sender, options.later);

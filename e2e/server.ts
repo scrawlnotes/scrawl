@@ -2,7 +2,7 @@
 // the server `pnpm e2e` starts on an empty folder; nothing here reaches a real server.
 import { createHash, randomBytes } from 'node:crypto';
 
-export const SERVER = 'http://localhost:8199';
+export const SERVER = `http://localhost:${process.env.E2E_SERVER_PORT ?? '8199'}`;
 export const OWNER = { name: 'Olive Owner', email: 'owner@scrawl.test', password: 'e2e-owner-password' };
 // Every person a test makes signs up with this; each has an email of their own (5 tries a minute per email).
 export const PASSWORD = 'e2e-person-password';

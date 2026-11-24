@@ -311,6 +311,22 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE agent_identities ADD COLUMN watch_ended_at INTEGER;
   `,
+  // A web link's card (design/chat.md 29): the link a message has a card for, what its page says as
+  // JSON, the picture's digest, and where reading it is (looking, done, none, removed by its writer).
+  // What a link's page said is kept a while, so that the same link is not read again and again.
+  `
+  ALTER TABLE messages ADD COLUMN preview_url TEXT;
+  ALTER TABLE messages ADD COLUMN preview TEXT;
+  ALTER TABLE messages ADD COLUMN preview_image TEXT;
+  ALTER TABLE messages ADD COLUMN preview_state TEXT;
+  CREATE INDEX messages_preview_state ON messages (preview_state) WHERE preview_state = 'looking';
+  CREATE INDEX messages_preview_image ON messages (preview_image) WHERE preview_image IS NOT NULL;
+  CREATE TABLE link_previews (
+    url TEXT PRIMARY KEY,
+    preview TEXT,
+    at INTEGER NOT NULL
+  );
+  `,
 ];
 
 export function openDb(file: string): Db {

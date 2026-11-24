@@ -399,6 +399,7 @@ export function createApp(parts: Parts) {
 
   app.patch('/api/v1/chat/messages/:message', async (c) => c.json(chats.edit(me(c), c.req.param('message'), await json(c))));
   app.delete('/api/v1/chat/messages/:message', (c) => c.json(chats.remove(me(c), c.req.param('message'))));
+  app.delete('/api/v1/chat/messages/:message/preview', (c) => c.json(chats.removePreview(me(c), c.req.param('message'))));
   app.put('/api/v1/chat/messages/:message/reactions/:emoji', (c) => c.json(chats.react(me(c), c.req.param('message'), c.req.param('emoji'), true)));
   app.delete('/api/v1/chat/messages/:message/reactions/:emoji', (c) => c.json(chats.react(me(c), c.req.param('message'), c.req.param('emoji'), false)));
 

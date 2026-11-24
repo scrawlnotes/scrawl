@@ -15,6 +15,30 @@ const escapeHtml = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '
 
 const OUTSIDE = /^(https?:|mailto:)/i;
 
+/** How much of an address's path shows before it is cut. */
+const PATH_SHOWN = 40;
+
+/**
+ * A web address as a message shows it (design/chat.md 29): its site without www, and its path, in
+ * its own letters, cut after forty characters; what comes after a ? or a # is not shown.
+ */
+export function shortLink(href: string): string {
+  let url: URL;
+  try {
+    url = new URL(href);
+  } catch {
+    return href;
+  }
+  let path = url.pathname.replace(/\/+$/, '');
+  try {
+    path = decodeURI(path);
+  } catch {
+    // Shown as it is written.
+  }
+  if (path.length > PATH_SHOWN) path = `${path.slice(0, PATH_SHOWN)}…`;
+  return `${url.hostname.replace(/^www\./, '')}${url.port ? `:${url.port}` : ''}${path}`;
+}
+
 /** How many lines a code block shows before it is folded. */
 const CODE_LINES = 15;
 
@@ -46,7 +70,10 @@ reader.use({
       }
       if (token.href.startsWith('scrawl:chat/')) return `<a class="msg-chat" href="#" data-href="${escapeHtml(token.href)}">${text}</a>`;
       if (!OUTSIDE.test(token.href)) return text;
-      return `<a href="${escapeHtml(token.href)}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+      // An address written as it is shows short; the whole of it is what opens, and what the pointer shows.
+      const bare = token.text === token.href || `http://${token.text}` === token.href || `mailto:${token.text}` === token.href;
+      const shown = bare && /^https?:/i.test(token.href) ? escapeHtml(shortLink(token.href)) : text;
+      return `<a href="${escapeHtml(token.href)}" target="_blank" rel="noopener noreferrer"${shown === text ? '' : ` title="${escapeHtml(token.href)}"`}>${shown}</a>`;
     },
     code(token) {
       const lang = (token.lang ?? '').trim().split(/\s+/)[0] ?? '';

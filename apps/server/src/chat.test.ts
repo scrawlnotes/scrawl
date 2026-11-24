@@ -1,4 +1,5 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -10,6 +11,7 @@ import { WebSocketServer } from 'ws';
 import type { Config } from './config';
 import { type ChatEvent, linksIn } from './chat';
 import { makeServer } from './server';
+import type { LinkOptions } from './unfurl';
 import { type Probe, type VideoTools, Videos } from './video';
 
 // Messaging (design/chat.md): rooms and direct messages, messages and what is done to them, how
@@ -30,11 +32,11 @@ afterEach(async () => {
 });
 
 /** Kaan owns the server; Mert and Elif are in Acme with him, Deniz only in Other. */
-async function start(options: { listen?: boolean; videoTools?: VideoTools } = {}) {
+async function start(options: { listen?: boolean; videoTools?: VideoTools; links?: LinkOptions } = {}) {
   const data = mkdtempSync(join(tmpdir(), 'scrawl-chat-'));
   let clock = Date.UTC(2026, 9, 24, 10, 0);
   const config: Config = { url: URL, port: 0, data, maxFileBytes: 1024 * 1024, ownerEmail: null, appUrl: 'https://app.scrawlnotes.com' };
-  const server = makeServer(config, { now: () => clock, ...(options.videoTools && { videoTools: options.videoTools }) });
+  const server = makeServer(config, { now: () => clock, ...(options.videoTools && { videoTools: options.videoTools }), ...(options.links && { links: options.links }) });
   closers.push(() => {
     server.live.stop();
     server.db.close();
@@ -713,5 +715,123 @@ describe('the live channel', () => {
     expect(deniz.of('presence')).toHaveLength(2);
     const late = await s.device(s.elif);
     expect((late.of('presence')[0]!.active as string[]).sort()).toEqual([KAAN, MERT].sort());
+  });
+});
+
+describe('links', () => {
+  /** A site on this computer: a page that says what it is, one that says nothing, a redirect and its picture. */
+  async function site() {
+    const PNG = Buffer.from('89504e470d0a1a0a0000000d4948445200000001000000010806000000', 'hex');
+    const seen: string[] = [];
+    const server = createServer((request, response) => {
+      seen.push(request.url ?? '');
+      if (request.url === '/post?utm_source=mail') {
+        response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        return response.end(
+          '<html><head><title>Ignored</title><meta property="og:site_name" content="TeamGram">' +
+            '<meta property="og:title" content="CRM&#8217;inizle konuşun">' +
+            '<meta name="description" content="Asistan ve MCP &amp; daha fazlası"><meta property="og:image" content="/card.png"></head><body>…</body></html>',
+        );
+      }
+      if (request.url === '/plain') {
+        response.writeHead(200, { 'Content-Type': 'text/html' });
+        return response.end('<html><head></head><body>Nothing said</body></html>');
+      }
+      if (request.url === '/moved') {
+        response.writeHead(301, { Location: '/post?utm_source=mail' });
+        return response.end();
+      }
+      if (request.url === '/card.png') {
+        response.writeHead(200, { 'Content-Type': 'image/png' });
+        return response.end(PNG);
+      }
+      response.writeHead(404).end();
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    closers.push(() => new Promise<void>((resolve) => server.close(() => resolve())));
+    return { base: `http://127.0.0.1:${(server.address() as AddressInfo).port}`, seen, PNG };
+  }
+
+  it('reads the first link’s page once, puts its card on the message and tells the conversation; its picture is the message’s', async () => {
+    const page = await site();
+    const s = await start({ links: { loopback: true } });
+    const general = await s.general(s.kaan);
+    const tell = vi.spyOn(s.server.live, 'tell');
+    const sent = await s.say(s.kaan, general.id, `Look: ${page.base}/post?utm_source=mail and ${page.base}/plain`);
+    expect(sent.preview).toBeUndefined();
+    await s.server.chats.links!.kick();
+
+    const [now] = (await s.call(s.mert, 'GET', `/chat/${general.id}/messages`)).body.messages.slice(-1);
+    expect(now.preview).toMatchObject({ url: `${page.base}/post?utm_source=mail`, site: 'TeamGram', title: 'CRM’inizle konuşun', description: 'Asistan ve MCP & daha fazlası', image: { type: 'image/png' } });
+    expect(now.edited).toBeNull();
+    expect(now.rev).toBeGreaterThan(sent.rev);
+    expect(tell.mock.calls.some(([, event]) => (event as ChatEvent).type === 'message' && (event as Extract<ChatEvent, { type: 'message' }>).message.preview?.title === 'CRM’inizle konuşun')).toBe(true);
+    const picture = await s.server.app.request(`${URL}/api/v1/chat/files/${now.preview.image.hash}`, { headers: { Authorization: `Bearer ${s.mert}` } });
+    expect(picture.headers.get('Content-Type')).toBe('image/png');
+    expect(Buffer.from(await picture.arrayBuffer())).toEqual(page.PNG);
+    expect((await s.call(s.deniz, 'GET', `/chat/files/${now.preview.image.hash}`)).status).toBe(404);
+
+    // The same link again is not read again: what its page said is kept.
+    const reads = page.seen.length;
+    await s.say(s.mert, general.id, `${page.base}/post?utm_source=mail`);
+    await s.server.chats.links!.kick();
+    expect(page.seen).toHaveLength(reads);
+    const [again] = (await s.call(s.kaan, 'GET', `/chat/${general.id}/messages`)).body.messages.slice(-1);
+    expect(again.preview.title).toBe('CRM’inizle konuşun');
+  });
+
+  it('follows a redirect; a page that says nothing has no card', async () => {
+    const page = await site();
+    const s = await start({ links: { loopback: true } });
+    const general = await s.general(s.kaan);
+    const moved = await s.say(s.kaan, general.id, `${page.base}/moved`);
+    const plain = await s.say(s.kaan, general.id, `${page.base}/plain`);
+    await s.server.chats.links!.kick();
+    const messages = (await s.call(s.kaan, 'GET', `/chat/${general.id}/messages`)).body.messages as { id: string; preview?: { title: string; url: string } }[];
+    expect(messages.find((each) => each.id === moved.id)!.preview).toMatchObject({ url: `${page.base}/moved`, title: 'CRM’inizle konuşun' });
+    expect(messages.find((each) => each.id === plain.id)!.preview).toBeUndefined();
+  });
+
+  it('never reads an address of its own network, nor one a page sends it to', async () => {
+    const page = await site();
+    const s = await start({ links: {} });
+    const general = await s.general(s.kaan);
+    const sent = await s.say(s.kaan, general.id, `${page.base}/post?utm_source=mail`);
+    await s.server.chats.links!.kick();
+    expect(page.seen).toEqual([]);
+    const [now] = (await s.call(s.kaan, 'GET', `/chat/${general.id}/messages`)).body.messages.slice(-1);
+    expect(now.id).toBe(sent.id);
+    expect(now.preview).toBeUndefined();
+  });
+
+  it('reads the new link of an edited message; its writer takes the card off, and it stays off', async () => {
+    const page = await site();
+    const s = await start({ links: { loopback: true } });
+    const general = await s.general(s.kaan);
+    const sent = await s.say(s.kaan, general.id, `${page.base}/plain`);
+    await s.server.chats.links!.kick();
+    await s.call(s.kaan, 'PATCH', `/chat/messages/${sent.id}`, { body: `Better: ${page.base}/post?utm_source=mail` });
+    await s.server.chats.links!.kick();
+    let [now] = (await s.call(s.kaan, 'GET', `/chat/${general.id}/messages`)).body.messages.slice(-1);
+    expect(now.preview.title).toBe('CRM’inizle konuşun');
+
+    expect((await s.call(s.mert, 'DELETE', `/chat/messages/${sent.id}/preview`)).status).toBe(403);
+    const removed = await s.call(s.kaan, 'DELETE', `/chat/messages/${sent.id}/preview`);
+    expect(removed.status).toBe(200);
+    expect(removed.body.preview).toBeUndefined();
+    // Edited with the same link, the card does not come back.
+    await s.call(s.kaan, 'PATCH', `/chat/messages/${sent.id}`, { body: `Best: ${page.base}/post?utm_source=mail` });
+    await s.server.chats.links!.kick();
+    [now] = (await s.call(s.kaan, 'GET', `/chat/${general.id}/messages`)).body.messages.slice(-1);
+    expect(now.preview).toBeUndefined();
+    expect(now.body).toContain('Best:');
+  });
+
+  it('reads nothing where the server does not read links', async () => {
+    const s = await start();
+    const general = await s.general(s.kaan);
+    await s.say(s.kaan, general.id, 'https://example.com/page');
+    expect(s.server.chats.links).toBeNull();
+    expect(s.server.db.prepare("SELECT COUNT(*) AS n FROM messages WHERE preview_state IS NOT NULL").get()).toEqual({ n: 0 });
   });
 });

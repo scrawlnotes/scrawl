@@ -4,6 +4,7 @@ import { type Account, Refused } from './auth';
 import type { Blobs, Taken } from './blobs';
 import { type Db, transaction } from './db';
 import type { Spaces } from './spaces';
+import { type LinkPreview, previewLink } from './unfurl';
 import type { VideoDone } from './video';
 
 // Messaging (design/chat.md). A room belongs to a shared space: a public one is seen by everyone
@@ -63,6 +64,8 @@ export interface Message {
   forwarded: { chat: string; kind: ChatKind; name: string; author: string; authorName: string } | null;
   files: ChatFile[];
   reactions: { emoji: string; people: string[] }[];
+  /** What its first web link's page says it is, once the server read it (design/chat.md 29). */
+  preview?: LinkPreview;
   at: number;
   edited: number | null;
   deleted: number | null;
@@ -157,6 +160,10 @@ interface MessageRow {
   edited_at: number | null;
   deleted_at: number | null;
   rev: number;
+  preview_url: string | null;
+  preview: string | null;
+  preview_image: string | null;
+  preview_state: 'looking' | 'done' | 'none' | 'removed' | null;
 }
 
 interface FileRow {
@@ -595,13 +602,14 @@ export class Chats {
     this.takeTurn(by.id);
     const mentions = this.mentionsIn(body, chat, by.id);
     const roomMention = chat.kind !== 'direct' && ROOM_LINK.test(body);
+    const link = this.links ? previewLink(linksIn(body)) : null;
     const row = transaction(this.db, () => {
       const rev = this.nextRev();
       const seq = (this.db.prepare('SELECT last_seq FROM chats WHERE id = ?').get(chat.id) as { last_seq: number }).last_seq + 1;
       this.db.prepare('UPDATE chats SET last_seq = ? WHERE id = ?').run(seq, chat.id);
       this.db
-        .prepare('INSERT INTO messages (id, chat_id, seq, author_id, agent_id, body, mentions_room, reply_to, forward_of, forward_from, created_at, rev) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-        .run(messageId, chat.id, seq, by.id, agent, body, roomMention ? 1 : 0, replyTo, forward?.of ?? null, forward?.from ?? null, this.now(), rev);
+        .prepare('INSERT INTO messages (id, chat_id, seq, author_id, agent_id, body, mentions_room, reply_to, forward_of, forward_from, created_at, rev, preview_url, preview_state) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .run(messageId, chat.id, seq, by.id, agent, body, roomMention ? 1 : 0, replyTo, forward?.of ?? null, forward?.from ?? null, this.now(), rev, link, link ? 'looking' : null);
       this.writeFiles(messageId, files);
       this.writeMentions(messageId, mentions);
       this.index(messageId);
@@ -615,6 +623,7 @@ export class Chats {
     const told = this.told(chat, row);
     this.onSent?.(chat.id, row.id);
     if (told.files.some((file) => file.preparing)) void this.videos?.kick();
+    if (link) void this.links?.kick();
     return told;
   }
 
@@ -631,11 +640,30 @@ export class Chats {
     if (!body.trim() && !this.filesOf([message.id]).get(message.id)?.length) throw new Refused(400, 'empty', 'A message has something in it; delete it instead');
     const mentions = this.mentionsIn(body, chat, message.author_id);
     const roomMention = chat.kind !== 'direct' && ROOM_LINK.test(body);
+    // Another first link is read anew; the same one keeps its card, or that it was taken off.
+    const link = this.links ? previewLink(linksIn(body)) : message.preview_url;
+    const relink = link !== message.preview_url;
     const row = transaction(this.db, () => {
       this.db.prepare('UPDATE messages SET body = ?, mentions_room = ?, edited_at = ?, rev = ? WHERE id = ?').run(body, roomMention ? 1 : 0, this.now(), this.nextRev(), message.id);
+      if (relink) this.db.prepare('UPDATE messages SET preview_url = ?, preview = NULL, preview_image = NULL, preview_state = ? WHERE id = ?').run(link, link ? 'looking' : null, message.id);
       this.db.prepare('DELETE FROM mentions WHERE message_id = ?').run(message.id);
       this.writeMentions(message.id, mentions);
       this.index(message.id);
+      return this.messageRow(message.id)!;
+    });
+    if (relink && link) void this.links?.kick();
+    return this.told(chat, row);
+  }
+
+  /** Takes a link's card off a message, by whoever wrote it; the link stays. */
+  removePreview(by: Account, messageId: string): Message {
+    const message = this.found(messageId);
+    const chat = this.see(message.chat_id, by.id);
+    if (message.author_id !== by.id) throw new Refused(403, 'not-yours', 'You change your own messages');
+    if (message.deleted_at !== null) throw new Refused(410, 'deleted', 'This message was deleted');
+    if (message.preview_state === 'removed' || message.preview_url === null) return this.messagesOf([message])[0]!;
+    const row = transaction(this.db, () => {
+      this.db.prepare("UPDATE messages SET preview = NULL, preview_image = NULL, preview_state = 'removed', rev = ? WHERE id = ?").run(this.nextRev(), message.id);
       return this.messageRow(message.id)!;
     });
     return this.told(chat, row);
@@ -652,7 +680,7 @@ export class Chats {
     if (message.author_id !== by.id && !manager) throw new Refused(403, 'not-yours', 'You delete your own messages');
     if (message.deleted_at !== null) return this.messagesOf([message])[0]!;
     const row = transaction(this.db, () => {
-      this.db.prepare("UPDATE messages SET body = '', mentions_room = 0, deleted_at = ?, rev = ? WHERE id = ?").run(this.now(), this.nextRev(), message.id);
+      this.db.prepare("UPDATE messages SET body = '', mentions_room = 0, deleted_at = ?, rev = ?, preview_url = NULL, preview = NULL, preview_image = NULL, preview_state = NULL WHERE id = ?").run(this.now(), this.nextRev(), message.id);
       for (const table of ['message_files', 'mentions', 'reactions']) this.db.prepare(`DELETE FROM ${table} WHERE message_id = ?`).run(message.id);
       this.index(message.id);
       return this.messageRow(message.id)!;
@@ -843,6 +871,42 @@ export class Chats {
   /** What looks at the videos waiting, where the server has ffmpeg (design/chat.md 27); none without. */
   videos: { kick: () => Promise<void> } | null = null;
 
+  /** What reads the pages of messages' links (design/chat.md 29); none where the server does not. */
+  links: { kick: () => Promise<void> } | null = null;
+
+  // ---------- links ----------
+
+  /** Links left unread when the server stopped are read now. */
+  lookAtLinks(): Promise<void> {
+    if (!this.links) return Promise.resolve();
+    return this.links.kick();
+  }
+
+  /** The next message whose link waits to be read. */
+  nextLink(skip: Set<string>): { id: string; url: string } | undefined {
+    const rows = this.db.prepare("SELECT id, preview_url AS url FROM messages WHERE preview_state = 'looking' AND deleted_at IS NULL ORDER BY created_at").all() as { id: string; url: string }[];
+    return rows.find((row) => !skip.has(row.id));
+  }
+
+  /** What a link's page said, when it was read lately: a day for what it said, an hour for nothing. */
+  keptPreview(url: string): LinkPreview | null | undefined {
+    const row = this.db.prepare('SELECT preview, at FROM link_previews WHERE url = ?').get(url) as { preview: string | null; at: number } | undefined;
+    if (!row || this.now() - row.at > (row.preview ? 24 : 1) * 3_600_000) return undefined;
+    return row.preview ? (JSON.parse(row.preview) as LinkPreview) : null;
+  }
+
+  /** A link read: its card on the message, if the message still has that link; told as it now is, not as edited. */
+  linkDone(id: string, url: string, preview: LinkPreview | null) {
+    const row = transaction(this.db, () => {
+      this.db.prepare('INSERT INTO link_previews (url, preview, at) VALUES (?, ?, ?) ON CONFLICT (url) DO UPDATE SET preview = excluded.preview, at = excluded.at').run(url, preview ? JSON.stringify(preview) : null, this.now());
+      const changed = this.db
+        .prepare("UPDATE messages SET preview = ?, preview_image = ?, preview_state = ?, rev = ? WHERE id = ? AND preview_url = ? AND preview_state = 'looking' AND deleted_at IS NULL")
+        .run(preview ? JSON.stringify(preview) : null, preview?.image?.hash ?? null, preview ? 'done' : 'none', this.nextRev(), id, url);
+      return changed.changes ? this.messageRow(id)! : null;
+    });
+    if (row) this.told(this.row(row.chat_id), row);
+  }
+
   // ---------- videos ----------
 
   /** Videos sent before the server looked at videos, or while it could not, wait for it now; and those it was at when it stopped. */
@@ -1019,7 +1083,13 @@ export class Chats {
       .all(hash, hash, hash) as unknown as (FileRow & { chat_id: string })[];
     const seen = rows.find((row) => this.sees(row.chat_id, account));
     const uploaded = this.db.prepare('SELECT 1 FROM chat_uploads WHERE hash = ? AND account_id = ?').get(hash, account);
-    if (!seen && !uploaded) throw new Refused(404, 'no-file', 'No such file');
+    if (!seen && !uploaded) {
+      // A link's picture is its message's, as its files are.
+      const cards = this.db.prepare('SELECT chat_id, preview FROM messages WHERE preview_image = ? AND deleted_at IS NULL').all(hash) as { chat_id: string; preview: string }[];
+      const card = cards.find((row) => this.sees(row.chat_id, account));
+      if (!card) throw new Refused(404, 'no-file', 'No such file');
+      return { hash, size: this.blobs.sizeOf(hash), type: (JSON.parse(card.preview) as LinkPreview).image?.type ?? '', name: '' };
+    }
     const whole = seen && seen.hash === hash;
     const copy = seen && !whole && seen.play === hash;
     return { hash, size: this.blobs.sizeOf(hash), type: whole ? seen.type : copy ? 'video/mp4' : '', name: whole ? seen.name : '' };
@@ -1301,6 +1371,7 @@ export class Chats {
       forwarded: row.forward_from === null ? null : (JSON.parse(row.forward_from) as Message['forwarded']),
       files: files.get(row.id) ?? [],
       reactions: reactions.get(row.id) ?? [],
+      ...(row.preview_state === 'done' && row.preview && { preview: JSON.parse(row.preview) as LinkPreview }),
       at: row.created_at,
       edited: row.edited_at,
       deleted: row.deleted_at,

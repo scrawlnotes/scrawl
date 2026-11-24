@@ -1,4 +1,4 @@
-import { type ChatFile, type ChatInfo, type ChatMessage, type ChatNotify, plainText } from '@scrawlnotes/core';
+import { type ChatFile, type ChatInfo, type ChatMessage, type ChatNotify, type LinkPreview, plainText } from '@scrawlnotes/core';
 import { t } from '@scrawlnotes/i18n';
 import { type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { clock, kindText, MAX_RECORDING_S, Recording, sizeText } from './chatMedia';
@@ -31,6 +31,34 @@ export function useFileUrl(url: string, hash: string | undefined, type = ''): st
     };
   }, [url, hash]);
   return shown && shown.hash === hash ? shown.address : null;
+}
+
+/**
+ * A web link's card under its message (design/chat.md 29): the site, the page's title and a line
+ * of what it is about, and its picture, as the server read them; it opens the link. Whoever wrote
+ * the message takes it off with the × a computer shows over it, or from the message's menu.
+ */
+export function LinkCard({ url, preview, onRemove }: { url: string; preview: LinkPreview; onRemove?: () => void }) {
+  const image = useFileUrl(url, preview.image?.hash, preview.image?.type);
+  return (
+    <div className="ch-lc">
+      <a className="tx" href={preview.url} target="_blank" rel="noopener noreferrer" title={preview.url}>
+        <span className="st">{preview.site}</span>
+        <b className="tt">{preview.title}</b>
+        {preview.description && <span className="ds">{preview.description}</span>}
+      </a>
+      {preview.image && (
+        <a className="im" href={preview.url} target="_blank" rel="noopener noreferrer" tabIndex={-1} aria-hidden="true">
+          {image && <img src={image} alt="" />}
+        </a>
+      )}
+      {onRemove && (
+        <button type="button" className="x" title={t('chat.removePreview')} aria-label={t('chat.removePreview')} onClick={onRemove}>
+          <Icon name="close" />
+        </button>
+      )}
+    </div>
+  );
 }
 
 export const isImage = (file: { type: string }) => file.type.startsWith('image/');

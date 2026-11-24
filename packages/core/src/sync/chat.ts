@@ -48,10 +48,21 @@ export interface ChatMessage {
   forwarded: { chat: string; kind: ChatKind; name: string; author: string; authorName: string } | null;
   files: ChatFile[];
   reactions: { emoji: string; people: string[] }[];
+  /** What its first web link's page says it is, once the server read it (design/chat.md 29). */
+  preview?: LinkPreview;
   at: number;
   edited: number | null;
   deleted: number | null;
   rev: number;
+}
+
+/** A web link's card: the page's site, title, a line of what it is about, and its picture among the conversation's files. */
+export interface LinkPreview {
+  url: string;
+  site: string;
+  title: string;
+  description?: string;
+  image?: { hash: string; type: string };
 }
 
 /** Whether a message is new to a person: not their own, unless their agent wrote it and mentions them (design/agent-wake.md 2). */
@@ -225,6 +236,11 @@ export class ChatClient {
 
   remove(message: string): Promise<ChatMessage> {
     return this.client.json(`/chat/messages/${encodeURIComponent(message)}`, { method: 'DELETE' });
+  }
+
+  /** Takes a link's card off a message of one's own; the link stays. */
+  removePreview(message: string): Promise<ChatMessage> {
+    return this.client.json(`/chat/messages/${encodeURIComponent(message)}/preview`, { method: 'DELETE' });
   }
 
   react(message: string, emoji: string, on: boolean): Promise<ChatMessage> {

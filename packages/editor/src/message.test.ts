@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { messageHtml } from './message';
+import { messageHtml, shortLink } from './message';
 
 // A message as its conversation shows it (design/chat.md, 3.1).
 
@@ -35,5 +35,22 @@ describe('a message as HTML', () => {
     expect(chip).toContain('<button type="button" class="msg-chip" data-href="scrawl:item/card/sp-acme/Roadmap.board.json?id=c1" data-kind="card">');
     expect(chip).toContain('<b>SCR-41 Agent guide</b><small>Roadmap · Review</small></button>');
     expect(messageHtml('[See this](scrawl:chat/localhost%3A8080/ch-1/m-1)')).toContain('<a class="msg-chat" href="#" data-href="scrawl:chat/localhost%3A8080/ch-1/m-1">See this</a>');
+  });
+});
+
+describe('a web address written as it is', () => {
+  it('shows short: its site without www, its path cut after forty characters, nothing after ? or #', () => {
+    const long = 'https://www.teamgram.com/blog/tr/crminizle-konusun-teamgram-crmde-asistan-ve-mcp/?utm_source=tgmailer&utm_medium=email';
+    const html = messageHtml(`Look ${long}`);
+    expect(html).toContain(`href="${long.replace(/&/g, '&amp;')}"`);
+    expect(html).toContain(`title="${long.replace(/&/g, '&amp;')}"`);
+    expect(html).toContain('>teamgram.com/blog/tr/crminizle-konusun-teamgram-crmd…</a>');
+    expect(shortLink('https://example.com/')).toBe('example.com');
+    expect(shortLink('http://localhost:8080/a%C4%B1/b#x')).toBe('localhost:8080/aı/b');
+  });
+
+  it('leaves a link written with its words, and a mail address, as they are', () => {
+    expect(messageHtml('[the docs](https://scrawlnotes.com/a/very/long/path/that/goes/on/and/on/and/on/x)')).toContain('>the docs</a>');
+    expect(messageHtml('mail me@example.com')).toContain('>me@example.com</a>');
   });
 });

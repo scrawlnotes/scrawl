@@ -576,6 +576,10 @@ class OneServer {
     this.put([await this.client.remove(message)]);
   }
 
+  async removePreview(message: string) {
+    this.put([await this.client.removePreview(message)]);
+  }
+
   async react(message: string, emoji: string, on: boolean) {
     this.put([await this.client.react(message, emoji, on)]);
   }

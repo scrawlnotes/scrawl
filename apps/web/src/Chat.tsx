@@ -22,7 +22,7 @@ import {
 import { locale, type MessageKey, t } from '@scrawlnotes/i18n';
 import { type DragEvent, type KeyboardEvent, memo, type MouseEvent, type PointerEvent, type ReactNode, type RefObject, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { clock, measure, Recording } from './chatMedia';
-import { Attachments, copyImage, ForwardDialog, type Going, isImage, NotifyBanner, NotifyBell, RecorderBar, saveChatFile, Tray, Uploads } from './ChatParts';
+import { Attachments, copyImage, ForwardDialog, type Going, isImage, LinkCard, NotifyBanner, NotifyBell, RecorderBar, saveChatFile, Tray, Uploads } from './ChatParts';
 import { type ChatServer, type ChatSnapshot, draftOf, keepDraft, keepOpen, lastOpen, type Pending, store, type Woke } from './chatStore';
 import { ConfirmDialog, type MenuItem, selectionIn } from './dialogs';
 import { log } from './log';
@@ -833,6 +833,7 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
     const items: MenuItem[] = [];
     if (mine(message) && !message.forwarded) items.push({ label: t('chat.edit'), icon: 'pen', run: () => setEditing(message.id) });
     items.push({ label: t('chat.copyText'), icon: 'copy', run: () => void copy(selected || message.body).catch(() => undefined) });
+    if (message.author === server.me && message.preview) items.push({ label: t('chat.removePreview'), icon: 'close', run: () => void one?.removePreview(message.id).catch(() => undefined) });
     const task = made(message);
     items.push({ label: t('chat.toTask'), icon: 'tasks', apart: true, run: () => links.toTask(task.title, task.description, task.from) });
     items.push({ label: t('chat.toCard'), icon: 'board', run: () => links.toCard(task.title, task.description, task.from) });
@@ -1020,6 +1021,7 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
                     }}
                     onCancelEdit={() => setEditing(null)}
                     onReply={() => setReplyTo(message)}
+                    onRemovePreview={() => void one?.removePreview(message.id).catch(() => undefined)}
                     onReact={(emoji) => {
                       setReacting(null);
                       react(message, emoji);
@@ -1176,6 +1178,7 @@ const MessageRow = memo(function MessageRow(props: {
   onEdit: (body: string) => void;
   onCancelEdit: () => void;
   onReply: () => void;
+  onRemovePreview: () => void;
   onReact: (emoji: string) => void;
   onReacting: (on: boolean) => void;
   onForward: () => void;
@@ -1260,6 +1263,11 @@ const MessageRow = memo(function MessageRow(props: {
           )
         )}
         {!message.deleted && message.files.length > 0 && <Attachments url={props.url} files={message.files} />}
+        {!message.deleted && !props.editing && message.preview && (
+          <div onClick={(event) => onBodyClick(event, props.onLink)}>
+            <LinkCard url={props.url} preview={message.preview} {...(message.author === me && !props.onHold && { onRemove: props.onRemovePreview })} />
+          </div>
+        )}
         {/* shortcut: a message of files alone has no text to end, so its eye takes a line under them; rare, give it a place on the files if it bothers */}
         {props.seen && message.body.trim() === '' && <div className="ch-seenline" dangerouslySetInnerHTML={{ __html: seenMark() }} />}
         {message.reactions.length > 0 && (

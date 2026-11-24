@@ -48,6 +48,9 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Config {
  * Why the server cannot run at this address, or null. The app on the web and on a phone reaches
  * only an address with HTTPS; plain HTTP is for trying it on this computer.
  */
+/** Whether the server runs on this computer only, to be tried. */
+export const isLocal = (url: string) => LOCAL.has(new URL(url).hostname);
+
 export function addressProblem(url: string): string | null {
   let parsed: URL;
   try {

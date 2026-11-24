@@ -4,7 +4,9 @@ import { join } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
 
 // Ports of their own, so a dev server already open on 5173/8080 is never touched.
-export const WEB = 'http://localhost:5199';
+// E2E_WEB_PORT and E2E_SERVER_PORT give another run its own ports, as one session runs beside another.
+const WEB_PORT = process.env.E2E_WEB_PORT ?? '5199';
+export const WEB = `http://localhost:${WEB_PORT}`;
 import { SERVER } from './server';
 export { SERVER };
 // Every run starts the server on an empty folder.
@@ -36,7 +38,7 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: 'pnpm --filter @scrawlnotes/web exec vite --port 5199 --strictPort',
+      command: `pnpm --filter @scrawlnotes/web exec vite --port ${WEB_PORT} --strictPort`,
       url: WEB,
       reuseExistingServer: false,
       timeout: 120_000,
@@ -44,7 +46,7 @@ export default defineConfig({
     {
       command: 'pnpm --filter @scrawlnotes/server exec node scripts/build.mjs && node ../apps/server/dist/server.mjs',
       url: `${SERVER}/`,
-      env: { PORT: '8199', SCRAWL_DATA: data, SCRAWL_APP_URL: WEB },
+      env: { PORT: new URL(SERVER).port, SCRAWL_DATA: data, SCRAWL_APP_URL: WEB },
       reuseExistingServer: false,
       timeout: 120_000,
     },

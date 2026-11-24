@@ -8,7 +8,7 @@ Durum: 24 Ekim 2026, onaylı. Kapsam sohbette konuşuldu ve şunlara karar veril
 - Arayüzde A yönü: kenar çubuğunda tek Chat satırı, tek Chat sekmesi. Telefonda tab bar'da Chat sekmesi.
 - Bildirim varsayılanları 6.1'deki gibidir.
 - Önerilen eklerin hepsi girer: tepki, To task ve To card ile Scrawl çipleri, ajan araçları (DM'ler dahil), room'un medya listesi, dışa aktarma, grup DM.
-- Yok: thread, workflow, zamanlanmış mesaj, hatırlatma, durum emojisi, dış link önizlemesi, uçtan uca şifreleme, misafir hesap, mesaj sabitleme ve kaydetme.
+- Yok: thread, workflow, zamanlanmış mesaj, hatırlatma, durum emojisi, dış link önizlemesi, uçtan uca şifreleme, misafir hesap, mesaj sabitleme ve kaydetme. (Link önizlemesi 24 Kasım'da geldi, 29.)
 - Belki ileride: bot, sesli ve görüntülü arama.
 
 Aynı gün 5. bölümdeki çevrimiçi, yazıyor ve okundu önerisi, 15. bölümdeki kararlar ve mockup (`design/mockups.html`, Mesajlaşma bölümü) olduğu gibi onaylandı. PLAN'a 19. aşama olarak işlendi (16. bölüm); Dropbox, S3 ve GitHub 20, Google Drive 21, Mobil 22 oldu. Roadmap'te faz 19, kartlar ROA-243–252. Kod yazılmadı.
@@ -53,7 +53,7 @@ Notlar, görevler, panolar ve koleksiyonlar bugünkü gibi dosya kalır; sohbet 
 
 - Thread. Yerine alıntılı cevap vardır (3.3).
 - Workflow, zamanlanmış mesaj, hatırlatma, durum emojisi.
-- Dış link önizlemesi.
+- Dış link önizlemesi. 24 Kasım'da kaldırıldı: link kısa görünür, altında sayfanın kartı (29).
 - Uçtan uca şifreleme: sunucu ekibin kendisinindir, arama da sunucuda çalışır.
 - Misafir hesap: sunucuda hesabı olmayan kimse konuşmaz.
 - Mesaj sabitleme ve kaydetme.
@@ -740,3 +740,50 @@ Kaan iPhone'da LTE'deyken bir resim ekleyip yazı yazdı. Yazı gitti, resim git
 - **Uygulama kapanırsa:** gönderilmemiş dosyalar cihazda (Cache Storage, `scrawl-chat-files` içinde `<sunucu>/unsent/<anahtar>`) durur. Uygulama açılınca mesaj resmiyle görünür ve gönderilmeye devam eder. Mesaj gidince ya da silinince cihazdakiler silinir.
 - **Kod:** `chatStore.ts` `Pending.uploads` (`Upload`: ad, tür, boyut, ne kadar gittiği, ölçüsü, cihazdaki resmi, sunucudaki `ChatFile`), `send(..., blobs)`, `carry` (ölçer, küçük resmi ve dosyayı gönderir, yeniden dener), `forget`. `ChatParts.tsx` `Tray` (yalnız seçilenler) ve `Uploads` (balondaki resimler ve halka). Sesli mesaj eskisi gibi önce yüklenir.
 - **Denendi:** Claude'un tarayıcısında, yerel sunucuyla: ilk üç yükleme düşürüldü, mesaj iki resmiyle gitti; altı yüklemenin hepsi düşürüldü, Not sent çıktı, Retry ile gitti; yükleme sürerken sayfa yenilendi, resim cihazdan okunup gitti; telefon görünümünde resim kartın içinde.
+
+## 29. Link kısa görünür, altında sayfanın kartı (24 Kasım)
+
+Eren, Chat'e yapıştırdığı uzun linkin (`utm`'leriyle iki satır) çirkin durduğunu söyledi ve WhatsApp'ın linkin altında çıkardığı başlığı örnek verdi. 24 Ekim'de "dış link önizlemesi" 1.4'te yapılmayacaklar arasındaydı. Kaan 24 Kasım'da hem kısaltmayı hem kartı onayladı. Taslak `design/mockups.html` › Mesajlaşma › Link ve Telefon link.
+
+### 29.1 Ne görünür
+
+- **Kısa link:** mesajda yazıldığı gibi duran adres kısa görünür: `teamgram.com/blog/tr/crminizle-konusun-teamgram-crmd…`. `https://` ve `www.` düşer, `?` ve `#` sonrası görünmez, yol kendi harfleriyle (`%C4%B1` değil `ı`) yazılır ve 40 karakterden sonra `…` ile kesilir. Açılan, kopyalanan ve fare üstündeyken görünen tam adrestir. `[yazı](link)` diye yazılmış linkin yazısı olduğu gibi kalır.
+- **Kart:** mesajın altında, solda ince bir çizgiyle (Slack gibi): site adı, sayfanın başlığı (vurgu renginde, kalın), en çok iki satır açıklama, sağda küçük resim. Karta basınca link açılır.
+- **Hangi link:** mesajdaki ilk web adresi. Birden çok link varsa yalnız ilkinin kartı çıkar (WhatsApp gibi). Room'da da DM'de de.
+- **Kart yoksa:** sayfa kendini anlatmıyorsa (başlığı yoksa), sunucu sayfayı okuyamazsa ya da site geri çevirirse kart çıkmaz, link kısa hâliyle kalır.
+- **Kaldırma:** kartı yalnız mesajı yazan kaldırır. Masaüstünde fare mesajın üstündeyken kartın yanında × çıkar. Menüde (masaüstünde sağ tık, telefonda basılı tutma) **Remove preview** var. Kaldırılan kart, mesaj aynı linkle düzenlense de geri gelmez.
+- **Düzenleme:** mesaj düzenlenip ilk link değişirse yeni link okunur, eski kart gider. Link çıkarılırsa kart da gider.
+
+### 29.2 Sunucu okur
+
+Tarayıcı başka bir sitenin sayfasını okuyamaz (CORS). Kural da "mesaj kendiliğinden dışarı uzanmaz" (3.1). Bu yüzden sayfayı sunucu okur, cihaz siteye hiç gitmez. Resim de sunucuda saklanır, cihaz onu mesajın dosyaları gibi sunucudan alır.
+
+- **Ne zaman:** mesaj kaydedilince. Mesaj hemen gider. İş, videolardaki gibi arka planda, sırayla yürür (27.2). Kart hazır olunca mesaj canlı kanaldan yeniden gönderilir, "edited" olmaz.
+- **Ne okunur:** sayfanın başı. Önce `og:title`, `og:site_name`, `og:description`, `og:image`; yoksa `twitter:` etiketleri; o da yoksa `<title>` ve `description`. Site adı yoksa adresin kendisi (`www.` olmadan). Başlık en çok 200, açıklama 300 karakter.
+- **Aynı link:** sayfanın söylediği bir gün saklanır, kartı olmayan bir saat. Aynı link o sürede yeniden okunmaz.
+- **Kapanırken kalan:** sunucu kapanırken okunmamış linkler açılışta okunur.
+
+### 29.3 Güvenlik
+
+Sunucu bir adresi kullanıcı adına okuduğu için iç ağına ulaşmamalı (SSRF).
+
+- Yalnız `http` ve `https`, yalnız 80 ve 443 portları.
+- Bağlanmadan önce adresin IP'sine bakılır. `127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16` (bulut meta verisi), `100.64.0.0/10`, `0.0.0.0/8`, ayrılmış ve çoklu yayın aralıkları, IPv6'da `::1`, `fc00::/7`, `fe80::/10` ve IPv4'ü taşıyan adresler reddedilir.
+- Ad, bağlanırken çözülen adresle denetlenir (`lookup`), böylece arada başka adrese döndürülemez. Bu denetim her yönlendirmede yeniden yapılır. Yönlendirme en çok 3.
+- Okuma süresi 5 sn. Sayfanın en çok 1 MB'ı okunur ve yalnız HTML ise. Resim en çok 2 MB ve yalnız PNG, JPEG, GIF ya da WebP.
+- Sayfadaki hiçbir şey çalıştırılmaz: başlık ve açıklama düz yazı olarak saklanır ve çizilir.
+- Kendi bilgisayarında denenen sunucu (`http://localhost`) yalnız o bilgisayarı da okuyabilir, başka iç adresi okumaz. İnternetteki sunucu hiçbir iç adresi okumaz.
+
+### 29.4 Teknik
+
+- **Sunucu:** `apps/server/src/unfurl.ts`: `reachable` (IP denetimi), `fetchPublic` (yönlendirme, süre ve boyut sınırları), `readHead` (etiketler), `previewOf` (sayfa ve resim), `Unfurls` (sıra). `chat.ts`: `send` ilk linki `preview_url` ve `looking` yazar, `edit` link değişince yeniden okutur, `removePreview`, `nextLink`, `keptPreview`, `linkDone`; mesajın resmi `file` ile mesajı görenlere açılır.
+- **Veri:** `messages` tablosunda `preview_url`, `preview` (JSON), `preview_image`, `preview_state` (`looking`, `done`, `none`, `removed`); `link_previews` (adres, JSON, zaman). Mesaj uygulamaya `preview: { url, site, title, description?, image?: { hash, type } }` ile gider.
+- **API:** `DELETE /api/v1/chat/messages/:id/preview` kartı kaldırır (yalnız yazan).
+- **Uygulama:** `packages/editor/src/message.ts` `shortLink`; core `LinkPreview` ve `ChatClient.removePreview`; web `ChatParts.tsx` `LinkCard`, `Chat.tsx` mesaj satırı ve menü, `styles.css` ve `phone.css` `.ch-lc`.
+- **Yapılmadı:** kartın başlığı ve açıklaması aramaya girmez; ajanın `messages` aracı ve export kartı göstermez; sitenin simgesi (favicon) alınmaz.
+
+### 29.5 Testler
+
+- **Sunucu:** ilk linkin sayfası bir kez okunur, kart mesaja yazılır ve konuşmaya söylenir; resim mesajı görenlere açılır, görmeyen 404 alır; aynı link yeniden okunmaz; yönlendirme izlenir; kendini anlatmayan sayfanın kartı yok; iç adres hiç okunmaz; düzenlenen mesajın yeni linki okunur; kartı yalnız yazan kaldırır ve aynı linkle düzenlense de geri gelmez; link okumayan sunucuda hiçbir şey okunmaz. `unfurl.test.ts`: iç ve dış adresler, etiketlerin sırası, resmin adresi, karakter kümesi.
+- **Editör:** kısa link, `[yazı](link)` ve e-posta adresi olduğu gibi.
+- **E2E (masaüstü ve telefon):** bilgisayardaki bir sayfanın linki kısa görünür, kart site, başlık, açıklama ve resimle gelir; masaüstünde ×, telefonda basılı tutup Remove preview kartı kaldırır.

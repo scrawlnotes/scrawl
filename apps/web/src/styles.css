@@ -17626,6 +17626,101 @@ button.ch-q {
   text-underline-offset: 2px;
 }
 
+/* a web link's card under its message (design/chat.md 29): a line at its left, as Slack's */
+.ch-lc {
+  position: relative;
+  display: flex;
+  gap: 12px;
+  width: fit-content;
+  max-width: min(520px, 100%);
+  margin: 5px 0 3px;
+  padding: 2px 0 2px 12px;
+  box-shadow: inset 3px 0 0 var(--sl-line);
+}
+
+.ch-lc .tx {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.ch-lc .st {
+  overflow: hidden;
+  color: var(--sl-dim);
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ch-lc .tt {
+  color: var(--sl-accent);
+  font-weight: 600;
+}
+
+.ch-lc .tx:hover .tt {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.ch-lc .ds {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--sl-dim);
+  font-size: 13px;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.ch-lc .im {
+  flex: none;
+  align-self: flex-start;
+  width: 76px;
+  height: 76px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--sl-side);
+}
+
+.ch-lc .im img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* whoever wrote it takes it off: the × beside it, while the pointer is on the message */
+.ch-lc .x {
+  position: absolute;
+  top: -2px;
+  right: -30px;
+  display: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  background: var(--sl-bg);
+  color: var(--sl-dim);
+}
+
+.ch-m:hover .ch-lc .x {
+  display: grid;
+}
+
+.ch-lc .x:hover {
+  color: var(--sl-fg);
+}
+
+.ch-lc .x .icon {
+  width: var(--icon-12, 12px);
+  height: var(--icon-12, 12px);
+}
+
 /* the pointer on a message: its buttons at its top right; ··· opens the rest */
 .ch-acts {
   position: absolute;

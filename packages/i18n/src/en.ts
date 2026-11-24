@@ -3057,6 +3057,7 @@ export const en = {
   'chat.findEmoji': 'Find an emoji',
   'chat.edit': 'Edit',
   'chat.copyText': 'Copy text',
+  'chat.removePreview': 'Remove preview',
   'chat.copyImage': 'Copy image',
   'chat.imageNotCopied': 'The image could not be copied',
   'chat.delete': 'Delete',

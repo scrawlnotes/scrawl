@@ -9403,6 +9403,23 @@ body > .mb-lifted {
   font-size: 14px;
 }
 
+.chat-conv.phone .ch-lc {
+  gap: 10px;
+}
+
+.chat-conv.phone .ch-lc .st {
+  font-size: 13px;
+}
+
+.chat-conv.phone .ch-lc .ds {
+  font-size: 14px;
+}
+
+.chat-conv.phone .ch-lc .im {
+  width: 64px;
+  height: 64px;
+}
+
 .chat-conv.phone .ch-rx button {
   height: 28px;
   font-size: 14px;
