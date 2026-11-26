@@ -287,9 +287,16 @@ export function ActionSheet({ head, items: all, onClose }: { head?: MenuHead; it
               </span>
             </div>
           )}
+          {/* An item's own menu goes back to the menu it came from, first; Cancel still closes it all. */}
+          {sub && (
+            <button type="button" role="menuitem" className="a" onClick={() => setSub(null)}>
+              <Icon name="back" />
+              <span className="lb">{t('dialog.back')}</span>
+            </button>
+          )}
           {groups.map((group, i) => (
             <Fragment key={i}>
-              {i > 0 && <div className="sep" />}
+              {(i > 0 || sub) && <div className="sep" />}
               {group.map((item) => (
                 <button
                   key={item.label}

@@ -135,3 +135,28 @@ test('a conversation’s right click has Settings…, Add to favorites, what it 
   await settings.getByRole('button', { name: 'Unmute' }).click();
   await expect(settings.getByText(/Muted until/)).toHaveCount(0);
 });
+
+test('a conversation held on a phone has its menu, and More options goes back to it', async ({ app, phone }) => {
+  test.skip(!phone, 'A computer right clicks the row.');
+  const space = await spaceWithInvite('Chat');
+  await joinSpace(app, space.link, person('Ada'), phone);
+  await app.getByRole('navigation', { name: 'Places' }).getByRole('button', { name: 'Chat' }).click();
+  // A finger resting on the row, as Chromium sends a touch.
+  const box = (await app.locator('.chp-c', { hasText: 'general' }).boundingBox())!;
+  const cdp = await app.context().newCDPSession(app);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: box.x + 40, y: box.y + box.height / 2 }] });
+  await app.waitForTimeout(900);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  // The tap that ends a hold is kept from what is under the finger for a moment.
+  await app.waitForTimeout(400);
+  const sheet = app.getByRole('menu');
+  await sheet.getByRole('menuitem', { name: 'More options' }).click();
+  await expect(sheet.getByRole('menuitem', { name: '1 hour' })).toBeVisible();
+  // Both: Back to the menu, and Cancel.
+  await expect(app.getByRole('button', { name: 'Cancel', exact: true })).toBeVisible();
+  await sheet.getByRole('menuitem', { name: 'Back', exact: true }).click();
+  await expect(sheet.getByRole('menuitem', { name: 'Settings…' })).toBeVisible();
+  await expect(sheet.getByRole('menuitem', { name: 'Back', exact: true })).toHaveCount(0);
+  await app.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(sheet).toHaveCount(0);
+});
