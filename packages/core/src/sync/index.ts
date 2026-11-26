@@ -41,7 +41,8 @@ export {
   personLink,
   plainText,
   readableText,
-  ROOM_MENTION,
+  ROOM_WORDS,
+  roomMention,
   withMentions,
   withMessages,
 } from './chat';

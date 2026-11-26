@@ -338,8 +338,11 @@ export const newMessageId = () => `m-${crypto.randomUUID()}`;
 /** A person mentioned, as the message has it: `[@Mert Kaya](scrawl:person/<id>)`. */
 export const personLink = (name: string, id: string) => `[@${name.replace(/[[\]\\]/g, '')}](scrawl:person/${encodeURIComponent(id)})`;
 
-/** Everyone in a room mentioned. */
-export const ROOM_MENTION = '[@room](scrawl:room)';
+/** The words that mention everyone in a room: @here and @everyone as Slack's people write them, and @room; all three tell everyone. */
+export const ROOM_WORDS = ['room', 'here', 'everyone'] as const;
+
+/** Everyone in a room mentioned with one of those words, as the message shows it. */
+export const roomMention = (word: (typeof ROOM_WORDS)[number]) => `[@${word}](scrawl:room)`;
 
 /** The person a mention's address names, or null for any other address. */
 export function mentioned(href: string): string | null {
@@ -411,11 +414,13 @@ export function parseItemLink(href: string): ChipRef | null {
  */
 export function withMentions(text: string, people: readonly { id: string; name: string }[], room = false): string {
   // Each name as it is written, found by its folded form: Şahin is Sahin too.
-  const names = new Map<string, { id: string; name: string } | 'room'>();
+  const names = new Map<string, { id: string; name: string } | (typeof ROOM_WORDS)[number]>();
   const written = new Set<string>();
   if (room) {
-    names.set('room', 'room');
-    written.add('room');
+    for (const word of ROOM_WORDS) {
+      names.set(word, word);
+      written.add(word);
+    }
   }
   const firsts = new Map<string, { person: { id: string; name: string }; as: string }[]>();
   for (const person of people) {
@@ -436,7 +441,7 @@ export function withMentions(text: string, people: readonly { id: string; name: 
   return text.replace(pattern, (whole, before: string, name: string) => {
     const who = names.get(fold(name.replace(/\s+/g, ' ')));
     if (!who) return whole;
-    return `${before}${who === 'room' ? ROOM_MENTION : personLink(who.name, who.id)}`;
+    return `${before}${typeof who === 'string' ? roomMention(who) : personLink(who.name, who.id)}`;
   });
 }
 

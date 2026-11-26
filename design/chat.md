@@ -120,8 +120,8 @@ Chat sekmesi bütün sunucuları birlikte gösterir: önce her sunucunun space'l
 
 ### 3.5 Mention
 
-- @ yazınca konuşmadaki kişiler listelenir; seçilen ad mesajda çip olur. Mesajda bir linktir: `[@Mert Kaya](scrawl:person/<id>)`, `@room` için `[@room](scrawl:room)`.
-- Room'da listenin sonunda `@room` vardır: "Notify everyone in #dev". DM'de yoktur.
+- @ yazınca konuşmadaki kişiler listelenir; seçilen ad mesajda çip olur. Mesajda bir linktir: `[@Mert Kaya](scrawl:person/<id>)`, `@room` için `[@room](scrawl:room)`; `@here` ve `@everyone` da aynı linktir, yazıldığı gibi görünür.
+- Room'da listenin sonunda `@room`, `@here` ve `@everyone` vardır: "Notify everyone in #dev". Üçü de aynıdır, room'daki herkese gider; `@here` Slack'teki gibi yalnız çevrimiçi olanlara değil. Slack'ten gelenlerin alışkanlığı için vardır (26 Kasım). DM'de yoktur.
 - Ajanlar listede yoktur, çünkü bot yok; ajan mesajı okuyunca bir şey yapmaz.
 
 ### 3.6 Tepki
@@ -164,7 +164,7 @@ Chat sekmesi bütün sunucuları birlikte gösterir: önce her sunucunun space'l
 - DM'de her mesaj ve mention her zaman bildirim verir.
 - Private room'da her mesaj bildirim verir.
 - Public room'da yalnız mention bildirim verir; `general` da public'tir.
-- `@room` room'daki herkese bildirim verir.
+- `@room`, `@here` ve `@everyone` room'daki herkese bildirim verir.
 - Her konuşmada üç seçim vardır: All, Mentions, Off. Off'ta bildirim yoktur, okunmamışlar sayıya girmez, ad soluk durur.
 - Kendi mesajın bildirim vermez. Ajanın mesajı insanınki gibi bildirim verir.
 - Mesajına başkası tepki koyunca yalnız sana bildirim gelir. All'da da Mentions'ta da gelir, Off'ta gelmez. 6.3'teki kurallar geçerlidir; bir dakikalık beklemede tepki kalkarsa gitmez. Ajanın mesajına konan tepki bildirim vermez. Tepki okunmamış sayılmaz, sayıyı artırmaz.
@@ -459,7 +459,7 @@ Mesaj 40.000 karakter; mesaj başına 10 ek; ses kaydı 15 dakika; grup DM 9 ki�
 5. Grup DM en çok 9 kişi olsun, sonradan kişi eklenmesin (2.2).
 6. DM'den çıkılmasın, Hide ile gizlensin (2.2).
 7. Silinen mesajın yerinde "This message was deleted." kalsın. Space Manager'ları room'larda başkasının mesajını silebilsin (3.2).
-8. `@room` olsun, `@here` olmasın; ajanlar anılmasın (3.5).
+8. `@room` olsun; 26 Kasım'da `@here` ve `@everyone` da eklendi, üçü de herkese gider; ajanlar anılmasın (3.5).
 9. Tepki: altı hızlı tepki ve aramalı tam liste; tepki bildirim vermesin (3.6).
 10. Çip: kart, görev ve kayıt kimlikle, diğerleri yolla dursun. To task ve To card herhangi bir space'e gitsin (3.7).
 11. Forward en çok 5 konuşmaya, yalnız aynı sunucuda olsun (3.4).
@@ -637,7 +637,7 @@ Kodda netleşenler:
 - **Araçlar yalnız sunucuda:** `messages` ve `send_message` sunucunun `/mcp`'sinde vardır (sunucuda 17 araç); bilgisayardaki `scrawl-mcp`'de yoktur (15). Rehberin araç tablosunda iki satır "On a Scrawl server" diye başlar.
 - **`messages`:** hiçbir şey verilmezse konuşmalar: ad (`#dev`, private room'un adı, DM'de kişiler), tür, space, kişiler (room'da değil), okunmamış sayısı, son mesajın zamanı; arşivliler yok, en yeni üstte. `in` ile konuşmanın son mesajları (`limit`, varsayılan 30, en çok 100) ya da `since` gününden başlayanlar, eskiden yeniye; daha fazlası varsa `more` ne yapılacağını söyler. `query`, `from` ya da `has` ile arama, en yeni üstte, her sonuçta konuşmanın adı. Mesajda id, zaman (kişinin saat diliminde, `2026-10-24 14:05`), yazan (ajansa "Claude Code (Laptop) · Kaan"), Markdown metin, cevapladığı mesaj, forward'un nereden geldiği, eklerin adı, türü ve boyutu, tepkiler ("👍 2"), düzenlendi ve silindi.
 - **Konuşmayı adlandırmak:** id, room'un adı (`#dev` ya da `dev`), DM'in listedeki adı ya da iki kişilik DM'de kişinin tam adı veya ilk adı. Aynı ad birden çok space'te varsa (`general`) araç yazmaz, adayları space'leriyle verir; `space` ile seçilir. Ajan katılmadığı public room'u okumaz; arşivli room'u `in` ile okuyamaz (listede yok).
-- **`send_message`:** `to` bir room ya da bir kişi; kişiyle DM yoksa açılır. `@Ad Soyad`, tek kişide geçen ilk ad ve room'da `@room` mention'a çevrilir; yazılmış mention'a, adrese ve kelimenin içindeki ada dokunulmaz. Arşivli room'a yazılmaz. Mesaj ajanın kimliğiyle gider ve ajan o space'in kişilerine yazılır (diğer araçlar gibi).
+- **`send_message`:** `to` bir room ya da bir kişi; kişiyle DM yoksa açılır. `@Ad Soyad`, tek kişide geçen ilk ad ve room'da `@room`, `@here`, `@everyone` mention'a çevrilir; yazılmış mention'a, adrese ve kelimenin içindeki ada dokunulmaz. Arşivli room'a yazılmaz. Mesaj ajanın kimliğiyle gider ve ajan o space'in kişilerine yazılır (diğer araçlar gibi).
 - **Ajan yazınca okundu ilerlemez:** kişi kendi yazdığında konuşma o mesaja kadar okunmuş sayılır; ajanı yazınca sayılmaz. Kişinin okumadıkları okunmamış kalır; ajanın mesajı kişinin kendi mesajı olduğu için okunmamışa girmez, kişiye bildirim de gitmez.
 - **Ajanın mesajı uygulamada:** sunucu mesajla birlikte ajanın adını da gönderir (`agentName`). Yüz kare ve vurgu renginde, ajanın baş harfi; adın yanında soluk " · Kaan Arslan". Aynı kişinin elle yazdığı mesajla ajanın mesajı birbirinin altına toplanmaz.
 - **Sunucunun export'u:** `Chat/<room>/2026-10.md`, room'un mesajı yoksa dosyası da yok; ekler bir kez `Chat/_attachments/`'te, aylık dosyadan `../_attachments/` ile. Günler ve saatler sunucu sahibinin saat diliminde (uygulamanın bildirdiği), yoksa UTC. Konuşmanın Export…'u ile sunucunun export'u aynı dökümü kullanır.

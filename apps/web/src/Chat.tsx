@@ -1,4 +1,4 @@
-import { type ChatFile, type ChatInfo, type ChatMessage, chatLink, continues, parseChatLink, personLink, plainText, readableText, ROOM_MENTION, tellsMe } from '@scrawlnotes/core';
+import { type ChatFile, type ChatInfo, type ChatMessage, chatLink, continues, parseChatLink, personLink, plainText, readableText, ROOM_WORDS, roomMention, tellsMe } from '@scrawlnotes/core';
 import {
   createEditor,
   editorTakesEnter,
@@ -1642,7 +1642,7 @@ function ReactionPicker({ onPick, onClose, startWide = false }: { onPick: (emoji
   );
 }
 
-/** The @ of a conversation's boxes: its people, the person's agents they wake, and in a room @room. */
+/** The @ of a conversation's boxes: its people, the person's agents they wake, and in a room @room, @here and @everyone. */
 function useChatMentions(editor: RefObject<ScrawlEditor | null>, server: ChatServer, chat: ChatInfo) {
   const agents = useWakeable(server.url);
   return useMentions(editor, (query) => [
@@ -1650,7 +1650,7 @@ function useChatMentions(editor: RefObject<ScrawlEditor | null>, server: ChatSer
       .filter((person) => !chat.gone.includes(person.id) && person.name.toLowerCase().split(/\s+/).some((word) => word.startsWith(query)))
       .map((person) => ({ key: person.id, label: person.name, insert: personLink(person.name, person.id) })),
     ...agentChoices(agents, query, t('mention.yourAgent')),
-    ...(chat.kind !== 'direct' && 'room'.startsWith(query) ? [{ key: '@room', label: '@room', sub: t('chat.notifyRoom', { name: `#${chat.name}` }), insert: ROOM_MENTION }] : []),
+    ...(chat.kind !== 'direct' ? ROOM_WORDS.filter((word) => word.startsWith(query)).map((word) => ({ key: `@${word}`, label: `@${word}`, sub: t('chat.notifyRoom', { name: `#${chat.name}` }), insert: roomMention(word) })) : []),
   ]);
 }
 
@@ -1664,7 +1664,7 @@ function ChatMentionList({ mentions, server, chat, atCaret = false }: { mentions
       picked={mentions.picked}
       onChoose={mentions.choose}
       face={(choice) =>
-        choice.key === '@room' ? (
+        ROOM_WORDS.some((word) => choice.key === `@${word}`) ? (
           <span className="atr">
             <Icon name="people" />
           </span>

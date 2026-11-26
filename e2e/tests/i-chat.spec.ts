@@ -85,3 +85,22 @@ test('a message’s menu copies it as it reads or as Markdown, and Copy copies w
   // A double click on Windows takes the space after the word too, as Ctrl+C would copy it.
   await expect.poll(copied).toMatch(/^plan ?$/);
 });
+
+test('@here and @everyone are offered in a room, and mention everyone as @room does', async ({ app, second, phone }) => {
+  const space = await spaceWithInvite('Chat');
+  await joinSpace(app, space.link, person('Ada'), phone);
+  await joinSpace(second, await invite(space.id), person('Ben'), phone);
+  await openChat(app, phone);
+  await openChat(second, phone);
+
+  const box = app.getByRole('textbox', { name: 'Message #general' });
+  await typeInto(box, '@');
+  const list = app.getByRole('listbox');
+  for (const word of ['@room', '@here', '@everyone']) await expect(list.getByRole('option', { name: new RegExp(word) })).toBeVisible();
+  await app.keyboard.type('he');
+  await list.getByRole('option', { name: /@here/ }).click();
+  await app.keyboard.type('lunch is here');
+  if (phone) await app.getByRole('button', { name: 'Send', exact: true }).click();
+  else await app.keyboard.press('Enter');
+  await expect(second.locator('.msg-at.room', { hasText: '@here' })).toBeVisible({ timeout: 20_000 });
+});

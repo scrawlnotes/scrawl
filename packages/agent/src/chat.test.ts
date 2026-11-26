@@ -32,8 +32,9 @@ describe('mentions', () => {
     expect(withMentions('[@Mert Kaya](scrawl:person/p-mert) mert@example.com @Mertcan', room)).toBe('[@Mert Kaya](scrawl:person/p-mert) mert@example.com @Mertcan');
   });
 
-  it('makes @room everyone in a room, and leaves it in a direct message', () => {
+  it('makes @room, @here and @everyone everyone in a room, and leaves it in a direct message', () => {
     expect(withMentions('@room the build is green', room)).toBe('[@room](scrawl:room) the build is green');
+    expect(withMentions('@here and @Everyone, look', room)).toBe('[@here](scrawl:room) and [@everyone](scrawl:room), look');
     const direct: AgentConversation = { ...room, id: 'ch-dm', name: 'Mert Kaya', kind: 'direct', space: null, people: [{ id: 'p-mert', name: 'Mert Kaya' }] };
     expect(withMentions('@room hi @Mert', direct)).toBe('@room hi [@Mert Kaya](scrawl:person/p-mert)');
   });
