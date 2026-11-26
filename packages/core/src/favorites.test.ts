@@ -15,6 +15,14 @@ describe('favorites', () => {
     expect(parseFavorites(serializeFavorites(favorites))).toEqual(favorites);
   });
 
+  it('keeps a conversation of Chat by its server and its id', () => {
+    const chat = { chat: 'ch-1', server: 'https://chat.example.com' };
+    const text = JSON.stringify({ version: 1, favorites: [chat, { chat: 'ch-2' }, chat] });
+    expect(parseFavorites(text)).toEqual([chat]);
+    expect(isFavorite([chat], { chat: 'ch-1', server: 'https://other.example.com' })).toBe(false);
+    expect(starFavorite([chat], chat, false)).toEqual([]);
+  });
+
   it('stars after the others, once, and takes a star off', () => {
     const one = starFavorite([], { filter: 'p1' }, true);
     const two = starFavorite(one, { label: 'bug' }, true);

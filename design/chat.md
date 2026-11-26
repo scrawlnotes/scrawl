@@ -163,9 +163,10 @@ Chat sekmesi bütün sunucuları birlikte gösterir: önce her sunucunun space'l
 
 - DM'de her mesaj ve mention her zaman bildirim verir.
 - Private room'da her mesaj bildirim verir.
-- Public room'da yalnız mention bildirim verir; `general` da public'tir.
+- Public room'da da her mesaj bildirim verir; `general` da public'tir. (24 Ekim'de "yalnız mention" yazılmıştı; 26 Kasım'da Slack'teki gibi All messages oldu.)
 - `@room`, `@here` ve `@everyone` room'daki herkese bildirim verir.
-- Her konuşmada üç seçim vardır: All, Mentions, Off. Off'ta bildirim yoktur, okunmamışlar sayıya girmez, ad soluk durur.
+- Her konuşmada üç seçim vardır: All messages, Mentions, Mute (eski adı Off). Mute'ta bildirim yoktur, okunmamışlar sayıya girmez, ad soluk durur.
+- **Mute for a while** (26 Kasım): 1 hour bir saat, Until tomorrow ertesi sabah 09:00'a kadar (cihazın saatiyle). Bu sürede konuşma Mute gibidir; listede adının yanında "until 14:30" yazar. Süre dolunca seçimine döner; sustuğu sürede gelenler sonradan bildirim vermez. Sunucuda `chat_members.muted_until`, `PATCH /chat/:id/me` `{ mutedUntil }` (en çok yedi gün ileri, `null` kaldırır); bir seçim yapmak onu bitirir. `ChatInfo.mutedUntil` yalnız susturulmuşken gelir.
 - Kendi mesajın bildirim vermez. Ajanın mesajı insanınki gibi bildirim verir.
 - Mesajına başkası tepki koyunca yalnız sana bildirim gelir. All'da da Mentions'ta da gelir, Off'ta gelmez. 6.3'teki kurallar geçerlidir; bir dakikalık beklemede tepki kalkarsa gitmez. Ajanın mesajına konan tepki bildirim vermez. Tepki okunmamış sayılmaz, sayıyı artırmaz.
 
@@ -202,7 +203,9 @@ Bizim tarafımızda hiçbir şey çalışmaz. Sunucu kendi anahtarını üretir 
 
 ### 6.6 Ayarlar
 
-- Konuşmanın başlığındaki zil: All, Mentions, Off, her birinin altında ne demek olduğu.
+- Konuşmanın başlığındaki zil: All messages, Mentions, Mute, her birinin altında ne demek olduğu; süreli susturulmuşsa "Muted until … · Unmute".
+- **Listede sağ tık**, telefonda satıra basılı tutmak (design/chat-settings.html, 26 Kasım): Settings…, Add to favorites (Favorites'te konuşma, okunmamış sayısıyla), Notify me about altında üç seçim, More options › Mute for a while (Until tomorrow, 1 hour) ve Default preferences… (Settings › Notifications), en altta DM'de Hide, room'da Leave room (general'da yok).
+- **Settings penceresi**: başlıktaki ⓘ yerine yazılı Settings; ilk sekme General: room'un adı, konusu, türü, en altta Notify me about. DM'de General yalnız bildirim seçimidir.
 - **Settings › Notifications** yeni bir bölümdür, her istemcide vardır:
   - "Notifications on this device", açık ya da kapalı. Tarayıcı izin vermemişse yanında Turn on; izin tarayıcının penceresiyle istenir.
   - iPhone'da Scrawl ana ekranda değilse bunun açıklaması.

@@ -86,6 +86,8 @@ export interface ChatInfo {
   joined: boolean;
   readSeq: number;
   notify: ChatNotify;
+  /** Muted for a while (design/chat.md 6.4): until when it tells nothing, whatever `notify` says. */
+  mutedUntil?: number;
   hidden: boolean;
   unread: number;
   alerts: number;
@@ -251,7 +253,7 @@ export class ChatClient {
     return this.client.json(`/chat/${encodeURIComponent(chat)}/read`, json('POST', { seq }));
   }
 
-  setMine(chat: string, mine: { notify?: ChatNotify | null; hidden?: boolean }): Promise<ChatInfo> {
+  setMine(chat: string, mine: { notify?: ChatNotify | null; hidden?: boolean; mutedUntil?: number | null }): Promise<ChatInfo> {
     return this.client.json(`/chat/${encodeURIComponent(chat)}/me`, json('PATCH', mine));
   }
 
@@ -462,13 +464,14 @@ export function itemChip(item: ChipRef, name: string, where: string): string {
 }
 
 /** A message's address, by its server's address, its conversation and its id: `scrawl:chat/<server>/<chat>/<message>`. */
+/** A message's address; with `message` empty, the conversation's own. */
 export function chatLink(server: string, chat: string, message: string): string {
   return `scrawl:chat/${encodeURIComponent(server)}/${encodeURIComponent(chat)}/${encodeURIComponent(message)}`;
 }
 
-/** The message an address points at; null for any other address. */
+/** The message an address points at, or the conversation with `message` empty; null for any other address. */
 export function parseChatLink(href: string): { server: string; chat: string; message: string } | null {
-  const match = /^scrawl:chat\/([^/]+)\/([^/]+)\/([^/]+)$/.exec(href);
+  const match = /^scrawl:chat\/([^/]+)\/([^/]+)\/([^/]*)$/.exec(href);
   if (!match) return null;
   try {
     return { server: decodeURIComponent(match[1]!), chat: decodeURIComponent(match[2]!), message: decodeURIComponent(match[3]!) };

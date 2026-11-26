@@ -327,6 +327,10 @@ const MIGRATIONS: string[] = [
     at INTEGER NOT NULL
   );
   `,
+  // A conversation muted for a while (design/chat.md 6.4): until when it tells this person nothing.
+  `
+  ALTER TABLE chat_members ADD COLUMN muted_until INTEGER;
+  `,
 ];
 
 export function openDb(file: string): Db {

@@ -30,8 +30,8 @@ import { agentChoices } from './mentionChoices';
 import { MentionList, useMentions } from './Mentions';
 import { useWakeable, wakeableKnown } from './wakeable';
 import { Icon, type IconName } from './Icon';
-import { Face, leadOf, namesOf, others, shortDay, timeOf, titleOf } from './ChatFaces';
-import { BrowseRoomsDialog, ChatInfoDialog, type InfoTab, NewMessageDialog, NewRoomDialog } from './ChatRooms';
+import { Face, leadOf, namesOf, others, shortDay, timeOf, titleOf, untilOf } from './ChatFaces';
+import { BrowseRoomsDialog, ChatInfoDialog, conversationMenu, type InfoTab, NewMessageDialog, NewRoomDialog } from './ChatRooms';
 import { ChatResults } from './ChatSearch';
 import { ChatIntro, notWrittenTo } from './ChatStart';
 import { type Hit, type HitFilters, useMessageSearch } from './messageSearch';
@@ -70,6 +70,11 @@ export interface ChatLinks {
   invite: (space: string | null) => void;
   /** Settings › Agents, where an agent is set up to answer. */
   agents: () => void;
+  /** Settings › Notifications: a conversation's Default preferences…. */
+  notifications: () => void;
+  /** Whether a conversation is in Favorites, and Add to favorites or Remove from favorites. */
+  starred: (url: string, chat: string) => boolean;
+  star: (url: string, chat: string, on: boolean) => void;
 }
 
 interface Props {
@@ -282,6 +287,34 @@ export function ChatView({ snapshot, menu, onStatus, links, goTo }: Props) {
     ]);
   };
   const makingServer = making ? snapshot.servers.find((each) => each.url === making.url) : undefined;
+  // Settings… from a conversation's menu in the list: it opens, with its Settings over it.
+  const [settingsAsked, setSettingsAsked] = useState<{ url: string; chat: string; at: number } | null>(null);
+  const [leaving, setLeaving] = useState<{ url: string; chat: ChatInfo } | null>(null);
+  const leave = (url: string, chat: ChatInfo) => {
+    setLeaving(null);
+    void store.server(url)?.leave(chat.id).catch(() => links.say(t('chat.notChanged')));
+  };
+  /** A conversation's right click in the list (design/chat-settings.html). */
+  const rowMenu = (event: MouseEvent, server: ChatServer, chat: ChatInfo) => {
+    event.preventDefault();
+    menu(
+      event,
+      conversationMenu({
+        server,
+        chat,
+        starred: links.starred(server.url, chat.id),
+        onSettings: () => {
+          pick({ url: server.url, chat: chat.id });
+          setSettingsAsked({ url: server.url, chat: chat.id, at: Date.now() });
+        },
+        onStar: (on) => links.star(server.url, chat.id, on),
+        onPrefs: links.notifications,
+        // A private room asks first, as one is brought back into it by someone in it.
+        onLeave: () => (chat.kind === 'private' ? setLeaving({ url: server.url, chat }) : leave(server.url, chat)),
+        say: links.say,
+      }),
+    );
+  };
 
   /** A message's link: its conversation opens at it; one not there for this person says so. */
   const follow = (href: string) => {
@@ -291,7 +324,8 @@ export function ChatView({ snapshot, menu, onStatus, links, goTo }: Props) {
     const there = server?.chats.find((each) => each.id === link.chat) ?? (server?.visiting?.id === link.chat ? server.visiting : undefined);
     if (!there) return links.say(t('chat.linkGone'));
     pick({ url: link.server, chat: link.chat });
-    setTarget({ message: link.message, at: Date.now() });
+    // A conversation's own link opens it where it was left.
+    if (link.message) setTarget({ message: link.message, at: Date.now() });
   };
   const goToServer = goTo ? parseChatLink(goTo.href)?.server : undefined;
   const goToReady = snapshot.servers.some((each) => each.url === goToServer && each.ready);
@@ -308,6 +342,7 @@ export function ChatView({ snapshot, menu, onStatus, links, goTo }: Props) {
         servers={snapshot.servers}
         open={finding ? null : shown}
         onOpen={pick}
+        onMenu={rowMenu}
         onAdd={addMenu}
         onWrite={(url, person) => void store.server(url)?.direct([person]).then((made) => pick({ url, chat: made.id }), () => links.say(t('chat.notChanged')))}
         box={searchBox(listBox, 'ch-find')}
@@ -339,6 +374,7 @@ export function ChatView({ snapshot, menu, onStatus, links, goTo }: Props) {
           menu={menu}
           links={links}
           target={target}
+          {...(settingsAsked?.url === shownServer.url && settingsAsked.chat === shownChat.id && { settingsAt: settingsAsked.at })}
           onFollow={follow}
           onList={() => setListShown(true)}
           onSearch={() => searchIn(shownServer.url, shownChat, shownServer.me)}
@@ -362,15 +398,27 @@ export function ChatView({ snapshot, menu, onStatus, links, goTo }: Props) {
         />
       )}
       {making?.kind === 'newMessage' && makingServer && <NewMessageDialog server={makingServer} onDone={(made) => openFrom(making.url, made)} onClose={() => setMaking(null)} />}
+      {leaving && (
+        <ConfirmDialog
+          title={t('chat.leaveTitle', { name: `#${leaving.chat.name}` })}
+          message={t('chat.leaveText')}
+          action={t('chat.leaveRoom')}
+          danger
+          onConfirm={() => leave(leaving.url, leaving.chat)}
+          onClose={() => setLeaving(null)}
+        />
+      )}
     </div>
   );
 }
 
 /** The conversations: each server's rooms under their spaces by name, then its direct messages, the latest first. */
-function ChatList({ servers, open, onOpen, onAdd, onWrite, box }: {
+function ChatList({ servers, open, onOpen, onMenu, onAdd, onWrite, box }: {
   servers: ChatServer[];
   open: Open | null;
   onOpen: (open: Open) => void;
+  /** A conversation's right click: its menu. */
+  onMenu: (event: MouseEvent, server: ChatServer, chat: ChatInfo) => void;
   /** The + of a space's heading, or of Direct's (space null). */
   onAdd: (event: MouseEvent, url: string, space: string | null) => void;
   /** Someone to write to, with no direct message yet: it opens. */
@@ -381,16 +429,25 @@ function ChatList({ servers, open, onOpen, onAdd, onWrite, box }: {
   const many = servers.length > 1;
   const row = (server: ChatServer, chat: ChatInfo) => {
     const on = open?.url === server.url && open.chat === chat.id;
-    const off = chat.notify === 'off';
+    const muted = chat.mutedUntil !== undefined && chat.mutedUntil > Date.now() ? chat.mutedUntil : null;
+    const off = chat.notify === 'off' || muted !== null;
     const unread = chat.unread > 0 && !off && !on;
     const draft = !on && draftOf(server.url, chat.id).trim() !== '';
     // A room read without being in it, or archived, shows only while it is open.
     const peek = !chat.joined || chat.archived !== null;
     return (
-      <button type="button" key={chat.id} className={`chat-row${on ? ' on' : ''}${unread ? ' un' : ''}${off ? ' off' : ''}${peek ? ' peek' : ''}`} onClick={() => onOpen({ url: server.url, chat: chat.id })}>
+      <button type="button" key={chat.id} className={`chat-row${on ? ' on' : ''}${unread ? ' un' : ''}${off ? ' off' : ''}${peek ? ' peek' : ''}`} onClick={() => onOpen({ url: server.url, chat: chat.id })} onContextMenu={(event) => onMenu(event, server, chat)}>
         {leadOf(chat, server)}
         <span className="nm">{titleOf(chat, server.me)}</span>
-        {chat.alerts > 0 && !on ? <span className="n">{chat.alerts}</span> : off ? <Icon name="bellOff" /> : draft ? <span className="dr">{t('chat.draft')}</span> : null}
+        {chat.alerts > 0 && !on ? (
+          <span className="n">{chat.alerts}</span>
+        ) : muted !== null ? (
+          <span className="until">{t('chat.until', { time: untilOf(muted) })}</span>
+        ) : off ? (
+          <Icon name="bellOff" />
+        ) : draft ? (
+          <span className="dr">{t('chat.draft')}</span>
+        ) : null}
       </button>
     );
   };
@@ -457,12 +514,14 @@ export interface PhoneMode {
 }
 
 /** One conversation: its head, its messages with the days between them and the line before what is new, and the box to write in. */
-export function Conversation({ server, chat, menu, links, target, onFollow, onList, onSearch, phone }: {
+export function Conversation({ server, chat, menu, links, target, settingsAt, onFollow, onList, onSearch, phone }: {
   server: ChatServer;
   chat: ChatInfo;
   menu: Props['menu'];
   links: ChatLinks;
   target: { message: string; at: number } | null;
+  /** When its Settings were asked for from the list's menu: they open. */
+  settingsAt?: number;
   /** The magnifier over it: the search opens in it. */
   onSearch?: () => void;
   onFollow: (href: string) => void;
@@ -494,6 +553,9 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
   const [forwarding, setForwarding] = useState<ChatMessage | null>(null);
   // The Info window, at a tab; and a room read without being in it, joined.
   const [info, setInfo] = useState<InfoTab | null>(null);
+  useEffect(() => {
+    if (settingsAt) setInfo('about');
+  }, [settingsAt]);
   const [joining, setJoining] = useState(false);
   const join = async () => {
     setJoining(true);
@@ -962,10 +1024,11 @@ export function Conversation({ server, chat, menu, links, target, onFollow, onLi
               label={chat.kind === 'public' ? `#${chat.name}` : titleOf(chat, server.me)}
               me={nameOf(server.me).split(/\s+/)[0]!}
               onPick={(notify) => void one?.notify(chat.id, notify).catch(() => links.say(t('chat.notChanged')))}
+              onUnmute={() => void one?.muteUntil(chat.id, null).catch(() => links.say(t('chat.notChanged')))}
             />
           )}
-          <button type="button" className="ib" title={t('chat.info')} aria-label={t('chat.info')} onClick={() => setInfo(chat.kind === 'direct' ? 'people' : 'about')}>
-            <Icon name="info" />
+          <button type="button" className="ch-set" onClick={() => setInfo('about')}>
+            {t('chat.settings')}
           </button>
         </span>
       </header>

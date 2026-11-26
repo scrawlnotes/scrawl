@@ -4,6 +4,7 @@ import { type CSSProperties, type KeyboardEvent, type PointerEvent as ReactPoint
 import { clock, kindText, MAX_RECORDING_S, Recording, sizeText } from './chatMedia';
 import { type ChatServer, store, type Upload } from './chatStore';
 import { Dialog } from './dialogs';
+import { untilOf } from './ChatFaces';
 import { Icon } from './Icon';
 import { FIT, kept, placeOf, TAP_ZOOM, type Zoom, zoomedAt } from './photoZoom';
 import { closeBanner, turnOn, useNotify } from './notify';
@@ -853,19 +854,79 @@ export function NotifyBanner({ phone }: { phone?: boolean }) {
   );
 }
 
-const NOTIFY: ChatNotify[] = ['all', 'mentions', 'off'];
+export const NOTIFY: ChatNotify[] = ['all', 'mentions', 'off'];
 
 /**
  * The bell at the top of a conversation (design/chat.md, 6.6): what it tells this person, All,
  * Mentions or Off, each said under its name, the one chosen ticked.
  */
-export function NotifyBell({ chat, label, me, onPick }: {
+/**
+ * What a conversation tells this person, each choice with what it means, the one set ticked; and,
+ * muted for a while, until when, with Unmute. The bell's, and the General of its Settings
+ * (design/chat-settings.html). The choice set is picked again to end a mute for a while.
+ */
+export function NotifyChoices({ chat, label, me, onPick, onUnmute, onDone }: {
+  chat: ChatInfo;
+  label: string;
+  me: string;
+  onPick: (notify: ChatNotify) => void;
+  onUnmute: () => void;
+  /** A choice was clicked: the bell closes. */
+  onDone?: () => void;
+}) {
+  const direct = chat.kind === 'direct';
+  const notes: Record<ChatNotify, string> = {
+    all: direct ? t('chat.notifyAllDirect') : t('chat.notifyAllRoom', { name: label }),
+    mentions: direct ? t('chat.notifyMentionsDirect', { name: me }) : t('chat.notifyMentions', { name: me }),
+    off: t('chat.notifyOff', { name: label }),
+  };
+  const names: Record<ChatNotify, string> = { all: t('chat.notifyAll'), mentions: t('chat.notify.mentions'), off: t('chat.notify.off') };
+  return (
+    <>
+      {NOTIFY.map((each) => (
+        <button
+          type="button"
+          key={each}
+          role="menuitemradio"
+          aria-checked={chat.notify === each}
+          className={chat.notify === each ? 'r on' : 'r'}
+          onClick={() => {
+            onDone?.();
+            if (each !== chat.notify || chat.mutedUntil) onPick(each);
+          }}
+        >
+          <b>{names[each]}</b>
+          <small>{notes[each]}</small>
+          {chat.notify === each && <span className="tk">✓</span>}
+        </button>
+      ))}
+      {chat.mutedUntil && (
+        <p className="ch-muted">
+          {t('chat.mutedUntil', { time: untilOf(chat.mutedUntil) })}
+          {' · '}
+          <button
+            type="button"
+            onClick={() => {
+              onDone?.();
+              onUnmute();
+            }}
+          >
+            {t('chat.unmute')}
+          </button>
+        </p>
+      )}
+    </>
+  );
+}
+
+export function NotifyBell({ chat, label, me, onPick, onUnmute }: {
   chat: ChatInfo;
   /** The conversation as the choices name it: #dev, founders, Elif Demir. */
   label: string;
   /** This person's first name, as a mention of them is read. */
   me: string;
   onPick: (notify: ChatNotify) => void;
+  onUnmute: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLSpanElement>(null);
@@ -886,13 +947,6 @@ export function NotifyBell({ chat, label, me, onPick }: {
       window.removeEventListener('blur', away);
     };
   }, [open]);
-  const direct = chat.kind === 'direct';
-  const notes: Record<ChatNotify, string> = {
-    all: direct ? t('chat.notifyAllDirect') : t('chat.notifyAllRoom', { name: label }),
-    mentions: direct ? t('chat.notifyMentionsDirect', { name: me }) : t('chat.notifyMentions', { name: me }),
-    off: t('chat.notifyOff', { name: label }),
-  };
-  const names: Record<ChatNotify, string> = { all: t('chat.notifyAll'), mentions: t('chat.notify.mentions'), off: t('chat.notify.off') };
   const move = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
     event.preventDefault();
@@ -911,28 +965,12 @@ export function NotifyBell({ chat, label, me, onPick }: {
         aria-expanded={open}
         onClick={() => setOpen(!open)}
       >
-        <Icon name={chat.notify === 'off' ? 'bellOff' : 'bell'} />
+        <Icon name={chat.notify === 'off' || chat.mutedUntil ? 'bellOff' : 'bell'} />
       </button>
       {open && (
         <div className="ch-bell" role="menu" onKeyDown={move}>
           <div className="cap">{t('chat.notifyAbout')}</div>
-          {NOTIFY.map((each) => (
-            <button
-              type="button"
-              key={each}
-              role="menuitemradio"
-              aria-checked={chat.notify === each}
-              className={chat.notify === each ? 'r on' : 'r'}
-              onClick={() => {
-                setOpen(false);
-                if (each !== chat.notify) onPick(each);
-              }}
-            >
-              <b>{names[each]}</b>
-              <small>{notes[each]}</small>
-              {chat.notify === each && <span className="tk">✓</span>}
-            </button>
-          ))}
+          <NotifyChoices chat={chat} label={label} me={me} onPick={onPick} onUnmute={onUnmute} onDone={() => setOpen(false)} />
         </div>
       )}
     </span>

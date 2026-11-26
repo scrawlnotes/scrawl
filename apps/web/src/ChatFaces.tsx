@@ -64,6 +64,9 @@ export function PictureOr({ id, children }: { id: string | undefined; children: 
 
 export const timeOf = (at: number) => new Date(at).toLocaleTimeString(locale(), { hour: 'numeric', minute: '2-digit' });
 
+/** Until when a conversation is muted: 14:30 today, Nov 27 9:00 on another day. */
+export const untilOf = (at: number) => (new Date(at).toDateString() === new Date().toDateString() ? timeOf(at) : `${shortDay(at)} ${timeOf(at)}`);
+
 /** What goes before a conversation's name in a list: the other's face with its dot, two faces, a lock or #. */
 export function leadOf(chat: ChatInfo, server: ChatServer): ReactNode {
   const people = others(chat, server.me);

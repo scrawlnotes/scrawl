@@ -638,6 +638,11 @@ class OneServer {
     return this.made(this.client.setMine(chat, { notify }));
   }
 
+  /** Muted until then, its choice kept to come back to; null unmutes it now. */
+  muteUntil(chat: string, until: number | null) {
+    return this.made(this.client.setMine(chat, { mutedUntil: until }));
+  }
+
   changeRoom(chat: string, change: { name?: string; topic?: string; kind?: 'public' | 'private'; archived?: boolean }) {
     return this.made(this.client.changeRoom(chat, change));
   }

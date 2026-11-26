@@ -143,6 +143,7 @@ interface MemberRow {
   read_seq: number;
   notify: Notify | null;
   hidden: number;
+  muted_until: number | null;
 }
 
 interface MessageRow {
@@ -212,7 +213,11 @@ const SEND_MAX = 30;
 const TYPING_MS = 2_500;
 
 /** What a conversation tells someone who has not chosen: everything in a direct message and a private room, mentions in a public one. */
-const DEFAULT_NOTIFY: Record<ChatKind, Notify> = { public: 'mentions', private: 'all', direct: 'all' };
+// Every conversation tells of every message until its person chooses otherwise, as Slack's channels do (design/chat.md 6.1).
+const DEFAULT_NOTIFY: Record<ChatKind, Notify> = { public: 'all', private: 'all', direct: 'all' };
+
+/** Muted for a while at most this long ahead: "Until tomorrow" is the next morning. */
+const MUTE_MAX_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * What a message has, as search narrows by it (design/chat.md, 7): photos and videos, other files,
@@ -467,7 +472,7 @@ export class Chats {
   }
 
   /** Someone's own way with a conversation: what it tells them, and a direct message hidden from their list. */
-  setMine(by: Account, id: string, input: { notify?: unknown; hidden?: unknown }): ChatInfo {
+  setMine(by: Account, id: string, input: { notify?: unknown; hidden?: unknown; mutedUntil?: unknown }): ChatInfo {
     const chat = this.see(id, by.id);
     if (!this.isIn(chat, by.id)) throw new Refused(403, 'not-member', 'You are not in this conversation');
     const me = this.member(chat.id, by.id);
@@ -475,6 +480,13 @@ export class Chats {
     if (input.notify !== undefined) {
       if (input.notify !== null && input.notify !== 'all' && input.notify !== 'mentions' && input.notify !== 'off') throw new Refused(400, 'bad-notify', 'A conversation tells you of all, of mentions, or of nothing');
       notify = input.notify;
+    }
+    // A choice made ends a mute for a while; a mute for a while keeps the choice to come back to.
+    let mutedUntil = input.notify !== undefined ? null : (me?.muted_until ?? null);
+    if (input.mutedUntil !== undefined) {
+      const until = input.mutedUntil;
+      if (until !== null && (typeof until !== 'number' || !Number.isFinite(until) || until <= this.now() || until > this.now() + MUTE_MAX_MS)) throw new Refused(400, 'bad-mute', 'A conversation is muted until a time in the next seven days');
+      mutedUntil = until;
     }
     let hidden = me?.hidden ?? 0;
     if (input.hidden !== undefined) {
@@ -484,7 +496,7 @@ export class Chats {
     transaction(this.db, () => {
       const rev = this.nextRev();
       this.enter(chat.id, by.id, by.id, rev);
-      this.db.prepare('UPDATE chat_members SET notify = ?, hidden = ?, rev = ? WHERE chat_id = ? AND account_id = ?').run(notify, hidden, rev, chat.id, by.id);
+      this.db.prepare('UPDATE chat_members SET notify = ?, hidden = ?, muted_until = ?, rev = ? WHERE chat_id = ? AND account_id = ?').run(notify, hidden, mutedUntil, rev, chat.id, by.id);
     });
     this.tell([by.id], { type: 'chat', cursor: this.cursor() });
     return this.info(chat, by.id);
@@ -961,8 +973,7 @@ export class Chats {
     const chat = this.row(row.chat_id);
     if (chat.archived_at !== null || !this.listeners(chat).includes(row.author_id)) return null;
     if (!this.db.prepare('SELECT 1 FROM reactions WHERE message_id = ? AND account_id = ? AND emoji = ?').get(row.id, by, emoji)) return null;
-    const notify = this.member(chat.id, row.author_id)?.notify ?? DEFAULT_NOTIFY[chat.kind];
-    return notify === 'off' ? null : row.author_id;
+    return this.notifyNow(chat, this.member(chat.id, row.author_id)) === 'off' ? null : row.author_id;
   }
 
   /** A reaction as its notification says it: who put it on, and where, as a message's; then the emoji and what it is on. */
@@ -992,7 +1003,7 @@ export class Chats {
       const me = this.member(chat.id, account);
       if (chat.kind === 'public' && !chat.general && !this.isIn(chat, account)) continue;
       if ((me?.read_seq ?? 0) >= row.seq) continue;
-      const notify = me?.notify ?? DEFAULT_NOTIFY[chat.kind];
+      const notify = this.notifyNow(chat, me);
       const mention = mentioned.has(account) || row.mentions_room === 1;
       if (notify === 'off' || (notify === 'mentions' && !mention)) continue;
       out.push({ account, mention });
@@ -1129,7 +1140,12 @@ export class Chats {
   }
 
   private member(chat: string, account: string): MemberRow | undefined {
-    return this.db.prepare('SELECT account_id, left_at, read_seq, notify, hidden FROM chat_members WHERE chat_id = ? AND account_id = ?').get(chat, account) as unknown as MemberRow | undefined;
+    return this.db.prepare('SELECT account_id, left_at, read_seq, notify, hidden, muted_until FROM chat_members WHERE chat_id = ? AND account_id = ?').get(chat, account) as unknown as MemberRow | undefined;
+  }
+
+  /** What a conversation tells someone now: their choice, or its kind's, and nothing while it is muted for a while. */
+  private notifyNow(chat: ChatRow, me: MemberRow | undefined): Notify {
+    return (me?.muted_until ?? 0) > this.now() ? 'off' : (me?.notify ?? DEFAULT_NOTIFY[chat.kind]);
   }
 
   /** Puts someone in a conversation, or back in it; what they read and chose stays. */
@@ -1390,6 +1406,7 @@ export class Chats {
     const joined = this.isIn(chat, account);
     const readSeq = me?.read_seq ?? 0;
     const notify = me?.notify ?? DEFAULT_NOTIFY[chat.kind];
+    const muted = (me?.muted_until ?? 0) > this.now() ? me!.muted_until! : null;
     // An agent's message tells its person when it mentions them; in their direct message with it, every one (design/agent-wake.md 14).
     const agentTells = chat.agent_id ? 'm.agent_id IS NOT NULL' : '(m.agent_id IS NOT NULL AND EXISTS (SELECT 1 FROM mentions y WHERE y.message_id = m.id AND y.account_id = ?))';
     const count = (extra: string, ...args: (string | number)[]) =>
@@ -1403,7 +1420,7 @@ export class Chats {
       ).n;
     const unread = joined ? count('') : 0;
     const alerts =
-      !joined || notify === 'off' || unread === 0
+      !joined || notify === 'off' || muted !== null || unread === 0
         ? 0
         : notify === 'all'
           ? unread
@@ -1432,6 +1449,7 @@ export class Chats {
       joined,
       readSeq,
       notify,
+      ...(muted !== null && { mutedUntil: muted }),
       hidden: me?.hidden === 1,
       unread,
       alerts,

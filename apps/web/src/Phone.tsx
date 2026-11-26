@@ -22,11 +22,11 @@ import { PhoneSearch, type SearchAction, type Thing } from './Search';
 import { PhoneChatSearch } from './ChatSearch';
 import type { Hit } from './messageSearch';
 import { useAwakeWhileWriting } from './awake';
-import { ActionSheet, Empty, setPhoneFrame, suppressClick, useViewport } from './sheets';
+import { ActionSheet, AskSheet, Empty, setPhoneFrame, suppressClick, useViewport } from './sheets';
 import { LabelsPage } from './labels';
 import type { ChatLinks } from './Chat';
-import type { MenuItem } from './dialogs';
-import { canAddPeople, type InfoTab } from './ChatRooms';
+import type { MenuHead, MenuItem } from './dialogs';
+import { canAddPeople, conversationMenu, type InfoTab } from './ChatRooms';
 import { store as chatStore, useChat } from './chatStore';
 import { partName, PhoneChatConversation, PhoneChatInfo, PhoneChatList, PhoneChatPart } from './PhoneChat';
 import { PhoneAddPeople, PhoneBrowseRooms, PhoneNewMessage, PhoneNewRoom } from './PhoneChatNew';
@@ -254,7 +254,7 @@ export interface PhoneProps {
     leave: (dir: string, id: string, then: () => void) => void;
   };
   /** Chat, the fifth tab, with a server that has messaging: what its messages point at, the menu, and a message's link followed elsewhere. */
-  chat: { links: ChatLinks; menu: (event: MouseEvent, items: MenuItem[]) => void; goTo: { href: string; at: number } | null };
+  chat: { links: ChatLinks; menu: (event: MouseEvent, items: MenuItem[]) => void; sheet: (items: MenuItem[], head?: MenuHead) => void; goTo: { href: string; at: number } | null };
   /** When the morning's notification asked for Today (design/notifications.md 6); 0 when it never did. */
   todayAsked?: number;
   /**
@@ -634,6 +634,15 @@ export function Phone(props: PhoneProps) {
   const [now, setNow] = useState(Date.now);
   /** A row held for its menu, lifted over the dimmed page while the menu is open: where it is and what it shows. */
   const [held, setHeld] = useState<{ box: DOMRect; html: string; className: string } | null>(null);
+  // Leave room from a private room held in Chat's list, asked first.
+  const [leavingChat, setLeavingChat] = useState<{ url: string; chat: ChatInfo } | null>(null);
+  const leaveChat = (url: string, room: ChatInfo) => {
+    setLeavingChat(null);
+    void chatStore
+      .server(url)
+      ?.leave(room.id)
+      .catch(() => props.chat.links.say(t('chat.notChanged')));
+  };
   const stage = useRef<HTMLDivElement>(null);
   const holders = useRef(new Map<number, HTMLDivElement>());
   const lastActive = useRef<string | null>(null);
@@ -1232,7 +1241,7 @@ export function Phone(props: PhoneProps) {
             </div>
             <div className="mb-list">
               {props.favorites.map((row) => (
-                <Row key={row.key} icon={row.icon} lead={row.dot} label={row.name} sub={row.space} right={row.count || ''} onClick={() => openItem(row.tab)} onHold={itemHold(row.tab)} />
+                <Row key={row.key} icon={row.icon} lead={row.dot} label={row.name} sub={row.space} right={row.count || ''} onClick={() => (row.open ? row.open() : openItem(row.tab))} {...(!row.open && { onHold: itemHold(row.tab) })} />
               ))}
             </div>
           </>
@@ -1326,6 +1335,24 @@ export function Phone(props: PhoneProps) {
         >
           <PhoneChatList
             onOpen={(url, id) => push({ kind: 'chatConv', url, chat: id })}
+            onMenu={(server, held, row) =>
+              holdFor(() =>
+                props.chat.sheet(
+                  conversationMenu({
+                    server,
+                    chat: held,
+                    starred: props.chat.links.starred(server.url, held.id),
+                    // A room's Settings is its own page; a direct message's are its Info's.
+                    onSettings: () => push(held.kind === 'direct' ? { kind: 'chatInfo', url: server.url, chat: held.id } : { kind: 'chatPart', url: server.url, chat: held.id, tab: 'about' }),
+                    onStar: (on) => props.chat.links.star(server.url, held.id, on),
+                    onPrefs: props.chat.links.notifications,
+                    onLeave: () => (held.kind === 'private' ? setLeavingChat({ url: server.url, chat: held }) : leaveChat(server.url, held)),
+                    say: props.chat.links.say,
+                  }),
+                  { icon: 'chat', title: chatTitle(held, server.me), ...(held.spaceName && { sub: held.spaceName }) },
+                ),
+              )(row)
+            }
             onSearch={() => push({ kind: 'chatSearch' })}
             onWrite={(url, person) =>
               void chatStore
@@ -1873,6 +1900,15 @@ export function Phone(props: PhoneProps) {
           values={props.settings.values}
           onRemove={() => spaceMenu && setRemovingSpace(spaceMenu)}
           onClose={closeSpaceMenu}
+        />
+      )}
+      {leavingChat && (
+        <AskSheet
+          title={t('chat.leaveTitle', { name: `#${leavingChat.chat.name}` })}
+          message={t('chat.leaveText')}
+          action={t('chat.leaveRoom')}
+          onConfirm={() => leaveChat(leavingChat.url, leavingChat.chat)}
+          onClose={() => setLeavingChat(null)}
         />
       )}
       {removingSpace &&

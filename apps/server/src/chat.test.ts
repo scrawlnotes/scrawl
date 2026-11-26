@@ -93,7 +93,7 @@ describe('rooms', () => {
   it('gives every shared space a general room everyone in it is in, and a personal space none', async () => {
     const s = await start();
     const general = await s.general(s.mert);
-    expect(general).toMatchObject({ kind: 'public', name: 'general', spaceName: 'Acme', joined: true, notify: 'mentions', unread: 0 });
+    expect(general).toMatchObject({ kind: 'public', name: 'general', spaceName: 'Acme', joined: true, notify: 'all', unread: 0 });
     expect((general.members as { name: string }[]).map((person) => person.name)).toEqual(['Elif', 'Kaan Arslan', 'Mert']);
     expect((await s.list(s.kaan)).filter((chat) => chat.general).map((chat) => chat.space).sort()).toEqual([ACME, OTHER].sort());
     expect((await s.call(s.mert, 'DELETE', `/chat/${general.id}/members/${MERT}`)).body.error.code).toBe('general');
@@ -113,7 +113,7 @@ describe('rooms', () => {
   it('shows a public room to everyone in the space to read and join, and a private one only to those in it', async () => {
     const s = await start();
     const design = await s.room(s.kaan, '# design', 'public');
-    expect(design).toMatchObject({ name: 'design', kind: 'public', joined: true, notify: 'mentions' });
+    expect(design).toMatchObject({ name: 'design', kind: 'public', joined: true, notify: 'all' });
     expect((await s.call(s.mert, 'POST', '/chat/rooms', { space: ACME, name: 'Design', kind: 'private' })).body.error.code).toBe('name-taken');
     await s.say(s.kaan, design.id, 'Tab bar icons, second round');
 
@@ -387,10 +387,11 @@ describe('reading', () => {
     const general = await s.general(s.kaan);
     await s.say(s.kaan, general.id, 'Office is closed on Friday');
     await s.say(s.kaan, general.id, `[@Mert](scrawl:person/${MERT}) can you lock up?`);
-    expect(await s.call(s.mert, 'GET', `/chat/${general.id}`).then((each) => each.body)).toMatchObject({ unread: 2, alerts: 1, readSeq: 0 });
+    // A public room tells of every message until its person chooses otherwise.
+    expect(await s.call(s.mert, 'GET', `/chat/${general.id}`).then((each) => each.body)).toMatchObject({ notify: 'all', unread: 2, alerts: 2, readSeq: 0 });
     expect(await s.call(s.kaan, 'GET', `/chat/${general.id}`).then((each) => each.body)).toMatchObject({ unread: 0, readSeq: 2 });
-    await s.call(s.mert, 'PATCH', `/chat/${general.id}/me`, { notify: 'all' });
-    expect((await s.call(s.mert, 'GET', `/chat/${general.id}`)).body).toMatchObject({ notify: 'all', alerts: 2 });
+    await s.call(s.mert, 'PATCH', `/chat/${general.id}/me`, { notify: 'mentions' });
+    expect((await s.call(s.mert, 'GET', `/chat/${general.id}`)).body).toMatchObject({ notify: 'mentions', alerts: 1 });
     await s.call(s.mert, 'PATCH', `/chat/${general.id}/me`, { notify: 'off' });
     expect((await s.call(s.mert, 'GET', `/chat/${general.id}`)).body).toMatchObject({ notify: 'off', unread: 2, alerts: 0 });
     expect((await s.call(s.mert, 'PATCH', `/chat/${general.id}/me`, { notify: 'loud' })).body.error.code).toBe('bad-notify');
@@ -398,6 +399,26 @@ describe('reading', () => {
     expect((await s.call(s.mert, 'POST', `/chat/${general.id}/read`, { seq: 1 })).body).toMatchObject({ readSeq: 1, unread: 1 });
     expect((await s.call(s.mert, 'POST', `/chat/${general.id}/read`, { seq: 0 })).body.readSeq).toBe(1);
     expect((await s.call(s.mert, 'POST', `/chat/${general.id}/read`, { seq: 99 })).body).toMatchObject({ readSeq: 2, unread: 0 });
+  });
+
+  it('mutes a conversation for a while, keeping the choice it comes back to', async () => {
+    const s = await start();
+    const general = await s.general(s.kaan);
+    await s.say(s.kaan, general.id, 'Office is closed on Friday');
+    // The test server's clock.
+    const now = Date.UTC(2026, 9, 24, 10, 0);
+    const hour = now + 60 * 60 * 1000;
+    const muted = (await s.call(s.mert, 'PATCH', `/chat/${general.id}/me`, { mutedUntil: hour })).body;
+    expect(muted).toMatchObject({ notify: 'all', mutedUntil: hour, unread: 1, alerts: 0 });
+    const said = await s.say(s.kaan, general.id, 'Lunch at noon?');
+    expect(s.server.chats.alertsFor(said.id).map((each) => each.account)).not.toContain(MERT);
+    // A choice made ends it; and it is a time ahead, within a week.
+    const chosen = (await s.call(s.mert, 'PATCH', `/chat/${general.id}/me`, { notify: 'mentions' })).body;
+    expect(chosen.notify).toBe('mentions');
+    expect(chosen.mutedUntil).toBeUndefined();
+    for (const bad of [now - 1000, now + 8 * 24 * 60 * 60 * 1000, 'tomorrow']) {
+      expect((await s.call(s.mert, 'PATCH', `/chat/${general.id}/me`, { mutedUntil: bad })).body.error.code).toBe('bad-mute');
+    }
   });
 
   it('tells the others in a direct message how far each read, for Seen', async () => {

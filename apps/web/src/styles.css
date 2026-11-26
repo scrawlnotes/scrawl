@@ -1189,6 +1189,13 @@ input:focus {
   left: auto;
 }
 
+/* A group's name in a menu, as Notify me about over its choices. */
+.menu .menu-head {
+  padding: 4px 8px 2px;
+  color: var(--sl-faint);
+  font-size: 12px;
+}
+
 .menu hr {
   height: 1px;
   margin: 4px 2px;
@@ -19999,7 +20006,8 @@ button.ppl:hover {
   text-transform: uppercase;
 }
 
-.ch-bell .r {
+.ch-bell .r,
+.ch-notify .r {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 16px;
   padding: 6px 8px;
@@ -20009,28 +20017,78 @@ button.ppl:hover {
 
 .ch-bell .r:hover,
 .ch-bell .r:focus-visible,
-.ch-bell .r.on {
+.ch-bell .r.on,
+.ch-notify .r:hover,
+.ch-notify .r:focus-visible,
+.ch-notify .r.on {
   outline: none;
   background: var(--sl-sel);
 }
 
-.ch-bell .r b {
+.ch-bell .r b,
+.ch-notify .r b {
   color: var(--sl-fg);
   font-size: 12.5px;
   font-weight: 500;
 }
 
-.ch-bell .r small {
+.ch-bell .r small,
+.ch-notify .r small {
   grid-column: 1;
   color: var(--sl-faint);
   font-size: 11.5px;
 }
 
-.ch-bell .r .tk {
+.ch-bell .r .tk,
+.ch-notify .r .tk {
   grid-row: 1 / span 2;
   grid-column: 2;
   align-self: center;
   color: var(--sl-accent);
+}
+
+/* muted for a while: until when, and Unmute */
+.ch-muted {
+  margin: 4px 8px;
+  color: var(--sl-dim);
+  font-size: 12px;
+}
+
+.ch-muted button {
+  color: var(--sl-accent);
+}
+
+/* what a conversation tells this person, at the foot of its Settings' General (design/chat-settings.html) */
+.ch-notify {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 420px;
+  margin-top: 18px;
+}
+
+.ch-notify .choices-label {
+  margin: 0 2px 4px;
+}
+
+/* Settings over a conversation, in words */
+.ch-head .ch-set {
+  padding: 3px 10px;
+  border: 1px solid var(--sl-line);
+  border-radius: 6px;
+  color: var(--sl-fg);
+  font-size: 12.5px;
+}
+
+.ch-head .ch-set:hover {
+  background: var(--sl-sel);
+}
+
+/* muted for a while, in the list: until when */
+.chat-row .until {
+  margin-left: auto;
+  color: var(--sl-faint);
+  font-size: 11.5px;
 }
 
 /* over the list while this device shows no notifications: Turn on, or × */

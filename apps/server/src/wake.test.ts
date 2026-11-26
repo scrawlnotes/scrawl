@@ -289,10 +289,10 @@ describe('in Chat', () => {
     const kaanAccount = { id: KAAN, email: 'kaan@example.com', name: 'Kaan Arslan', role: 'owner' as const };
     const unread = () => s.server.chats.list(KAAN).find((chat) => chat.id === s.general)!;
     const quiet = s.server.chats.send(kaanAccount, s.general, { id: 'm-claude-0001', body: 'Looking at it.' }, agent);
-    expect(s.server.chats.alertsFor(quiet.id)).toEqual([]);
+    expect(s.server.chats.alertsFor(quiet.id).map((each) => each.account)).not.toContain(KAAN);
     expect(unread()).toMatchObject({ unread: 0, alerts: 0 });
     const told = s.server.chats.send(kaanAccount, s.general, { id: 'm-claude-0002', body: `${personLink('Kaan Arslan', KAAN)} the lockfile is old.` }, agent);
-    expect(s.server.chats.alertsFor(told.id)).toEqual([{ account: KAAN, mention: true }]);
+    expect(s.server.chats.alertsFor(told.id)).toContainEqual({ account: KAAN, mention: true });
     expect(unread()).toMatchObject({ unread: 1, alerts: 1 });
     expect(s.server.chats.pushContent(told.id, KAAN)).toMatchObject({ title: 'Claude · #general', body: '@Kaan Arslan the lockfile is old.' });
     // His own message is still not unread to him.

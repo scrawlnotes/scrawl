@@ -135,5 +135,7 @@ describe('what a message points at', () => {
     expect(link).toBe('scrawl:chat/https%3A%2F%2Fchat.example.com%3A8080/ch-1/m-2');
     expect(parseChatLink(link)).toEqual({ server: 'https://chat.example.com:8080', chat: 'ch-1', message: 'm-2' });
     expect(parseChatLink('scrawl:chat/a/b')).toBeNull();
+    // A conversation's own link, at no message.
+    expect(parseChatLink(chatLink('https://chat.example.com', 'ch-1', ''))).toEqual({ server: 'https://chat.example.com', chat: 'ch-1', message: '' });
   });
 });

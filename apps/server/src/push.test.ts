@@ -83,11 +83,12 @@ async function start(answer: (endpoint: string) => number = () => 201) {
 }
 
 describe('push', () => {
-  it('tells a direct message, a private room and a mention at once, a public room’s other messages no one', async () => {
+  it('tells a direct message, a private room and a mention at once, a room on Mentions its other messages no one', async () => {
     const s = await start();
     await s.subscribe(s.mert, 'mert');
     await s.subscribe(s.elif, 'elif');
     const general = await s.general();
+    for (const who of [s.mert, s.elif]) await s.call(who, 'PATCH', `/chat/${general.id}/me`, { notify: 'mentions' });
     await s.say(s.kaan, general.id, 'Good morning');
     await s.settle();
     expect(s.sent).toEqual([]);

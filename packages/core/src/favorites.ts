@@ -5,7 +5,8 @@ import { isUnder } from './vault';
 // Favorites (design/filters.md 5): what the person starred, in the sidebar under Filters & Labels
 // and at the top of a phone's Browse, in the order they were starred or dragged into. A note, a
 // task list, a board, a keys file or a collection by its path as the app has it; a saved filter by
-// its id; a label by its name in its space. They are the person's: `.scrawl/favorites.json` in the
+// its id; a label by its name in its space; a conversation of Chat by its server and its id
+// (design/chat-settings.html). They are the person's: `.scrawl/favorites.json` in the
 // personal space, synced to their devices. What is in the trash, or gone, is left out where they
 // are shown, so that it comes back with the thing when it is restored.
 
@@ -13,7 +14,9 @@ export type Favorite =
   | { item: string }
   | { filter: string }
   /** `space` as a path of the space is written, `@sp-…`; none for the personal one. */
-  | { label: string; space?: string };
+  | { label: string; space?: string }
+  /** A conversation: its server's address and its id there. */
+  | { chat: string; server: string };
 
 export const FAVORITES_FILE = '.scrawl/favorites.json';
 
@@ -24,6 +27,7 @@ export const FAVORITES_FILE = '.scrawl/favorites.json';
 export function favoriteKey(favorite: Favorite): string {
   if ('item' in favorite) return `item:${favorite.item.normalize('NFC')}`;
   if ('filter' in favorite) return `filter:${favorite.filter}`;
+  if ('chat' in favorite) return `chat:${favorite.server} ${favorite.chat}`;
   return `label:${favorite.space ?? ''}:${favorite.label.toLowerCase()}`;
 }
 
@@ -42,8 +46,8 @@ export function parseFavorites(text: string): Favorite[] {
   for (const raw of data.favorites as unknown[]) {
     if (!raw || typeof raw !== 'object') continue;
     const each = raw as Record<string, unknown>;
-    const [item, filter, label, space] = [word(each.item), word(each.filter), word(each.label), word(each.space)];
-    const favorite: Favorite | null = item ? { item } : filter ? { filter } : label ? { label, ...(space && { space }) } : null;
+    const [item, filter, label, space, chat, server] = [word(each.item), word(each.filter), word(each.label), word(each.space), word(each.chat), word(each.server)];
+    const favorite: Favorite | null = item ? { item } : filter ? { filter } : label ? { label, ...(space && { space }) } : chat && server ? { chat, server } : null;
     if (favorite && !isFavorite(favorites, favorite)) favorites.push(favorite);
   }
   return favorites;

@@ -104,3 +104,34 @@ test('@here and @everyone are offered in a room, and mention everyone as @room d
   else await app.keyboard.press('Enter');
   await expect(second.locator('.msg-at.room', { hasText: '@here' })).toBeVisible({ timeout: 20_000 });
 });
+
+test('a conversation’s right click has Settings…, Add to favorites, what it tells, and mutes it for an hour', async ({ app, phone }) => {
+  test.skip(phone, 'A phone holds the row: tried by hand.');
+  const space = await spaceWithInvite('Chat');
+  await joinSpace(app, space.link, person('Ada'), phone);
+  await openChat(app, phone);
+
+  const row = app.locator('.chat-row', { hasText: 'general' });
+  await row.click({ button: 'right' });
+  const menu = app.getByRole('menu').first();
+  await expect(menu.getByText('Notify me about')).toBeVisible();
+  for (const item of ['Settings…', 'Add to favorites', 'All messages', 'Mentions', 'Mute', 'More options']) await expect(menu.getByRole('menuitem', { name: item })).toBeVisible();
+  // A public room tells of every message unless chosen otherwise; the general room is not left.
+  await expect(menu.getByRole('menuitem', { name: 'All messages' })).toContainText('✓');
+  await expect(menu.getByRole('menuitem', { name: 'Leave room' })).toHaveCount(0);
+  await menu.getByRole('menuitem', { name: 'More options' }).hover();
+  await app.getByRole('menuitem', { name: '1 hour' }).click();
+  await expect(row.locator('.until')).toContainText('until');
+
+  await row.click({ button: 'right' });
+  await app.getByRole('menuitem', { name: 'Add to favorites' }).click();
+  await expect(app.locator('.side .it.fav', { hasText: 'general' })).toBeVisible();
+
+  await row.click({ button: 'right' });
+  await app.getByRole('menuitem', { name: 'Settings…' }).click();
+  const settings = app.getByRole('dialog');
+  await expect(settings.getByRole('tab', { name: 'General' })).toHaveAttribute('aria-selected', 'true');
+  await expect(settings.getByText(/Muted until/)).toBeVisible();
+  await settings.getByRole('button', { name: 'Unmute' }).click();
+  await expect(settings.getByText(/Muted until/)).toHaveCount(0);
+});

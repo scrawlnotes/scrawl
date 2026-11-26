@@ -1,7 +1,7 @@
 import { type ChatFile, type ChatInfo, type ChatNotify, type ChatPerson, type ChatShared, ServerError } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
 import { type KeyboardEvent, type MouseEvent, type ReactNode, useEffect, useRef, useState } from 'react';
-import { AudioPlayer, FileRow, isAudio, isImage, isVideo, Lightbox, useFileUrl } from './ChatParts';
+import { AudioPlayer, FileRow, isAudio, isImage, isVideo, Lightbox, NotifyChoices, useFileUrl } from './ChatParts';
 import { Face, leadOf, shortDay, titleOf } from './ChatFaces';
 import { clock } from './chatMedia';
 import { type ChatServer, store } from './chatStore';
@@ -345,6 +345,65 @@ export type InfoTab = 'about' | 'people' | 'media' | 'files' | 'voice' | 'links'
 
 const NOTIFY: ChatNotify[] = ['all', 'mentions', 'off'];
 
+const HOUR = 60 * 60 * 1000;
+
+/** Until tomorrow: the next morning at nine, when the morning's notification of what is due comes too. */
+export function tomorrowMorning(now = new Date()): number {
+  const at = new Date(now);
+  at.setDate(at.getDate() + 1);
+  at.setHours(9, 0, 0, 0);
+  return at.getTime();
+}
+
+/**
+ * A conversation's menu in Chat's list, a right click on a computer and a press held on a phone
+ * (design/chat-settings.html): Settings…, Add to favorites, what it tells this person, More options
+ * with Mute for a while and Default preferences…, then Hide or Leave room.
+ */
+export function conversationMenu({ server, chat, starred, onSettings, onStar, onPrefs, onLeave, say }: {
+  server: ChatServer;
+  chat: ChatInfo;
+  starred: boolean;
+  onSettings: () => void;
+  onStar: (on: boolean) => void;
+  onPrefs: () => void;
+  /** Leave room: the caller asks first for a private room. */
+  onLeave: () => void;
+  say: (text: string) => void;
+}): MenuItem[] {
+  const one = store.server(server.url)!;
+  const failed = () => say(t('chat.notChanged'));
+  const names: Record<ChatNotify, string> = { all: t('chat.notifyAll'), mentions: t('chat.notify.mentions'), off: t('chat.notify.off') };
+  const items: MenuItem[] = [
+    { label: t('chat.settingsDots'), run: onSettings },
+    { label: t(starred ? 'favorites.remove' : 'favorites.add'), run: () => onStar(!starred) },
+  ];
+  if (chat.joined && chat.archived === null) {
+    items.push(
+      ...NOTIFY.map(
+        (each, i): MenuItem => ({
+          label: names[each],
+          checked: chat.notify === each,
+          ...(i === 0 && { apart: true, heading: t('chat.notifyAbout') }),
+          run: () => void one.notify(chat.id, each).catch(failed),
+        }),
+      ),
+      {
+        label: t('chat.moreOptions'),
+        run: () => undefined,
+        items: [
+          { label: t('chat.muteTomorrow'), heading: t('chat.muteFor'), run: () => void one.muteUntil(chat.id, tomorrowMorning()).catch(failed) },
+          { label: t('chat.muteHour'), run: () => void one.muteUntil(chat.id, Date.now() + HOUR).catch(failed) },
+          { label: t('chat.defaultPrefs'), apart: true, run: onPrefs },
+        ],
+      },
+    );
+  }
+  if (chat.kind === 'direct') items.push({ label: t('chat.hide'), apart: true, run: () => void one.hide(chat.id, true).catch(failed) });
+  else if (chat.joined && !chat.general) items.push({ label: t('chat.leaveRoom'), danger: true, apart: true, run: onLeave });
+  return items;
+}
+
 /** A month as Media's headings name it: October, and the year when it is not this one. */
 function monthOf(at: number): string {
   const day = new Date(at);
@@ -522,11 +581,12 @@ export function ChatInfoDialog({ server, chat, tab: first, nameOf, menu, onJump,
   onClose: () => void;
 }) {
   const direct = chat.kind === 'direct';
-  const [tab, setTab] = useState<InfoTab>(direct && first === 'about' ? 'people' : first);
+  const [tab, setTab] = useState<InfoTab>(first);
+  const one = store.server(server.url)!;
   const info = useChatInfo({ server, chat, say, onLeft, onClose });
   const count = (n: number) => (info.shared ? <small>{n}</small> : null);
   const tabs: { id: InfoTab; label: string; n?: ReactNode }[] = [
-    ...(direct ? [] : [{ id: 'about' as const, label: t('chat.settings') }]),
+    { id: 'about' as const, label: t('chat.general') },
     // A public room has no People: anyone in its space can join and read it.
     ...(chat.kind === 'public' ? [] : [{ id: 'people' as const, label: t('chat.people'), n: <small>{chat.members.length}</small> }]),
     { id: 'media', label: t('chat.media'), n: count(info.media.length) },
@@ -554,16 +614,21 @@ export function ChatInfoDialog({ server, chat, tab: first, nameOf, menu, onJump,
           ))}
         </div>
         <div className="ch-info-body">
-          <InfoBody server={server} chat={chat} tab={tab} info={info} nameOf={nameOf} say={say} onJump={onJump} />
+          {(tab !== 'about' || !direct) && <InfoBody server={server} chat={chat} tab={tab} info={info} nameOf={nameOf} say={say} onJump={onJump} />}
+          {tab === 'about' && chat.joined && (
+            <div className="ch-notify" role="group" aria-label={t('chat.notifyAbout')}>
+              <p className="choices-label">{t('chat.notifyAbout')}</p>
+              <NotifyChoices
+                chat={chat}
+                label={chat.kind === 'public' ? `#${chat.name}` : titleOf(chat, server.me)}
+                me={nameOf(server.me).split(/\s+/)[0]!}
+                onPick={(notify) => void one.notify(chat.id, notify).catch(() => say(t('chat.notChanged')))}
+                onUnmute={() => void one.muteUntil(chat.id, null).catch(() => say(t('chat.notChanged')))}
+              />
+            </div>
+          )}
         </div>
         <div className="ch-info-foot">
-          {chat.joined && (
-            <button type="button" className="ch-nsel" onClick={(event) => menu(event, info.notifyItems())}>
-              <Icon name={chat.notify === 'off' ? 'bellOff' : 'bell'} />
-              {t(`chat.notify.${chat.notify}`)}
-              <Icon name="chevron" />
-            </button>
-          )}
           <span className="gap" />
           <button type="button" className="st-btn" disabled={info.exporting} onClick={() => void info.exportIt()}>
             {info.exporting ? t('chat.exporting') : t('chat.export')}

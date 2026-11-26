@@ -22,6 +22,7 @@ import {
   choosesAnything,
   type Favorite,
   type Field,
+  chatLink,
   favoriteKey,
   isFavorite,
   sameLabel,
@@ -247,6 +248,7 @@ import type { Exported, ExportFormat } from './exporting';
 import { type SearchAction, SearchWindow, type Target, type Thing, thingsOf } from './Search';
 import { type Dated, dueLabel, type DueSubtask, FilterPage, isSubtaskRef, type SubtaskRef, type TaskActions, TaskList } from './Tasks';
 import { Upcoming } from './Upcoming';
+import { titleOf } from './ChatFaces';
 import { type ChatLinks, type ChipState, ChatView } from './Chat';
 import { store as chatStore, useChat } from './chatStore';
 import { onNotificationClick, startNotifications } from './notify';
@@ -1966,8 +1968,11 @@ export function App() {
       // Invite people: a space's settings, where its invite link is; on a phone Settings › Spaces.
       invite: (space) => setDialog({ kind: 'settings', section: 'spaces', ...(space && spaces.some((each) => each.id === space) && { space }) }),
       agents: () => setDialog({ kind: 'settings', section: 'agents' }),
+      notifications: () => setDialog({ kind: 'settings', section: 'notifications' }),
+      starred: (url, chat) => isFavorite(favorites, { chat, server: url }),
+      star: (url, chat, on) => session.star({ chat, server: url }, on),
     }),
-    [spaces, titles, tasks, boards, collections, phone, chatSpaces],
+    [spaces, titles, tasks, boards, collections, phone, chatSpaces, favorites],
   );
   /** What the search offers to pick from for a chip: what is in the spaces of the conversation's server. */
   const pickThings = useMemo(() => {
@@ -2766,6 +2771,23 @@ export function App() {
       const tab = filterTab(favorite.filter);
       return filter ? [{ key, tab, name: filter.name, icon: 'filter', count: counts[tab] ?? 0 }] : [];
     }
+    if ('chat' in favorite) {
+      // A conversation: while its server's are in and it is still this person's.
+      const found = chat.servers.find((each) => each.url === favorite.server)?.chats.find((each) => each.id === favorite.chat && each.archived === null);
+      if (!found) return [];
+      const server = chat.servers.find((each) => each.url === favorite.server)!;
+      return [
+        {
+          key,
+          tab: '',
+          name: titleOf(found, server.me),
+          icon: found.kind === 'direct' ? 'person' : found.kind === 'private' ? 'lock' : 'hash',
+          ...(found.spaceName && { space: found.spaceName }),
+          count: found.alerts,
+          open: () => openScrawl.current(chatLink(favorite.server, favorite.chat, '')),
+        },
+      ];
+    }
     if ('label' in favorite) {
       const where = spaceOf(favorite.space ?? '');
       if (where && !spaces.some((each) => each.id === where)) return [];
@@ -2788,7 +2810,7 @@ export function App() {
   const favoriteMenu = (event: MouseEvent, row: FavoriteRow) => {
     const filter = filters.find((each) => each.id === filterOf(row.tab));
     const path = collectionPathOf(row.tab) ?? pathOf(row.tab);
-    const starred = favoriteOf(row.tab);
+    const starred = favoriteOf(row.tab) ?? favorites.find((each) => 'chat' in each && favoriteKey(each) === row.key) ?? null;
     const items = filter ? filterMenuItems(filter) : path !== null ? inGroups(itemMenuItems(path)) : starred ? [starItem(starred)] : [];
     openMenu(event, items, `fav:${row.key}`);
   };
@@ -3500,7 +3522,7 @@ export function App() {
                 else then();
               },
             }}
-            chat={{ links: chatLinks, menu: openMenu, goTo: chatGoTo }}
+            chat={{ links: chatLinks, menu: openMenu, sheet: showSheet, goTo: chatGoTo }}
             todayAsked={todayAsked}
           />
           {newRecord && collections[newRecord.dir] && (

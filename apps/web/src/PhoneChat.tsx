@@ -1,6 +1,6 @@
 import { type ChatInfo, type ChatMessage, plainText } from '@scrawlnotes/core';
 import { locale, t } from '@scrawlnotes/i18n';
-import { type MouseEvent, useEffect, useState } from 'react';
+import { type ButtonHTMLAttributes, type MouseEvent, useEffect, useState } from 'react';
 import { type ChatLinks, Conversation } from './Chat';
 import { Face, namesOf, others, shortDay, timeOf, titleOf } from './ChatFaces';
 import { clock } from './chatMedia';
@@ -10,6 +10,7 @@ import { notWrittenTo, teammatesOf } from './ChatStart';
 import { type ChatServer, draftOf, store, useChat } from './chatStore';
 import type { MenuItem } from './dialogs';
 import { Icon } from './Icon';
+import { useHold } from './Phone';
 import { hostOf } from './servers';
 
 // Chat on a phone (design/chat.md, 8.2; design/mockups.html, Messaging, Telefon): the fifth tab of
@@ -84,8 +85,15 @@ function saveChip(chip: Chip) {
  * message first, a room with its space after its name; All, Unread, Rooms and Direct over it. The
  * conversations with no message and the people to write to come last, under No messages yet.
  */
-export function PhoneChatList({ onOpen, onSearch, onWrite, onInvite }: {
+/** A row that opens its menu when a finger rests on it. */
+function HeldButton({ onHold, ...button }: ButtonHTMLAttributes<HTMLButtonElement> & { onHold: (row: HTMLElement) => void }) {
+  return <button type="button" {...button} {...useHold(onHold)} />;
+}
+
+export function PhoneChatList({ onOpen, onMenu, onSearch, onWrite, onInvite }: {
   onOpen: (url: string, chat: string) => void;
+  /** A conversation held: its menu (design/chat-settings.html). */
+  onMenu: (server: ChatServer, chat: ChatInfo, row: HTMLElement) => void;
   onSearch: () => void;
   /** Someone to write to, with no direct message yet: it opens. */
   onWrite: (url: string, person: string) => void;
@@ -107,7 +115,7 @@ export function PhoneChatList({ onOpen, onSearch, onWrite, onInvite }: {
   const people = chip === 'all' || chip === 'direct';
   const row = (server: ChatServer, chat: ChatInfo) => {
     const nameOf = namesOf(server);
-    const off = chat.notify === 'off';
+    const off = chat.notify === 'off' || (chat.mutedUntil ?? 0) > Date.now();
     const draft = draftOf(server.url, chat.id).trim();
     const last = chat.last;
     const solo = chat.kind === 'direct' && others(chat, server.me).length === 1;
@@ -122,7 +130,7 @@ export function PhoneChatList({ onOpen, onSearch, onWrite, onInvite }: {
             : `${nameOf(last.author).split(/\s+/)[0]}: ${whatOf(last)}`;
     const where = chat.kind === 'direct' ? (many ? hostOf(server.url) : null) : spaced ? chat.spaceName || chat.space : null;
     return (
-      <button type="button" key={`${server.url} ${chat.id}`} className={off ? 'chp-c off' : 'chp-c'} onClick={() => onOpen(server.url, chat.id)}>
+      <HeldButton key={`${server.url} ${chat.id}`} className={off ? 'chp-c off' : 'chp-c'} onClick={() => onOpen(server.url, chat.id)} onHold={(held) => onMenu(server, chat, held)}>
         <PhoneLead chat={chat} server={server} />
         <span className="tx">
           <b className={chat.unread > 0 && !off ? 'un' : ''}>
@@ -135,7 +143,7 @@ export function PhoneChatList({ onOpen, onSearch, onWrite, onInvite }: {
           {last && <small className={chat.alerts > 0 ? 'hot' : ''}>{whenOf(last.at)}</small>}
           {chat.alerts > 0 ? <em>{chat.alerts}</em> : off ? <Icon name="bellOff" /> : null}
         </span>
-      </button>
+      </HeldButton>
     );
   };
   // The people to write to with no direct message yet; with no one at all, Invite people.

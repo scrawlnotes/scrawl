@@ -1808,6 +1808,8 @@ export interface MenuItem {
   disabled?: string;
   /** A line above it sets it apart from the items before. */
   apart?: boolean;
+  /** On a computer: a faint name over it for the group it starts, as Notify me about. */
+  heading?: string;
   /** On a phone: the icon before it. */
   icon?: IconName;
   /** On a phone: what it is set to, on its right. */
@@ -2017,6 +2019,7 @@ function PointerMenu({ at, items, onClose }: MenuProps) {
       {items.map((item, index) => (
         <Fragment key={item.label}>
           {item.apart && index > 0 && <hr />}
+          {item.heading && <div className="menu-head">{item.heading}</div>}
           {item.items ? (
             <button
               type="button"
@@ -2066,6 +2069,7 @@ function PointerMenu({ at, items, onClose }: MenuProps) {
           {items[sub.index]!.items!.map((item) => (
             <Fragment key={item.label}>
               {item.apart && <hr />}
+              {item.heading && <div className="menu-head">{item.heading}</div>}
               <button
                 type="button"
                 // A choice, as Group by's, is ticked; something to do, as Add new's, is not.

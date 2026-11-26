@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Konuşmanın menüsü ve Settings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #1e2229; --side: #181b21; --line: #2b303a; --fg: #d5d9e0; --dim: #8b93a1;
+  --faint: #5a6270; --accent: #e0a84a; --page: #101215; --sel: #34435a; --raise: #252a33; --red: #f0706a;
+  --ui: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--fg); font: 13.5px var(--ui); }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: default; text-align: left; }
+svg { width: 15px; height: 15px; flex: none; }
+
+.stage { padding: 16px; max-width: 1180px; }
+.cap { margin: 26px 0 10px; color: var(--dim); font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.legend { max-width: 900px; margin: 0 16px 40px; color: var(--dim); font-size: 13.5px; line-height: 1.6; }
+.legend h3 { margin: 22px 0 4px; color: var(--fg); font-size: 15px; }
+.legend p { margin: 4px 0; }
+.legend b { color: var(--fg); font-weight: 600; }
+.legend ul { margin: 4px 0; padding-left: 20px; }
+.legend .q { color: var(--accent); }
+h1 { margin: 20px 16px 4px; font-size: 20px; }
+
+/* ---------- the window: sidebar, chat list, conversation ---------- */
+.window { position: relative; display: grid; grid-template-columns: 200px 240px minmax(0, 1fr); height: 520px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--bg); }
+.app-side { padding: 10px 8px; background: var(--side); border-right: 1px solid var(--line); }
+.app-side .it { display: flex; align-items: center; gap: 6px; min-height: 28px; padding: 0 10px; border-radius: 6px; color: var(--dim); }
+.app-side .it.on { background: var(--sel); color: var(--fg); }
+.app-side .it small { margin-left: auto; color: var(--faint); font-size: 12px; }
+
+.list { border-right: 1px solid var(--line); padding: 10px 6px; overflow: hidden; }
+.list .find { margin: 0 4px 10px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 6px; color: var(--faint); }
+.list .sp { margin: 10px 8px 4px; color: var(--faint); font-size: 11.5px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; }
+.row { display: flex; align-items: center; gap: 8px; min-height: 28px; padding: 0 8px; border-radius: 6px; color: var(--dim); }
+.row .hs { width: 14px; color: var(--faint); text-align: center; }
+.row.un { color: var(--fg); font-weight: 600; }
+.row.on { background: var(--sel); color: var(--fg); }
+.row.ctx { outline: 1px solid var(--accent); outline-offset: -1px; }
+.row .n { margin-left: auto; min-width: 18px; padding: 0 6px; border-radius: 9px; background: var(--accent); color: var(--bg); font-size: 11px; font-weight: 700; text-align: center; }
+.face { width: 18px; height: 18px; border-radius: 50%; background: #4a5a74; color: var(--fg); font-size: 10px; font-weight: 600; display: grid; place-items: center; }
+.face.b { background: #6a4f3a; }
+
+.conv { display: flex; flex-direction: column; min-width: 0; }
+.head { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+.head .hs { color: var(--faint); font-size: 17px; }
+.head b { font-size: 15px; }
+.head .acts { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.ib { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 6px; color: var(--dim); }
+.btn { padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px; color: var(--fg); font-size: 12.5px; }
+.btn.hot { border-color: var(--accent); }
+.msgs { flex: 1; padding: 14px 16px; overflow: hidden; }
+.msg { display: grid; grid-template-columns: 32px 1fr; gap: 2px 10px; margin-bottom: 14px; }
+.msg .face { width: 32px; height: 32px; font-size: 13px; grid-row: span 2; }
+.msg .who { font-weight: 600; }
+.msg .who small { margin-left: 6px; color: var(--faint); font-weight: 400; font-size: 11.5px; }
+.msg p { margin: 0; color: var(--fg); }
+.box { margin: 0 16px 14px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; color: var(--faint); }
+
+/* ---------- the app's menu ---------- */
+.menu { position: absolute; z-index: 5; display: flex; flex-direction: column; min-width: 210px; padding: 4px; background: var(--side); border: 1px solid var(--line); border-radius: 7px; box-shadow: 0 6px 18px rgb(0 0 0 / .4); }
+.menu button { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 4px; color: var(--fg); }
+.menu button.hl { background: var(--sel); }
+.menu button .tick { width: 14px; color: var(--accent); }
+.menu button small { margin-left: auto; color: var(--faint); font-size: 12px; }
+.menu .lb { padding: 4px 8px 2px; color: var(--faint); font-size: 12px; }
+.menu hr { height: 1px; margin: 4px 2px; border: 0; background: var(--line); }
+.menu .red { color: var(--red); }
+.menu .sub small { font-size: 14px; }
+.menu.two { min-width: 200px; }
+
+/* ---------- a phone's action sheet ---------- */
+.phone { position: relative; width: 390px; height: 700px; border: 1px solid var(--line); border-radius: 28px; overflow: hidden; background: var(--bg); }
+.phone .top { padding: 52px 18px 8px; font-size: 26px; font-weight: 700; }
+.phone .prow { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 18px; border-bottom: 1px solid var(--line); font-size: 16px; color: var(--dim); }
+.phone .prow b { color: var(--fg); }
+.phone .prow .n { margin-left: auto; }
+.phone .back { position: absolute; inset: 0; background: rgb(0 0 0 / .5); }
+.acts { position: absolute; left: 8px; right: 8px; bottom: 8px; display: flex; flex-direction: column; gap: 8px; }
+.card { background: var(--side); border-radius: 14px; overflow: hidden; }
+.card .hd { padding: 12px 16px; border-bottom: 1px solid var(--line); text-align: center; }
+.card .hd small { display: block; color: var(--faint); font-size: 12.5px; }
+.card .a { display: flex; align-items: center; width: 100%; min-height: 48px; padding: 0 16px; border-bottom: 1px solid var(--line); font-size: 16px; }
+.card .a:last-child { border-bottom: 0; }
+.card .a .on { margin-left: auto; color: var(--accent); }
+.card .a .chev { margin-left: auto; color: var(--faint); }
+.card .sep { height: 6px; background: var(--page); }
+.card .a.cancel { justify-content: center; font-weight: 600; }
+
+/* ---------- the Settings window ---------- */
+.ovl { position: absolute; inset: 0; z-index: 6; display: grid; place-items: center; background: rgb(0 0 0 / .45); }
+.dlg { width: 600px; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 40px rgb(0 0 0 / .5); overflow: hidden; }
+.dlg .ih { display: flex; align-items: center; gap: 8px; padding: 14px 16px 10px; }
+.dlg .ih .hs { color: var(--faint); font-size: 17px; }
+.dlg .ih b { font-size: 15px; }
+.dlg .ih .x { margin-left: auto; color: var(--faint); font-size: 16px; }
+.tabs { display: flex; gap: 2px; padding: 0 12px; border-bottom: 1px solid var(--line); }
+.tabs span { padding: 6px 10px; color: var(--dim); border-bottom: 2px solid transparent; }
+.tabs span.on { color: var(--fg); border-color: var(--accent); }
+.tabs small { margin-left: 5px; color: var(--faint); font-size: 11.5px; }
+.body { padding: 14px 18px; }
+.lab { margin: 0 0 6px; color: var(--faint); font-size: 12px; font-weight: 600; }
+.choice { display: grid; grid-template-columns: 18px 1fr; gap: 0 8px; padding: 6px 8px; border-radius: 6px; }
+.choice .dot { width: 14px; height: 14px; margin-top: 2px; border: 2px solid var(--faint); border-radius: 50%; }
+.choice.on .dot { border-color: var(--accent); background: radial-gradient(var(--accent) 0 3px, transparent 3.5px); }
+.choice b { font-weight: 500; }
+.choice small { grid-column: 2; color: var(--dim); font-size: 12.5px; }
+.field { margin: 14px 0 0; }
+.field .in { padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; }
+.field .in.faint { color: var(--faint); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg span { padding: 4px 12px; color: var(--dim); }
+.seg span.on { background: var(--sel); color: var(--fg); }
+.note { margin-top: 12px; color: var(--faint); font-size: 12px; }
+.foot { display: flex; gap: 6px; padding: 10px 16px; border-top: 1px solid var(--line); }
+.foot .gap { flex: 1; }
+</style>
+</head>
+<body>
+<h1>Konuşmanın menüsü ve Settings</h1>
+<div class="legend" style="margin-bottom: 0">Taslak, 26 Kasım. Bilgisayar. OzBI space'i, Kaan'ın gördüğü gibi.</div>
+
+<div class="stage">
+  <div class="cap">1 · Listede sağ tık: #general</div>
+  <div class="window">
+    <aside class="app-side">
+      <div class="it">Scheduled<small>3 · 20</small></div>
+      <div class="it on">Chat<small>4</small></div>
+      <div class="it">Quick notes</div>
+    </aside>
+    <div class="list">
+      <div class="find">Search messages</div>
+      <div class="sp">OzBI</div>
+      <div class="row un ctx"><span class="hs">#</span>general<span class="n">4</span></div>
+      <div class="row"><span class="hs">#</span>test</div>
+      <div class="row"><span class="hs">🔒</span>ozbi</div>
+      <div class="row"><span class="hs">🔒</span>saglik</div>
+      <div class="row"><span class="hs">🔒</span>test2</div>
+      <div class="sp">Direct messages</div>
+      <div class="row on"><span class="face">E</span>Eren</div>
+      <div class="row"><span class="face b">A</span>Ahmet Gokus</div>
+      <div class="menu" style="left: 300px; top: 104px">
+        <button class="hl">Settings…</button>
+        <button>Add to favorites</button>
+        <hr>
+        <div class="lb">Notify me about</div>
+        <button><span class="tick">✓</span>All messages</button>
+        <button><span class="tick"></span>Mentions</button>
+        <button><span class="tick"></span>Mute</button>
+        <button class="sub">More options<small>›</small></button>
+      </div>
+    </div>
+    <div class="conv">
+      <div class="head"><span class="face">E</span><b>Eren</b>
+        <span class="acts"><span class="ib"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg></span><span class="ib"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 11V7a4 4 0 0 1 8 0v4l1 1.5H3z"/><path d="M6.5 14a1.5 1.5 0 0 0 3 0"/></svg></span><span class="btn">Settings</span></span>
+      </div>
+      <div class="msgs">
+        <div class="msg"><span class="face">E</span><span class="who">Eren<small>10:04</small></span><p>CV'leri yeniden elden geçirdik</p></div>
+        <div class="msg"><span class="face">K</span><span class="who">Kaan Arslan<small>10:20</small></span><p>Bakıyorum</p></div>
+      </div>
+      <div class="box">Message Eren</div>
+    </div>
+  </div>
+
+  <div class="cap">1b · More options açık: #test</div>
+  <div class="window" style="height: 420px">
+    <aside class="app-side"><div class="it on">Chat<small>4</small></div></aside>
+    <div class="list">
+      <div class="sp">OzBI</div>
+      <div class="row un"><span class="hs">#</span>general<span class="n">4</span></div>
+      <div class="row ctx"><span class="hs">#</span>test</div>
+      <div class="row"><span class="hs">🔒</span>ozbi</div>
+      <div class="row"><span class="hs">🔒</span>saglik</div>
+      <div class="menu" style="left: 290px; top: 104px">
+        <button>Settings…</button>
+        <button>Add to favorites</button>
+        <hr>
+        <div class="lb">Notify me about</div>
+        <button><span class="tick"></span>All messages</button>
+        <button><span class="tick">✓</span>Mentions</button>
+        <button><span class="tick"></span>Mute</button>
+        <button class="sub hl">More options<small>›</small></button>
+        <hr>
+        <button class="red">Leave room</button>
+      </div>
+      <div class="menu two" style="left: 504px; top: 252px">
+        <div class="lb">Mute for a while</div>
+        <button>Until tomorrow</button>
+        <button>1 hour</button>
+        <hr>
+        <button>Default preferences…</button>
+      </div>
+    </div>
+    <div class="conv"><div class="head"><span class="hs">#</span><b>test</b></div></div>
+  </div>
+
+  <div class="cap">1c · Bir saatliğine susturulmuş #general</div>
+  <div class="window" style="height: 200px">
+    <aside class="app-side"><div class="it on">Chat</div></aside>
+    <div class="list">
+      <div class="sp">OzBI</div>
+      <div class="row" style="color: var(--faint)"><span class="hs">#</span>general<small style="margin-left: auto; font-size: 11.5px">until 14:30</small></div>
+      <div class="row"><span class="hs">#</span>test</div>
+    </div>
+    <div class="conv"><div class="head"><span class="face">E</span><b>Eren</b></div></div>
+  </div>
+
+  <div class="cap">2 · Konuşmanın başlığı: ⓘ yerine Settings, zil kalır</div>
+  <div class="window" style="height: 260px">
+    <aside class="app-side">
+      <div class="it on">Chat<small>4</small></div>
+    </aside>
+    <div class="list">
+      <div class="sp">OzBI</div>
+      <div class="row on"><span class="hs">#</span>general</div>
+      <div class="row"><span class="hs">#</span>test</div>
+    </div>
+    <div class="conv">
+      <div class="head"><span class="hs">#</span><b>general</b>
+        <span class="acts"><span class="ib"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg></span><span class="ib"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 11V7a4 4 0 0 1 8 0v4l1 1.5H3z"/><path d="M6.5 14a1.5 1.5 0 0 0 3 0"/></svg></span><span class="btn hot">Settings</span></span>
+      </div>
+      <div class="msgs">
+        <div class="msg"><span class="face">E</span><span class="who">Eren<small>12:25</small></span><p>kardeş biz düzenledik. nazik geribildirmlerin için çok tşk ederiz :)</p></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cap">3 · Settings penceresi: #general</div>
+  <div class="window" style="height: 600px">
+    <aside class="app-side"><div class="it on">Chat</div></aside>
+    <div class="list"><div class="sp">OzBI</div><div class="row on"><span class="hs">#</span>general</div></div>
+    <div class="conv"><div class="head"><span class="hs">#</span><b>general</b></div></div>
+    <div class="ovl">
+      <div class="dlg">
+        <div class="ih"><span class="hs">#</span><b>general</b><span class="x">×</span></div>
+        <div class="tabs"><span class="on">General</span><span>Media<small>12</small></span><span>Files<small>3</small></span><span>Voice<small>0</small></span><span>Links<small>5</small></span></div>
+        <div class="body">
+          <div class="field" style="margin-top: 0"><p class="lab">Room name</p><div class="in">general</div></div>
+          <div class="field"><p class="lab">Topic</p><div class="in faint">What this room is for</div></div>
+          <div class="field"><p class="lab">Kind</p><span class="seg"><span class="on">Public</span><span>Private</span></span></div>
+          <p class="note">The general room is everyone in OzBI, and it stays public.</p>
+          <p class="lab" style="margin-top: 18px">Notify me about</p>
+          <div class="choice on"><span class="dot"></span><b>All messages</b><small>Every new message in #general.</small></div>
+          <div class="choice"><span class="dot"></span><b>Mentions</b><small>When someone writes @Kaan, @room, @here or @everyone.</small></div>
+          <div class="choice"><span class="dot"></span><b>Mute</b><small>Nothing, and #general is shown faint.</small></div>
+        </div>
+        <div class="foot"><span class="gap"></span><button class="btn">Export…</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cap">4 · Sağ tık: Eren ile DM</div>
+  <div class="window" style="height: 300px">
+    <aside class="app-side"><div class="it on">Chat</div></aside>
+    <div class="list">
+      <div class="sp">Direct messages</div>
+      <div class="row ctx"><span class="face">E</span>Eren</div>
+      <div class="row"><span class="face b">A</span>Ahmet Gokus</div>
+      <div class="menu" style="left: 290px; top: 72px">
+        <button class="hl">Settings…</button>
+        <button>Add to favorites</button>
+        <hr>
+        <div class="lb">Notify me about</div>
+        <button><span class="tick">✓</span>All messages</button>
+        <button><span class="tick"></span>Mentions</button>
+        <button><span class="tick"></span>Mute</button>
+        <button class="sub">More options<small>›</small></button>
+        <hr>
+        <button>Hide</button>
+      </div>
+    </div>
+    <div class="conv"><div class="head"><span class="face">E</span><b>Eren</b></div></div>
+  </div>
+
+  <div class="cap">5 · Kenar çubuğunda Favorites: #general</div>
+  <div class="window" style="height: 300px; grid-template-columns: 220px 1fr">
+    <aside class="app-side">
+      <div class="it">Scheduled<small>3 · 20</small></div>
+      <div class="it">Chat<small>4</small></div>
+      <div class="it">Quick notes</div>
+      <div class="it" style="margin-top: 12px; color: var(--faint); font-size: 12px">Favorites</div>
+      <div class="it on"><span style="color: var(--faint)">#</span>general<small>4</small></div>
+      <div class="it">Roadmap</div>
+    </aside>
+    <div class="conv"><div class="head"><span class="hs">#</span><b>general</b><span class="acts"><span class="ib"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 11V7a4 4 0 0 1 8 0v4l1 1.5H3z"/><path d="M6.5 14a1.5 1.5 0 0 0 3 0"/></svg></span><span class="btn">Settings</span></span></div>
+      <div class="msgs"><div class="msg"><span class="face">E</span><span class="who">Eren<small>12:25</small></span><p>kardeş biz düzenledik.</p></div></div></div>
+  </div>
+
+  <div class="cap">6 · Telefonda satıra basılı tutunca: #general, sonra More options</div>
+  <div style="display: flex; gap: 24px; flex-wrap: wrap">
+    <div class="phone">
+      <div class="top">Chat</div>
+      <div class="prow"><b># general</b><span class="n" style="color: var(--accent)">4</span></div>
+      <div class="prow"># test</div>
+      <div class="prow">🔒 ozbi</div>
+      <div class="back"></div>
+      <div class="acts">
+        <div class="card">
+          <div class="hd"><b># general</b><small>OzBI</small></div>
+          <button class="a">Settings…</button>
+          <button class="a">Add to favorites</button>
+          <div class="sep"></div>
+          <button class="a">All messages<span class="on">✓</span></button>
+          <button class="a">Mentions</button>
+          <button class="a">Mute</button>
+          <button class="a">More options<span class="chev">›</span></button>
+        </div>
+        <div class="card"><button class="a cancel">Cancel</button></div>
+      </div>
+    </div>
+    <div class="phone">
+      <div class="top">Chat</div>
+      <div class="prow"><b># general</b><span class="n" style="color: var(--accent)">4</span></div>
+      <div class="back"></div>
+      <div class="acts">
+        <div class="card">
+          <div class="hd"><b>More options</b><small># general</small></div>
+          <button class="a">Until tomorrow</button>
+          <button class="a">1 hour</button>
+          <div class="sep"></div>
+          <button class="a">Default preferences…</button>
+        </div>
+        <div class="card"><button class="a cancel">Cancel</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="legend">
+  <h3>Ne değişiyor</h3>
+  <ul>
+    <li><b>Sağ tık menüsü, Slack'teki gibi.</b> Chat listesindeki her room'da ve DM'de: <b>Settings…</b>; <b>Notify me about</b> altında All messages, Mentions, Mute (seçili olan ✓); <b>More options</b> içinde <b>Mute for a while</b>: Until tomorrow, 1 hour, sonra <b>Default preferences…</b>; en altta room'da <b>Leave room</b>, DM'de <b>Hide</b>. General'dan çıkılmadığı için orada Leave room yok. Split view ve Copy yok.</li>
+    <li><b>Add to favorites</b> (Slack'teki Star channel): konuşma kenar çubuğundaki Favorites'e girer, okunmamış sayısıyla; tıklayınca Chat onda açılır. Eklenmişse menüde <b>Remove from favorites</b> yazar. Telefonda Browse'un başındaki Favorites'te de görünür.</li>
+    <li><b>Telefonda</b> listedeki satıra basılı tutunca aynı menü alttan açılır, uygulamanın diğer menüleri gibi; More options kendi sayfası olarak açılır.</li>
+    <li><b>Off'un adı Mute.</b> Davranışı aynı: bildirim yok, okunmamışlar sayıya girmez, ad soluk durur.</li>
+    <li><b>Süreli susturma (yeni).</b> 1 hour bir saat, Until tomorrow ertesi sabah 09:00'a kadar susturur (sabahki son tarih bildirimiyle aynı saat). Bu sürede konuşma Mute gibidir, adının yanında ne zamana kadar sustuğu yazar. Süre dolunca eski seçimine döner; sustuğu sürede gelen mesajlar sonradan bildirim vermez. Sunucuda tutulur, her cihazda geçerlidir.</li>
+    <li><b>Default preferences…</b> uygulamanın Settings › Notifications sayfasını açar.</li>
+    <li><b>Info yok, Settings var.</b> Başlıktaki ⓘ kalkar; yerine yazılı <b>Settings</b> düğmesi gelir. Zil yerinde kalır. Aramanın büyüteci kalır. Private room'daki kişi sayısı düğmesi de kalır.</li>
+    <li><b>Bildirim seçimi General'in altında.</b> Pencerenin dibinde açılır kutu olarak duran seçim, General sekmesinde ad, konu ve türün altına üç seçenek olarak gelir, her birinin altında ne demek olduğu yazar. Süreli susturulmuşsa altında "Muted until 14:30 · Unmute" yazar. DM'de de aynı sekme olur (yalnız bildirim seçimi).</li>
+    <li><b>İlk sekmenin adı General.</b> Pencerenin adı artık Settings olduğu için sekme General olur. Diğer sekmeler aynı.</li>
+    <li><b>Varsayılan All messages.</b> Public room'lar da (general dahil) Slack'teki gibi her mesajda haber verir. Ayarına dokunmamış herkes için hemen geçerli olur; Mentions ya da Mute seçmiş olanınki kalır. Sunucu yayını gerekir.</li>
+  </ul>
+</div>
+</body>
+</html>

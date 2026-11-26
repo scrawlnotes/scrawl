@@ -36,6 +36,8 @@ export interface FavoriteRow {
   dot?: ReactNode;
   space?: string;
   count: number;
+  /** What opens it when it is not a tab: a conversation of Chat. */
+  open?: () => void;
 }
 
 /** A folder with more than this many items shows only its first `SHOWN`, and how many more there are. */
@@ -752,7 +754,7 @@ export function Sidebar({
         }}
         onContextMenu={menu}
       >
-        <button type="button" className="it-main" onClick={() => onOpen(row.tab)}>
+        <button type="button" className="it-main" onClick={() => (row.open ? row.open() : onOpen(row.tab))}>
           <i className="it-pad" />
           {row.dot ?? <Icon name={row.icon} />}
           <span>
