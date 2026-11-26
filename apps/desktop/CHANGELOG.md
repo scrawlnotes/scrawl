@@ -2,18 +2,6 @@
 
 The desktop app's versions. The notes of each go on its GitHub release and into the app's update.
 
-## 0.1.37
-
-A menu for each conversation in Chat, and every message in a room tells you unless you choose otherwise.
-
-- Right click a room or a direct message in Chat's list: Settings…, Add to favorites, what it notifies you about (All messages, Mentions or Mute), and More options to mute it for an hour or until tomorrow morning. Leave room and Hide are there too.
-- A conversation muted for a while says until when, in the list and in its Settings, with Unmute.
-- Rooms, #general too, notify you of every message until you choose Mentions or Mute.
-- Settings, in words over a conversation, takes the place of ⓘ. Its first tab is General, with what the conversation notifies you about at its foot.
-- A conversation added to favorites is in the sidebar's Favorites with its count, and opens Chat at it.
-- @here and @everyone notify everyone in a room, as @room does.
-- Off is called Mute.
-
 ## 0.1.36
 
 Sections beside a list's tasks, columns that tell people, and a word when your server can be updated.
