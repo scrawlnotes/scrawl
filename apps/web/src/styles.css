@@ -26,6 +26,9 @@
   --sl-font-ui: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
   --sl-font-mono: 'JetBrains Mono', Consolas, 'Courier New', monospace;
   --sl-font-editor: var(--sl-font-mono);
+  /* Bold in a note: 700 in light text on dark barely shows against 400. */
+  --sl-strong: #fff;
+  --sl-strong-weight: 800;
 }
 
 :root[data-theme='light'] {
@@ -50,6 +53,8 @@
   --sl-kind-done: #2e8a55;
   --sl-kind-dropped: #c9342c;
   --sl-purple: #8a3fb0;
+  --sl-strong: inherit;
+  --sl-strong-weight: 700;
 }
 
 html,

@@ -134,7 +134,8 @@ const editorTheme = EditorView.theme({
   '.cm-sl-h1': { fontSize: '1.45em' },
   '.cm-sl-h2': { fontSize: '1.25em' },
   '.cm-sl-h3': { fontSize: '1.1em' },
-  '.cm-sl-strong': { fontWeight: '700' },
+  // Light text on a dark ground already looks heavy: the host makes bold heavier and brighter there.
+  '.cm-sl-strong, .cm-sl-grid strong': { fontWeight: 'var(--sl-strong-weight, 700)', color: 'var(--sl-strong, inherit)' },
   '.cm-sl-em': { fontStyle: 'italic' },
   '.cm-sl-strike': { textDecoration: 'line-through', color: 'var(--sl-dim)' },
   '.cm-sl-code': {

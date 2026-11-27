@@ -7,6 +7,8 @@ import '@fontsource/ibm-plex-sans/600.css';
 import '@fontsource/jetbrains-mono/400.css';
 import '@fontsource/jetbrains-mono/400-italic.css';
 import '@fontsource/jetbrains-mono/700.css';
+// Bold in a note in dark mode.
+import '@fontsource/jetbrains-mono/800.css';
 import './styles.css';
 import './phone.css';
 import { StrictMode } from 'react';
