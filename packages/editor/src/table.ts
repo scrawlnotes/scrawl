@@ -99,16 +99,13 @@ function parseTsv(text: string): string[][] {
 
 /**
  * The cells of a range copied from a spreadsheet (Excel, Google Sheets, Numbers) or of a table on
- * a web page, from the plain text that comes with it: a line a row, a tab between cells. Null when
- * the text is not that: without a tab; with rows of different lengths, unless a table came with it
- * as HTML (a web page's rows can be shorter); or with an empty first cell in every row, which is
- * text indented with tabs.
+ * a web page, from the plain text that comes with it: a line a row, a tab between cells. Null
+ * without a tab, or without the table as HTML: that is text with tabs, or a paste as plain text.
  */
 export function copiedCells(plain: string, html = ''): string[][] | null {
-  if (!plain.includes('\t')) return null;
+  if (!plain.includes('\t') || !/<table[\s>]/i.test(html)) return null;
   const rows = parseTsv(plain);
   const width = Math.max(...rows.map((r) => r.length));
-  if (!/<table[\s>]/i.test(html) && (rows.some((r) => r.length !== width) || rows.every((r) => r[0] === ''))) return null;
   return rows.map((r) => [...r, ...Array<string>(width - r.length).fill('')]);
 }
 

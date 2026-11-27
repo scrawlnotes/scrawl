@@ -563,14 +563,11 @@ describe('cells pasted from a spreadsheet', () => {
     ]);
   });
 
-  it('is not cells without a tab, with ragged rows and no table, or indented with tabs', () => {
+  it('is not cells without a tab or without the table, as a paste as plain text', () => {
     expect(copiedCells('just text\nmore', HTML)).toBeNull();
     expect(copiedCells('a\tb\nc')).toBeNull();
     expect(copiedCells('\tone\n\ttwo')).toBeNull();
-    expect(copiedCells('a\tb\nc\td')).toEqual([
-      ['a', 'b'],
-      ['c', 'd'],
-    ]);
+    expect(copiedCells('a\tb\nc\td')).toBeNull();
   });
 
   it('gives the short rows of a web page table the missing cells', () => {
