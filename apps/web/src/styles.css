@@ -2921,6 +2921,14 @@ body > .touch-ghost {
   background: none;
 }
 
+/* Copied rows bring their words only: each of these buttons would add an empty line. */
+.task > .grip,
+.task > .cb,
+.task-actions,
+.task-where {
+  user-select: none;
+}
+
 .task-body {
   display: flex;
   flex-direction: column;
@@ -3044,11 +3052,12 @@ textarea.tt-edit {
 }
 
 /* A task open for editing: its title, its description and a row to save or cancel, after the
-   Description view of design/mockups.html (direction A). */
+   Description view of design/mockups.html (direction A). Its margin keeps the title where it was,
+   so the second click of a double-click lands on the title's words and selects them. */
 .task.editing {
   position: relative;
   grid-template-columns: 18px minmax(0, 1fr);
-  margin: 4px -10px;
+  margin: -2px -11px 4px;
   padding: 9px 10px 10px;
   border: 1px solid var(--sl-line);
   border-radius: 7px;
@@ -3056,6 +3065,7 @@ textarea.tt-edit {
 }
 
 .subs .task.editing {
+  margin-top: -3px;
   padding: 7px 10px 10px;
 }
 

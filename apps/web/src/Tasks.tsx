@@ -1201,6 +1201,8 @@ function DesktopTaskItem({ list, task, tasks, today, showDone, actions, flat, gr
         data-row="task"
         data-id={task.id}
         data-depth={depthOf(tasks, task.id)}
+        // A click on the open task's own ground keeps the focus in it, so it does not close.
+        tabIndex={editing ? -1 : undefined}
         onPointerDown={drag && !editing ? (event) => !pressOnField(event) && drag.hold(event, { task }) : undefined}
         onContextMenu={
           editing
