@@ -14,7 +14,7 @@ Scheduled, Search and filters cover every space. Something in another space says
 
 ## Folders
 
-In **Browse** or in a folder, **+** at the bottom right makes a note, a list, a board, a keys file, a collection, an app or a folder there. A folder's **···** menu chooses how it is ordered: **Group by** and **Sort by**.
+In **Browse** or in a folder, **+** at the bottom right makes a note, a list, a board, a keys file, a collection, an app or a folder there. A folder's **···** menu chooses how it is ordered: **Group by** and **Sort by**. At first it is by **Date created**, the newest on top.
 
 ## Moving and renaming
 

@@ -14,8 +14,8 @@ export interface FolderLook {
   foldersFirst?: boolean;
 }
 
-/** The folders on top, then by kind, the latest written first. */
-export const DEFAULT_LOOK: FolderLook = { group: 'type', by: 'modified', dir: 'desc', foldersFirst: true };
+/** The folders on top, then by kind, the latest made first: a change does not move a thing. */
+export const DEFAULT_LOOK: FolderLook = { group: 'type', by: 'created', dir: 'desc', foldersFirst: true };
 
 /** Whether a look puts the folders on top. */
 export const foldersFirst = (look: FolderLook) => look.foldersFirst !== false;

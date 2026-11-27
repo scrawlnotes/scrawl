@@ -27,8 +27,8 @@ describe('a folder’s order', () => {
   const made: Record<string, number> = { 'Work/Brief.md': 10, 'Work/Agenda 10.md': 30, 'Work/Agenda 2.md': 20 };
   const created = (each: TreeNode) => made[each.path];
 
-  it('puts the folders on top, then the kinds, the latest written first, unless it is set otherwise', () => {
-    expect(names(sortedNodes(items, DEFAULT_LOOK))).toEqual(['Old', 'Sprint.tasks.json', 'Roadmap.board.json', 'Agenda 10.md', 'Brief.md', 'Agenda 2.md']);
+  it('puts the folders on top, then the kinds, the latest made first, unless it is set otherwise', () => {
+    expect(names(sortedNodes(items, DEFAULT_LOOK, { created }))).toEqual(['Old', 'Sprint.tasks.json', 'Roadmap.board.json', 'Agenda 10.md', 'Agenda 2.md', 'Brief.md']);
     // Without the folders on top, a folder is among the kinds.
     expect(names(sortedNodes(items, { group: 'type', by: 'name', dir: 'asc', foldersFirst: false }))).toEqual(['Sprint.tasks.json', 'Roadmap.board.json', 'Old', 'Agenda 2.md', 'Agenda 10.md', 'Brief.md']);
     expect(names(sortedNodes(items, { group: 'type', by: 'name', dir: 'desc' }))).toEqual(['Old', 'Sprint.tasks.json', 'Roadmap.board.json', 'Brief.md', 'Agenda 10.md', 'Agenda 2.md']);

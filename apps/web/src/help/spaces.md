@@ -17,7 +17,7 @@ Scheduled, Search and filters cover every space. Something in another space says
 **+** on a space's heading or on a folder makes a note, a list, a board, a keys file, a collection, an app or a folder there. The settings button beside it chooses how the folder is ordered:
 
 - **Group by:** **Type** keeps lists, boards, collections, folders and notes apart; **None** mixes them. **Folders first** keeps folders at the top.
-- **Sort by:** **Name**, **Date created** or **Last modified**, ascending or descending.
+- **Sort by:** **Name**, **Date created** or **Last modified**, ascending or descending. At first it is **Date created**, the newest on top.
 
 Each folder keeps its own order, on this device.
 
