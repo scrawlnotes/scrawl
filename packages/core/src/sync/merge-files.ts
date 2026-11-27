@@ -191,6 +191,10 @@ function mergeCard(was: Card | undefined, mine: Card, theirs: Card): Card {
   const merged: Card = { ...card, timeline: mergeTimeline(was?.timeline ?? [], mine.timeline, theirs.timeline) };
   if (subtasks.length > 0) merged.subtasks = subtasks;
   else delete merged.subtasks;
+  // Attached files the same way: what each side attached stays, one taken off on a side goes.
+  const files = mergeRecords(was?.attachments ?? [], mine.attachments ?? [], theirs.attachments ?? [], byId, (b, l, r) => mergeFields(b, l, r));
+  if (files.length > 0) merged.attachments = files;
+  else delete merged.attachments;
   // Who worked on it: everyone either side has, at the later time.
   const worked = mergeWorkedOn(was?.workedOn, mine.workedOn, theirs.workedOn);
   if (worked.length > 0) merged.workedOn = worked;

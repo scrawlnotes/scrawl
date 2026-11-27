@@ -56,9 +56,10 @@ export function AttachButton({ onFiles, className = 'attach', iconOnly = false }
  * goes to `onChange`. Escape in it is the host's, to cancel. With `onEnter`, Enter is the host's
  * too, to save, and Ctrl+Enter is a new line, unless a list the editor opened takes Enter. With
  * `attacher`, Attach is the host's, in a bar of its own: files given to it go into the editor.
- * Without `attach`, there is no Attach: a comment's box. In a task's or a card's description @ offers the people of its space, to mention one (design/notifications.md 2).
+ * Without `attach`, there is no Attach: a comment's box. With `onSubmit`, as Trello's comment box,
+ * Enter stays a new line and Ctrl or Cmd+Enter is the host's, to post. In a task's or a card's description @ offers the people of its space, to mention one (design/notifications.md 2).
  */
-export function DescriptionField({ home, value, onChange, hint, host, autoFocus, onEscape, onEnter, attacher, attach: attaches = true }: {
+export function DescriptionField({ home, value, onChange, hint, host, autoFocus, onEscape, onEnter, onSubmit, attacher, attach: attaches = true }: {
   home: string;
   value: string;
   onChange: (doc: string) => void;
@@ -67,6 +68,7 @@ export function DescriptionField({ home, value, onChange, hint, host, autoFocus,
   autoFocus?: boolean;
   onEscape?: () => void;
   onEnter?: () => void;
+  onSubmit?: () => void;
   attacher?: { current: ((files: File[]) => void) | null };
   attach?: boolean;
 }) {
@@ -105,6 +107,12 @@ export function DescriptionField({ home, value, onChange, hint, host, autoFocus,
   // Before the editor has the key: Enter saves, Ctrl+Enter is the editor's own Enter.
   const onKeyDownCapture = (event: KeyboardEvent) => {
     if (mentions.onKeyDown(event)) return;
+    if (onSubmit && event.key === 'Enter' && (event.ctrlKey || event.metaKey) && !event.nativeEvent.isComposing) {
+      event.preventDefault();
+      event.stopPropagation();
+      onSubmit();
+      return;
+    }
     const view = editor.current?.view;
     if (!onEnter || !view || event.key !== 'Enter' || event.shiftKey || event.altKey || event.nativeEvent.isComposing || editorTakesEnter(view)) return;
     event.preventDefault();

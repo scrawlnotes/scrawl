@@ -1,5 +1,5 @@
 import { type Page } from '@playwright/test';
-import { browse, expect, test, typeInto } from '../fixtures';
+import { browse, expect, test, typeInto, vaultFile } from '../fixtures';
 
 // A Simple board (Todo, Doing, Done) made from the Create window.
 async function createBoard(page: Page, phone: boolean, name: string) {
@@ -66,6 +66,25 @@ test('a comment written on a card shows on its timeline', async ({ app, phone })
   await typeInto(app.getByRole('textbox', { name: 'Write a comment…' }), 'Called them, waiting for a price');
   await app.getByRole('button', { name: 'Comment', exact: true }).click();
   await expect(app.getByText('Called them, waiting for a price').first()).toBeVisible();
+});
+
+test("a card's description is written in its box and saved; a file picked comes in its Attachments, not in the text", async ({ app, phone }) => {
+  await createBoard(app, phone, 'Launch');
+  await addCard(app, phone, 'Book the venue');
+  await app.getByText('Book the venue', { exact: true }).first().click();
+  await app.getByRole('button', { name: 'Add a more detailed description…' }).click();
+  await app.keyboard.type('The contract came');
+  // A computer saves with Ctrl+Enter, a phone with its page's Save.
+  if (phone) await app.getByRole('dialog', { name: 'Description' }).getByRole('button', { name: 'Save' }).click();
+  else await app.keyboard.press('Control+Enter');
+  await expect(app.getByRole('button', { name: 'Description' })).toContainText('The contract came');
+  const picking = app.waitForEvent('filechooser');
+  await app.getByRole('button', { name: 'Add attachment' }).click();
+  await (await picking).setFiles({ name: 'offer.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4') });
+  await expect(app.getByRole('button', { name: 'offer.pdf' })).toBeVisible();
+  await expect(app.getByText('attached offer.pdf').first()).toBeVisible();
+  await expect.poll(async () => JSON.parse((await vaultFile(app, 'Launch.board.json')) ?? '{"cards":[]}').cards[0]?.attachments?.[0]?.name).toBe('offer.pdf');
+  await expect.poll(async () => JSON.parse((await vaultFile(app, 'Launch.board.json')) ?? '{"cards":[]}').cards[0]?.description).toBe('The contract came');
 });
 
 test('a card of someone with no name yet says You, not Unnamed', async ({ app, phone }) => {

@@ -105,8 +105,9 @@ export function dropFile(text: string, path: string): string {
 }
 
 /**
- * A board's text without the links to the attached file at `path` in its cards' descriptions and
- * comments; a comment that was only the file goes. The text as it was when it has none.
+ * A board's text without the attached file at `path`: off its cards' attachments, and its links
+ * out of their descriptions and comments; a comment that was only the file goes. The text as it
+ * was when it has none.
  */
 export function dropFileFromBoard(text: string, path: string): string {
   const board = parseBoard(text);
@@ -116,16 +117,26 @@ export function dropFileFromBoard(text: string, path: string): string {
     if (out !== markdown) changed = true;
     return out;
   };
-  const cards = board.cards.map((card) => ({
-    ...card,
-    ...(card.description !== undefined && { description: drop(card.description) }),
-    // A comment that was only the file goes with it.
-    timeline: card.timeline.flatMap((entry): TimelineEntry[] => {
-      if (entry.kind !== 'comment') return [entry];
-      const text = drop(entry.text);
-      return text.trim() === '' && entry.text.trim() !== '' ? [] : [{ ...entry, text }];
-    }),
-  }));
+  const wanted = path.toLowerCase();
+  const cards = board.cards.map((card) => {
+    const out: Card = {
+      ...card,
+      ...(card.description !== undefined && { description: drop(card.description) }),
+      // A comment that was only the file goes with it.
+      timeline: card.timeline.flatMap((entry): TimelineEntry[] => {
+        if (entry.kind !== 'comment') return [entry];
+        const text = drop(entry.text);
+        return text.trim() === '' && entry.text.trim() !== '' ? [] : [{ ...entry, text }];
+      }),
+    };
+    const files = card.attachments?.filter((f) => f.path.toLowerCase() !== wanted);
+    if (files && files.length !== card.attachments!.length) {
+      changed = true;
+      if (files.length > 0) out.attachments = files;
+      else delete out.attachments;
+    }
+    return out;
+  });
   return changed ? serializeBoard({ ...board, cards }) : text;
 }
 
@@ -191,10 +202,19 @@ function relinkTasks(tasks: Task[], from: string, to: string): Task[] | null {
   return changed ? out : null;
 }
 
-/** A card with the attached file at `from` renamed `to` in its description and comments; null when neither links to it. */
+/**
+ * A card with the attached file at `from` renamed `to` in its attachments, its description and its
+ * comments; null when none has it. An attachment shown by the file's old name takes the new one.
+ */
 function relinkCard(card: Card, from: string, to: string): Card | null {
   const description = card.description === undefined ? undefined : relinkFile(card.description, from, to);
   let changed = description !== card.description;
+  const wanted = from.toLowerCase();
+  const attachments = card.attachments?.map((f) => {
+    if (f.path.toLowerCase() !== wanted) return f;
+    changed = true;
+    return { ...f, path: to, ...(f.name === basename(from) && { name: basename(to) }) };
+  });
   const timeline = card.timeline.map((entry) => {
     if (entry.kind !== 'comment') return entry;
     const text = relinkFile(entry.text, from, to);
@@ -202,7 +222,7 @@ function relinkCard(card: Card, from: string, to: string): Card | null {
     changed = true;
     return { ...entry, text };
   });
-  return changed ? { ...card, ...(description !== undefined && { description }), timeline } : null;
+  return changed ? { ...card, ...(description !== undefined && { description }), ...(attachments && { attachments }), timeline } : null;
 }
 
 /**
@@ -286,6 +306,7 @@ async function usesUnder(fs: VaultFs, dir: string, entries: Entry[], uses: Map<s
       const board = parseBoard(text);
       for (const card of board.cards) {
         const linked = new Set<string>(filesIn(card.description ?? ''));
+        for (const file of card.attachments ?? []) linked.add(file.path.toLowerCase());
         for (const item of card.timeline) if (item.kind === 'comment') for (const file of filesIn(item.text)) linked.add(file);
         for (const file of linked) add(file, { kind: 'card', path: entry.path, title: `${board.prefix}-${card.key}`, card: { id: card.id, title: card.title }, inTrash });
       }

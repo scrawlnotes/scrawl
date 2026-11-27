@@ -6,7 +6,9 @@ A board is cards in columns: what is waiting, what is being done, what is done. 
 
 In **Browse** or in a folder, press **+** at the bottom right and pick **Board**. On the board, **+** adds a card to the column on screen.
 
-A board shows one column at a time; swipe, or tap the column names at the top. A card has a key such as `SCR-12`, a description, subtasks, a priority, labels, a date, who it is given to, and links to notes and tasks. Tap a card for its page: its fields, its description, and its timeline of moves and comments, with who made each, a person or an agent.
+A board shows one column at a time; swipe, or tap the column names at the top. A card has a key such as `SCR-12`, a description, attachments, subtasks, a priority, labels, a date, who it is given to, and links to notes and tasks. Tap a card for its page: its fields, its description, its attachments, and its timeline of moves, files and comments, with who made each, a person or an agent.
+
+Tap the description to write it on a page of its own, then **Save**. **Add attachment** picks files; tap one to open it, and its **···** shares, renames or takes it off the card. It stays in **Files**.
 
 Type `@` in its description or a comment to mention someone in the space; with a Scrawl server they are told. See [Working together](working-together).
 

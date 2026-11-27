@@ -51,6 +51,7 @@ export function cardActivity(board: Board, card: Card, people: People): Entry[] 
     if (entry.kind === 'move') entries.push({ ...head, kind: 'move', from: column(entry.from), to: column(entry.to) });
     else if (entry.kind === 'assign') entries.push({ ...head, kind: 'assign', given: entry.given ? nameIn(entry.given, people) : null });
     else if (entry.kind === 'tick') entries.push({ ...head, kind: 'tick', subtasks: entry.subtasks.map(subtask) });
+    else if (entry.kind === 'attach') entries.push({ ...head, kind: 'attach', files: entry.files });
   }
   return latest(entries);
 }

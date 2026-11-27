@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kartta açıklama ve ekler</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #1e2229; --side: #181b21; --line: #2b303a; --fg: #d5d9e0; --dim: #8b93a1;
+  --faint: #5a6270; --accent: #e0a84a; --page: #101215; --sel: #34435a; --raise: #252a33; --code: #171a1f;
+  --ui: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', Consolas, monospace;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--fg); font: 13.5px var(--ui); }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
+.icon { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+/* ---------- the page around the mockups ---------- */
+.stage { padding: 16px 16px 8px; }
+.cap { margin: 26px 0 10px; color: var(--dim); font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.cap:first-child { margin-top: 4px; }
+.legend { max-width: 900px; margin: 0 16px 40px; color: var(--dim); font-size: 13.5px; line-height: 1.6; }
+.legend h3 { margin: 18px 0 4px; color: var(--fg); font-size: 15px; }
+.legend p { margin: 4px 0; }
+.legend b { color: var(--fg); font-weight: 600; }
+.legend ul { margin: 4px 0; padding-left: 20px; }
+.row { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+
+/* ---------- the card panel, as the app draws it ---------- */
+.cpanel { width: 880px; max-width: 100%; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); box-shadow: 0 18px 50px rgb(0 0 0 / .45); overflow: hidden; }
+.cp-head { display: flex; align-items: center; gap: 10px; padding: 12px 20px; border-bottom: 1px solid var(--line); color: var(--dim); font-size: 12.5px; }
+.cp-head .key { color: var(--fg); font: 12.5px var(--mono); }
+.cp-head .more { margin-left: auto; color: var(--faint); letter-spacing: 1px; }
+.cp-head .x { color: var(--faint); font-size: 19px; line-height: 1; }
+.cp-body { display: grid; grid-template-columns: minmax(0, 1fr) 232px; gap: 24px; padding: 18px 20px 20px; }
+.cp-main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.title { font-size: 19px; font-weight: 700; padding: 2px 0; }
+.cp-sec { padding-bottom: 5px; border-bottom: 1px solid var(--line); color: var(--faint); font-size: 11px; letter-spacing: .07em; text-transform: uppercase; display: flex; gap: 6px; }
+.cp-sec small { font-size: 11px; color: var(--faint); letter-spacing: 0; }
+
+/* The description as a box: empty, it asks for one; written, it shows it; a click opens the editor. */
+.dbox { min-height: 64px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 7px; background: var(--side); color: var(--faint); cursor: text; }
+.dbox:hover { border-color: #3a414d; }
+.dbox.full { color: var(--fg); background: none; border-color: transparent; padding: 4px 6px; margin: 0 -6px; }
+.dbox.full:hover { background: var(--side); border-color: var(--line); }
+.md { font: 13.5px/1.65 var(--mono); }
+.md p { margin: 0 0 6px; }
+.md ul { margin: 0 0 6px; padding-left: 20px; }
+.md b { font-weight: 800; color: #fff; }
+
+.dedit { border: 1px solid #4a5568; border-radius: 7px; background: var(--side); overflow: hidden; }
+.tbar { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 5px 6px; border-bottom: 1px solid var(--line); color: var(--dim); font-size: 12px; }
+.tbar span { padding: 3px 6px; border-radius: 4px; }
+.tbar span:hover { background: var(--raise); color: var(--fg); }
+.tbar i { width: 1px; height: 14px; margin: 0 4px; background: var(--line); }
+.tbar .b { font-weight: 700; } .tbar .it { font-style: italic; } .tbar .s { text-decoration: line-through; }
+.dtext { min-height: 120px; padding: 10px 12px; font: 13.5px/1.65 var(--mono); color: var(--fg); }
+.caret { display: inline-block; width: 2px; height: 1.1em; margin-left: 1px; vertical-align: -2px; background: var(--accent); }
+.dfoot { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.primary { padding: 5px 14px; border-radius: 6px; background: var(--accent); color: var(--bg); font-weight: 600; }
+.ghost { padding: 5px 10px; border-radius: 6px; color: var(--dim); }
+.ghost:hover { background: var(--raise); color: var(--fg); }
+.keyhint { margin-left: auto; color: var(--faint); font-size: 12px; }
+.keyhint kbd { padding: 1px 5px; border: 1px solid var(--line); border-radius: 4px; font: 11px var(--ui); color: var(--dim); }
+
+/* Attachments: a row each, the newest first; a picture shows small. */
+.att { display: flex; flex-direction: column; gap: 2px; }
+.arow { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 6px; margin: 0 -6px; border-radius: 7px; }
+.arow:hover { background: var(--raise); }
+.thumb { width: 52px; height: 38px; border-radius: 5px; display: grid; place-items: center; background: var(--code); border: 1px solid var(--line); color: var(--dim); font: 600 10.5px var(--ui); letter-spacing: .03em; overflow: hidden; }
+.thumb.pdf { color: #f0706a; } .thumb.xls { color: #5cb87a; } .thumb.doc { color: #6aa5f0; }
+.thumb.img { background: linear-gradient(135deg, #3d5a80 0%, #98c1d9 55%, #e0fbfc 100%); border: 0; }
+.aname { min-width: 0; }
+.aname b { display: block; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aname small { color: var(--faint); font-size: 12px; }
+.aact { display: flex; gap: 2px; color: var(--faint); opacity: 0; }
+.arow:hover .aact, .arow.hot .aact { opacity: 1; }
+.aact span { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 5px; }
+.aact span:hover { background: var(--code); color: var(--fg); }
+.addrow { display: flex; align-items: center; gap: 8px; color: var(--dim); padding: 4px 0; }
+.addrow:hover { color: var(--fg); }
+.menu { position: absolute; right: 0; top: 34px; z-index: 2; width: 190px; padding: 4px; border: 1px solid var(--line); border-radius: 8px; background: var(--side); box-shadow: 0 8px 24px rgb(0 0 0 / .4); }
+.menu div { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 5px; color: var(--fg); }
+.menu div:hover { background: var(--sel); }
+.menu .danger { color: #f0706a; }
+.menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; }
+
+/* Files dragged over the card. */
+.drop { position: relative; }
+.drop::after { content: 'Drop to attach to TB-12'; position: absolute; inset: 49px 0 0; display: grid; place-items: center; border: 2px dashed var(--accent); border-radius: 0 0 10px 10px; background: rgb(16 18 21 / .78); color: var(--accent); font-weight: 600; font-size: 15px; }
+
+.sub { display: flex; align-items: center; gap: 8px; color: var(--dim); }
+.tlog { display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
+.tl-ev { display: flex; gap: 8px; align-items: baseline; color: var(--dim); }
+.tl-ev b { color: var(--fg); font-weight: 600; }
+.tl-ev .t { margin-left: auto; color: var(--faint); font-size: 11px; }
+.av { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--sel); color: var(--fg); font-size: 10px; font-weight: 600; flex: none; }
+.cbox { padding: 8px 10px; border: 1px solid var(--line); border-radius: 7px; color: var(--faint); display: flex; flex-direction: column; gap: 8px; }
+.cbox .go { align-self: flex-end; padding: 3px 12px; border-radius: 6px; background: var(--accent); color: var(--bg); font-weight: 600; opacity: .55; }
+.fields { display: flex; flex-direction: column; gap: 4px; }
+.fields label { margin-top: 8px; color: var(--faint); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; }
+.fields .f { padding: 5px 9px; border: 1px solid var(--line); border-radius: 6px; color: var(--fg); }
+.fields .f.none { color: var(--faint); }
+
+/* ---------- phone ---------- */
+.phone { width: 375px; height: 812px; border: 1px solid var(--line); border-radius: 36px; background: var(--bg); overflow: hidden; display: flex; flex-direction: column; font-size: 15px; }
+.p-status { height: 44px; flex: none; }
+.p-nav { display: flex; align-items: center; justify-content: space-between; padding: 0 16px; height: 44px; color: var(--accent); flex: none; }
+.p-nav b { color: var(--fg); font-weight: 600; }
+.p-body { flex: 1; overflow: hidden; padding: 0 16px; }
+.p-key { color: var(--faint); font: 12px var(--mono); margin-top: 4px; }
+.p-title { font-size: 22px; font-weight: 700; margin: 2px 0 10px; }
+.p-cap { margin: 18px 0 6px; color: var(--faint); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
+.p-dbox { min-height: 88px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--side); color: var(--faint); font: 14px/1.6 var(--mono); }
+.p-dbox.full { color: var(--fg); }
+.p-row { display: grid; grid-template-columns: 52px minmax(0, 1fr) 28px; gap: 12px; align-items: center; min-height: 56px; border-bottom: 1px solid var(--line); }
+.p-row .aname b { font-size: 15px; }
+.p-row .dots { color: var(--faint); letter-spacing: 1px; text-align: center; }
+.p-add { display: flex; align-items: center; gap: 10px; min-height: 44px; color: var(--fg); }
+.p-add .icon { color: var(--dim); }
+.p-compose { display: flex; gap: 8px; align-items: center; padding: 8px 12px 30px; border-top: 1px solid var(--line); flex: none; }
+.p-compose div { flex: 1; padding: 9px 14px; border-radius: 20px; background: var(--side); color: var(--faint); }
+.p-compose span { padding: 8px 14px; border-radius: 18px; background: var(--accent); color: var(--bg); font-weight: 600; opacity: .55; }
+.p-tbar { display: flex; gap: 2px; padding: 6px 10px; border-bottom: 1px solid var(--line); color: var(--dim); font-size: 14px; flex: none; }
+.p-tbar span { min-width: 36px; height: 36px; display: grid; place-items: center; border-radius: 6px; }
+.p-edit { flex: 1; padding: 14px 16px; font: 15px/1.6 var(--mono); }
+.p-kb { height: 290px; flex: none; background: #2b2f36; border-top: 1px solid #383d46; display: grid; place-items: center; color: #6b7280; font-size: 13px; }
+.sheet { margin-top: auto; padding: 8px 8px 30px; }
+.sheet .grp { border-radius: 14px; background: #2b2f36; overflow: hidden; margin-bottom: 8px; }
+.sheet .grp div { padding: 15px; text-align: center; color: #6aa5f0; font-size: 17px; border-bottom: 1px solid #383d46; }
+.sheet .grp div:last-child { border-bottom: 0; }
+.sheet .head { color: var(--faint) !important; font-size: 13px !important; }
+.sheet .red { color: #f0706a !important; }
+.sheet .bold { font-weight: 600; }
+.dim-under { position: relative; }
+.dim-under::before { content: ''; position: absolute; inset: 0; background: rgb(0 0 0 / .45); z-index: 1; border-radius: 36px; }
+.dim-under .sheet { position: relative; z-index: 2; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="clip" viewBox="0 0 24 24"><path d="M20 11.5 12.2 19.3a5 5 0 0 1-7-7L13 4.4a3.3 3.3 0 0 1 4.7 4.7l-7.6 7.6a1.7 1.7 0 0 1-2.4-2.4l7-7"/></symbol>
+  <symbol id="down" viewBox="0 0 24 24"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/></symbol>
+  <symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="open" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+  <symbol id="trash" viewBox="0 0 24 24"><path d="M5 7h14M10 7V4.5h4V7M7 7l1 13h8l1-13"/></symbol>
+  <symbol id="pen" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></symbol>
+</svg>
+
+<div class="stage">
+
+<div class="cap">1 · Bilgisayar: açıklama yok, ek yok</div>
+<div lang="en" class="cpanel">
+  <div class="cp-head"><span class="key">TB-12</span><span>Roadmap</span><span class="more">···</span><span class="x">×</span></div>
+  <div class="cp-body">
+    <div class="cp-main">
+      <div class="title">Deniz Hanım'ın gönderdiği dosyalar</div>
+      <div class="cp-sec">Description</div>
+      <div class="dbox">Add a more detailed description…</div>
+      <div class="cp-sec">Attachments</div>
+      <div class="addrow"><svg class="icon"><use href="#plus"/></svg>Add attachment</div>
+      <div class="cp-sec">Subtasks</div>
+      <div class="sub"><svg class="icon"><use href="#plus"/></svg>Add subtask</div>
+      <div class="cp-sec">Timeline</div>
+      <div class="tlog">
+        <div class="tl-ev"><span class="av">E</span><span><b>Eren</b> created this</span><span class="t">10:12</span></div>
+        <div class="cbox">Write a comment…<span class="go">Comment</span></div>
+      </div>
+    </div>
+    <aside class="fields">
+      <label>Status</label><div class="f">In progress</div>
+      <label>Priority</label><div class="f none">No priority</div>
+      <label>Labels</label><div class="f none">Add label</div>
+      <label>Due</label><div class="f none">No date</div>
+      <label>Assignee</label><div class="f">Kaan Arslan</div>
+    </aside>
+  </div>
+</div>
+
+<div class="cap">2 · Bilgisayar: açıklama yazılmış, üç ek; satırın ··· menüsü açık</div>
+<div lang="en" class="cpanel">
+  <div class="cp-head"><span class="key">TB-12</span><span>Roadmap</span><span class="more">···</span><span class="x">×</span></div>
+  <div class="cp-body">
+    <div class="cp-main">
+      <div class="title">Deniz Hanım'ın gönderdiği dosyalar</div>
+      <div class="cp-sec">Description</div>
+      <div class="dbox full md">
+        <p>Deniz Hanım sözleşme taslağını ve yeni fiyat listesini gönderdi. <b>Cuma'ya kadar</b> dönüş bekliyor.</p>
+        <ul><li>Taslaktaki 4. madde (ödeme vadesi) bizim tarafta değişecek</li><li>Fiyat listesinde KDV ayrı yazılmış</li></ul>
+      </div>
+      <div class="cp-sec">Attachments <small>3</small></div>
+      <div class="att">
+        <div class="arow"><span class="thumb img"></span><span class="aname"><b>Ekran görüntüsü 2026-11-27.png</b><small>Eren · 10:24 · 312 KB</small></span><span class="aact"><span title="Download"><svg class="icon"><use href="#down"/></svg></span><span title="More">···</span></span></div>
+        <div class="arow hot" style="position:relative"><span class="thumb xls">XLSX</span><span class="aname"><b>Fiyat listesi Kasım.xlsx</b><small>Eren · 10:23 · 48 KB</small></span><span class="aact"><span title="Download"><svg class="icon"><use href="#down"/></svg></span><span title="More" style="background:var(--code);color:var(--fg)">···</span></span>
+          <div class="menu">
+            <div><svg class="icon"><use href="#open"/></svg>Open</div>
+            <div><svg class="icon"><use href="#down"/></svg>Download</div>
+            <div><svg class="icon"><use href="#pen"/></svg>Rename…</div>
+            <hr>
+            <div class="danger"><svg class="icon"><use href="#trash"/></svg>Remove from card</div>
+          </div>
+        </div>
+        <div class="arow"><span class="thumb pdf">PDF</span><span class="aname"><b>Sözleşme taslağı v3.pdf</b><small>Eren · 10:23 · 1,2 MB</small></span><span class="aact"><span title="Download"><svg class="icon"><use href="#down"/></svg></span><span title="More">···</span></span></div>
+      </div>
+      <div class="addrow"><svg class="icon"><use href="#plus"/></svg>Add attachment</div>
+      <div class="cp-sec">Subtasks</div>
+      <div class="sub"><svg class="icon"><use href="#plus"/></svg>Add subtask</div>
+      <div class="cp-sec">Timeline</div>
+      <div class="tlog">
+        <div class="tl-ev"><span class="av">E</span><span><b>Eren</b> created this</span><span class="t">10:12</span></div>
+        <div class="tl-ev"><span class="av">E</span><span><b>Eren</b> attached Sözleşme taslağı v3.pdf and 2 more</span><span class="t">10:24</span></div>
+        <div class="cbox">Write a comment…<span class="go">Comment</span></div>
+      </div>
+    </div>
+    <aside class="fields">
+      <label>Status</label><div class="f">In progress</div>
+      <label>Priority</label><div class="f none">No priority</div>
+      <label>Labels</label><div class="f none">Add label</div>
+      <label>Due</label><div class="f">Fri 28 Nov</div>
+      <label>Assignee</label><div class="f">Kaan Arslan</div>
+    </aside>
+  </div>
+</div>
+
+<div class="cap">3 · Bilgisayar: açıklamaya tıklandı, düzenleniyor</div>
+<div lang="en" class="cpanel">
+  <div class="cp-head"><span class="key">TB-12</span><span>Roadmap</span><span class="more">···</span><span class="x">×</span></div>
+  <div class="cp-body">
+    <div class="cp-main">
+      <div class="title">Deniz Hanım'ın gönderdiği dosyalar</div>
+      <div class="cp-sec">Description</div>
+      <div>
+        <div class="dedit">
+          <div class="tbar"><span class="b">B</span><span class="it">I</span><span class="s">S</span><span>&lt;/&gt;</span><span>Link</span><i></i><span>H1</span><span>H2</span><span>H3</span><i></i><span>List</span><span>Numbered</span><span>Checklist</span><span>Quote</span><span>Code block</span></div>
+          <div class="dtext">Deniz Hanım sözleşme taslağını ve yeni fiyat listesini gönderdi. <b style="font-weight:800;color:#fff">Cuma'ya kadar</b> dönüş bekliyor.<br><br>- Taslaktaki 4. madde (ödeme vadesi) bizim tarafta değişecek<br>- Fiyat listesinde KDV ayrı yazılmış<br>- <span class="caret"></span></div>
+        </div>
+        <div class="dfoot"><span class="primary">Save</span><span class="ghost">Cancel</span><span class="keyhint"><kbd>Ctrl</kbd> + <kbd>Enter</kbd> saves · <kbd>Esc</kbd> cancels</span></div>
+      </div>
+      <div class="cp-sec">Attachments <small>3</small></div>
+      <div class="att">
+        <div class="arow"><span class="thumb img"></span><span class="aname"><b>Ekran görüntüsü 2026-11-27.png</b><small>Eren · 10:24 · 312 KB</small></span><span class="aact"></span></div>
+        <div class="arow"><span class="thumb xls">XLSX</span><span class="aname"><b>Fiyat listesi Kasım.xlsx</b><small>Eren · 10:23 · 48 KB</small></span><span class="aact"></span></div>
+      </div>
+    </div>
+    <aside class="fields">
+      <label>Status</label><div class="f">In progress</div>
+      <label>Priority</label><div class="f none">No priority</div>
+      <label>Labels</label><div class="f none">Add label</div>
+    </aside>
+  </div>
+</div>
+
+<div class="cap">4 · Bilgisayar: dosyalar kartın üstüne sürükleniyor</div>
+<div lang="en" class="cpanel drop">
+  <div class="cp-head"><span class="key">TB-12</span><span>Roadmap</span><span class="more">···</span><span class="x">×</span></div>
+  <div class="cp-body">
+    <div class="cp-main">
+      <div class="title">Deniz Hanım'ın gönderdiği dosyalar</div>
+      <div class="cp-sec">Description</div>
+      <div class="dbox">Add a more detailed description…</div>
+      <div class="cp-sec">Attachments</div>
+      <div class="addrow"><svg class="icon"><use href="#plus"/></svg>Add attachment</div>
+      <div class="cp-sec">Subtasks</div>
+      <div class="sub"><svg class="icon"><use href="#plus"/></svg>Add subtask</div>
+    </div>
+    <aside class="fields"><label>Status</label><div class="f">In progress</div></aside>
+  </div>
+</div>
+
+<div class="cap">5 · Telefon: kart · açıklama düzenleniyor · ekin menüsü</div>
+<div class="row">
+  <div lang="en" class="phone">
+    <div class="p-status"></div>
+    <div class="p-nav"><span>‹ Roadmap</span><span>···</span></div>
+    <div class="p-body">
+      <div class="p-key">TB-12 · Roadmap</div>
+      <div class="p-title">Deniz Hanım'ın gönderdiği dosyalar</div>
+      <div class="p-cap">Description</div>
+      <div class="p-dbox full">Deniz Hanım sözleşme taslağını ve yeni fiyat listesini gönderdi. <b style="font-weight:800;color:#fff">Cuma'ya kadar</b> dönüş bekliyor.</div>
+      <div class="p-cap">Attachments · 3</div>
+      <div class="p-row"><span class="thumb img"></span><span class="aname"><b>Ekran görüntüsü 2026-11-27.png</b><small>Eren · 10:24 · 312 KB</small></span><span class="dots">···</span></div>
+      <div class="p-row"><span class="thumb xls">XLSX</span><span class="aname"><b>Fiyat listesi Kasım.xlsx</b><small>Eren · 10:23 · 48 KB</small></span><span class="dots">···</span></div>
+      <div class="p-row"><span class="thumb pdf">PDF</span><span class="aname"><b>Sözleşme taslağı v3.pdf</b><small>Eren · 10:23 · 1,2 MB</small></span><span class="dots">···</span></div>
+      <div class="p-add"><svg class="icon"><use href="#plus"/></svg>Add attachment</div>
+      <div class="p-cap">Subtasks</div>
+      <div class="p-add"><svg class="icon"><use href="#plus"/></svg>Add subtask</div>
+    </div>
+    <div class="p-compose"><div>Write a comment…</div><span>Comment</span></div>
+  </div>
+
+  <div lang="en" class="phone">
+    <div class="p-status"></div>
+    <div class="p-nav"><span>Cancel</span><b>Description</b><span style="font-weight:600">Save</span></div>
+    <div class="p-tbar"><span style="font-weight:700">B</span><span style="font-style:italic">I</span><span style="text-decoration:line-through">S</span><span>&lt;/&gt;</span><span>🔗</span><span>H1</span><span>•</span><span>1.</span></div>
+    <div class="p-edit">Deniz Hanım sözleşme taslağını ve yeni fiyat listesini gönderdi. <b style="font-weight:800;color:#fff">Cuma'ya kadar</b> dönüş bekliyor.<span class="caret"></span></div>
+    <div class="p-kb">klavye</div>
+  </div>
+
+  <div lang="en" class="phone dim-under" style="display:flex;flex-direction:column">
+    <div class="p-status"></div>
+    <div class="p-nav"><span>‹ Roadmap</span><span>···</span></div>
+    <div class="p-body">
+      <div class="p-key">TB-12 · Roadmap</div>
+      <div class="p-title">Deniz Hanım'ın gönderdiği dosyalar</div>
+      <div class="p-cap">Attachments · 3</div>
+      <div class="p-row"><span class="thumb xls">XLSX</span><span class="aname"><b>Fiyat listesi Kasım.xlsx</b><small>Eren · 10:23 · 48 KB</small></span><span class="dots">···</span></div>
+    </div>
+    <div class="sheet">
+      <div class="grp"><div class="head">Fiyat listesi Kasım.xlsx<br>Eren · 10:23</div><div>Open</div><div>Share…</div><div>Rename…</div><div class="red">Remove from card</div></div>
+      <div class="grp"><div class="bold">Cancel</div></div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<div class="legend">
+<h3>Açıklama (Trello gibi)</h3>
+<ul>
+<li>Açıklama artık bir kutu. Boşken <b>Add a more detailed description…</b> yazar; yazılmışsa okunur hâlde durur (kalın, liste, link, resim görünür).</li>
+<li>Kutuya tıklayınca düzenleme açılır: üstte notlardaki biçim çubuğu, altta <b>Save</b> ve <b>Cancel</b>. <b>Ctrl/Cmd+Enter</b> kaydeder, <b>Esc</b> vazgeçer, Enter alt satıra iner.</li>
+<li>Düzenleme açıkken dışarı tıklamak bir şey kaybettirmez: yazılan kalır, kutu açık kalır. Kart kapanırsa yazılan kaydedilir.</li>
+<li>Telefonda kutuya dokununca ayrı bir <b>Description</b> sayfası açılır: Cancel, Save ve biçim çubuğu.</li>
+</ul>
+<h3>Ekler</h3>
+<ul>
+<li>Açıklamanın altında <b>Attachments</b> bölümü, sayısıyla; en yeni üstte. Her satır: küçük resim ya da dosya türü, ad, kimin eklediği, ne zaman, boyutu.</li>
+<li>Satıra tıklayınca dosya açılır (resim büyük gösterilir, diğerleri bilgisayarın kendi uygulamasında). Üstüne gelince <b>Download</b> ve <b>···</b>: Open, Download, Rename…, Remove from card.</li>
+<li><b>Add attachment</b> dosya seçtirir. Dosyalar kartın herhangi bir yerine sürüklenip bırakılabilir. Açıklamaya yapıştırılan ya da sürüklenen dosya da açıklamanın içine değil Attachments'a gider.</li>
+<li>Timeline'a "Eren attached Sözleşme taslağı v3.pdf and 2 more" düşer; böylece kart izleyenler haberdar olur.</li>
+<li>Remove from card dosyayı karttan çıkarır, dosya Files'ta durur (başka yerde kullanılıyorsa orada da kalır). Undo toast'u var.</li>
+<li>Eskiden açıklamanın içine eklenmiş dosyalar olduğu gibi açıklamada kalır; taşınmaz.</li>
+</ul>
+</div>
+</body>
+</html>

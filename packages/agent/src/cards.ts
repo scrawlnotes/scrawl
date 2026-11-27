@@ -143,6 +143,7 @@ export function cardLine(board: Board, card: Card, today: string, people: People
     ...(Object.keys(values).length > 0 && { values }),
     ...(card.subtasks?.length && { subtasks: `${ticked}/${card.subtasks.length}` }),
     ...(comments > 0 && { comments }),
+    ...(card.attachments?.length && { attachments: card.attachments.length }),
     ...(card.note && { note: card.note }),
     ...(worked.length > 0 && { workedOn: worked }),
   };
@@ -167,6 +168,13 @@ export function cardOut(board: Board, card: Card, today: string, people: People 
     ...(Object.keys(values).length > 0 && { values }),
     ...(card.subtasks?.length && { subtasks: card.subtasks.map(subtaskOut) }),
     ...(card.note && { note: card.note }),
+    // The files attached to it, by name; an agent reads what they are, not the files.
+    ...(card.attachments?.length && {
+      attachments: card.attachments.map((f) => {
+        const by = writerOf(f, people);
+        return { name: f.name, at: f.at, ...(by && { by }), ...(f.size !== undefined && { size: f.size }) };
+      }),
+    }),
     comments: card.timeline.flatMap((entry) => {
       if (entry.kind !== 'comment') return [];
       const by = writerOf(entry, people);
@@ -191,6 +199,7 @@ async function briefOf(fs: VaultFs, board: Board, path: string, card: Card, toda
   }
   if (card.labels?.length) lines.push(`Labels: ${card.labels.join(', ')}`);
   if (card.description) lines.push('', card.description.trim());
+  if (card.attachments?.length) lines.push('', `Attachments: ${card.attachments.map((f) => f.name).join(', ')}`);
   if (card.subtasks?.length) {
     lines.push('', '## Subtasks', '');
     for (const s of card.subtasks) lines.push(`- [${s.done ? 'x' : ' '}] ${s.title}${s.due ? ` (due ${s.due})` : ''}${s.priority < 4 ? ` (p${s.priority})` : ''}`);

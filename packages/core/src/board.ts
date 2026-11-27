@@ -50,19 +50,30 @@ export interface Phase {
 
 /**
  * A card's timeline: only what mattered on it, in one stream (design/activity.md 1.2): its moves
- * between columns, the comments on it, who it was given to and the subtasks ticked off. An entry
- * of a kind a newer version writes is kept as it is, and not shown.
+ * between columns, the comments on it, who it was given to, the subtasks ticked off and the files
+ * attached, by their names then. An entry of a kind a newer version writes is kept as it is, and not shown.
  */
 export type TimelineEntry =
   | (Stamp & { kind: 'move'; from: string | null; to: string })
   | (Stamp & { kind: 'comment'; text: string; edited?: string })
   | (Stamp & { kind: 'assign'; given?: PersonRef })
   | (Stamp & { kind: 'tick'; subtasks: string[] })
+  | (Stamp & { kind: 'attach'; files: string[] })
   | RemindEntry
   | (Stamp & { kind: 'unknown'; raw: { [key: string]: unknown } });
 
 /** Ticks of one actor this close after its last are written as the same entry. */
 const TICKS_TOGETHER_MS = 10 * 60 * 1000;
+
+/**
+ * A file attached to a card, in the Attachments under its description: the file in the space's
+ * `_attachments/`, the name it shows with, its size when known, and who attached it when.
+ */
+export interface CardFile extends Stamp {
+  path: string;
+  name: string;
+  size?: number;
+}
 
 export interface Card {
   id: string;
@@ -100,6 +111,8 @@ export interface Card {
   values?: { [key: string]: unknown };
   /** Its own subtasks, in their order; left out when it has none. */
   subtasks?: Subtask[];
+  /** The files attached to it, in the order they came; left out when it has none. */
+  attachments?: CardFile[];
   /** Everyone who changed it, a person or an agent, once each: what changes leave no entry on the timeline still show here. Left out when no one is known. */
   workedOn?: WorkedOn[];
 }
@@ -442,6 +455,9 @@ function parseCards(list: unknown, columns: Column[]): Card[] {
     const worked = readWorkedOn(raw.workedOn);
     if (worked.length > 0) card.workedOn = worked;
     else delete card.workedOn;
+    const files = readCardFiles(raw.attachments);
+    if (files.length > 0) card.attachments = files;
+    else delete card.attachments;
     for (const key of ['assignee', 'author'] as const) {
       const ref = readPersonRef(raw[key]);
       if (ref) card[key] = ref;
@@ -451,6 +467,19 @@ function parseCards(list: unknown, columns: Column[]): Card[] {
   // Cards without a key, from a file written by hand, are numbered after the ones that have one.
   let next = out.reduce((max, c) => Math.max(max, c.key), 0) + 1;
   return out.map((c) => (c.key > 0 ? c : { ...c, key: next++ }));
+}
+
+/** A card's attached files as the file has them: one without its file or its name is left out. Unknown fields are kept. */
+export function readCardFiles(list: unknown): CardFile[] {
+  if (!Array.isArray(list)) return [];
+  const out: CardFile[] = [];
+  for (const raw of list) {
+    if (!isObject(raw) || typeof raw.id !== 'string' || typeof raw.at !== 'string') continue;
+    if (typeof raw.path !== 'string' || !raw.path || typeof raw.name !== 'string' || !raw.name.trim()) continue;
+    const { size, ...rest } = raw;
+    out.push({ ...rest, id: raw.id, at: raw.at, path: raw.path, name: raw.name, ...(typeof size === 'number' && size >= 0 && { size }) } as CardFile);
+  }
+  return out;
 }
 
 /** Whether a card's values, as the file has them, are a map with something in it. */
@@ -475,6 +504,8 @@ function parseTimeline(list: unknown): TimelineEntry[] {
       out.push({ ...others, ...stamp, kind: 'assign', ...(ref && { given: ref }) });
     } else if (kind === 'tick' && Array.isArray(rest.subtasks)) {
       out.push({ ...rest, ...stamp, kind: 'tick', subtasks: rest.subtasks.filter((s): s is string => typeof s === 'string') });
+    } else if (kind === 'attach' && Array.isArray(rest.files)) {
+      out.push({ ...rest, ...stamp, kind: 'attach', files: rest.files.filter((s): s is string => typeof s === 'string') });
     } else if (kind === 'remind' && readRemind(stamp, rest)) {
       out.push(readRemind(stamp, rest)!);
     } else {
@@ -1056,6 +1087,72 @@ export function removeComment(board: Board, cardId: string, id: string, now: Clo
   );
 }
 
+// ---------- attachments ----------
+
+/** A file to attach: where it was copied to in the space's `_attachments/`, its name and size. */
+export interface NewCardFile {
+  path: string;
+  name: string;
+  size?: number;
+}
+
+/**
+ * Attaches files to a card, after the ones it has. Its timeline says so by their names, the files
+ * one actor attaches within a few minutes as one entry; who attaches them worked on it.
+ */
+export function attachToCard(board: Board, cardId: string, files: readonly NewCardFile[], now: Clock = () => new Date(), by?: By, ids: () => string = newId): Board {
+  const fresh = files.filter((f) => f.path && f.name.trim());
+  if (fresh.length === 0) return board;
+  const stamp = iso(now);
+  const actor = actorIn(by);
+  const added: CardFile[] = fresh.map((f) => ({ id: ids(), at: stamp, ...stampOf(actor), path: f.path, name: f.name.trim(), ...(f.size !== undefined && { size: f.size }) }));
+  return mapCard(board, cardId, (c) =>
+    workedBy({ ...c, updated: stamp, attachments: [...(c.attachments ?? []), ...added], timeline: withAttached(c.timeline, added.map((f) => f.name), actor, stamp) }, actor, stamp),
+  );
+}
+
+/** The timeline with files attached: added to the actor's last entry when it attached files a few minutes ago, else a new one. */
+function withAttached(timeline: TimelineEntry[], names: string[], actor: Actor, stamp: string): TimelineEntry[] {
+  const last = timeline.at(-1);
+  if (last?.kind === 'attach' && writtenBy(last, actor) && Date.parse(stamp) - Date.parse(last.at) <= TICKS_TOGETHER_MS) {
+    return [...timeline.slice(0, -1), { ...last, at: stamp, files: [...last.files, ...names] }];
+  }
+  return [...timeline, { id: newId(), at: stamp, ...stampOf(actor), kind: 'attach', files: names }];
+}
+
+/** Gives an attached file another name to show with; the file itself keeps its own. An empty name keeps the old one. */
+export function renameCardFile(board: Board, cardId: string, fileId: string, name: string, now: Clock = () => new Date(), by?: By): Board {
+  const clean = name.trim();
+  const stamp = iso(now);
+  return mapCard(board, cardId, (c) =>
+    clean && c.attachments?.some((f) => f.id === fileId && f.name !== clean)
+      ? workedBy({ ...c, updated: stamp, attachments: c.attachments.map((f) => (f.id === fileId ? { ...f, name: clean } : f)) }, actorIn(by), stamp)
+      : c,
+  );
+}
+
+/** Takes an attached file off a card; the file stays in the space. Its timeline keeps that it was attached. */
+export function removeCardFile(board: Board, cardId: string, fileId: string, now: Clock = () => new Date(), by?: By): Board {
+  const stamp = iso(now);
+  return mapCard(board, cardId, (c) => {
+    if (!c.attachments?.some((f) => f.id === fileId)) return c;
+    const rest = c.attachments.filter((f) => f.id !== fileId);
+    const next: Card = workedBy({ ...c, updated: stamp, attachments: rest }, actorIn(by), stamp);
+    if (rest.length === 0) delete next.attachments;
+    return next;
+  });
+}
+
+/** Puts back a file taken off a card, in the place it had: what Undo does. */
+export function restoreCardFile(board: Board, cardId: string, file: CardFile, index: number): Board {
+  return mapCard(board, cardId, (c) => {
+    if (c.attachments?.some((f) => f.id === file.id)) return c;
+    const list = [...(c.attachments ?? [])];
+    list.splice(Math.min(Math.max(index, 0), list.length), 0, file);
+    return { ...c, attachments: list };
+  });
+}
+
 function mapCard(board: Board, id: string, fn: (card: Card) => Card): Board {
   const card = board.cards.find((c) => c.id === id);
   if (!card) return board;
@@ -1145,6 +1242,7 @@ export function cardBrief(board: Board, card: Card, notes: NoteTexts = {}): stri
   }
   lines.push(...fields.map((f) => `- ${f}`), '');
   if (card.description) lines.push(card.description.trim(), '');
+  if (card.attachments?.length) lines.push(`Attachments: ${card.attachments.map((f) => f.name).join(', ')}`, '');
   if (card.subtasks?.length) {
     lines.push('## Subtasks', '');
     for (const s of card.subtasks) lines.push(`- [${s.done ? 'x' : ' '}] ${s.title}${s.due ? ` (due ${s.due})` : ''}${s.priority < 4 ? ` (p${s.priority})` : ''}`);

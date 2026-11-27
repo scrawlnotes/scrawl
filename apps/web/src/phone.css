@@ -4525,27 +4525,151 @@ body > .mb-lifted {
   padding-left: 16px;
 }
 
-/* the description, in the note editor */
+/* The description as a box (design/card-attachments.html): a tap opens it on a page of its own. */
 .mb-cdesc {
-  min-height: 72px;
-  padding: 0 8px;
+  padding: 0 16px;
 }
 
-.mb-cdesc .cm-editor {
-  height: auto;
+.mb .cd-box {
+  min-height: 88px;
+  padding: 12px 14px;
+  border-radius: 10px;
+}
+
+.mb .cd-box.full {
+  min-height: 0;
+  margin: 0 -8px;
+  padding: 6px 8px;
+  border-color: transparent;
+  background: none;
+}
+
+.mb .cd-hint {
+  font-size: 15px;
+}
+
+.mb .cd-box .md-view .cm-editor {
   font-size: 16px;
 }
 
-.mb-cdesc .cm-gutters {
-  display: none !important;
+/* The description being written: Cancel, Description and Save over the format bar and the text. */
+.cd-page {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  padding-top: env(safe-area-inset-top);
+  background: var(--sl-bg);
 }
 
-.mb-cdesc .cm-scroller {
-  overflow: visible;
+.cd-page-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 0 16px;
 }
 
-.mb-cdesc .cm-content {
-  padding: 2px 0 8px;
+.cd-page-head button {
+  min-height: 44px;
+  color: var(--sl-accent);
+  font-size: 17px;
+}
+
+.cd-page-head .save {
+  font-weight: 600;
+}
+
+.cd-page-head b {
+  color: var(--sl-fg);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.cd-page .cd-edit {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+
+.cd-page .cd-tools {
+  flex: none;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding: 4px 10px;
+  scrollbar-width: none;
+}
+
+.cd-page .cd-tool {
+  flex: none;
+  min-width: 40px;
+  min-height: 40px;
+  font-size: 15px;
+}
+
+.cd-page .cd-text {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 12px 24px;
+}
+
+.cd-page .cd-text .cm-editor {
+  font-size: 16px;
+}
+
+/* The files attached to the card: a finger's row each, ··· always there. */
+.mb-cfiles {
+  padding: 0 16px;
+}
+
+.mb .cd-file {
+  margin: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--sl-line);
+  border-radius: 0;
+}
+
+.mb .cd-file:hover {
+  background: none;
+}
+
+.mb .cd-open-file {
+  min-height: 56px;
+  padding: 6px 0;
+}
+
+.mb .cd-name b {
+  font-size: 15px;
+}
+
+.mb .cd-name small {
+  font-size: 12.5px;
+}
+
+.mb .cd-acts {
+  opacity: 1;
+}
+
+.mb .cd-acts button {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.mb .cd-add {
+  min-height: 44px;
+  color: var(--sl-fg);
+  font-size: 15px;
+}
+
+.mb .cd-add .icon {
+  color: var(--sl-dim);
 }
 
 /* Attach under a card's description and a record's notes on a phone, a finger's size. */

@@ -6,7 +6,9 @@ A board is cards in columns: what is waiting, what is being done, what is done. 
 
 Press **+** beside the tabs and pick **Board**. Under a column, **Add card** takes a title; press **Enter**.
 
-A card has a key such as `SCR-12`, a description, subtasks, a priority, labels, a date, who it is given to, and links to notes and tasks. Click a card to open it beside the columns. Under it, its timeline shows its moves and comments together, with who made each, a person or an agent.
+A card has a key such as `SCR-12`, a description, attachments, subtasks, a priority, labels, a date, who it is given to, and links to notes and tasks. Click a card to open it beside the columns. Under it, its timeline shows its moves, files and comments together, with who made each, a person or an agent.
+
+Click the description to write it; **Ctrl+Enter** (**Cmd+Enter** on a Mac) or **Save** keeps it, **Esc** or **Cancel** leaves it as it was. Files go in **Attachments**: press **Add attachment**, or drop them on the card; a file pasted into the description goes there too. Click a file to open it; its **···** renames it or takes it off the card, and it stays in **Files**. In a comment, **Enter** starts a new line and **Ctrl+Enter** posts it.
 
 Type `@` in its description or a comment to mention someone in the space; with a Scrawl server they are told. See [Working together](working-together).
 

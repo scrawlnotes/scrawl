@@ -46,6 +46,7 @@ import {
   wonChange,
   type Board,
   type Card,
+  type CardFile,
   type ColumnKind,
   cardBrief,
   cardRecord,
@@ -146,6 +147,7 @@ import { FormatBar } from './FormatBar';
 import { cutShort, useHoverTip } from './HoverTip';
 import { HistoryDialog, HistoryList, versionLabel, VersionView } from './History';
 import { PhoneCardPage } from './CardPanel';
+import type { CardFilesActions } from './CardFiles';
 import { LinkActions, LinkSheet, PhoneFormatBar } from './PhoneNote';
 import { DateSheet, QuickAdd, RecordSheet, SectionSheet, TaskSheet } from './PhoneTasks';
 import { ColumnSheet } from './PhoneBoard';
@@ -280,6 +282,7 @@ type OpenDialog =
   | { kind: 'rename'; path: string }
   // An attached file, from Files or from its bar in a note; `view` is the editor that bar is in.
   | { kind: 'renameFile'; path: string; view?: EditorView }
+  | { kind: 'renameCardFile'; board: string; id: string; file: CardFile }
   | { kind: 'export'; path: string }
   | { kind: 'confirm'; title: string; message: string; action: string; danger: boolean; run: () => void; places?: ConfirmPlace[]; after?: string; brief?: string }
   | { kind: 'closePhase'; board: string; phase: Phase; left: number }
@@ -2448,6 +2451,31 @@ export function App() {
       if (change) void session.updateRecord(change.dir, change.id, { values: change.values });
     }
   };
+  /** What a card's Attachments do with its files (design/card-attachments.html). */
+  const cardFiles = (board: string, id: string): CardFilesActions => {
+    const pathOf = (src: string) => session.attachedAt(board, src);
+    const share = async (file: CardFile) => {
+      try {
+        const blob = await session.attachedBlob(pathOf(file.path));
+        const shared = new File([blob], file.name, { type: blob.type });
+        if (navigator.canShare?.({ files: [shared] })) await navigator.share({ files: [shared] });
+        else downloadBlob(file.name, shared);
+      } catch {
+        // Shared nowhere: the share sheet was closed, or the file is not here.
+      }
+    };
+    return {
+      image: (src) => session.imageOf(pathOf(src)),
+      pathOf,
+      open: (file) => void session.openAttached(pathOf(file.path)),
+      download: (file) =>
+        phone ? void share(file) : isDesktop ? session.revealAttached(pathOf(file.path)) : void session.attachedBlob(pathOf(file.path)).then((blob) => downloadBlob(file.name, blob), () => undefined),
+      downloadLabel: phone ? t('files.share') : isDesktop ? t('files.reveal') : t('files.download'),
+      rename: (file) => setDialog({ kind: 'renameCardFile', board, id, file }),
+      remove: (file) => undoable(t('card.fileRemoved', { name: file.name }), session.removeCardFile(board, id, file.id)),
+      menu: (event, file, items, picture) => (phone ? showSheet(items, { icon: 'file', title: file.name, ...(file.size !== undefined && { sub: sizeText(file.size) }), picture }) : openMenu(event, items)),
+    };
+  };
   const boardActions: BoardActions = {
     addCard: (board, input) => session.addCard(board, input),
     pickFilter: (board, step = null) => setFilterSheet({ tab: boardOf(board), step }),
@@ -2472,8 +2500,10 @@ export function App() {
     removeComment: (board, id, comment) => undoable(t('board.commentDeletedNotice'), session.removeComment(board, id, comment)),
     copyBrief: (board, id) => void copyBrief(board, id),
     openCard: (board, id) => setOpenCard({ board, id }),
-    editor: (home, parent, doc, onChange, hint) => session.openEditor(home, parent, doc, onChange, hint),
+    editor: (home, parent, doc, onChange, hint, onFiles) => session.openEditor(home, parent, doc, onChange, hint, onFiles),
     attach: descriptionHost.attach,
+    attachFile: (board, id, file, progress, signal) => session.attachToCard(board, id, file, progress, signal),
+    cardFiles,
     viewer: (home, parent, doc) => session.openViewer(home, parent, doc),
     menu: (event, items, head) => (phone ? showSheet(items, head) : openMenu(event, items)),
     addColumn: (board, name, kind, after) => session.addColumn(board, name, kind, after),
@@ -4140,6 +4170,17 @@ export function App() {
             const done = await session.renameFile(dialog.path, name, dialog.view);
             if ('error' in done) return done.error;
             readFilesAgain();
+            return null;
+          }}
+          onClose={closeDialog}
+        />
+      )}
+      {dialog?.kind === 'renameCardFile' && (
+        <RenameDialog
+          name={nameAndExt(dialog.file.name)[0]}
+          ext={nameAndExt(dialog.file.name)[1]}
+          onSave={async (name) => {
+            session.renameCardFile(dialog.board, dialog.id, dialog.file.id, `${name.trim()}${nameAndExt(dialog.file.name)[1]}`);
             return null;
           }}
           onClose={closeDialog}

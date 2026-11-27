@@ -52,8 +52,8 @@ import { type MenuHead, type MenuItem, selectionIn } from './dialogs';
 import { useEscape } from './choices';
 import { tookComment, useAskedComment } from './commentFocus';
 import { LabelChip, LabelSheet, LabelsField } from './labels';
-import { AttachButton, type DescriptionHost, DescriptionField } from './Description';
-import { SpaceMentionList, useSpaceMentions } from './Mentions';
+import { type DescriptionHost, DescriptionField } from './Description';
+import { type Attaching, Attachments, type CardFilesActions, DescriptionBox, MarkdownView, type Viewer } from './CardFiles';
 import { Reminded, remindLabel, remindOf } from './Remind';
 import { Icon, type IconName } from './Icon';
 import { boardLabel } from './items';
@@ -97,9 +97,13 @@ export interface CardPanelActions {
   noteTitle: (path: string) => string | null;
   openNote: (path: string) => void;
   /** An editor for the description of a card of the board at `home`, in `parent`; the host wires it to the files of the board's space. */
-  editor: (home: string, parent: HTMLElement, doc: string, onChange: (doc: string) => void, hint?: string) => ScrawlEditor;
+  editor: (home: string, parent: HTMLElement, doc: string, onChange: (doc: string) => void, hint?: string, onFiles?: (files: File[]) => void) => ScrawlEditor;
   /** Copies files chosen with Attach into a description's editor, where its cursor is. */
   attach: (editor: ScrawlEditor, home: string, files: File[]) => void;
+  /** Copies a file into the board's space and attaches it to the card; resolves whether it came. */
+  attachFile: (board: string, id: string, file: File, progress: (written: number) => void, signal: AbortSignal) => Promise<boolean>;
+  /** What the Attachments do with the files of a card of the board. */
+  cardFiles: (board: string, id: string) => CardFilesActions;
   /** A read-only view of Markdown, for comments on a card of the board at `home`. */
   viewer: (home: string, parent: HTMLElement, doc: string) => ScrawlViewer;
   /** The collections the board's link fields point at: their records to pick from, and a record to open over the card. */
@@ -191,29 +195,26 @@ function CardFieldBox({ field, value, ctx, onSave }: { field: Field; value: Fiel
   );
 }
 
-/** Shows Markdown in `parent`, read only. */
-type Viewer = (parent: HTMLElement, doc: string) => ScrawlViewer;
-
-/** Markdown as the editor shows it, without editing. */
-function MarkdownView({ text, viewer }: { text: string; viewer: Viewer }) {
-  const host = useRef<HTMLDivElement>(null);
-  const shown = useRef<ScrawlViewer | null>(null);
-  useEffect(() => {
-    shown.current = viewer(host.current!, text);
-    return () => {
-      shown.current?.destroy();
-      shown.current = null;
-    };
-    // Made once; the text is shown anew below when it changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  useEffect(() => {
-    shown.current?.show(text);
-  }, [text]);
-  return <div className="md-view" ref={host} />;
+/**
+ * The files on their way onto a card, and what adds more: each copied into the board's space with
+ * how much of it is written, until it is attached, stopped or fails.
+ */
+function useAttaching(path: string, id: string, actions: CardPanelActions) {
+  const [attaching, setAttaching] = useState<Attaching[]>([]);
+  const add = (files: File[]) => {
+    for (const file of files) {
+      const each: Attaching = { key: crypto.randomUUID(), name: file.name, size: file.size, written: 0, stop: new AbortController() };
+      setAttaching((list) => [...list, each]);
+      const progress = (written: number) => setAttaching((list) => list.map((x) => (x.key === each.key ? { ...x, written } : x)));
+      void actions.attachFile(path, id, file, progress, each.stop.signal).finally(() => setAttaching((list) => list.filter((x) => x.key !== each.key)));
+    }
+  };
+  return { attaching, add };
 }
 
-const SAVE_DELAY_MS = 400;
+/** Whether something dragged over the card is files, from the computer. */
+const draggingFiles = (event: { dataTransfer: DataTransfer | null }) => event.dataTransfer?.types.includes('Files') ?? false;
+
 /** How close to the window's edges the label picker may come. */
 const EDGE = 8;
 
@@ -506,6 +507,10 @@ function Timeline({ board, path, card, team, today, actions }: { board: Board; p
           const one = entry.subtasks.length === 1 ? subtaskTitle(entry.subtasks[0]) : undefined;
           return line(entry.id, who, one ? t('card.tickedOne', { title: one }) : t('card.ticked', { count: entry.subtasks.length }), entry.at);
         }
+        if (entry.kind === 'attach' && entry.files.length > 0) {
+          const [first, ...more] = entry.files;
+          return line(entry.id, who, more.length === 0 ? t('card.attachedOne', { name: first! }) : t('card.attachedMore', { name: first!, count: more.length }), entry.at);
+        }
         if (entry.kind === 'comment') {
           return (
             <Comment
@@ -608,7 +613,7 @@ function Comment({ entry, lit, who, whoText, face, today, onEdit, onRemove, menu
         <MarkdownView text={entry.text} viewer={viewer} />
       ) : (
         <>
-          <DescriptionField home={home} value={draft} hint={t('card.editComment')} host={host} autoFocus attach={false} onChange={setDraft} onEscape={() => setDraft(null)} />
+          <DescriptionField home={home} value={draft} hint={t('card.editComment')} host={host} autoFocus attach={false} onChange={setDraft} onEscape={() => setDraft(null)} onSubmit={save} />
           <div className="cp-actions">
             <button type="button" onClick={() => setDraft(null)}>
               {t('dialog.cancel')}
@@ -639,11 +644,10 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
 }) {
   const backdrop = useRef<HTMLDivElement>(null);
   useEscape(backdrop, onClose, escape);
-  const host = useRef<HTMLDivElement>(null);
-  const editor = useRef<ScrawlEditor | null>(null);
-  const timer = useRef(0);
-  const unsaved = useRef<string | null>(null);
   const [comment, setComment] = useState('');
+  const files = useAttaching(path, card.id, actions);
+  // Files dragged over the card, to attach to it.
+  const [dropping, setDropping] = useState(false);
   // A record a link of the card points at, opened over it.
   const [over, setOver] = useState<{ dir: string; id: string } | null>(null);
   const noteTitle = card.note ? actions.noteTitle(card.note) : null;
@@ -654,10 +658,6 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
   const team = actions.people?.(path) ?? null;
   // Remind under Assignee (design/notifications.md 4).
   const remind = remindOf(card, team, isFinished(board, card), actions.onServer?.(path) ?? false);
-  // @ in the description and in a comment: the space's people (design/notifications.md 2).
-  const mentions = useSpaceMentions(editor, team, path);
-  const look = useRef(mentions.look);
-  look.current = mentions.look;
   // A comment's box is made anew once it is sent: empty again.
   const [sent, setSent] = useState(0);
   const ctx: ValueContext = {
@@ -669,34 +669,6 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
   };
   const overCollection = over ? records.collection(over.dir) : null;
   const overRecord = over ? (overCollection?.records.find((r) => r.id === over.id) ?? null) : null;
-
-  // The description is saved shortly after it is typed, and when the panel closes or shows another card.
-  const latest = useRef({ path, id: card.id, actions });
-  latest.current = { path, id: card.id, actions };
-  useEffect(() => {
-    const parent = host.current!;
-    const { path: at, id, actions: act } = latest.current;
-    const flush = () => {
-      window.clearTimeout(timer.current);
-      if (unsaved.current === null) return;
-      const text = unsaved.current;
-      unsaved.current = null;
-      act.updateCard(at, id, { description: text });
-    };
-    editor.current = act.editor(at, parent, card.description ?? '', (doc) => {
-      unsaved.current = doc;
-      window.clearTimeout(timer.current);
-      timer.current = window.setTimeout(flush, SAVE_DELAY_MS);
-      window.setTimeout(() => look.current());
-    });
-    return () => {
-      flush();
-      editor.current?.destroy();
-      editor.current = null;
-    };
-    // The editor is made once per card; what is typed in it is saved as it goes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [card.id]);
 
   const update = (patch: CardPatch) => actions.updateCard(path, card.id, patch);
   const menu = (event: MouseEvent) =>
@@ -714,7 +686,24 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
 
   return (
     <div ref={backdrop} className="backdrop card-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-    <section className="cpanel" role="dialog" aria-label={keyOf(board, card)}>
+    <section
+      className={dropping ? 'cpanel dropping' : 'cpanel'}
+      role="dialog"
+      aria-label={keyOf(board, card)}
+      data-drop={t('card.dropToAttach', { key: keyOf(board, card) })}
+      onDragOver={(event) => {
+        if (!draggingFiles(event)) return;
+        event.preventDefault();
+        setDropping(true);
+      }}
+      onDragLeave={(event) => !event.currentTarget.contains(event.relatedTarget as Node | null) && setDropping(false)}
+      onDrop={(event) => {
+        setDropping(false);
+        if (event.defaultPrevented || !draggingFiles(event)) return;
+        event.preventDefault();
+        files.add([...event.dataTransfer.files]);
+      }}
+    >
       <div className="cp-head">
         <span className="key">{keyOf(board, card)}</span>
         <span className="where">{boardLabel(path)}</span>
@@ -730,9 +719,21 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
         <div className="cp-main">
         <TextField id="card-title" label={t('card.title')} value={card.title} onSave={(title) => update({ title })} />
         <div className="cp-sec">{t('card.description')}</div>
-        <div className="cp-desc" ref={host} onKeyDownCapture={mentions.onKeyDown} onKeyUp={mentions.look} onMouseUp={mentions.look} onInput={mentions.look} />
-        <SpaceMentionList mentions={mentions} team={team} />
-        <AttachButton onFiles={(files) => editor.current && actions.attach(editor.current, path, files)} />
+        <DescriptionBox
+          key={card.id}
+          home={path}
+          card={card}
+          team={team}
+          viewer={(parent, doc) => actions.viewer(path, parent, doc)}
+          editor={(parent, doc, onChange, onFiles) => actions.editor(path, parent, doc, onChange, undefined, onFiles)}
+          onSave={(description) => update({ description })}
+          onFiles={files.add}
+        />
+        <div className="cp-sec">
+          {t('card.attachments')}
+          {card.attachments?.length ? <small>{card.attachments.length}</small> : null}
+        </div>
+        <Attachments card={card} today={today} nameOf={(file) => writerText(writerOf(file), team)} attaching={files.attaching} actions={actions.cardFiles(path, card.id)} onAdd={files.add} />
         {board.blocks?.length ? (
           <CardBlocks board={board} path={path} card={card} today={today} actions={actions} onOpen={(source, r) => setOver({ dir: source.dir, id: r.id })} />
         ) : (
@@ -762,7 +763,7 @@ export function CardPanel({ board, path, card, today, actions, escape = false, o
         <div className="tlog">
           <Timeline board={board} path={path} card={card} team={team} today={today} actions={actions} />
           <div className="cp-new">
-            <DescriptionField key={sent} home={path} value="" hint={t('card.commentHint')} host={commentHost(actions)} attach={false} onChange={setComment} />
+            <DescriptionField key={sent} home={path} value="" hint={t('card.commentHint')} host={commentHost(actions)} attach={false} onChange={setComment} onSubmit={send} />
             <div className="cp-actions">
               <button type="button" className="primary" disabled={!comment.trim()} onClick={send}>
                 {t('card.comment')}
@@ -947,10 +948,7 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
   today: string;
   actions: CardPanelActions;
 }) {
-  const host = useRef<HTMLDivElement>(null);
-  const editor = useRef<ScrawlEditor | null>(null);
-  const timer = useRef(0);
-  const unsaved = useRef<string | null>(null);
+  const files = useAttaching(path, card.id, actions);
   const [title, setTitle] = useState(card.title);
   useEffect(() => setTitle(card.title), [card.title]);
   const [comment, setComment] = useState('');
@@ -964,10 +962,6 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
   // In a space with people a card is given to one of them; in the personal space a name is typed.
   const team = actions.people?.(path) ?? null;
   const remind = remindOf(card, team, isFinished(board, card), actions.onServer?.(path) ?? false);
-  // @ in the description and in a comment: the space's people (design/notifications.md 2).
-  const mentions = useSpaceMentions(editor, team, path);
-  const look = useRef(mentions.look);
-  look.current = mentions.look;
   const [sent, setSent] = useState(0);
   const workers = workersOf(card);
   const ctx: ValueContext = {
@@ -981,39 +975,6 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
   const overCollection = over ? records.collection(over.dir) : null;
   const overRecord = over ? (overCollection?.records.find((r) => r.id === over.id) ?? null) : null;
 
-  // The description is saved shortly after it is typed, and when the page goes.
-  const latest = useRef({ path, id: card.id, actions });
-  latest.current = { path, id: card.id, actions };
-  useEffect(() => {
-    const parent = host.current!;
-    const { path: at, id, actions: act } = latest.current;
-    const flush = () => {
-      window.clearTimeout(timer.current);
-      if (unsaved.current === null) return;
-      const text = unsaved.current;
-      unsaved.current = null;
-      act.updateCard(at, id, { description: text });
-    };
-    editor.current = act.editor(
-      at,
-      parent,
-      card.description ?? '',
-      (doc) => {
-        unsaved.current = doc;
-        window.clearTimeout(timer.current);
-        timer.current = window.setTimeout(flush, SAVE_DELAY_MS);
-        window.setTimeout(() => look.current());
-      },
-      t('phone.addDescription'),
-    );
-    return () => {
-      flush();
-      editor.current?.destroy();
-      editor.current = null;
-    };
-    // The editor is made once per card; what is typed in it is saved as it goes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [card.id]);
 
   const update = (patch: CardPatch) => actions.updateCard(path, card.id, patch);
   const column = board.columns.find((c) => c.id === card.column);
@@ -1204,10 +1165,25 @@ export function PhoneCardPage({ board, path, card, today, actions }: {
           )}
         </div>
         <div className="mb-cap mb-cpad">{t('card.description')}</div>
-        <div className="mb-cdesc" ref={host} onKeyDownCapture={mentions.onKeyDown} onKeyUp={mentions.look} onMouseUp={mentions.look} onInput={mentions.look} />
-        <SpaceMentionList mentions={mentions} team={team} />
-        <div className="mb-cattach">
-          <AttachButton onFiles={(files) => editor.current && actions.attach(editor.current, path, files)} />
+        <div className="mb-cdesc">
+          <DescriptionBox
+            key={card.id}
+            home={path}
+            card={card}
+            team={team}
+            viewer={(parent, doc) => actions.viewer(path, parent, doc)}
+            editor={(parent, doc, onChange, onFiles) => actions.editor(path, parent, doc, onChange, undefined, onFiles)}
+            onSave={(description) => update({ description })}
+            onFiles={files.add}
+            phone
+          />
+        </div>
+        <div className="mb-cap mb-cpad">
+          {t('card.attachments')}
+          {card.attachments?.length ? ` · ${card.attachments.length}` : ''}
+        </div>
+        <div className="mb-cfiles">
+          <Attachments card={card} today={today} nameOf={(file) => writerText(writerOf(file), team)} attaching={files.attaching} actions={actions.cardFiles(path, card.id)} onAdd={files.add} phone />
         </div>
         {board.blocks?.length ? (
           <div className="mb-cblocks">

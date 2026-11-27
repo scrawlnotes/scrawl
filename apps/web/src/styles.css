@@ -6894,27 +6894,370 @@ textarea.tt-edit {
   text-transform: uppercase;
 }
 
-.cp-desc {
+/* A card's description as a box, after Trello's (design/card-attachments.html): empty, it asks for
+   one; written, it reads as it is, and is framed on hover; a click opens it for writing. */
+.cd-box {
   flex: none;
-  min-height: 90px;
-  margin: 0 -4px;
+  min-height: 64px;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid var(--sl-line);
+  border-radius: 7px;
+  background: var(--sl-side);
+  cursor: text;
 }
 
-.cp-desc .cm-editor {
-  height: auto;
+.cd-box:hover {
+  border-color: color-mix(in srgb, var(--sl-faint) 60%, var(--sl-line));
+}
+
+.cd-box:focus-visible {
+  outline: 2px solid var(--sl-accent);
+  outline-offset: 1px;
+}
+
+.cd-box.full {
+  min-height: 0;
+  margin: 0 -7px;
+  padding: 4px 6px;
+  border-color: transparent;
+  background: none;
+}
+
+.cd-box.full:hover {
+  border-color: var(--sl-line);
+  background: var(--sl-side);
+}
+
+.cd-hint {
+  color: var(--sl-faint);
+  font-size: 13px;
+}
+
+.cd-box .md-view .cm-editor {
   font-size: 13.5px;
 }
 
-.cp-desc .cm-gutters {
+/* Open for writing: the format bar over the text, Save and Cancel under it. */
+.cd-open {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cd-edit {
+  position: relative;
+  border: 1px solid color-mix(in srgb, var(--sl-accent) 55%, var(--sl-line));
+  border-radius: 7px;
+  background: var(--sl-side);
+}
+
+.cd-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1px;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--sl-line);
+}
+
+.cd-tool-slot {
+  display: contents;
+}
+
+.cd-tool {
+  min-width: 28px;
+  min-height: 26px;
+  padding: 0 7px;
+  border-radius: 4px;
+  color: var(--sl-dim);
+  font: 12px var(--sl-font-ui);
+}
+
+.cd-tool:hover {
+  background: var(--sl-bg);
+  color: var(--sl-fg);
+}
+
+.cd-tool.on {
+  background: var(--sl-sel);
+  color: var(--sl-fg);
+}
+
+.cd-tool.fmt-bold {
+  font-weight: 700;
+}
+
+.cd-tool.fmt-italic {
+  font-style: italic;
+}
+
+.cd-tool.fmt-strike {
+  text-decoration: line-through;
+}
+
+.cd-gap {
+  width: 1px;
+  height: 14px;
+  margin: 0 4px;
+  background: var(--sl-line);
+}
+
+.cd-text {
+  min-height: 120px;
+  padding: 8px 6px;
+}
+
+.cd-text .cm-editor {
+  height: auto;
+  background: transparent;
+  font-size: 13.5px;
+}
+
+.cd-text .cm-gutters {
   display: none !important;
 }
 
-.cp-desc .cm-content {
+.cd-text .cm-content {
   padding: 2px 4px;
 }
 
-.cp-desc .cm-scroller {
+.cd-text .cm-scroller {
   overflow: visible;
+}
+
+.cd-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cd-foot button {
+  padding: 4px 13px;
+  border: 1px solid var(--sl-line);
+  border-radius: 6px;
+  color: var(--sl-dim);
+  font-size: 12.5px;
+}
+
+.cd-foot .ghost {
+  border-color: transparent;
+}
+
+.cd-foot .ghost:hover {
+  color: var(--sl-fg);
+}
+
+.cd-foot .primary {
+  border-color: var(--sl-accent);
+  background: var(--sl-accent);
+  color: var(--sl-bg);
+  font-weight: 600;
+}
+
+.cd-keys {
+  margin-left: auto;
+  color: var(--sl-faint);
+  font-size: 11.5px;
+}
+
+/* The files attached to a card: a row each, the newest first; its buttons show on hover. */
+.cd-files {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.cd-file {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  margin: 0 -6px;
+  padding: 0 6px;
+  border-radius: 7px;
+}
+
+.cd-file:hover {
+  background: var(--sl-side);
+}
+
+.cd-open-file {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 5px 0;
+  text-align: left;
+}
+
+.cd-thumb {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 38px;
+  box-sizing: border-box;
+  overflow: hidden;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  background: var(--sl-code);
+  color: var(--sl-dim);
+}
+
+.cd-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cd-thumb.doc {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+}
+
+.cd-thumb .icon {
+  width: var(--icon-14);
+  height: var(--icon-14);
+}
+
+.cd-thumb i {
+  color: var(--sl-faint);
+  font: 600 8.5px/1 var(--sl-font-ui);
+  font-style: normal;
+  letter-spacing: 0.05em;
+}
+
+.cd-name {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.cd-name b {
+  overflow: hidden;
+  color: var(--sl-fg);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cd-name small {
+  color: var(--sl-faint);
+  font-size: 11.5px;
+}
+
+.cd-acts {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+}
+
+.cd-file:hover .cd-acts,
+.cd-file:focus-within .cd-acts {
+  opacity: 1;
+}
+
+.cd-acts button {
+  display: grid;
+  place-items: center;
+  min-width: 28px;
+  min-height: 28px;
+  border-radius: 5px;
+  color: var(--sl-faint);
+  letter-spacing: 1px;
+}
+
+.cd-acts button:hover {
+  background: var(--sl-code);
+  color: var(--sl-fg);
+}
+
+.cd-acts .icon {
+  width: var(--icon-15);
+  height: var(--icon-15);
+}
+
+.cd-file.going {
+  padding: 5px 6px;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  gap: 12px;
+}
+
+.cd-bar {
+  display: block;
+  height: 3px;
+  margin-top: 3px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--sl-line);
+}
+
+.cd-bar i {
+  display: block;
+  height: 100%;
+  background: var(--sl-accent);
+}
+
+.cd-stop {
+  padding: 2px 9px;
+  border: 1px solid var(--sl-line);
+  border-radius: 5px;
+  color: var(--sl-dim);
+  font-size: 12px;
+}
+
+.cd-add {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  padding: 4px 0;
+  color: var(--sl-dim);
+}
+
+.cd-add:hover {
+  color: var(--sl-fg);
+}
+
+.cd-add .icon {
+  width: var(--icon-14);
+  height: var(--icon-14);
+}
+
+.cp-sec small {
+  margin-left: 6px;
+  color: var(--sl-faint);
+  letter-spacing: 0;
+}
+
+/* Files dragged over a card: the whole card under its head takes them. */
+.cpanel {
+  position: relative;
+}
+
+.cpanel.dropping::after {
+  content: attr(data-drop);
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  border: 2px dashed var(--sl-accent);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--sl-bg) 82%, transparent);
+  color: var(--sl-accent);
+  font-size: 15px;
+  font-weight: 600;
+  pointer-events: none;
 }
 
 .cp-links {
@@ -10021,11 +10364,6 @@ textarea.tt-edit {
 .rm-attach {
   margin-top: 4px;
   padding-left: 6px;
-}
-
-.cp-desc + .attach {
-  align-self: flex-start;
-  margin: -4px 0 0;
 }
 
 .rm-notes:focus-within {

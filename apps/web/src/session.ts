@@ -38,6 +38,10 @@ import {
   addCard,
   addColumn,
   addComment,
+  attachToCard,
+  removeCardFile,
+  renameCardFile,
+  restoreCardFile,
   remindCard,
   remindTask,
   addPhase,
@@ -2190,7 +2194,7 @@ export class Session {
    * collection): wired to the files of that space like the note editor, but its text belongs to
    * whoever opened it. Destroyed by them too.
    */
-  openEditor(home: string, parent: HTMLElement, doc: string, onChange: (doc: string) => void, hint?: string): ScrawlEditor {
+  openEditor(home: string, parent: HTMLElement, doc: string, onChange: (doc: string) => void, hint?: string, onFiles?: (files: File[]) => void): ScrawlEditor {
     const editor: ScrawlEditor = createEditor({
       parent,
       doc,
@@ -2204,7 +2208,8 @@ export class Session {
           }
         : undefined,
       ...this.filesOf(() => home),
-      addFiles: (files, at) => void this.copyFiles(editor.view, home, files, at),
+      // A card's description hands the files dropped or pasted in it to its Attachments.
+      addFiles: onFiles ? (files) => onFiles(files) : (files, at) => void this.copyFiles(editor.view, home, files, at),
       showMenu: (at, items, about) => this.showMenu?.(at, items, about),
       touch: this.touch,
       onLinkTap: this.touch ? (link) => this.tapped(home, link) : undefined,
@@ -4448,6 +4453,52 @@ export class Session {
         cards: current.cards.map((c) => (c.id !== id || c.timeline.some((e) => e.id === entry.id) ? c : { ...c, timeline: [...c.timeline.slice(0, at), entry, ...c.timeline.slice(at)] })),
       }));
     };
+  }
+
+  /**
+   * Copies a file into the space of the board and attaches it to the card (design/card-attachments.html).
+   * `progress` hears how much of it is written; a copy stopped by `signal`, or one that fails, attaches nothing.
+   */
+  async attachToCard(board: string, id: string, file: File, progress?: (written: number) => void, signal?: AbortSignal): Promise<boolean> {
+    const { fs } = this.at(board);
+    this.copying++;
+    this.set({ saved: false });
+    try {
+      // A picture pasted without a name of its own is named by the moment it came.
+      const pasted = file.type.startsWith('image/') && /^image\.\w+$/i.test(file.name);
+      const options = { ...(progress && { onProgress: progress }), ...(signal && { signal }) };
+      const src = pasted ? await saveAttachment(fs, file, new Date(), options) : await saveFile(fs, file, options);
+      this.sizes.set(this.attached(board, src), file.size);
+      if (file.type.startsWith('image/') && !isDesktop) this.images.set(this.attached(board, src), Promise.resolve(URL.createObjectURL(file)));
+      this.changeBoard(board, (current) => attachToCard(current, id, [{ path: src, name: pasted ? basename(src) : file.name, size: file.size }], undefined, this.by));
+      return true;
+    } catch {
+      return false;
+    } finally {
+      this.copying--;
+      this.markSaved();
+      void this.recountFiles();
+    }
+  }
+
+  /** Gives a file attached to a card another name to show with. */
+  renameCardFile(board: string, id: string, file: string, name: string) {
+    this.changeBoard(board, (current) => renameCardFile(current, id, file, name, undefined, this.by));
+  }
+
+  /** Takes a file off a card; the file stays in Files. Returns what puts it back where it was, for Undo. */
+  removeCardFile(board: string, id: string, file: string): () => void {
+    const list = this.snapshot.boards[board]?.cards.find((c) => c.id === id)?.attachments ?? [];
+    const at = list.findIndex((f) => f.id === file);
+    this.changeBoard(board, (current) => removeCardFile(current, id, file, undefined, this.by));
+    return () => {
+      if (at >= 0) this.changeBoard(board, (current) => restoreCardFile(current, id, list[at]!, at));
+    };
+  }
+
+  /** Where a file attached to something at `home` is in the app, from its path in its space. */
+  attachedAt(home: string, src: string): string {
+    return this.attached(home, src);
   }
 
   addColumn(board: string, name: string, kind: ColumnKind, after?: string) {
