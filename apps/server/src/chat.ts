@@ -1069,9 +1069,10 @@ export class Chats {
       return found ? found.name || found.email : 'Someone';
     };
     const name = (agent && (this.db.prepare('SELECT name FROM agent_identities WHERE id = ?').get(agent) as { name: string } | undefined)?.name) || nameOf(who);
-    if (chat.kind !== 'direct') return `${name} · #${chat.name}`;
+    // It says first that it is Chat (design/mentions.html): a room by its name, then who wrote.
+    if (chat.kind !== 'direct') return `💬 #${chat.name} · ${name}`;
     const others = this.listeners(chat).filter((each) => each !== account);
-    return others.length > 1 ? `${name} · ${others.map((each) => nameOf(each).split(/\s+/)[0]).join(', ')}` : name;
+    return others.length > 1 ? `💬 ${name} · ${others.map((each) => nameOf(each).split(/\s+/)[0]).join(', ')}` : `💬 ${name}`;
   }
 
   /** What is unread and tells someone, in every conversation: the app's badge. */

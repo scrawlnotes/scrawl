@@ -39,6 +39,12 @@ import {
   addColumn,
   addComment,
   attachToCard,
+  type Mention,
+  parseSeen,
+  type SeenMentions,
+  seenPath,
+  serializeSeen,
+  withSeen,
   removeCardFile,
   renameCardFile,
   restoreCardFile,
@@ -375,7 +381,7 @@ import {
   toggleStrike,
   type TransactionSpec,
 } from '@scrawlnotes/editor';
-import { appPathOf, appTab, boardPathOf, CHAT, collectionPathOf, collectionTab, FILES, filterOf, filterTab, folderLabel, folderOf, isBoardPath, isKeysPath, isNote, isTaskListPath, keysPathOf, listOf, pathOf, QUICK, spaceOfTab, tabOf, TODAY, TRASH, UPCOMING } from './items';
+import { appPathOf, appTab, boardPathOf, CHAT, collectionPathOf, collectionTab, FILES, MENTIONS, filterOf, filterTab, folderLabel, folderOf, isBoardPath, isKeysPath, isNote, isTaskListPath, keysPathOf, listOf, pathOf, QUICK, spaceOfTab, tabOf, TODAY, TRASH, UPCOMING } from './items';
 import { JobQueue } from './jobs';
 import { type OpeningMeasure, openingMeasure, seconds } from './opening';
 import welcomeComputer from './welcome.md?raw';
@@ -553,6 +559,8 @@ export interface Snapshot {
   calendarChoice: CalendarChoice;
   /** Each space's labels as its `.scrawl/labels.json` keeps them, by the space's key: `''` for the personal one, the others by id. */
   labels: Record<string, SpaceLabel[]>;
+  /** The mentions the person has seen in each shared space, as its `.scrawl/seen/<id>.json` keeps them, by the space's id (design/mentions.html). */
+  seen: Record<string, SeenMentions>;
   /** The settings of the open space, its name among them. */
   space: SpaceInfo;
   /** What is in the trash, the latest deleted first. */
@@ -738,7 +746,7 @@ function tabKind(id: string): string {
   if (collectionPathOf(id) !== null) return 'a collection';
   if (appPathOf(id) !== null) return 'an app';
   if (filterOf(id) !== null) return 'a filter';
-  if (VIEWS.has(id)) return id === UPCOMING ? 'Scheduled' : id === FILES ? 'Files' : id === CHAT ? 'Chat' : 'the trash';
+  if (VIEWS.has(id)) return id === UPCOMING ? 'Scheduled' : id === FILES ? 'Files' : id === CHAT ? 'Chat' : id === MENTIONS ? 'Mentions' : 'the trash';
   return isNote(id) ? 'a note' : 'a view';
 }
 
@@ -752,7 +760,7 @@ function titlesOf(nodes: TreeNode[], out: Record<string, string> = {}): Record<s
 
 const RECENT = 'scrawl.recent';
 /** The views over everything: on screen, but not something opened, so not in Recent. */
-const VIEWS = new Set([UPCOMING, TRASH, FILES, CHAT, QUICK]);
+const VIEWS = new Set([UPCOMING, TRASH, FILES, CHAT, QUICK, MENTIONS]);
 
 /** The start page's Recent as this device kept it. */
 function loadRecent(): Seen[] {
@@ -850,6 +858,7 @@ export class Session {
     favorites: [],
     calendarChoice: NO_CHOICE,
     labels: {},
+    seen: {},
     space: {},
     trash: [],
     fileCount: 0,
@@ -999,6 +1008,7 @@ export class Session {
     const me = await startMe(this.personal, this.snapshot.me);
     const people = await Promise.all([...this.opened.values()].map((each) => loadPeople(each.fs)));
     const labels = await this.readLabels(() => true);
+    const seen = await this.readSeen(() => true, me?.id);
     if (run !== this.run) return;
 
     this.editor = createEditor({
@@ -1086,6 +1096,7 @@ export class Session {
       favorites,
       calendarChoice,
       labels,
+      seen,
       space,
       trash: [],
     });
@@ -3009,6 +3020,7 @@ export class Session {
     const favorites = reads(PERSONAL) ? await loadFavorites(this.personal) : before.favorites;
     const calendarChoice = reads(PERSONAL) ? await loadCalendarChoice(this.personal) : before.calendarChoice;
     const labels = { ...before.labels, ...(await this.readLabels(reads)) };
+    const seen = { ...before.seen, ...(await this.readSeen(reads, this.snapshot.me?.id)) };
     const space = reads(PERSONAL) ? await loadSpace(this.personal) : before.space;
     const now = this.snapshot;
     // A list, a board or a keys file changed here while it was read stays as it is shown: it is
@@ -3036,6 +3048,7 @@ export class Session {
       favorites,
       calendarChoice,
       labels,
+      seen,
       space,
     });
     if (reads(PERSONAL)) void this.readQuickTexts();
@@ -4104,6 +4117,37 @@ export class Session {
     const spaces: [string, VaultFs][] = [[PERSONAL, this.personal], ...[...this.opened].map(([id, space]): [string, VaultFs] => [id, space.fs])];
     const read = await Promise.all(spaces.filter(([key]) => reads(key)).map(async ([key, fs]) => [key, await loadLabels(fs)] as const));
     return Object.fromEntries(read);
+  }
+
+  /** Each shared space's seen mentions of the person `me`, by the space's id; none without a person yet. */
+  private async readSeen(reads: (key: string) => boolean, me: string | undefined): Promise<Record<string, SeenMentions>> {
+    if (!me) return {};
+    const spaces = [...this.opened].filter(([id]) => reads(id));
+    const read = await Promise.all(spaces.map(async ([id, space]) => [id, parseSeen(await space.fs.readText(seenPath(me)).catch(() => ''))] as const));
+    return Object.fromEntries(read);
+  }
+
+  /**
+   * The person saw these mentions, all in the space of `path`: kept in their seen file there, which
+   * syncs, so that they are seen on every device (design/mentions.html).
+   */
+  seeMentions(path: string, mentions: readonly Mention[]) {
+    const space = spaceOf(path);
+    const me = this.snapshot.me?.id;
+    const fs = space ? this.opened.get(space)?.fs : undefined;
+    if (!space || !me || !fs || mentions.length === 0) return;
+    const before = this.snapshot.seen[space] ?? {};
+    const seen = withSeen(before, mentions, new Date().toISOString());
+    if (seen === before) return;
+    this.set({ seen: { ...this.snapshot.seen, [space]: seen }, saved: false });
+    this.taskWrites = this.taskWrites
+      .then(async () => {
+        // What another device saw meanwhile stays: the file is read again and both are kept.
+        const there = parseSeen(await fs.readText(seenPath(me)).catch(() => ''));
+        await fs.writeText(seenPath(me), serializeSeen({ ...there, ...seen }));
+      })
+      .catch(() => undefined)
+      .then(() => this.markSaved());
   }
 
   /** The labels of the space a path is in, as its file keeps them. */

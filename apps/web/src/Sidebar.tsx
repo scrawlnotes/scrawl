@@ -5,7 +5,7 @@ import { LATEST_RELEASE, openUpdate, useUpdateView } from './desktopUpdate';
 import { cutShort, useHoverTip } from './HoverTip';
 import { Icon, type IconName } from './Icon';
 import { Spin } from './Loading';
-import { appTab, CHAT, collectionTab, countItems, FILES, FILTERS, pathOf, QUICK, tabOf, tasksOf, TRASH, UPCOMING } from './items';
+import { appTab, CHAT, collectionTab, countItems, FILES, FILTERS, MENTIONS, pathOf, QUICK, tabOf, tasksOf, TRASH, UPCOMING } from './items';
 import type { SpaceView } from './session';
 import { isDesktop } from './storage';
 import type { SpaceSyncView } from './sync';
@@ -527,7 +527,7 @@ export function Sidebar({
           {counts[id] || ''}
         </span>
       ) : (
-        <span className={id === CHAT && counts[id] ? 'ct alert' : 'ct'}>{counts[id] || ''}</span>
+        <span className={(id === CHAT || id === MENTIONS) && counts[id] ? 'ct alert' : 'ct'}>{counts[id] || ''}</span>
       )}
       {onMenu && more(onMenu)}
     </div>
@@ -904,6 +904,16 @@ export function Sidebar({
           </>,
           0,
         )}
+        {/* Where someone wrote @ of the person: only with a shared space, where people mention each other (design/mentions.html). */}
+        {spaces.length > 0 &&
+          viewRow(
+            MENTIONS,
+            <>
+              <Icon name="at" />
+              <span>{t('mentions.title')}</span>
+            </>,
+            0,
+          )}
         {viewRow(
           TRASH,
           <>

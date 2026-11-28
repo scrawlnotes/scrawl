@@ -245,9 +245,10 @@ const nameIn = (chat: ChatInfo, id: string) => chat.members.find((person) => per
 function titleOf(server: ChatServer, chat: ChatInfo, message: ChatMessage): string {
   // An agent's message under its name, as its notification from the server has it.
   const author = (message.agent && message.agentName) || nameIn(chat, message.author);
-  if (chat.kind !== 'direct') return `${author} · #${chat.name}`;
+  // It says first that it is Chat (design/mentions.html): a room by its name, then who wrote.
+  if (chat.kind !== 'direct') return `💬 #${chat.name} · ${author}`;
   const others = chat.members.filter((person) => person.id !== server.me);
-  return others.length > 1 ? `${author} · ${others.map((person) => person.name.split(/\s+/)[0]).join(', ')}` : author;
+  return others.length > 1 ? `💬 ${author} · ${others.map((person) => person.name.split(/\s+/)[0]).join(', ')}` : `💬 ${author}`;
 }
 
 /** Its first 140 characters without Markdown's marks, or what kind of file it is. */

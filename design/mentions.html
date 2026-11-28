@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bildirim başlıkları ve Mentions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #1e2229; --side: #181b21; --line: #2b303a; --fg: #d5d9e0; --dim: #8b93a1;
+  --faint: #5a6270; --accent: #e0a84a; --page: #101215; --sel: #34435a; --raise: #252a33; --code: #171a1f;
+  --ui: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', Consolas, monospace;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--fg); font: 13.5px var(--ui); }
+.icon { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.stage { padding: 16px 16px 8px; }
+.cap { margin: 26px 0 10px; color: var(--dim); font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.cap:first-child { margin-top: 4px; }
+.row { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; }
+.sub { margin: 0 0 8px; color: var(--faint); font-size: 12px; }
+.legend { max-width: 900px; margin: 0 16px 40px; color: var(--dim); font-size: 13.5px; line-height: 1.6; }
+.legend h3 { margin: 18px 0 4px; color: var(--fg); font-size: 15px; }
+.legend ul { margin: 4px 0; padding-left: 20px; }
+.legend b { color: var(--fg); font-weight: 600; }
+
+/* ---------- Windows toasts ---------- */
+.toasts { width: 364px; display: flex; flex-direction: column; gap: 8px; }
+.toast { padding: 12px 14px 14px; border-radius: 8px; background: #2b2b2b; border: 1px solid #3a3a3a; box-shadow: 0 8px 24px rgb(0 0 0 / .5); font-family: 'Segoe UI', var(--ui); color: #fff; }
+.toast .app { display: flex; align-items: center; gap: 8px; color: #c8c8c8; font-size: 12px; margin-bottom: 8px; }
+.toast .app i { width: 16px; height: 16px; border-radius: 4px; background: var(--accent); display: inline-block; }
+.toast .app span { margin-left: auto; letter-spacing: 2px; }
+.toast b { display: block; font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+.toast p { margin: 0; color: #d6d6d6; font-size: 13.5px; line-height: 1.35; }
+.toast.old { opacity: .55; }
+
+/* ---------- iPhone lock screen ---------- */
+.lock { width: 375px; height: 520px; border-radius: 36px; border: 1px solid var(--line); background: linear-gradient(160deg, #23324a, #0f1620 60%, #1b1410); padding: 60px 10px 0; overflow: hidden; }
+.lock .time { text-align: center; color: #f2f2f2; font: 600 64px/1 -apple-system, var(--ui); letter-spacing: -1px; margin-bottom: 26px; }
+.ios { margin-bottom: 8px; padding: 11px 13px; border-radius: 18px; background: rgb(60 60 67 / .55); backdrop-filter: blur(18px); color: #fff; font-family: -apple-system, var(--ui); }
+.ios .top { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; font-size: 13px; color: rgb(235 235 245 / .7); }
+.ios .top i { width: 20px; height: 20px; border-radius: 5px; background: var(--accent); display: inline-block; }
+.ios .top span { margin-left: auto; font-size: 12px; }
+.ios b { display: block; font-size: 15px; font-weight: 600; }
+.ios p { margin: 1px 0 0; font-size: 15px; line-height: 1.3; color: #f2f2f2; }
+
+/* ---------- the app on a computer ---------- */
+.window { width: 1100px; max-width: 100%; display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 560px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--bg); }
+.app-side { display: flex; flex-direction: column; padding: 10px 8px; background: var(--side); border-right: 1px solid var(--line); }
+.app-side .bottom { margin-top: auto; padding-top: 6px; border-top: 1px solid var(--line); }
+.app-side .bottom .it { gap: 9px; }
+.app-side .it .icon { width: 15px; height: 15px; }
+.app-side .it.new small { color: var(--accent); font-weight: 600; }
+.app-side .find { margin: 0 2px 10px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 6px; color: var(--faint); }
+.app-side .it { display: flex; align-items: center; gap: 7px; min-height: 28px; padding: 0 10px; border-radius: 6px; color: var(--dim); }
+.app-side .it.on { background: var(--sel); color: var(--fg); }
+.app-side .it small { margin-left: auto; color: var(--faint); font-size: 12px; }
+.app-side hr { border: 0; border-top: 1px solid var(--line); margin: 6px 4px; }
+.app-side .space { margin-top: 10px; color: var(--fg); font-weight: 600; }
+.app-side .l1 { padding-left: 28px; }
+.tabs { display: flex; height: 34px; border-bottom: 1px solid var(--line); background: var(--side); }
+.tabs span { display: flex; align-items: center; gap: 6px; padding: 0 14px; border-right: 1px solid var(--line); color: var(--dim); font-size: 12.5px; }
+.tabs span.on { background: var(--bg); color: var(--fg); box-shadow: inset 0 2px 0 var(--accent); }
+.main { min-width: 0; }
+.head { display: flex; align-items: baseline; gap: 10px; padding: 18px 26px 10px; }
+.head b { font-size: 19px; font-weight: 700; }
+.head small { color: var(--faint); font-size: 12px; }
+.head .r { margin-left: auto; padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px; color: var(--dim); font-size: 12px; }
+.fl { padding: 0 26px; }
+.fl .grp { display: flex; align-items: center; gap: 8px; padding: 10px 0 8px; border-bottom: 1px solid var(--line); font-weight: 600; }
+.fl .grp em { color: var(--faint); font-size: 10px; font-style: normal; }
+.fl .grp small { color: var(--faint); font-weight: 400; }
+.fl .f { display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 0 26px; border-bottom: 1px solid var(--line); color: var(--fg); }
+.fl .f .icon { color: var(--dim); }
+.fl .f small { margin-left: auto; color: var(--faint); font-size: 12px; }
+.fl .f.new small { color: var(--accent); font-weight: 600; }
+.at { display: inline-grid; place-items: center; width: 16px; height: 16px; color: var(--dim); font: 600 14px/1 var(--ui); }
+
+/* Mentions: a row each, the newest first. */
+.ml { padding: 0 26px 20px; }
+.ml .day { padding: 14px 0 6px; color: var(--faint); font-size: 11px; letter-spacing: .07em; text-transform: uppercase; border-bottom: 1px solid var(--line); }
+.m { display: grid; grid-template-columns: 10px 26px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.m .dot { width: 7px; height: 7px; margin-top: 9px; border-radius: 50%; background: var(--accent); }
+.m.read .dot { background: transparent; }
+.av { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--sel); color: var(--fg); font-size: 11px; font-weight: 600; }
+.av.e { background: #4a3a2a; color: #f0c08a; } .av.m2 { background: #2a4a3a; color: #8ad0a8; }
+.m .what { min-width: 0; }
+.m .what .l1 { color: var(--dim); }
+.m .what .l1 b { color: var(--fg); font-weight: 600; }
+.m .what .l1 .k { font: 12px var(--mono); color: var(--fg); }
+.m .what .q { margin-top: 3px; padding-left: 10px; border-left: 2px solid var(--line); color: var(--fg); font: 13px/1.55 var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m .what .q .chip { color: var(--accent); }
+.m.read .what .q { color: var(--dim); }
+.m .t { color: var(--faint); font-size: 11.5px; white-space: nowrap; padding-top: 2px; }
+
+/* ---------- phone ---------- */
+.phone { width: 375px; height: 760px; border: 1px solid var(--line); border-radius: 36px; background: var(--bg); overflow: hidden; display: flex; flex-direction: column; font-size: 15px; }
+.p-status { height: 44px; flex: none; }
+.p-nav { display: flex; align-items: center; justify-content: space-between; padding: 0 16px; height: 44px; color: var(--accent); flex: none; }
+.p-big { padding: 4px 16px 10px; font-size: 30px; font-weight: 700; }
+.p-cap { padding: 16px 16px 6px; color: var(--faint); font-size: 12.5px; letter-spacing: .06em; text-transform: uppercase; }
+.p-row { display: flex; align-items: center; gap: 14px; min-height: 48px; padding: 0 16px; border-bottom: 1px solid var(--line); }
+.p-row .icon { color: var(--dim); width: 20px; height: 20px; }
+.p-row .at { width: 20px; height: 20px; font-size: 17px; }
+.p-row small { margin-left: auto; color: var(--faint); font-size: 15px; }
+.p-row.new small { color: var(--accent); font-weight: 600; }
+.p-row .chev { color: var(--faint); margin-left: 6px; }
+.p-m { display: grid; grid-template-columns: 8px 30px minmax(0, 1fr); gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.p-m .dot { width: 8px; height: 8px; margin-top: 11px; border-radius: 50%; background: var(--accent); }
+.p-m.read .dot { background: transparent; }
+.p-m .av { width: 30px; height: 30px; font-size: 12px; }
+.p-m .l1 { color: var(--dim); font-size: 14px; }
+.p-m .l1 b { color: var(--fg); font-weight: 600; }
+.p-m .q { margin-top: 4px; color: var(--fg); font: 14.5px/1.45 var(--mono); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.p-m.read .q { color: var(--dim); }
+.p-m .t { margin-top: 3px; color: var(--faint); font-size: 13px; }
+.p-tabbar { margin-top: auto; display: grid; grid-template-columns: repeat(4, 1fr); padding: 8px 0 28px; border-top: 1px solid var(--line); color: var(--faint); font-size: 11px; text-align: center; }
+.p-tabbar .on { color: var(--accent); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="filter" viewBox="0 0 24 24"><path d="M4 5h16l-6 7.5V19l-4-2v-4.5z"/></symbol>
+  <symbol id="cal" viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></symbol>
+  <symbol id="tag" viewBox="0 0 24 24"><path d="M4 12V4h8l8 8-8 8z"/><circle cx="8.5" cy="8.5" r="1.2"/></symbol>
+  <symbol id="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="board" viewBox="0 0 24 24"><rect x="4" y="4.5" width="16" height="15" rx="2"/><path d="M9.5 4.5v15M14.5 4.5v9"/></symbol>
+  <symbol id="check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M8.5 12.2l2.4 2.4 4.8-5"/></symbol>
+  <symbol id="note" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M9.5 12h6M9.5 16h6"/></symbol>
+  <symbol id="clip" viewBox="0 0 24 24"><path d="M20 11.5 12.2 19.3a5 5 0 0 1-7-7L13 4.4a3.3 3.3 0 0 1 4.7 4.7l-7.6 7.6a1.7 1.7 0 0 1-2.4-2.4l7-7"/></symbol>
+  <symbol id="trash" viewBox="0 0 24 24"><path d="M5 7h14M10 7V4.5h4V7M7 7l1 13h8l1-13"/></symbol>
+  <symbol id="cloud" viewBox="0 0 24 24"><path d="M7 18h10a4 4 0 0 0 .5-8 6 6 0 0 0-11.5 1.5A3.3 3.3 0 0 0 7 18z"/></symbol>
+  <symbol id="down" viewBox="0 0 24 24"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/></symbol>
+  <symbol id="gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></symbol>
+  <symbol id="help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M9.7 9.5a2.4 2.4 0 1 1 3.4 2.2c-.7.3-1.1.9-1.1 1.6v.6M12 16.8v.2"/></symbol>
+</svg>
+
+<div class="stage">
+
+<div class="cap">1 · Bildirim başlığı neyle ilgili olduğunu söyler · Windows</div>
+<div class="row">
+  <div lang="en" class="toasts">
+    <div class="sub">Bugün</div>
+    <div class="toast old"><div class="app"><i></i>Scrawl<span>···</span></div><b>Mert · #general</b><p>can you look at the headers?</p></div>
+    <div class="toast old"><div class="app"><i></i>Scrawl<span>···</span></div><b>Eren mentioned you on ROA-412</b><p>@Kaan Deniz Hanım'ın dosyaları geldi, bakar mısın?</p></div>
+    <div class="toast old"><div class="app"><i></i>Scrawl<span>···</span></div><b>Eren assigned you Call the supplier</b><p>Inbox · Scrawl</p></div>
+  </div>
+  <div lang="en" class="toasts">
+    <div class="sub">Önerilen</div>
+    <div class="toast"><div class="app"><i></i>Scrawl<span>···</span></div><b>💬 #general · Mert</b><p>can you look at the headers?</p></div>
+    <div class="toast"><div class="app"><i></i>Scrawl<span>···</span></div><b>📋 ROA-412 Deniz Hanım'ın dosyaları</b><p>Eren mentioned you: Deniz Hanım'ın dosyaları geldi, bakar mısın?</p></div>
+    <div class="toast"><div class="app"><i></i>Scrawl<span>···</span></div><b>✅ Call the supplier</b><p>Eren gave it to you · Inbox</p></div>
+    <div class="toast"><div class="app"><i></i>Scrawl<span>···</span></div><b>📅 Today</b><p>2 due today, 1 due tomorrow: ROA-412, Call the supplier</p></div>
+  </div>
+</div>
+
+<div class="cap">2 · Aynısı iPhone'da</div>
+<div class="row">
+  <div lang="en" class="lock">
+    <div class="time">9:41</div>
+    <div class="ios"><div class="top"><i></i>SCRAWL<span>now</span></div><b>💬 Mert</b><p>yarın 10'da konuşalım mı?</p></div>
+    <div class="ios"><div class="top"><i></i>SCRAWL<span>2m ago</span></div><b>📋 ROA-412 Deniz Hanım'ın dosyaları</b><p>Eren mentioned you: Deniz Hanım'ın dosyaları geldi, bakar mısın?</p></div>
+    <div class="ios"><div class="top"><i></i>SCRAWL<span>9:00</span></div><b>📅 Today</b><p>2 due today, 1 due tomorrow: ROA-412, Call the supplier</p></div>
+  </div>
+</div>
+
+<div class="cap">3 · Bilgisayar: kenar çubuğunun alt grubunda Mentions, iki yeni; açık, kendi sekmesinde</div>
+<div lang="en" class="window">
+  <div class="app-side">
+    <div class="find">Search</div>
+    <div class="it">Scheduled</div>
+    <hr>
+    <div class="it">Quick notes</div>
+    <div class="it space">Scrawl</div>
+    <div class="it l1">Roadmap <small>14</small></div>
+    <div class="it l1">Inbox <small>3</small></div>
+    <div class="bottom">
+      <div class="it"><svg class="icon"><use href="#clip"/></svg>Files <small>23</small></div>
+      <div class="it new on"><span class="at">@</span>Mentions <small>2</small></div>
+      <div class="it"><svg class="icon"><use href="#trash"/></svg>Trash</div>
+      <div class="it"><svg class="icon"><use href="#cloud"/></svg>Sync</div>
+      <div class="it"><svg class="icon"><use href="#down"/></svg>Downloads</div>
+      <div class="it"><svg class="icon"><use href="#gear"/></svg>Settings</div>
+      <div class="it"><svg class="icon"><use href="#help"/></svg>Help</div>
+    </div>
+  </div>
+  <div class="main">
+    <div class="tabs"><span>Roadmap</span><span>Inbox</span><span class="on">@ Mentions</span></div>
+    <div class="head"><b>Mentions</b><small>Where someone wrote @Kaan, the newest first</small></div>
+    <div class="ml">
+      <div class="day">Today</div>
+      <div class="m"><span class="dot"></span><span class="av e">E</span>
+        <div class="what"><div class="l1"><b>Eren</b> in a comment on <span class="k">ROA-412</span> Deniz Hanım'ın dosyaları · Roadmap</div><div class="q"><span class="chip">@Kaan</span> Deniz Hanım'ın dosyaları geldi, bakar mısın?</div></div>
+        <span class="t">10:24</span></div>
+      <div class="m"><span class="dot"></span><span class="av m2">M</span>
+        <div class="what"><div class="l1"><b>Mert</b> in the description of <span class="k">ROA-398</span> Sync şeridi telefonda · Roadmap</div><div class="q">Tasarım için <span class="chip">@Kaan</span> onayı lazım, mockup ekte.</div></div>
+        <span class="t">09:12</span></div>
+      <div class="day">Earlier</div>
+      <div class="m read"><span class="dot"></span><span class="av e">E</span>
+        <div class="what"><div class="l1"><b>Eren</b> in the description of the task <b>Call the supplier</b> · Inbox</div><div class="q">Fiyatları <span class="chip">@Kaan</span> ile konuştuktan sonra ara.</div></div>
+        <span class="t">Yesterday</span></div>
+      <div class="m read"><span class="dot"></span><span class="av e">E</span>
+        <div class="what"><div class="l1"><b>Eren</b> in a comment on <span class="k">ROA-371</span> Bildirim izni iPhone'da · Roadmap</div><div class="q">Bende çalıştı, <span class="chip">@Kaan</span> sende de dener misin?</div></div>
+        <span class="t">Nov 24</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="cap">4 · Telefon: Browse'un altında Mentions, iki yeni; açık</div>
+<div class="row">
+  <div lang="en" class="phone">
+    <div class="p-status"></div>
+    <div class="p-big" style="padding-top:12px">Browse</div>
+    <div class="p-row"><svg class="icon"><use href="#note"/></svg>Quick notes<small>12</small><svg class="icon chev"><use href="#chev"/></svg></div>
+    <div class="p-cap">Scrawl</div>
+    <div class="p-row"><svg class="icon"><use href="#board"/></svg>Roadmap<small>14</small><svg class="icon chev"><use href="#chev"/></svg></div>
+    <div class="p-row"><svg class="icon"><use href="#check"/></svg>Inbox<small>3</small><svg class="icon chev"><use href="#chev"/></svg></div>
+    <div style="height:22px"></div>
+    <div class="p-row"><svg class="icon"><use href="#clip"/></svg>Files<small>23</small><svg class="icon chev"><use href="#chev"/></svg></div>
+    <div class="p-row new"><span class="at">@</span>Mentions<small>2</small><svg class="icon chev"><use href="#chev"/></svg></div>
+    <div class="p-row"><svg class="icon"><use href="#trash"/></svg>Trash<small></small><svg class="icon chev"><use href="#chev"/></svg></div>
+    <div class="p-row"><svg class="icon"><use href="#cloud"/></svg>Sync<small>Just now</small><svg class="icon chev"><use href="#chev"/></svg></div>
+    <div class="p-row"><svg class="icon"><use href="#help"/></svg>Help<small></small><svg class="icon chev"><use href="#chev"/></svg></div>
+    <div class="p-tabbar"><span>Search</span><span class="on">Browse</span><span>Scheduled</span><span>Settings</span></div>
+  </div>
+  <div lang="en" class="phone">
+    <div class="p-status"></div>
+    <div class="p-nav"><span>‹ Browse</span><span></span></div>
+    <div class="p-big">Mentions</div>
+    <div class="p-cap">Today</div>
+    <div class="p-m"><span class="dot"></span><span class="av e">E</span><div><div class="l1"><b>Eren</b> · ROA-412 Deniz Hanım'ın dosyaları</div><div class="q">@Kaan Deniz Hanım'ın dosyaları geldi, bakar mısın?</div><div class="t">Comment · 10:24</div></div></div>
+    <div class="p-m"><span class="dot"></span><span class="av m2">M</span><div><div class="l1"><b>Mert</b> · ROA-398 Sync şeridi telefonda</div><div class="q">Tasarım için @Kaan onayı lazım, mockup ekte.</div><div class="t">Description · 09:12</div></div></div>
+    <div class="p-cap">Earlier</div>
+    <div class="p-m read"><span class="dot"></span><span class="av e">E</span><div><div class="l1"><b>Eren</b> · Call the supplier</div><div class="q">Fiyatları @Kaan ile konuştuktan sonra ara.</div><div class="t">Task description · Yesterday</div></div></div>
+    <div class="p-tabbar"><span>Search</span><span class="on">Browse</span><span>Scheduled</span><span>Settings</span></div>
+  </div>
+</div>
+
+</div>
+
+<div class="legend">
+<h3>Bildirim başlıkları</h3>
+<ul>
+<li>Başlık önce neyle ilgili olduğunu söyler, Help'teki simgelerle: 💬 Chat, 📋 kart (anahtarı ve adı), ✅ görev (adı), 📅 sabahın son tarih özeti.</li>
+<li>Kimin ne yaptığı alt satırdadır: "Eren mentioned you: …", "Eren gave it to you · Inbox", "Mert reminded you · Due Nov 30", "Mert moved it to Review".</li>
+<li>Windows'ta ve iPhone'da aynı. Gruplama yok.</li>
+</ul>
+<h3>Mentions</h3>
+<ul>
+<li>Kenar çubuğunun alt grubunda, Files'ın altında; telefonda Browse'un altındaki satırlarda, Files'ın altında. Yeni mention varsa yanında sayısı, sarı.</li>
+<li>Açınca kendi sekmesinde (telefonda kendi sayfasında): seni anan her kart yorumu, kart açıklaması ve görev açıklaması, en yeni üstte, Today ve Earlier altında.</li>
+<li>Her satır: kim, nerede (yorum mu açıklama mı, hangi kart ya da görev, hangi pano ya da liste), o cümle, ne zaman.</li>
+<li>Tıklayınca kart ya da görev açılır; yorumdaysa o yoruma gider ve işaretlenir, bildirime dokunmak gibi.</li>
+<li>Açılan satır okunmuş olur ve listede kalır; bir cihazda okunan her cihazda okunmuştur.</li>
+<li>Chat'teki mention'lar burada yok; Chat'te kalır.</li>
+<li>Yalnız sunucudaki space'lerde; mention başka yerde yok.</li>
+</ul>
+</div>
+</body>
+</html>

@@ -109,7 +109,7 @@ describe('a column that tells people', () => {
     const moved = moveCardToKind(made, 'card1', 'review', at(5), ELIF);
     const found = notices(serializeBoard(made), serializeBoard(moved), ELIF);
     expect(found.map((n) => [n.kind, n.to, n.by.id, n.column])).toEqual([['column', 'mert', 'elif', { name: 'Review', added: false }]]);
-    expect(noticeWords(found[0]!, 'Roadmap').title).toBe(`Elif moved ${made.prefix}-1 to Review`);
+    expect(noticeWords(found[0]!, 'Roadmap')).toEqual({ title: `📋 ${made.prefix}-1 Export a board as CSV`, body: 'Elif moved it to Review' });
     // Edited where it is, it tells no one again.
     expect(notices(serializeBoard(moved), serializeBoard(updateCard(moved, 'card1', { title: 'Export as CSV' }, at(6), ELIF)), ELIF)).toEqual([]);
   });
@@ -119,7 +119,7 @@ describe('a column that tells people', () => {
     const added = addCard(made, { title: 'Undo a move', column: review.id, assignee: ELIF }, at(5), KAAN, 'card2');
     const found = notices(serializeBoard(made), serializeBoard(added));
     expect(found.map((n) => [n.kind, n.to])).toEqual([['assign', 'elif'], ['column', 'mert']]);
-    expect(noticeWords(found[1]!, 'Roadmap').title).toBe(`Kaan added ${made.prefix}-2 to Review`);
+    expect(noticeWords(found[1]!, 'Roadmap')).toEqual({ title: `📋 ${made.prefix}-2 Undo a move`, body: 'Kaan added it to Review' });
   });
 
   it('tells no one of a column with no list', () => {
@@ -129,13 +129,16 @@ describe('a column that tells people', () => {
 });
 
 describe('noticeWords', () => {
-  it('says who did what to which, and under it the words or the title or where', () => {
+  it('says first what it is about, a card or a task, and under it who did what, the words and where', () => {
     const was = board();
     const now = addComment(was, 'card1', `${personLink('Mert Kaya', 'mert')} can you check?`, at(5), KAAN, 'cm1');
     const [comment] = notices(serializeBoard(was), serializeBoard(now));
-    expect(noticeWords(comment!, 'Roadmap · Scrawl')).toEqual({ title: `Kaan mentioned you on ${was.prefix}-1`, body: '@Mert Kaya can you check?' });
+    // The one told is not named again at the words' start.
+    const names = (id: string) => ({ kaan: 'Kaan Arslan', mert: 'Mert Kaya' })[id];
+    expect(noticeWords(comment!, 'Roadmap · Scrawl', names)).toEqual({ title: `📋 ${was.prefix}-1 Export a board as CSV`, body: 'Kaan mentioned you: can you check?' });
+    expect(noticeWords({ ...comment!, text: undefined, in: 'description' }, 'Roadmap · Scrawl', names).body).toBe('Kaan mentioned you in the description · Roadmap · Scrawl');
     const task = { kind: 'assign' as const, to: 'mert', by: AGENT, item: { kind: 'task' as const, id: 't1', title: 'Fix the login' }, href: '' };
-    expect(noticeWords(task, 'Tasks · Scrawl', (id) => (id === 'kaan' ? 'Kaan Arslan' : undefined))).toEqual({ title: 'Claude Code (Laptop) · Kaan assigned you Fix the login', body: 'Tasks · Scrawl' });
+    expect(noticeWords(task, 'Inbox · Scrawl', (id) => (id === 'kaan' ? 'Kaan Arslan' : undefined))).toEqual({ title: '✅ Fix the login', body: 'Claude Code (Laptop) · Kaan gave it to you · Inbox · Scrawl' });
   });
 });
 
@@ -166,7 +169,7 @@ describe('reminders', () => {
     const once = remindCard(was, 'card1', at(10), KAAN, 'r1');
     const [notice] = notices(serializeBoard(was), serializeBoard(once));
     expect(notice).toMatchObject({ kind: 'remind', to: 'mert', by: KAAN, href: 'scrawl:item/card/sp-1/Roadmap.board.json?id=card1' });
-    expect(noticeWords(notice!, 'Roadmap · Scrawl')).toEqual({ title: `Kaan reminded you about ${was.prefix}-1`, body: 'Export a board as CSV · Due Nov 10' });
+    expect(noticeWords(notice!, 'Roadmap · Scrawl')).toEqual({ title: `📋 ${was.prefix}-1 Export a board as CSV`, body: 'Kaan reminded you · Due Nov 10' });
     const byHand = { ...once, cards: once.cards.map((card) => ({ ...card, timeline: [...card.timeline, { id: 'r2', at: at(20)().toISOString(), by: 'Kaan Arslan', byId: 'kaan', kind: 'remind' as const, to: { id: 'mert', name: 'Mert Kaya' } }] })) };
     expect(notices(serializeBoard(once), serializeBoard(byHand))).toEqual([]);
   });
@@ -202,8 +205,8 @@ describe('the morning', () => {
   it('says how many today and tomorrow, and names the first', () => {
     const today = '2026-11-09';
     expect(dueWords([], today)).toBeNull();
-    expect(dueWords([{ name: 'Fix the login', due: today }], today)).toEqual({ title: '1 due today', body: 'Fix the login' });
-    expect(dueWords([{ name: 'SCR-12', due: '2026-11-10' }], today)).toEqual({ title: '1 due tomorrow', body: 'SCR-12' });
+    expect(dueWords([{ name: 'Fix the login', due: today }], today)).toEqual({ title: '📅 Today', body: '1 due today: Fix the login' });
+    expect(dueWords([{ name: 'SCR-12', due: '2026-11-10' }], today)).toEqual({ title: '📅 Today', body: '1 due tomorrow: SCR-12' });
     expect(
       dueWords(
         [
@@ -214,7 +217,7 @@ describe('the morning', () => {
         ],
         today,
       ),
-    ).toEqual({ title: '2 due today, 2 due tomorrow', body: 'Fix the login, SCR-12 and 2 more' });
-    expect(dueWords([{ name: 'A', due: today }, { name: 'B', due: today }, { name: 'C', due: today }], today)!.body).toBe('A, B and C');
+    ).toEqual({ title: '📅 Today', body: '2 due today, 2 due tomorrow: Fix the login, SCR-12 and 2 more' });
+    expect(dueWords([{ name: 'A', due: today }, { name: 'B', due: today }, { name: 'C', due: today }], today)!.body).toBe('3 due today: A, B and C');
   });
 });

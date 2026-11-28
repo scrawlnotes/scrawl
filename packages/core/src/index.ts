@@ -40,6 +40,7 @@ export * from './pieces';
 export * from './quick-notes';
 export * from './names';
 export * from './notices';
+export * from './mentions';
 export * from './wake';
 export * from './links';
 export * from './apps';

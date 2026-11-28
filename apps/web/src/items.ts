@@ -17,6 +17,8 @@ export const NEW_FILTER = 'view:new-filter';
 export const CHAT = 'view:chat';
 /** Quick notes: a few lines each, as cards (design/quick-notes.md). */
 export const QUICK = 'view:quick';
+/** Mentions: where someone wrote @ of the person on a card or a task (design/mentions.html). */
+export const MENTIONS = 'view:mentions';
 const TASKS = 'tasks:';
 const BOARD = 'board:';
 const KEYS = 'keys:';
@@ -211,6 +213,7 @@ export function iconOf(id: string): IconName {
   if (id === FILES) return 'clip';
   if (id === CHAT) return 'chat';
   if (id === QUICK) return 'quick';
+  if (id === MENTIONS) return 'at';
   if (id.startsWith(COLLECTION)) return 'collection';
   if (id.startsWith(APP)) return 'app';
   if (id.startsWith(FILTER) || id === FILTERS || id === NEW_FILTER) return 'filter';
@@ -234,6 +237,7 @@ export function labelOf(id: string, titles: Record<string, string>, filters: Tas
   if (id === FILES) return t('side.files');
   if (id === CHAT) return t('chat.title');
   if (id === QUICK) return t('quick.title');
+  if (id === MENTIONS) return t('mentions.title');
   const list = listOf(id);
   if (list !== null) return listLabel(list);
   const board = boardPathOf(id);

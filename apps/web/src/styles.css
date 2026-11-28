@@ -24820,3 +24820,125 @@ svg.sign.small {
 .srv-out {
   color: var(--sl-accent);
 }
+
+/* Mentions (design/mentions.html): where someone wrote @ of the person, the newest first; a dot on what is not seen yet. */
+.mentions-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.mentions-view .th span {
+  color: var(--sl-faint);
+}
+
+.mn-day {
+  padding: 14px 0 6px;
+  border-bottom: 1px solid var(--sl-line);
+  color: var(--sl-faint);
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.mn-row {
+  display: grid;
+  grid-template-columns: 10px 26px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  width: 100%;
+  padding: 10px 6px;
+  border-bottom: 1px solid var(--sl-line);
+  text-align: left;
+}
+
+.mn-row:hover {
+  background: var(--sl-side);
+}
+
+.mn-dot {
+  width: 7px;
+  height: 7px;
+  margin-top: 9px;
+  border-radius: 50%;
+}
+
+.mn-row.fresh .mn-dot {
+  background: var(--sl-accent);
+}
+
+.mn-row .who {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--sl-fg) 12%, transparent);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 26px;
+  text-align: center;
+  overflow: hidden;
+}
+
+.mn-row .who img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mn-what {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.mn-l1 {
+  overflow: hidden;
+  color: var(--sl-dim);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mn-l1 b {
+  color: var(--sl-fg);
+  font-weight: 600;
+}
+
+.mn-key {
+  color: var(--sl-fg);
+  font: 12px var(--sl-font-mono);
+}
+
+.mn-q {
+  overflow: hidden;
+  padding-left: 10px;
+  border-left: 2px solid var(--sl-line);
+  color: var(--sl-fg);
+  font: 13px/1.55 var(--sl-font-editor);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mn-row:not(.fresh) .mn-q {
+  color: var(--sl-dim);
+}
+
+.mn-chip {
+  color: var(--sl-accent);
+}
+
+.mn-t {
+  padding-top: 2px;
+  color: var(--sl-faint);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.mn-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 18px 0;
+  color: var(--sl-faint);
+}

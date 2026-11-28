@@ -27,6 +27,29 @@ async function teamBoard(app: Page, second: Page) {
   return app.getByRole('dialog', { name: /Book the venue|^LAU-1/ });
 }
 
+test('a comment that mentions Ben is in his Mentions, new until he opens it there, and opens the card', async ({ app, second, phone }) => {
+  test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
+  const card = await teamBoard(app, second);
+  const box = card.getByRole('textbox', { name: 'Write a comment…' });
+  await box.click();
+  await app.keyboard.type('Ask @Be');
+  await app.getByRole('option', { name: /Ben/ }).first().click();
+  await app.keyboard.type('about the price');
+  await card.getByRole('button', { name: 'Comment', exact: true }).click();
+  // Ben's device: Mentions says one is new once the board has come.
+  const row = second.locator('.side-foot [data-path="view:mentions"]');
+  await expect(row.locator('.ct')).toHaveText('1', { timeout: 30_000 });
+  await row.getByRole('button').click();
+  const mention = second.locator('.mn-row');
+  await expect(mention).toHaveCount(1);
+  await expect(mention).toContainText('Ada');
+  await expect(mention).toContainText('about the price');
+  await expect(mention).toHaveClass(/fresh/);
+  await mention.click();
+  await expect(second.getByRole('dialog', { name: /Book the venue|^LAU-1/ })).toBeVisible();
+  await expect(row.locator('.ct')).toHaveText('');
+});
+
 test('a card given to someone can be reminded of, once in a while', async ({ app, second, phone }) => {
   test.skip(phone, 'The phone’s own way: m-phone.spec.ts.');
   const card = await teamBoard(app, second);

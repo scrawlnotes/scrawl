@@ -189,10 +189,11 @@ function taskNotices(input: { space: string; path: string; before: string | null
 }
 
 /**
- * What a notification of a notice says (design/notifications.md 2 and 3): who did what to which,
- * and under it a comment's words, else the card's title, else where the task is (`where`). A
- * person goes by their first name, as `nameOf` has it now; an agent by its name and whose it is:
- * "Claude Code (Laptop) · Kaan".
+ * What a notification of a notice says (design/notifications.md 2 and 3, design/mentions.html): its
+ * title says first what it is about, a card by its key and title, a task by its title, as Help
+ * marks them (📋, ✅); under it who did what, a comment's words after a mention, and where it is
+ * (`where`) when nothing else says it. A person goes by their first name, as `nameOf` has it now;
+ * an agent by its name and whose it is: "Claude Code (Laptop) · Kaan".
  */
 export function noticeWords(notice: Notice, where: string, nameOf: (id: string) => string | undefined = () => undefined): { title: string; body: string } {
   const first = (name: string | undefined) => name?.trim().split(/\s+/)[0];
@@ -201,16 +202,17 @@ export function noticeWords(notice: Notice, where: string, nameOf: (id: string) 
   const who = by && isAgentId(by)
     ? [notice.by.name?.split(' · ')[0]?.trim() || 'An agent', first(nameOf(ownerOf(by)))].filter(Boolean).join(' · ')
     : first((by && nameOf(by)) || notice.by.name) || 'Someone';
-  const which = notice.item.key ?? notice.item.title;
-  const title =
-    notice.kind === 'assign' ? `${who} assigned you ${which}`
-    : notice.kind === 'remind' ? `${who} reminded you about ${which}`
-    : notice.kind === 'column' ? `${who} ${notice.column?.added ? 'added' : 'moved'} ${which} to ${notice.column?.name ?? 'a column'}`
-    : `${who} mentioned you on ${which}`;
-  const body = notice.text || (notice.item.key ? notice.item.title : where);
-  // A reminder says when it is due as well.
-  if (notice.kind === 'remind' && notice.item.due) return { title, body: `${body} · Due ${new Date(`${notice.item.due}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })}` };
-  return { title, body };
+  const title = notice.item.kind === 'card' ? `📋 ${[notice.item.key, notice.item.title].filter(Boolean).join(' ')}` : `✅ ${notice.item.title}`;
+  if (notice.kind === 'assign') return { title, body: `${who} gave it to you · ${where}` };
+  if (notice.kind === 'column') return { title, body: `${who} ${notice.column?.added ? 'added' : 'moved'} it to ${notice.column?.name ?? 'a column'}` };
+  if (notice.kind === 'remind') {
+    const due = notice.item.due && new Date(`${notice.item.due}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+    return { title, body: `${who} reminded you · ${due ? `Due ${due}` : where}` };
+  }
+  // The words without the mention of the one told at their start: the title says it is them.
+  const told = nameOf(notice.to);
+  const said = told && notice.text?.startsWith(`@${told}`) ? notice.text.slice(told.length + 1).replace(/^[\s,:]+/, '') : notice.text;
+  return { title, body: said ? `${who} mentioned you: ${said}` : `${who} mentioned you in the description · ${where}` };
 }
 
 // ---------- the morning's due work ----------
@@ -243,13 +245,16 @@ export function dueWorkIn(path: string, text: string, me: string, days: string[]
   return [];
 }
 
-/** What the morning's notification says: "2 due today, 1 due tomorrow", and the first of them by name; null when nothing is due. */
+/**
+ * What the morning's notification says: 📅 Today, then "2 due today, 1 due tomorrow" and the first
+ * of them by name (design/mentions.html); null when nothing is due.
+ */
 export function dueWords(work: DueWork[], today: string): { title: string; body: string } | null {
   if (!work.length) return null;
   const now = work.filter((each) => each.due === today);
   const later = work.filter((each) => each.due !== today);
-  const title = [now.length && `${now.length} due today`, later.length && `${later.length} due tomorrow`].filter(Boolean).join(', ');
+  const count = [now.length && `${now.length} due today`, later.length && `${later.length} due tomorrow`].filter(Boolean).join(', ');
   const names = [...now, ...later].map((each) => each.name);
-  const body = names.length <= 3 ? names.join(', ').replace(/, ([^,]*)$/, ' and $1') : `${names.slice(0, 2).join(', ')} and ${names.length - 2} more`;
-  return { title, body };
+  const which = names.length <= 3 ? names.join(', ').replace(/, ([^,]*)$/, ' and $1') : `${names.slice(0, 2).join(', ')} and ${names.length - 2} more`;
+  return { title: '📅 Today', body: `${count}: ${which}` };
 }

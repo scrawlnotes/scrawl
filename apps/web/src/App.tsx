@@ -80,6 +80,9 @@ import {
   type ChipKind,
   type ChipRef,
   parseItemLink,
+  itemLink,
+  cardMentions,
+  taskMentions,
   keyCount,
   keyOf,
   keysName,
@@ -147,6 +150,7 @@ import { FormatBar } from './FormatBar';
 import { cutShort, useHoverTip } from './HoverTip';
 import { HistoryDialog, HistoryList, versionLabel, VersionView } from './History';
 import { PhoneCardPage } from './CardPanel';
+import { MentionsView, type ShownMention } from './MentionsView';
 import type { CardFilesActions } from './CardFiles';
 import { LinkActions, LinkSheet, PhoneFormatBar } from './PhoneNote';
 import { DateSheet, QuickAdd, RecordSheet, SectionSheet, TaskSheet } from './PhoneTasks';
@@ -194,6 +198,7 @@ import { folderLabel, setSpaceNames,
   tasksOf,
   TRASH,
   FILES,
+  MENTIONS,
   UPCOMING,
 } from './items';
 import { PhoneQuickNote, type QuickActions, QuickNotes, quickSortItems, QuickWindow } from './QuickNotes';
@@ -502,7 +507,7 @@ export function App() {
     if (restartWhenDownloaded) restartUpdate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restartWhenDownloaded]);
-  const { ready, reading, folder, defaultFolder, me, tree, quick, quickOrder, quickSort, quickTexts, quickFormat, spaces, tabs, active, recent, titles, tasks, sections, boards, boardLooks, listLooks, labelLooks, folderLooks, created, keys: keyFiles, keysLooks, collections, collectionLooks, appLooks, filters, favorites, calendarChoice, labels: spaceLabels, space, trash, fileCount, downloads, fileVersion, saved, stats, written, format, source, recording, recordError } =
+  const { ready, reading, folder, defaultFolder, me, tree, quick, quickOrder, quickSort, quickTexts, quickFormat, spaces, tabs, active, recent, titles, tasks, sections, boards, boardLooks, listLooks, labelLooks, folderLooks, created, keys: keyFiles, keysLooks, collections, collectionLooks, appLooks, filters, favorites, calendarChoice, labels: spaceLabels, seen, space, trash, fileCount, downloads, fileVersion, saved, stats, written, format, source, recording, recordError } =
     useSyncExternalStore(
     session.subscribe,
     session.getSnapshot,
@@ -1939,6 +1944,7 @@ export function App() {
   // A card or a task opened here tells its server, so that a notice of it waiting for the person's
   // other devices is not sent to them (design/notifications.md 9.3).
   const tellOpened = (path: string, id: string) => {
+    seeMentionsIn(path, id);
     const space = spaces.find((each) => each.id === spaceOf(path));
     const url = space?.source?.provider === 'server' ? space.source.place.url : undefined;
     if (url) void chatStore.server(url)?.client.opened(space!.id, id).catch(() => undefined);
@@ -2095,6 +2101,26 @@ export function App() {
   const peopleOf = (path: string): SpacePeople | null => {
     const space = spaces.find((each) => each.id === spaceOf(path));
     return space ? { name: space.name, people: space.people, ...(me && { me: me.id }) } : null;
+  };
+  // Where someone wrote @ of the person on a card or a task of a shared space, and which they have not seen yet (design/mentions.html).
+  const mentions = useMemo((): ShownMention[] => {
+    if (!me) return [];
+    const peopleIn = (path: string) => spaces.find((each) => each.id === spaceOf(path))?.people ?? [];
+    const shown = (path: string, where: string) => (mention: ReturnType<typeof cardMentions>[number]): ShownMention => ({ ...mention, path, where, people: peopleIn(path), fresh: !seen[spaceOf(path)!]?.[mention.key] });
+    return [
+      ...Object.entries(boards).flatMap(([path, board]) => (spaceOf(path) ? cardMentions(board, me.id).map(shown(path, boardName(path))) : [])),
+      ...Object.entries(tasks).flatMap(([path, list]) => (spaceOf(path) ? taskMentions(list, me.id).map(shown(path, listName(path))) : [])),
+    ];
+  }, [boards, tasks, me, spaces, seen]);
+  /** The mentions in a card or a task are seen: the person opened it. */
+  const seeMentionsIn = (path: string, id: string) => session.seeMentions(path, mentions.filter((m) => m.fresh && m.path === path && m.item.id === id));
+  /** A mention opens what it is in, at its comment; it and the others there are seen. */
+  const openMention = (mention: ShownMention) => {
+    const space = spaceOf(mention.path);
+    if (!space) return;
+    const go = chipTarget(itemLink({ kind: mention.item.kind, space, path: localPath(mention.path), id: mention.item.id, ...(typeof mention.in === 'object' && { comment: mention.in.comment }) }));
+    if (typeof go === 'function') go();
+    seeMentionsIn(mention.path, mention.item.id);
   };
   // Today and Upcoming show of a shared space only one's own work; the personal space is all one's own.
   const [myTasks, myBoards] = useMemo(() => {
@@ -2574,7 +2600,7 @@ export function App() {
     count: dueNow.overdue.length + dueNow.today.length + dueCardsNow + recordsNow,
     late: dueNow.overdue.length > 0 || cardDays.some((day) => day < today) || dueRecordsNow.some((d) => d.late),
   };
-  const counts: Record<string, number> = { [UPCOMING]: dueLater + recordDays.length - recordsNow, [TRASH]: trash.length, [FILES]: fileCount, [CHAT]: chat.alerts, [QUICK]: quick.length };
+  const counts: Record<string, number> = { [UPCOMING]: dueLater + recordDays.length - recordsNow, [TRASH]: trash.length, [FILES]: fileCount, [MENTIONS]: mentions.filter((m) => m.fresh).length, [CHAT]: chat.alerts, [QUICK]: quick.length };
   for (const [list, listTasks] of Object.entries(tasks)) counts[tasksOf(list)] = openCount(listTasks);
   for (const [path, board] of Object.entries(boards)) counts[boardOf(path)] = openCardCount(board);
   for (const [dir, collection] of Object.entries(collections)) counts[collectionTab(dir)] = collection.records.length;
@@ -3183,6 +3209,7 @@ export function App() {
       />
     )}
     {!phone && active === FILES && filesView}
+    {!phone && active === MENTIONS && <MentionsView mentions={mentions} today={today} me={me?.name || null} onOpen={openMention} />}
     {!phone && active === QUICK && (
       <QuickNotes
         notes={quick}
@@ -3196,7 +3223,7 @@ export function App() {
         onOpen={(path) => setQuickWindow({ path, made: Date.now() })}
       />
     )}
-    {!phone && !showingEditor && !itemLoading && list === null && !board && keysText === undefined && !collection && appPath === null && !isDueView && !filterPageOn && active !== FILTERS && active !== TRASH && active !== FILES && active !== CHAT && active !== QUICK &&
+    {!phone && !showingEditor && !itemLoading && list === null && !board && keysText === undefined && !collection && appPath === null && !isDueView && !filterPageOn && active !== FILTERS && active !== TRASH && active !== FILES && active !== MENTIONS && active !== CHAT && active !== QUICK &&
       (active ? (
         <section className="placeholder">
           <h1>{labelOf(active, tabTitles, filters)}</h1>
@@ -3353,6 +3380,7 @@ export function App() {
               ],
             }}
             filesView={filesView}
+            mentionsView={<MentionsView mentions={mentions} today={today} me={me?.name || null} onOpen={openMention} phone />}
             filesChoice={{
               choosing: filesChoosing,
               count: chosenFiles.length,

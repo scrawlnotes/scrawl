@@ -94,8 +94,8 @@ describe('notices', () => {
     expect(s.sent).toHaveLength(1);
     expect(s.sent[0]!.endpoint).toBe('https://push.example.com/mert');
     expect(s.sent[0]!.payload).toMatchObject({
-      title: `Kaan mentioned you on ${was.prefix}-1`,
-      body: '@Mert Kaya can you check the headers?',
+      title: `📋 ${was.prefix}-1 Export a board as CSV`,
+      body: 'Kaan mentioned you: can you check the headers?',
       href: `scrawl:item/card/${ACME}/${BOARD}?id=card1&comment=cm1`,
       server: URL,
     });
@@ -120,7 +120,7 @@ describe('notices', () => {
     await s.write(s.owner, LIST, serializeList({ sections: [], tasks: updateTask(was, 't1', { assignee: { id: MERT, name: 'Mert Kaya' } }, at(2), agent) }));
     await s.settle();
     expect(s.sent.map((each) => [each.payload.title, each.payload.body, each.payload.href])).toEqual([
-      ['Claude Code (Laptop) · Kaan assigned you Collect the feedback', 'Tasks · Acme', `scrawl:item/task/${ACME}/Work%2FTasks.tasks.json?id=t1`],
+      ['✅ Collect the feedback', 'Claude Code (Laptop) · Kaan gave it to you · Tasks · Acme', `scrawl:item/task/${ACME}/Work%2FTasks.tasks.json?id=t1`],
     ]);
   });
 
@@ -131,7 +131,7 @@ describe('notices', () => {
     s.connect(MERT, true);
     await s.write(s.owner, BOARD, serializeBoard(updateCard(was, 'card1', { assignee: { id: MERT, name: 'Mert Kaya' } }, at(1), kaan)));
     await s.settle();
-    expect(s.heard.filter((each) => (each as { type: string }).type === 'notice')).toEqual([expect.objectContaining({ type: 'notice', title: `Kaan assigned you ${was.prefix}-1`, body: 'Export a board as CSV', space: ACME, item: 'card1' })]);
+    expect(s.heard.filter((each) => (each as { type: string }).type === 'notice')).toEqual([expect.objectContaining({ type: 'notice', title: `📋 ${was.prefix}-1 Export a board as CSV`, body: 'Kaan gave it to you · Roadmap · Acme', space: ACME, item: 'card1' })]);
     expect(s.sent).toEqual([]);
     // Opened on the device in use: nothing goes to the others.
     expect((await s.call(s.mert, 'POST', '/opened', JSON.stringify({ space: ACME, item: 'card1' }), { 'Content-Type': 'application/json' })).status).toBe(204);
@@ -160,7 +160,7 @@ describe('notices', () => {
     await s2.write(s2.owner, BOARD, serializeBoard(was));
     await s2.write(s2.owner, BOARD, serializeBoard(remindCard(was, 'card1', at(5), kaan)));
     await s2.settle();
-    expect(s2.sent.map((each) => [each.payload.title, each.payload.body])).toEqual([[`Kaan reminded you about ${was.prefix}-1`, 'Export a board as CSV · Due Nov 10']]);
+    expect(s2.sent.map((each) => [each.payload.title, each.payload.body])).toEqual([[`📋 ${was.prefix}-1 Export a board as CSV`, 'Kaan reminded you · Due Nov 10']]);
   });
 
   it('tells Mert of a card moved to a column that tells him, unless he turned Board columns off', async () => {
@@ -173,7 +173,7 @@ describe('notices', () => {
     const moved = moveCardToKind(was, 'card1', 'review', at(5), kaan);
     await s.write(s.owner, BOARD, serializeBoard(moved));
     await s.settle();
-    expect(s.sent.map((each) => [each.payload.title, each.payload.body, each.payload.href])).toEqual([[`Kaan moved ${was.prefix}-1 to Review`, 'Export a board as CSV', `scrawl:item/card/${ACME}/${BOARD}?id=card1`]]);
+    expect(s.sent.map((each) => [each.payload.title, each.payload.body, each.payload.href])).toEqual([[`📋 ${was.prefix}-1 Export a board as CSV`, 'Kaan moved it to Review', `scrawl:item/card/${ACME}/${BOARD}?id=card1`]]);
     const json = { 'Content-Type': 'application/json' };
     expect((await s.call(s.mert, 'PATCH', '/me', JSON.stringify({ notify: { columns: false } }), json)).body).toMatchObject({ notify: { columns: false, mentions: true } });
     await s.write(s.owner, BOARD, serializeBoard(addCard(moved, { title: 'Undo a move', column: review.id }, at(6), kaan, 'card2')));
@@ -194,6 +194,6 @@ describe('notices', () => {
     await s.write(s.owner, BOARD, serializeBoard(mentioned));
     await s.write(s.owner, BOARD, serializeBoard(updateCard(mentioned, 'card1', { assignee: { id: MERT, name: 'Mert Kaya' } }, at(6), kaan)));
     await s.settle();
-    expect(s.sent.map((each) => each.payload.title)).toEqual([`Kaan assigned you ${was.prefix}-1`]);
+    expect(s.sent.map((each) => each.payload.body)).toEqual(['Kaan gave it to you · Roadmap · Acme']);
   });
 });

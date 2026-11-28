@@ -79,7 +79,7 @@ describe('the morning', () => {
     await s.at(istanbul(9, 8, 59));
     expect(s.sent).toEqual([]);
     await s.at(istanbul(9, 9, 0));
-    expect(s.sent.map((each) => [each.title, each.body, each.href])).toEqual([['1 due today, 1 due tomorrow', `${board.prefix}-1 and Call the dentist`, 'scrawl:today']]);
+    expect(s.sent.map((each) => [each.title, each.body, each.href])).toEqual([['📅 Today', `1 due today, 1 due tomorrow: ${board.prefix}-1 and Call the dentist`, 'scrawl:today']]);
     await s.at(istanbul(9, 9, 30));
     expect(s.sent).toHaveLength(1);
   });

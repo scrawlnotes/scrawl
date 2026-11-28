@@ -38,6 +38,7 @@ Chat'in bildirimleri bugünkü gibi kalır (`design/chat.md` 6).
 ### 1.3 Kaçırılan bildirim
 
 - Liste, zil ya da kutu yok. Kaçırılan bildirim kaçar.
+- 28 Kasım'dan beri mention'lar için bir istisna var: Mentions, kenar çubuğunun alt grubunda, seni anan her kart yorumunu ve açıklamasını, görev açıklamasını tutar (`design/mentions.html`, PLAN 4.12). Atama, hatırlatma ve kolon bildirimlerinin listesi yine yok.
 - Sana verilen iş zaten Today'de, Upcoming'de ve filtrelerde görünür; son tarihler Today'de; mesajların Chat'te kendi okunmamışı var.
 
 ### 1.4 Ne yapmaz

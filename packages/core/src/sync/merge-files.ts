@@ -2,6 +2,7 @@ import { diffIndices } from 'node-diff3';
 import { mergeAgents, parseAgents } from '../agents';
 import { mergeWorkedOn } from '../activity';
 import { type Board, BOARD_EXT, type Card, parseBoard, serializeBoard, type TimelineEntry } from '../board';
+import { mergeSeen, parseSeen, SEEN_DIR } from '../mentions';
 import { type Favorite, FAVORITES_FILE, favoriteKey, parseFavorites, serializeFavorites } from '../favorites';
 import { type FiltersFile, parseFiltersFile, serializeFilters } from '../filters';
 import { KEYS_EXT } from '../keys';
@@ -18,7 +19,7 @@ import { canonical, mergeFields, mergeOrder, mergeRecords, mergeValue, spreadOrd
 
 // Merging a file changed on both sides, by what kind of file it is. See design/sync.md, section 5.
 
-export type MergeKind = 'text' | 'tasks' | 'board' | 'filters' | 'favorites' | 'calendars' | 'labels' | 'quickNotes' | 'space' | 'me' | 'people' | 'agents' | 'trash' | 'syncLevel';
+export type MergeKind = 'text' | 'tasks' | 'board' | 'filters' | 'favorites' | 'calendars' | 'labels' | 'quickNotes' | 'space' | 'me' | 'people' | 'agents' | 'trash' | 'syncLevel' | 'seen';
 
 const TRASH_INDEX = '.scrawl/trash/index.json';
 
@@ -41,6 +42,8 @@ export function mergeKindOf(path: string): MergeKind | null {
   if (lower === '.scrawl/agents.json') return 'agents';
   if (lower === TRASH_INDEX) return 'trash';
   if (lower === LEVEL_FILE) return 'syncLevel';
+  // A person's seen mentions: what either device saw (design/mentions.html).
+  if (lower.startsWith(`${SEEN_DIR}/`) && lower.endsWith('.json')) return 'seen';
   return null;
 }
 
@@ -303,6 +306,7 @@ const MERGERS: Record<Exclude<MergeKind, 'text'>, (base: string, local: string, 
   agents: mergeAgents,
   trash: mergeTrash,
   syncLevel: mergeLevels,
+  seen: mergeSeen,
 };
 
 /** The structure a file of a kind is read into, to tell whether two writings of it say the same. */
@@ -320,6 +324,7 @@ const READERS: Record<Exclude<MergeKind, 'text'>, (text: string) => unknown> = {
   agents: parseAgents,
   trash: parseTrashIndex,
   syncLevel: parseLevel,
+  seen: parseSeen,
 };
 
 /**

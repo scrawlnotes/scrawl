@@ -436,9 +436,9 @@ describe('notifications', () => {
     expect((await client.callTool({ name: 'save_card', arguments: { board: 'Scrawl', id: 'SCR-1', remind: true } })).structuredContent).toMatchObject({ reminded: 'Mert Kaya' });
     await new Promise((resolve) => setTimeout(resolve, 10));
     expect(s.sent.map((each) => [each.title, each.body])).toEqual([
-      ['Test agent · Kaan assigned you SCR-1', 'Export a board as CSV'],
-      ['Test agent · Kaan mentioned you on SCR-1', '@Mert Kaya can you check the headers?'],
-      ['Test agent · Kaan reminded you about SCR-1', 'Export a board as CSV'],
+      ['📋 SCR-1 Export a board as CSV', 'Test agent · Kaan gave it to you · Scrawl · Acme'],
+      ['📋 SCR-1 Export a board as CSV', 'Test agent · Kaan mentioned you: can you check the headers?'],
+      ['📋 SCR-1 Export a board as CSV', 'Test agent · Kaan reminded you · Scrawl · Acme'],
     ]);
     await client.close();
   });

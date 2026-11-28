@@ -21,7 +21,7 @@ Everyone who opens a shared space is in its **People**, on its page in **Setting
 
 ## Mentions and notifications
 
-With a Scrawl server, people are told of what is theirs, on their phone and their computer. A notification opens what it is about: a card at its comment, a task, or Scheduled at today.
+With a Scrawl server, people are told of what is theirs, on their phone and their computer. A notification's title says first what it is about: 💬 a Chat message, 📋 a card by its key and title, ✅ a task, 📅 the day's due work; under it, who did what. It opens what it is about: a card at its comment, a task, or Scheduled at today.
 
 - **Mentions:** type `@` in a card's description or comment, or a task's description, and pick someone in the space.
 - **Given to:** whoever a card or a task is given to.
@@ -29,7 +29,9 @@ With a Scrawl server, people are told of what is theirs, on their phone and thei
 - **Due dates:** at 9:00, one notification of what is yours today and tomorrow.
 - **Board columns:** a card come to a column that notifies you, as **Notify me** in its menu sets. See [Boards](boards).
 
-An agent's mentions, what it gives and its reminders tell people the same way. What each person is told of is chosen in **Settings › Notifications**. A notification missed is not kept anywhere: what is yours is in Scheduled and **Given to me**.
+An agent's mentions, what it gives and its reminders tell people the same way. What each person is told of is chosen in **Settings › Notifications**.
+
+**Mentions**, at the foot of the sidebar under **Files** (on a phone, in **Browse** under **Files**), keeps every place someone mentioned you on a card or a task of a shared space, the newest first, with who, where and what they wrote. Click one to open it at the comment. What you have not opened yet has a dot, and its count is beside **Mentions**; opened on one device, it is seen on all. Mentions in Chat stay in Chat.
 
 ## Agents that answer
 

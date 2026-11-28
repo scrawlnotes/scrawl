@@ -5,7 +5,7 @@ import { type FormEvent, Fragment, type MouseEvent, type ReactNode, type TouchEv
 import { createPortal } from 'react-dom';
 import type { PhoneUpcomingView } from './PhoneUpcoming';
 import { Icon, type IconName } from './Icon';
-import { boardOf, CHAT, collectionPathOf, collectionTab, countItems, FILES, filterOf, FILTERS, folderLabel, folderOf, iconOf, isNote, nameOf, NEW_FILTER, pathOf, seenText, spaceLabel, spaceWhere, tabOf, tasksOf, TRASH, UPCOMING } from './items';
+import { boardOf, CHAT, collectionPathOf, collectionTab, countItems, FILES, filterOf, FILTERS, MENTIONS, folderLabel, folderOf, iconOf, isNote, nameOf, NEW_FILTER, pathOf, seenText, spaceLabel, spaceWhere, tabOf, tasksOf, TRASH, UPCOMING } from './items';
 import type { SpaceView } from './session';
 import type { FavoriteRow } from './Sidebar';
 import { PhoneAbout, type Section, sectionValue, SettingsSection, settingsSections, type SettingsValues } from './Settings';
@@ -59,6 +59,7 @@ type PageKind =
   | { kind: 'item'; id: string }
   | { kind: 'trash' }
   | { kind: 'files' }
+  | { kind: 'mentions' }
   | { kind: 'section'; section: Section }
   // Help (design/help.md): its topics, a topic's pages, and a page, a note of its own.
   | { kind: 'help' }
@@ -156,6 +157,8 @@ export interface PhoneProps {
   trashChoice: PhoneChoice;
   /** Files, a page from Browse beside the trash. */
   filesView: ReactNode;
+  /** Mentions, a page from Browse under Files (design/mentions.html). */
+  mentionsView: ReactNode;
   filesChoice: PhoneChoice;
   /** Whether Files is on screen: what it lists is read only then. */
   onFilesShown: (shown: boolean) => void;
@@ -1058,6 +1061,7 @@ export function Phone(props: PhoneProps) {
     if (page.kind === 'folder' || page.kind === 'app') return folderName(page.path);
     if (page.kind === 'trash') return t('side.trash');
     if (page.kind === 'files') return t('side.files');
+    if (page.kind === 'mentions') return t('mentions.title');
     if (page.kind === 'help') return t('help.title');
     if (page.kind === 'helpTopic') return t(helpTopic(page.id)?.label ?? 'help.title');
     if (page.kind === 'helpNote') return t(HELP_PAGES.find((each) => each.id === page.id)?.label ?? 'help.title');
@@ -1262,6 +1266,7 @@ export function Phone(props: PhoneProps) {
         {props.spaces.map((space) => spaceSection(space.id, space.name, inSpace(space.id, ''), space.tree, props.reading.has(space.id)))}
         <div className="mb-list apart">
           <Row icon="clip" label={t('side.files')} right={counts[FILES] || ''} onClick={() => push({ kind: 'files' })} />
+          {props.spaces.length > 0 && <Row icon="at" label={t('mentions.title')} right={counts[MENTIONS] ? <b className="mb-alert">{counts[MENTIONS]}</b> : ''} onClick={() => push({ kind: 'mentions' })} />}
           <Row icon="trash" label={t('side.trash')} right={counts[TRASH] || ''} onClick={() => push({ kind: 'trash' })} />
           <Row icon="cloud" label={t('phone.sync')} right={syncRight} onClick={() => push({ kind: 'sync' })} />
           <Row icon="help" label={t('side.help')} onClick={() => push({ kind: 'help' })} />
@@ -1512,6 +1517,7 @@ export function Phone(props: PhoneProps) {
     if (page.kind === 'quickNote') {
       return <div className="mb-holder qn-holder">{props.quick.note({ path: page.path, ...(page.found && { found: page.found }), back: back ?? t('phone.browse'), onBack: pop })}</div>;
     }
+    if (page.kind === 'mentions') return <PageFrame nav={nav}>{props.mentionsView}</PageFrame>;
     if (page.kind === 'files') {
       const own = props.filesChoice;
       return (

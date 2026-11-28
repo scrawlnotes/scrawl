@@ -294,7 +294,7 @@ describe('in Chat', () => {
     const told = s.server.chats.send(kaanAccount, s.general, { id: 'm-claude-0002', body: `${personLink('Kaan Arslan', KAAN)} the lockfile is old.` }, agent);
     expect(s.server.chats.alertsFor(told.id)).toContainEqual({ account: KAAN, mention: true });
     expect(unread()).toMatchObject({ unread: 1, alerts: 1 });
-    expect(s.server.chats.pushContent(told.id, KAAN)).toMatchObject({ title: 'Claude · #general', body: '@Kaan Arslan the lockfile is old.' });
+    expect(s.server.chats.pushContent(told.id, KAAN)).toMatchObject({ title: '💬 #general · Claude', body: '@Kaan Arslan the lockfile is old.' });
     // His own message is still not unread to him.
     await s.say(s.owner, s.general, 'Thanks.');
     expect(unread()).toMatchObject({ unread: 0 });
@@ -601,7 +601,7 @@ describe('a direct message with the agent (design/agent-wake.md 14)', () => {
     await s.settle();
     expect(dms(s, KAAN)[0]).toMatchObject({ unread: 1, alerts: 1 });
     expect(s.server.chats.alertsFor(answer.id)).toEqual([{ account: KAAN, mention: false }]);
-    expect(s.server.chats.pushContent(answer.id, KAAN)).toMatchObject({ title: 'Claude', body: 'Three: ROA-385, ROA-379 and ROA-362.' });
+    expect(s.server.chats.pushContent(answer.id, KAAN)).toMatchObject({ title: '💬 Claude', body: 'Three: ROA-385, ROA-379 and ROA-362.' });
     expect(s.lines(asked.id)).toEqual(['sending', 'sent', 'answered']);
     // What Claude writes wakes nothing.
     expect(s.woken).toHaveLength(1);

@@ -96,7 +96,7 @@ describe('push', () => {
     await s.say(s.kaan, general.id, `[@Mert](scrawl:person/${MERT}) can you **look**?`);
     await s.settle();
     expect(s.sent).toHaveLength(1);
-    expect(s.sent[0]).toMatchObject({ endpoint: 'https://push.example.com/mert', urgency: 'high', payload: { title: 'Kaan Arslan · #general', body: '@Mert can you look?', badge: 1, server: URL, chat: general.id, tag: general.id } });
+    expect(s.sent[0]).toMatchObject({ endpoint: 'https://push.example.com/mert', urgency: 'high', payload: { title: '💬 #general · Kaan Arslan', body: '@Mert can you look?', badge: 1, server: URL, chat: general.id, tag: general.id } });
 
     const dm = (await s.call(s.kaan, 'POST', '/chat/direct', { people: [ELIF] })).body;
     await s.say(s.kaan, dm.id, 'Have you got a minute?');
@@ -106,9 +106,9 @@ describe('push', () => {
     await s.settle();
     // How many in the conversation, and in all of them: Mert has the mention in #general too.
     expect(s.sent.slice(1).map((each) => [each.endpoint, each.payload.title, each.urgency, each.payload.count, each.payload.badge])).toEqual([
-      ['https://push.example.com/elif', 'Kaan Arslan', 'high', 1, 1],
-      ['https://push.example.com/mert', 'Kaan Arslan · #founders', 'normal', 1, 2],
-      ['https://push.example.com/elif', 'Kaan Arslan', 'high', 2, 2],
+      ['https://push.example.com/elif', '💬 Kaan Arslan', 'high', 1, 1],
+      ['https://push.example.com/mert', '💬 #founders · Kaan Arslan', 'normal', 1, 2],
+      ['https://push.example.com/elif', '💬 Kaan Arslan', 'high', 2, 2],
     ]);
 
     // Off: nothing, a mention neither.
@@ -163,7 +163,7 @@ describe('push', () => {
     await s.settle();
     // A reaction is not unread: no count, and its own notification beside the conversation's.
     expect(s.sent.map((each) => each.payload)).toEqual([
-      { title: 'Mert · #general', body: 'Reacted 👍 to: "Good morning"', badge: 0, count: 1, server: URL, chat: general.id, message: message.id, tag: `reaction:${message.id}`, reaction: true },
+      { title: '💬 #general · Mert', body: 'Reacted 👍 to: "Good morning"', badge: 0, count: 1, server: URL, chat: general.id, message: message.id, tag: `reaction:${message.id}`, reaction: true },
     ]);
 
     // In use elsewhere: taken off within the minute, nothing; left on, told after it.

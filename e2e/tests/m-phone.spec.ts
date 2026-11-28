@@ -427,6 +427,14 @@ test('on a phone a card is given from its Assignee row, Remind is on its page, a
   await app.keyboard.type('about the price');
   await app.getByRole('button', { name: /^(Comment|Send)$/ }).last().click();
   await expect(app.getByText(/Ask @Ben\s+about the price/).first()).toBeVisible();
+  // Ben's phone: Browse has Mentions under Files, one new; its row opens the card's page.
+  await browse(second, true);
+  const mentions = second.getByRole('button', { name: /^Mentions/ });
+  await expect(mentions).toContainText('1', { timeout: 30_000 });
+  await mentions.click();
+  await expect(second.locator('.mn-row.fresh')).toContainText('about the price');
+  await second.locator('.mn-row').click();
+  await expect(second.getByRole('textbox', { name: 'Card title' })).toHaveValue('Book the venue');
 });
 
 async function phoneChat(page: Page) {
